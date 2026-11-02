@@ -5,12 +5,12 @@ import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
 import { startQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
-import { MEDIA_SCHEME, registerMediaProtocol } from "./media/protocol.js";
+import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
 // 分多次调用会互相覆盖（见 host/index.ts）。
-protocol.registerSchemesAsPrivileged([APP_SCHEME, MEDIA_SCHEME]);
+protocol.registerSchemesAsPrivileged([APP_SCHEME, MEDIA_SCHEME, STREAM_SCHEME]);
 
 // 单实例锁放 M0（51 §1.7）：M5 的 afeifei:// 依赖它，双开会抢同一份队列与日志。
 const locked = app.requestSingleInstanceLock();
@@ -82,6 +82,7 @@ if (!locked) {
   app.whenReady().then(() => {
     registerAppProtocol(path.join(__dirname, "renderer"));
     registerMediaProtocol();
+    registerStreamProtocol(); // M6.1：远端音频代理（跨源直连进 EQ 图会被消成静音）
     registerIpc();
     registerMiniIpc();
     startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）

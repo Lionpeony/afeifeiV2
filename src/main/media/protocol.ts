@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { Readable } from "node:stream";
-import { protocol } from "electron";
+import { net, protocol } from "electron";
 import { resolveToken } from "./tokens.js";
 
 const MIME: Record<string, string> = {
@@ -67,5 +67,48 @@ export function registerMediaProtocol(): void {
         "accept-ranges": "bytes",
       },
     });
+  });
+}
+
+/** 与其他 scheme 一次性注册（见 main/index.ts 的说明）。 */
+export const STREAM_SCHEME = {
+  scheme: "appstream",
+  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+} as const;
+
+/**
+ * 远端音频必须走本代理：直连的跨源 http 流没有 CORS 头，
+ * 进 MediaElementSource（EQ/频谱图）会被 Chromium 消成静音——表现正是
+ * 「进度条在走但没声音」。appstream 是自家特权协议，无跨源问题。
+ *
+ * 编码格式：`appstream://<hex(utf8(远端地址))>`。用 hex 是因为 URL host
+ * 会被转小写，base64url 大小写敏感会损坏；hex 全小写安全。
+ * 渲染层的编码端在 renderer/capability/audio/streamSrc.ts，改格式两边一起改。
+ */
+export function registerStreamProtocol(): void {
+  protocol.handle("appstream", async (request) => {
+    const host = new URL(request.url).hostname;
+    let remote = "";
+    try {
+      remote = Buffer.from(host, "hex").toString("utf8");
+    } catch {
+      return new Response("bad stream url", { status: 400 });
+    }
+    if (!/^https?:\/\//i.test(remote)) return new Response("bad stream url", { status: 400 });
+
+    const range = request.headers.get("range");
+    try {
+      // 在主进程转发：Range 透传（拖进度条必须有），cookie 不带（CDN 直链用不上）
+      const upstream = await net.fetch(remote, range ? { headers: { range } } : {});
+      const headers = new Headers();
+      for (const name of ["content-type", "content-length", "content-range", "accept-ranges"]) {
+        const v = upstream.headers.get(name);
+        if (v) headers.set(name, v);
+      }
+      if (!headers.has("content-type")) headers.set("content-type", "audio/mpeg");
+      return new Response(upstream.body, { status: upstream.status, headers });
+    } catch {
+      return new Response("upstream fetch failed", { status: 502 });
+    }
   });
 }

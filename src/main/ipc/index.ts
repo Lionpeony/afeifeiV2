@@ -206,10 +206,17 @@ export function registerIpc(): void {
     return { code: check.code ?? 801, loggedIn, message: hint ?? check.message ?? "" };
   });
   ipcMain.handle("qq:profile", async () => {
-    const s = (await callQq("status", {})) as { data?: { uin?: unknown; nick?: unknown } };
-    const loggedIn = !!s.data && Object.keys(s.data).length > 0;
-    const uid = s.data?.uin != null ? String(s.data.uin) : null;
-    return { loggedIn, nick: loggedIn ? uid : null, uid };
+    // 包实测（2026-11-03）：/login/status 的 data = profile 对象，昵称在 nick/nickname，
+    // 账号 id 在 musicid——**没有 uin 字段**（包注释明说 GetLoginUserInfo 回包里没有它）
+    const s = (await callQq("status", {})) as {
+      data?: { nick?: unknown; nickname?: unknown; musicid?: unknown; uin?: unknown };
+    };
+    const data = s.data && typeof s.data === "object" ? s.data : {};
+    const loggedIn = Object.keys(data).length > 0;
+    const nick = [data.nick, data.nickname].find((v) => typeof v === "string" && v) as string | undefined;
+    const uid =
+      data.musicid != null ? String(data.musicid) : data.uin != null ? String(data.uin) : null;
+    return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid };
   });
   ipcMain.handle("qq:logout", async () => {
     await callQq("logout", {});

@@ -2,6 +2,7 @@ import type { ErrorCode } from "../../../contracts/index.js";
 import type { MediaPort } from "../../../contracts/ports.js";
 import { clock } from "../../kernel/clock.js";
 import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, type AudioGraph } from "./graph.js";
+import { streamSrcOf } from "./streamSrc.js";
 
 export interface EngineHooks {
   onReady?: () => void;
@@ -76,14 +77,15 @@ export class AudioEngine {
   }
 
   /**
-   * 本地路径 → 换令牌；远程地址 → 直接用。
+   * 本地路径 → 换令牌；远程地址 → 包成 appstream 代理。
    *
-   * **http 也要放行**：网易云 CDN 给的直链就是 `http://m7.music.126.net/...`，
-   * 只认 https 会让它掉进"换令牌"分支、扩展名校验不过、最后报 track-missing。
-   * 远程地址同样必须已在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
+   * 远端直链**不能直接给 <audio>**：跨源 http 流没有 CORS 头，
+   * 进 EQ/频谱的 MediaElementSource 会被消成静音（进度条走但无声），
+   * 必须走主进程的 appstream 代理（见 capability/audio/streamSrc.ts）。
+   * 代理地址同样必须在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
    */
   private async resolveSrc(track: string): Promise<string | null> {
-    if (/^https?:\/\//i.test(track)) return track;
+    if (/^https?:\/\//i.test(track)) return streamSrcOf(track);
 
     const token = await this.media.grant(track);
     if (!token) {
