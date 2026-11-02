@@ -292,8 +292,13 @@ async function main() {
     assert.equal(await app2.evaluate(`document.querySelector(".volume input")?.value`), "30", "音量应恢复成 30");
     const status0 = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
     assert.ok(status0.startsWith("paused") || status0.startsWith("loading"), `恢复后应停在暂停态，实际 ${status0}`);
+    // 位置要轮询等：cue 之后引擎还要 load 才会 seek，读一次必然撞上还没锚定的 0
+    const positionOk = await app2.waitFor(
+      `Math.abs(Number(document.querySelector(".bar input")?.value ?? 0) - 2000) <= 1000`,
+      8000,
+    );
     const position = await app2.evaluate(`Number(document.querySelector(".bar input")?.value ?? 0)`);
-    assert.ok(Math.abs(position - 2000) <= 1000, `位置应恢复成 2000±1000ms，实际 ${position}`);
+    assert.ok(positionOk, `位置应恢复成 2000±1000ms，实际 ${position}`);
     console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态");
 
     // 先真播起来，再连切 —— 暂停态切歌测不到"边播边切"
