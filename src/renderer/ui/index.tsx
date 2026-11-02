@@ -7,6 +7,7 @@ import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
 import type { Services } from "./services.js";
 import { onFrame } from "./compositor.js";
+import { EqCurve } from "./EqCurve.js";
 import { StageView } from "./views/stage/index.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -426,6 +427,7 @@ function App() {
               重置
             </button>
           </div>
+          <EqCurve gains={state.audio.eq} sampleRate={services.current?.engine.sampleRate() ?? 48000} />
           <label className="fx-row">
             <span>前置</span>
             <input

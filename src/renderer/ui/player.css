@@ -124,6 +124,14 @@ button.primary {
   font-variant-numeric: tabular-nums;
 }
 
+/* EQ 频响曲线（M9-4）：纯展示，颜色在组件里从 token 取（canvas 读不到 CSS 变量的画法限制） */
+.eq-curve {
+  display: block;
+  width: 100%;
+  height: 90px;
+  margin: 4px 0;
+}
+
 /* 命令面板（Ctrl+K）：复用模态遮罩，列表上限即 12 行高度 */
 .palette {
   width: 420px;

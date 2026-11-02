@@ -335,6 +335,11 @@ export class AudioEngine {
     return Number.isFinite(d) ? d * 1000 : 0;
   }
 
+  /** 采样率：EQ 曲线可视化要与真实滤波器一致就得用 ctx 的（M9-4）。图未建给常见默认。 */
+  sampleRate(): number {
+    return this.graph ? this.graph.ctx.sampleRate : 48000;
+  }
+
   currentTrack(): string | null {
     return this.currentSrc;
   }
