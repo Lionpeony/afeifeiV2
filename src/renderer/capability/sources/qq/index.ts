@@ -56,10 +56,9 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
   }
 
   interface QqSearchBody {
-    req_1?: {
-      code?: number;
-      data?: { body?: { song?: { list?: Record<string, unknown>[]; totalNum?: number } } };
-    };
+    code?: number;
+    items?: Record<string, unknown>[];
+    total?: number;
   }
 
   interface QqUrlBody {
@@ -75,7 +74,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canGetDetail: false,
       canGetUrl: true, // 登录态走 GetEVkey（M6.1）；未登录时上游不给 vkey，错误翻译成人话
       canGetLyric: true,
-      canLogin: true, // 真实窗口登录（main/net/qqSession.ts）
+      canLogin: true, // 本地服务扫码登录（main/net/qqClient.ts）
       canGetAlbum: false,
       canGetArtist: false,
       canGetPlaylist: false,
@@ -89,25 +88,25 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     },
 
     async search(keyword: string, page = 0): Promise<SearchResult> {
+      const kw = keyword.trim();
+      if (!kw) return { items: [], nextPage: undefined }; // 空关键词不打上游（会被 400）
       const limit = 30;
-      const body = await qq<QqSearchBody>("search", { keyword, page });
-
-      const req = body?.req_1;
-      if (!req || req.code !== 0) throw err("network", "QQ 音乐搜索暂时不可用");
-
-      const song = req.data?.body?.song;
-      const list = song?.list ?? [];
-      const items = list.map(toTrack).filter((t): t is RemoteTrack => t !== null);
-      const total = Number(song?.totalNum ?? 0);
+      // yakult 包实测（2026-11-03）：{ code: 200, items: [...], total }，字段 mid/name/singer[]/album.mid|title
+      const body = await qq<QqSearchBody>("search", { keyword: kw, page });
+      if (!body || body.code !== 200 || !Array.isArray(body.items)) {
+        throw err("network", "QQ 音乐搜索暂时不可用");
+      }
+      const items = body.items.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      const total = Number(body.total ?? 0);
       return { items, nextPage: (page + 1) * limit < total ? page + 1 : undefined };
     },
 
     async getLyric(sourceId: string): Promise<LyricDoc> {
-      const body = await qq<{ code?: number; lrc?: string }>("lyric", { songmid: sourceId });
-      if (!body || body.code !== 0 || !body.lrc?.trim()) {
-        throw err("track-missing", "这首歌没有歌词");
-      }
-      return parseLyrics(body.lrc);
+      // yakult 包实测：{ response: { lyric: LRC 文本 } }（旧包是 { code: 0, lrc }）
+      const body = await qq<{ response?: { lyric?: string } }>("lyric", { songmid: sourceId });
+      const lrc = body?.response?.lyric?.trim();
+      if (!lrc) throw err("track-missing", "这首歌没有歌词");
+      return parseLyrics(lrc);
     },
 
     async login(): Promise<void> {

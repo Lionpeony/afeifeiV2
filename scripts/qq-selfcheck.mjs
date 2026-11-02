@@ -62,11 +62,14 @@ setTimeout(async () => {
     check("/login/status 可达（未登录 data 为空）", st.status === 200 && !!st.json?.data && typeof st.json.data === "object",
       `data keys=${JSON.stringify(Object.keys(st.json?.data ?? {}))}`);
 
-    // ⑦ 搜索（匿名可用性回归）
+    // ⑦ 搜索（匿名可用性回归 + provider 解析所需字段：mid/name/singer/album）
     const se = await get("/search?keyword=" + encodeURIComponent("晴天") + "&limit=1");
     const items = se.json?.items;
-    check("/search 匿名可用", se.status === 200 && Array.isArray(items) && items.length > 0,
-      `items=${items?.length ?? 0} 首个 mid=${items?.[0]?.mid ?? "(无)"}`);
+    const first = items?.[0] ?? {};
+    check("/search 匿名可用（mid/name/singer/album 字段齐全）",
+      se.status === 200 && Array.isArray(items) && items.length > 0 &&
+      typeof first.mid === "string" && typeof first.name === "string" && Array.isArray(first.singer),
+      `items=${items?.length ?? 0} mid=${first.mid ?? "(无)"} name=${first.name ?? "(无)"} singer=${Array.isArray(first.singer) ? first.singer.length : "(无)"}`);
 
     // ⑧ 歌词
     const mid = items?.[0]?.mid;
