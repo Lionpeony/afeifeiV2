@@ -8,7 +8,10 @@
  * 能碰的只有 `host`（http 代理 / log / cache）和一组无害全局。
  * 约定：用户代码定义 `function createProvider(host)` 并返回 provider 对象。
  */
+import fs from "node:fs";
+import path from "node:path";
 import vm from "node:vm";
+import { dataDir } from "../paths.js";
 
 interface SandboxMsg {
   seq: number;
@@ -34,6 +37,47 @@ const CACHE_TTL_MAX = 60 * 60 * 1000;
 const CACHE_VALUE_MAX = 100_000;
 
 const cache = new Map<string, { value: string; expire: number }>();
+
+/* ---- host.cache 的持久化：内存为主，变更后 2s 节流写快照，启动读回 ----
+ * 上限 5MB（对齐 00 §6.3 的缓存预算）；写失败不影响宿主（缓存本来就可丢）。 */
+const CACHE_FILE = (): string => path.join(dataDir(), "cache", "sandbox-cache.json");
+const CACHE_DISK_MAX = 5_000_000;
+let cacheFlushTimer: NodeJS.Timeout | null = null;
+
+function loadCacheFromDisk(): void {
+  try {
+    const raw = fs.readFileSync(CACHE_FILE(), "utf8");
+    for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, { value?: unknown }>)) {
+      if (typeof v?.value === "string" && typeof v.expire === "number") {
+        cache.set(k, { value: v.value, expire: v.expire });
+      }
+    }
+  } catch {
+    /* 没有快照/坏快照都从空开始 */
+  }
+}
+
+function scheduleCacheFlush(): void {
+  if (cacheFlushTimer) return;
+  cacheFlushTimer = setTimeout(() => {
+    cacheFlushTimer = null;
+    try {
+      const obj: Record<string, { value: string; expire: number }> = {};
+      let size = 0;
+      for (const [k, v] of cache) {
+        obj[k] = v;
+        size += k.length + v.value.length;
+        if (size > CACHE_DISK_MAX) break;
+      }
+      fs.mkdirSync(path.dirname(CACHE_FILE()), { recursive: true });
+      fs.writeFileSync(CACHE_FILE(), JSON.stringify(obj), "utf8");
+    } catch {
+      /* 缓存写失败不影响宿主 */
+    }
+  }, 2000);
+}
+
+loadCacheFromDisk();
 
 const post = (msg: Reply): void => process.parentPort.postMessage(msg);
 
@@ -69,6 +113,7 @@ const host = {
         value: String(v).slice(0, CACHE_VALUE_MAX),
         expire: Date.now() + Math.min(Number(ttlMs) || 0, CACHE_TTL_MAX),
       });
+      scheduleCacheFlush();
     },
   },
 };
