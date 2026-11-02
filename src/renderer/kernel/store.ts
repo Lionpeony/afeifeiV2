@@ -1,15 +1,18 @@
 import type { AppState, Intent } from "../../contracts/index.js";
+import { clampCursor, orderOf, prevAction, pushHistory, stepBackward, stepForward } from "./queue.js";
 
 /**
- * 单写者 store（I2）。全应用只有 dispatch 一个写入口，
- * 订阅者只拿到快照，拿不到 setState。
+ * 单写者 store（I2）。全应用只有 dispatch 一个写入口。
+ *
+ * 注意：**状态里不放实时播放位置**。positionMs 只记录"用户最后一次 seek / 切歌时定的位置"，
+ * 用于恢复与 3 秒规则；进度条每帧从 clock.t() 取，不经过 store（否则每帧一次全量通知）。
  */
 
 type Listener = () => void;
 
 const initialState: AppState = {
-  player: { status: "idle", trackId: null, positionMs: 0, volume: 0.8 },
-  queue: { items: [], cursor: -1, context: [], history: [] },
+  player: { status: "idle", trackId: null, positionMs: 0, volume: 0.8, error: null },
+  queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
 };
 
 let state: AppState = initialState;
@@ -26,32 +29,145 @@ export function subscribe(fn: Listener): () => void {
   };
 }
 
-/**
- * 每个分支都先判断"真的变了没有"，没变就返回同一个对象。
- * 否则重复 dispatch 相同 intent 会白白通知一遍订阅者，React 侧跟着空转一次。
- */
+/** 切到队列里的某一格：回到 loading，剩下交给引擎。 */
+function switchTo(current: AppState, cursor: number): AppState {
+  const { queue, player } = current;
+  if (cursor < 0) {
+    return {
+      player: { ...player, status: "ended", trackId: null, positionMs: 0 },
+      queue: { ...queue, cursor: -1 },
+    };
+  }
+  const trackId = queue.items[cursor];
+  return {
+    player: { ...player, status: "loading", trackId, positionMs: 0, error: null },
+    queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
+  };
+}
+
 function reduce(current: AppState, intent: Intent): AppState {
-  const { player } = current;
+  const { player, queue } = current;
 
   switch (intent.type) {
     case "player/play": {
-      if (player.status === "playing" && player.trackId === intent.trackId) return current;
-      return { ...current, player: { ...player, status: "playing", trackId: intent.trackId } };
+      const trackId = intent.trackId;
+      if (!trackId) {
+        if (player.status === "playing") return current;
+        return { ...current, player: { ...player, status: "playing", error: null } };
+      }
+      if (player.trackId === trackId && player.status === "playing") return current;
+      const cursor = queue.items.indexOf(trackId);
+      const nextQueue =
+        cursor >= 0 ? { ...queue, cursor, history: pushHistory(queue.history, trackId) } : queue;
+      return {
+        player: { ...player, status: "playing", trackId, positionMs: 0, error: null },
+        queue: nextQueue,
+      };
     }
+
     case "player/pause": {
-      if (player.status === "paused") return current;
+      if (player.status !== "playing") return current;
       return { ...current, player: { ...player, status: "paused" } };
     }
+
+    case "player/toggle": {
+      if (player.status === "playing") return { ...current, player: { ...player, status: "paused" } };
+      if (player.status === "paused" || player.status === "ended") {
+        return { ...current, player: { ...player, status: "playing", error: null } };
+      }
+      return current;
+    }
+
     case "player/seek": {
       const positionMs = Math.max(0, intent.positionMs);
       if (player.positionMs === positionMs) return current;
       return { ...current, player: { ...player, positionMs } };
     }
+
     case "player/setVolume": {
       const volume = Math.min(1, Math.max(0, intent.volume));
       if (player.volume === volume) return current;
       return { ...current, player: { ...player, volume } };
     }
+
+    case "player/ended": {
+      if (queue.mode === "repeat-one") {
+        return { ...current, player: { ...player, status: "playing", positionMs: 0 } };
+      }
+      const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
+      const next = stepForward(order, queue.cursor, queue.mode);
+      return next < 0
+        ? { ...current, player: { ...player, status: "ended", positionMs: 0 } }
+        : switchTo(current, next);
+    }
+
+    case "player/error": {
+      if (player.status === "error" && player.error === intent.code) return current;
+      return { ...current, player: { ...player, status: "error", error: intent.code } };
+    }
+
+    case "player/cue": {
+      return {
+        ...current,
+        player: {
+          ...player,
+          status: "loading",
+          trackId: intent.trackId,
+          positionMs: Math.max(0, intent.positionMs ?? 0),
+          error: null,
+        },
+      };
+    }
+
+    case "player/ready": {
+      if (player.status !== "loading") return current;
+      return { ...current, player: { ...player, status: "paused" } };
+    }
+
+    case "queue/set": {
+      const items = intent.items;
+      if (items.length === 0) {
+        return {
+          player: { ...player, status: "idle", trackId: null, positionMs: 0 },
+          queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
+        };
+      }
+      const cursor = clampCursor(items, intent.startAt ?? 0);
+      const staged: AppState = {
+        player,
+        queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
+      };
+      return switchTo(staged, cursor);
+    }
+
+    case "queue/next": {
+      const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
+      const next = stepForward(order, queue.cursor, queue.mode);
+      return next < 0
+        ? { ...current, player: { ...player, status: "ended", positionMs: 0 } }
+        : switchTo(current, next);
+    }
+
+    case "queue/prev": {
+      const at = intent.atPositionMs ?? player.positionMs;
+      if (prevAction(at) === "restart") {
+        if (player.positionMs === 0) return current;
+        return { ...current, player: { ...player, positionMs: 0 } };
+      }
+      const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
+      return switchTo(current, stepBackward(order, queue.cursor, queue.mode));
+    }
+
+    case "queue/mode": {
+      if (queue.mode === intent.mode) return current;
+      return { ...current, queue: { ...queue, mode: intent.mode } };
+    }
+
+    case "queue/restore": {
+      const restored = intent.state;
+      return { ...current, queue: { ...restored, cursor: clampCursor(restored.items, restored.cursor) } };
+    }
+
     default:
       return current;
   }

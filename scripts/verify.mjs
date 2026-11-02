@@ -15,6 +15,7 @@ const steps = [
   // 无参数时 Node 会自己按 `**/*.test.mjs` 发现，且跳过 node_modules。
   ["test", [node, "--test"]],
   ["build", [node, "scripts/build.mjs"]],
+  ["smoke", [node, "scripts/smoke.mjs"]], // M1 起接入：真起 Electron + CDP
 ];
 
 for (const [name, [cmd, ...args]] of steps) {

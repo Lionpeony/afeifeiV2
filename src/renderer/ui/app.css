@@ -9,23 +9,96 @@ body {
 }
 
 .shell {
-  padding: 48px;
+  padding: 40px 48px;
+  max-width: 720px;
 }
 
-.shell h1 {
-  margin: 0 0 4px;
-  font-size: 28px;
+.top {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 26px;
   letter-spacing: 0.08em;
 }
 
-.hint {
-  margin: 0 0 24px;
+.status {
   color: var(--fg-dim);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-.state {
-  margin: 0;
+.status[data-status="playing"] {
   color: var(--accent);
+}
+
+.status[data-status="error"] {
+  color: var(--danger);
+}
+
+.track {
+  margin: 24px 0 8px;
+  font-size: 18px;
+  word-break: break-all;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.time {
+  color: var(--fg-dim);
   font-family: ui-monospace, Consolas, monospace;
   font-size: 12px;
+  min-width: 92px;
+  text-align: right;
+}
+
+.buttons {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+button {
+  padding: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--fg-dim);
+}
+
+button.primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.volume input {
+  width: 160px;
+  accent-color: var(--accent);
 }

@@ -11,6 +11,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <script src="app.js" defer></script>
+    <!-- 普通脚本：产物是 iife。改成 type=module 会被 file:// 的 CORS 拦掉，页面直接空白 -->
+    <script src="app.js"></script>
   </body>
 </html>

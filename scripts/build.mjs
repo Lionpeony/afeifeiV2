@@ -17,14 +17,21 @@ const BROWSER_TARGET = "chrome120";
 if (TEST) {
   fs.rmSync("dist-test", { recursive: true, force: true });
   await build({
-    entryPoints: ["src/renderer/kernel/index.ts"],
-    outfile: "dist-test/kernel.mjs",
+    entryPoints: {
+      kernel: "src/renderer/kernel/index.ts",
+      queue: "src/renderer/kernel/queue.ts",
+      clock: "src/renderer/kernel/clock.ts",
+      player: "src/renderer/kernel/player.ts",
+      persist: "src/renderer/kernel/persist.ts",
+    },
+    outdir: "dist-test",
     bundle: true,
     platform: "node",
     format: "esm",
     target: NODE_TARGET,
+    outExtension: { ".js": ".mjs" },
   });
-  console.log("build:test ok → dist-test/kernel.mjs");
+  console.log("build:test ok → dist-test/*.mjs");
   process.exit(0);
 }
 
@@ -53,12 +60,13 @@ await build({
   external: ["electron"],
 });
 
+// 必须是 iife：file:// 下 ES module 会被 CORS 拦掉，#root 永远是空的。
 await build({
   entryPoints: ["src/renderer/ui/index.tsx"],
   outfile: path.join(OUT, "renderer", "app.js"),
   bundle: true,
   platform: "browser",
-  format: "esm",
+  format: "iife",
   target: BROWSER_TARGET,
   jsx: "automatic",
   define: { "process.env.NODE_ENV": '"production"' },

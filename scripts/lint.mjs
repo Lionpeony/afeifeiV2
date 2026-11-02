@@ -141,7 +141,11 @@ for (const file of mainFiles) {
   const n = norm(file);
   const src = stripComments(read(file));
   for (const spec of importsOf(src)) {
-    if (spec.includes("renderer")) fail(`${n}: main 不许 import renderer（"${spec}"）`);
+    // 按解析后的真实路径判，不按字符串里有没有 "renderer"（目录名可能合法地叫别的）
+    const target = spec.startsWith(".") ? resolveLocal(file, spec) : null;
+    if (target && norm(target).startsWith("src/renderer/")) {
+      fail(`${n}: main 不许 import 环 4（"${spec}" → ${norm(target)}）`);
+    }
   }
   if (BIZ.test(src)) fail(`${n}: 主进程里出现业务标识符（${src.match(BIZ)?.join(", ")}），业务属于环 1`);
   const lines = read(file).split(/\r?\n/).length;
