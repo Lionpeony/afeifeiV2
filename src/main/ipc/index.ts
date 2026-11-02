@@ -14,7 +14,6 @@ import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
-import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
   clearIndexLog,
@@ -220,11 +219,6 @@ export function registerIpc(): void {
   });
   ipcMain.handle("qq:logout", async () => {
     await callQq("logout", {});
-  });
-
-  ipcMain.handle("util:qrcode", (_e, text: unknown) => {
-    if (typeof text !== "string") throw new Error("util:qrcode 需要文本");
-    return qrDataUrl(text);
   });
 
   /* ---------- 用户源沙箱（见 main/sandbox/；崩溃与超时都不波及主窗） ---------- */

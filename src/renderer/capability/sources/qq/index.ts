@@ -124,7 +124,9 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
         if (!profile.loggedIn) throw err("auth-required", "请先登录 QQ 音乐");
         throw err("quality-unavailable", "这首歌没有可播放的地址（可能需要会员）");
       }
-      return /^https?:\/\//i.test(url) ? url : `http://dl.stream.qqmusic.qq.com/${url}`;
+      // yakult 包返回的已是完整地址（domain + purl）；非 http 的 url 是异常数据，不瞎拼旧前缀
+      if (!/^https?:\/\//i.test(url)) throw err("unknown", "播放地址格式异常，请重试");
+      return url;
     },
   };
 }
