@@ -72,7 +72,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       canLogin: true,
       canGetAlbum: false,
       canGetArtist: false,
-      canGetPlaylist: false,
+      canGetPlaylist: true,
+      canListPlaylists: true,
       canGetRadio: false,
       canFavorite: false,
     },
@@ -120,6 +121,44 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         throw err(first?.fee === 1 ? "quality-unavailable" : "track-missing", "这首歌暂时没有可播放的地址");
       }
       return first.url;
+    },
+
+    async listPlaylists() {
+      // uid 从登录态取（login_status 的 profile.userId），不要求调用方传
+      const st = await ncm<{ profile?: { userId?: number }; code?: number }>("login_status");
+      const uid = st?.profile?.userId;
+      if (!uid) throw err("auth-required", "先登录后才能看歌单");
+
+      const body = await ncm<{ playlist?: Record<string, unknown>[] }>("user_playlist", {
+        uid,
+        limit: 100,
+        offset: 0,
+      });
+      return (body?.playlist ?? [])
+        .map((p) => {
+          const id = p.id;
+          if (id === undefined || id === null) return null;
+          return {
+            id: String(id),
+            name: typeof p.name === "string" && p.name ? p.name : "未命名歌单",
+            count: Number(p.trackCount ?? 0),
+            coverUrl: typeof p.coverImgUrl === "string" ? p.coverImgUrl : undefined,
+          };
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null);
+    },
+
+    async getPlaylist(playlistId: string, page = 0) {
+      const limit = 50;
+      const body = await ncm<{ songs?: Record<string, unknown>[]; total?: number }>("playlist_track_all", {
+        id: playlistId,
+        limit,
+        offset: page * limit,
+      });
+      const songs = body?.songs ?? [];
+      const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      const total = Number(body?.total ?? 0);
+      return { items, nextPage: (page + 1) * limit < total ? page + 1 : undefined };
     },
 
     async getLyric(sourceId: string): Promise<LyricDoc> {

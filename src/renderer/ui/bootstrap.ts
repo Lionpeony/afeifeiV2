@@ -243,7 +243,32 @@ export async function bootstrap(): Promise<Services> {
         name: p.name,
         canAuth: p.capabilities.canLogin,
         canDownload: p.capabilities.canGetUrl,
+        canPlaylists: p.capabilities.canListPlaylists,
       })),
+
+    async listPlaylists(sourceId) {
+      const provider = getProvider(sourceId);
+      if (!provider?.capabilities.canListPlaylists || !provider.listPlaylists) {
+        throw humanize({ code: "capability-missing" });
+      }
+      try {
+        return await provider.listPlaylists();
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    async playlistTracks(sourceId, playlistId, page = 0) {
+      const provider = getProvider(sourceId);
+      if (!provider?.capabilities.canGetPlaylist || !provider.getPlaylist) {
+        throw humanize({ code: "capability-missing" });
+      }
+      try {
+        return await provider.getPlaylist(playlistId, page);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
 
     async searchOnline(sourceId, keyword, page = 0) {
       const provider = getProvider(sourceId);

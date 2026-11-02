@@ -38,7 +38,8 @@ export const demoProvider: SourceProvider = {
     canLogin: false,
     canGetAlbum: false,
     canGetArtist: false,
-    canGetPlaylist: false,
+    canGetPlaylist: true,
+    canListPlaylists: true,
     canGetRadio: false,
     canFavorite: false,
   },
@@ -74,5 +75,15 @@ export const demoProvider: SourceProvider = {
     const found = TRACKS.some((t) => t.sourceId === sourceId);
     if (!found) throw new Error("404 not found");
     return LYRIC;
+  },
+
+  // M9-5：demo 当"第三家源"，验证歌单页 UI 零改动（能力声明驱动，不写死任何一家）
+  async listPlaylists() {
+    return [{ id: "pl-1", name: "示例歌单", count: TRACKS.length }];
+  },
+
+  async getPlaylist(playlistId: string): Promise<SearchResult> {
+    if (playlistId !== "pl-1") throw new Error("404 not found");
+    return { items: TRACKS };
   },
 };

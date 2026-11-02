@@ -34,6 +34,7 @@ test("声明为 false 的能力不要求实现（可选方法）", () => {
       canGetAlbum: false,
       canGetArtist: false,
       canGetPlaylist: false,
+      canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
     },
@@ -41,6 +42,24 @@ test("声明为 false 的能力不要求实现（可选方法）", () => {
     search: async () => ({ items: [] }),
   };
   assert.doesNotThrow(() => assertCapabilities(minimal));
+});
+
+test("声明了 canListPlaylists 却没实现 listPlaylists → 启动即炸（M9-5）", () => {
+  const broken = {
+    ...demoProvider,
+    id: "broken-pl",
+    capabilities: { ...demoProvider.capabilities, canListPlaylists: true },
+  };
+  delete broken.listPlaylists;
+  assert.throws(() => assertCapabilities(broken), /canListPlaylists.*listPlaylists/);
+});
+
+test("歌单契约（M9-5）：demo 源能列歌单并取回曲目（第三家源 UI 零改动的靶子）", async () => {
+  const lists = await demoProvider.listPlaylists();
+  assert.equal(lists.length, 1);
+  const tracks = await demoProvider.getPlaylist(lists[0].id);
+  assert.equal(tracks.items.length, demoProvider.listPlaylists ? 3 : 0);
+  assert.equal(tracks.items[0].sourceId, "demo-1");
 });
 
 test("缺 capabilities 声明 → 炸", () => {

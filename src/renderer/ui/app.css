@@ -212,6 +212,54 @@ body,
   font-size: 12px;
 }
 
+/* 歌单页（M9-5）：左歌单右曲目两栏 */
+.pl-wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px;
+}
+.pl-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pl-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.pl-item:hover { border-color: var(--fg-dim); }
+.pl-item.on { border-color: var(--accent); }
+.pl-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pl-count { color: var(--fg-dim); font-size: 12px; flex-shrink: 0; }
+.pl-more {
+  display: block;
+  margin: 8px auto;
+  padding: 6px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.pl-more:hover { color: var(--fg); }
+
 .lib-list {
   flex: 1;
   min-height: 0;

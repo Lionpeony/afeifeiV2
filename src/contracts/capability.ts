@@ -19,6 +19,7 @@ export interface MethodCapabilities {
   canGetAlbum: boolean;
   canGetArtist: boolean;
   canGetPlaylist: boolean;
+  canListPlaylists: boolean;
   canGetRadio: boolean;
   canFavorite: boolean;
 }
@@ -33,6 +34,7 @@ export const CAPABILITY_METHODS: Record<keyof MethodCapabilities, string> = {
   canGetAlbum: "getAlbum",
   canGetArtist: "getArtist",
   canGetPlaylist: "getPlaylist",
+  canListPlaylists: "listPlaylists",
   canGetRadio: "getRadio",
   canFavorite: "favorite",
 };
@@ -58,6 +60,15 @@ export interface SearchResult {
   items: RemoteTrack[];
   /** 还有下一页就给出来；没有就 undefined */
   nextPage?: number;
+}
+
+/** 用户歌单（M9-5）。id 是音源内的歌单 id，取曲目走 getPlaylist(id)。 */
+export interface OnlinePlaylist {
+  id: string;
+  name: string;
+  /** 曲目数（只读展示用） */
+  count: number;
+  coverUrl?: string;
 }
 
 export type LyricFormat = "lrc" | "qrc" | "yrc" | "ttml" | "plain";
@@ -111,6 +122,8 @@ export interface SourceProvider {
   getAlbum?(sourceId: string, page?: number): Promise<SearchResult>;
   getArtist?(sourceId: string, page?: number): Promise<SearchResult>;
   getPlaylist?(sourceId: string, page?: number): Promise<SearchResult>;
+  /** 当前账号的歌单列表（M9-5）。未登录抛 auth-required，UI 只显示人话。 */
+  listPlaylists?(): Promise<OnlinePlaylist[]>;
   getRadio?(sourceId: string, page?: number): Promise<SearchResult>;
   favorite?(sourceId: string, liked: boolean): Promise<void>;
 }

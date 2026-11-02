@@ -3,7 +3,7 @@
  * 桥的类型、Services 接口、错误收敛。实现都在 bootstrap.ts。
  */
 import type { AudioEngine } from "../capability/audio/engine.js";
-import type { LyricDoc, Quality, SearchResult } from "../../contracts/capability.js";
+import type { LyricDoc, OnlinePlaylist, Quality, SearchResult } from "../../contracts/capability.js";
 import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
 import { errorText, translateError } from "../capability/errors.js";
@@ -89,9 +89,13 @@ export interface Services {
   /** 取封面（带缓存与请求去重）。 */
   cover(id: string, path: string): Promise<string | null>;
   /** 已注册的音源（UI 的选项来源就是它，不写死）。canDownload = canGetUrl（M7）。 */
-  sources(): { id: string; name: string; canAuth: boolean; canDownload: boolean }[];
+  sources(): { id: string; name: string; canAuth: boolean; canDownload: boolean; canPlaylists: boolean }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
+  /** 当前账号的在线歌单（M9-5）。未登录抛 auth-required 的人话。 */
+  listPlaylists(sourceId: string): Promise<OnlinePlaylist[]>;
+  /** 歌单曲目（分页）。 */
+  playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
   /** 在线曲目歌词。错误已翻译成人话。 */
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   /** 频谱采样（0–1 的 bins 个桶）。没在播返回 null。 */

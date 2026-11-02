@@ -78,6 +78,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canGetAlbum: false,
       canGetArtist: false,
       canGetPlaylist: false,
+      canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
     },

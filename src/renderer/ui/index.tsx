@@ -16,6 +16,7 @@ import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
+import { PlaylistsView } from "./views/playlists/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -35,7 +36,7 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const [tab, setTab] = useState<"local" | "online" | "stage" | "downloads">("local");
+  const [tab, setTab] = useState<"local" | "online" | "playlists" | "stage" | "downloads">("local");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
@@ -225,6 +226,9 @@ function App() {
           <button type="button" className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
             在线
           </button>
+          <button type="button" className={tab === "playlists" ? "on" : ""} onClick={() => setTab("playlists")}>
+            歌单
+          </button>
           <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
             播放页
           </button>
@@ -297,6 +301,32 @@ function App() {
         ) : (
           <p className="lib-empty">还没准备好，请稍候。</p>
         )
+      ) : tab === "playlists" ? (
+        <PlaylistsView
+          sources={sources.filter((s) => s.canPlaylists)}
+          listPlaylists={(sourceId) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve([]);
+            return svc.listPlaylists(sourceId);
+          }}
+          playlistTracks={(sourceId, playlistId, page) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve({ items: [] });
+            return svc.playlistTracks(sourceId, playlistId, page);
+          }}
+          onPlay={async (sourceId, track) => {
+            // 与在线页同一条链路：拿地址失败由歌单页显示人话
+            const svc = services.current;
+            if (!svc) return;
+            const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+            dispatch({
+              type: "player/play",
+              trackId: url,
+              trackTitle: `${track.title} — ${track.artist}`,
+              remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
+            });
+          }}
+        />
       ) : (
         <OnlineView
           sources={sources}

@@ -8,6 +8,8 @@ export interface SourceOption {
   canAuth: boolean;
   /** 能力驱动（00 §7.2）：canGetUrl 才有下载按钮，UI 不做特判 */
   canDownload: boolean;
+  /** 能力驱动（M9-5）：canListPlaylists 才进歌单页 */
+  canPlaylists: boolean;
 }
 
 export interface OnlineViewProps {

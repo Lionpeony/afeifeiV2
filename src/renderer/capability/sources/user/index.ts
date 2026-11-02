@@ -63,6 +63,7 @@ export function createUserProvider(
       canGetAlbum: false,
       canGetArtist: false,
       canGetPlaylist: false,
+      canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
     },
