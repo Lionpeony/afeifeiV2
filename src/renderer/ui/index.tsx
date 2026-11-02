@@ -32,7 +32,32 @@ function App() {
   const barEl = useRef<HTMLInputElement>(null);
   const dragging = useRef(false);
 
-  useEffect(() => subscribe(() => setState(getState())), []);
+  // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
+  // 状态一变（恢复 / seek / 切歌）就立即同步一次，不能只等 rAF：
+  // 窗口被遮挡或后台节流时 rAF 可能几百毫秒才一帧（冒烟实测 600ms 仅 1 帧）。
+  const syncPosition = (): void => {
+    const svc = services.current;
+    if (!svc) return;
+    const position = svc.positionMs();
+    const duration = svc.engine.durationMs();
+    if (timeEl.current) timeEl.current.textContent = `${fmt(position)} / ${fmt(duration)}`;
+    if (barEl.current && !dragging.current) {
+      barEl.current.max = String(Math.max(1, Math.round(duration)));
+      barEl.current.value = String(Math.round(Math.min(position, duration || position)));
+    }
+  };
+
+  useEffect(() => {
+    const offFrame = onFrame(syncPosition);
+    const offStore = subscribe(() => {
+      setState(getState());
+      syncPosition();
+    });
+    return () => {
+      offFrame();
+      offStore();
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -40,28 +65,12 @@ function App() {
       if (!alive) return;
       services.current = s;
       setSources(s.sources());
+      syncPosition();
     });
     return () => {
       alive = false;
     };
   }, []);
-
-  // 每帧只写两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画
-  useEffect(
-    () =>
-      onFrame(() => {
-        const svc = services.current;
-        if (!svc) return;
-        const position = svc.positionMs();
-        const duration = svc.engine.durationMs();
-        if (timeEl.current) timeEl.current.textContent = `${fmt(position)} / ${fmt(duration)}`;
-        if (barEl.current && !dragging.current) {
-          barEl.current.max = String(Math.max(1, Math.round(duration)));
-          barEl.current.value = String(Math.round(Math.min(position, duration || position)));
-        }
-      }),
-    [],
-  );
 
   const { status, trackId, volume, error } = state.player;
   const playing = status === "playing";
