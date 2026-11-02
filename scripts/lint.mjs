@@ -154,6 +154,21 @@ for (const file of mainFiles) {
   if (lines > 400) fail(`${n}: ${lines} 行，超过 400 行上限`);
 }
 
+/* ---------- 规则 7：z-index 全集 + !important 零容忍（00 §9.2/§9.3，gate: 2026-11-03） ---------- */
+const ALLOWED_Z = new Set([0, 1, 2, 3, 4, 20, 40, 50, 60]);
+for (const file of styled) {
+  const n = norm(file);
+  const src = stripComments(read(file)); // 跳过注释——注释里提到这些词不算违规（2026-11-03 审计教训）
+  for (const m of src.matchAll(/z-index:\s*(-?\d+)/g)) {
+    if (!ALLOWED_Z.has(Number(m[1]))) {
+      fail(`${n}: z-index ${m[1]} 不在全局层序（0 1 2 3 4 20 40 50 60，00 §9.2）`);
+    }
+  }
+  if (/!important/.test(src)) {
+    fail(`${n}: 出现 !important（00 §9.3 通用禁令：组件里 0 个）`);
+  }
+}
+
 /* ---------- 结果 ---------- */
 if (problems.length) {
   console.log(`✗ lint 失败 ${problems.length} 处：`);
@@ -161,4 +176,4 @@ if (problems.length) {
   console.log("\n规则见 docs/51 §2.4（新仓库里的 docs/01）");
   process.exit(1);
 }
-console.log(`LINT PASS：${code.length} 个源文件，6 条规则无违规`);
+console.log(`LINT PASS：${code.length} 个源文件，7 条规则无违规`);
