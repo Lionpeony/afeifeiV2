@@ -174,6 +174,7 @@ export function registerIpc(): void {
     const check = (await callQq("qrPoll", { key })) as {
       code?: number;
       message?: string;
+      failureReason?: string;
       failureHint?: { key?: string; message?: string };
     };
     // 会话建立失败时包带 failureHint（英文预置文案），按 key 换成人话；没有映射的透出原文
@@ -186,7 +187,19 @@ export function registerIpc(): void {
       "login.account-binding": "账号绑定异常，请在 QQ 音乐 App 里检查",
       "login.rejected": "QQ 音乐拒绝了这次登录，请重试",
     };
-    const hint = check.failureHint?.key ? HINTS[check.failureHint.key] : undefined;
+    // 800（会话终止）按包内的 failureReason 分成因：自然过期 / 手机取消 / 手机拒绝，
+    // 上游拒绝的会带 failureHint，优先级最高
+    const TERMINAL: Record<string, string> = {
+      "qr-timeout": "二维码已过期（有效期约 3 分钟），请点「刷新」重新扫码",
+      "user-canceled": "扫码已在手机上取消，请重新扫码",
+      "login-rejected": "手机端拒绝了这次登录，请重新扫码",
+    };
+    const hint =
+      check.failureHint?.key
+        ? HINTS[check.failureHint.key]
+        : check.code === 800
+          ? (TERMINAL[check.failureReason ?? ""] ?? "二维码已失效，请点「刷新」重新扫码")
+          : undefined;
     // 包的 check 语义与网易云对齐（801=未扫 / 802=已扫待确认 / 803=成功，成功时包会把会话写进响应 cookie）
     const status = (await callQq("status", {})) as { data?: Record<string, unknown> };
     const loggedIn = !!status.data && Object.keys(status.data).length > 0;

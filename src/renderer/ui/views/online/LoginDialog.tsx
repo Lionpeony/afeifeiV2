@@ -199,7 +199,10 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
                 关闭
               </button>
             </div>
-            <p className="dialog-hint">扫码被手机端拦截时，改用「手机号」登录。</p>
+            {/* 手机号登录是网易云的备选，QQ 源没有这条路径 */}
+            {sendCaptcha && loginByCaptcha ? (
+              <p className="dialog-hint">扫码被手机端拦截时，改用「手机号」登录。</p>
+            ) : null}
           </>
         ) : (
           <>
