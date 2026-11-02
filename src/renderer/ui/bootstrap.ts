@@ -258,14 +258,16 @@ export async function bootstrap(): Promise<Services> {
     },
 
     async loginByCaptcha(phone, captcha) {
-      const body = (await api.ncmCall("captcha_verify", { phone, captcha })) as NcmBody;
+      // 注意：不是 captcha_verify —— 那个只校验验证码，不产生登录态。
+      // 真正的验证码登录是 login_cellphone（它按是否传 captcha 决定用验证码还是密码）。
+      const body = (await api.ncmCall("login_cellphone", { phone, captcha })) as NcmBody;
       if (body?.code !== 200) {
         return { ok: false, message: body?.msg ?? body?.message ?? `登录失败（code=${body?.code}）` };
       }
       const profile = await api.ncmProfile();
       return profile.loggedIn
         ? { ok: true, message: `登录成功${profile.nick ? `：${profile.nick}` : ""}` }
-        : { ok: false, message: "验证通过但没拿到登录态，请重试" };
+        : { ok: false, message: "验证码通过了但没拿到登录态，请再试一次" };
     },
 
     async scan(onProgress) {

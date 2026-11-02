@@ -20,6 +20,24 @@ import {
 
 const AUDIO_EXT = ["mp3", "flac", "m4a", "wav", "opus", "ogg", "aac"];
 
+/**
+ * 把任意异常压成一句可读文本。
+ * 不这么做的话，跨 IPC 后渲染层只会看到 `[object Object]` —— 等于没有错误信息。
+ */
+function readableError(err: unknown): string {
+  if (!err) return "未知错误";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message || err.name;
+  try {
+    const obj = err as { message?: unknown; msg?: unknown; code?: unknown };
+    const text = obj.message ?? obj.msg;
+    if (typeof text === "string" && text) return obj.code !== undefined ? `${text}（code=${String(obj.code)}）` : text;
+    return JSON.stringify(err).slice(0, 200);
+  } catch {
+    return String(err);
+  }
+}
+
 /** 允许渲染层调用的网易云接口白名单。加接口要在这里登记。 */
 const NETEASE_ALLOWED = new Set([
   "cloudsearch",
@@ -30,7 +48,7 @@ const NETEASE_ALLOWED = new Set([
   "login_qr_create",
   "login_qr_check",
   "captcha_sent",
-  "captcha_verify",
+  "login_cellphone",
   "user_account",
   "logout",
 ]);
@@ -108,11 +126,17 @@ export function registerIpc(): void {
 
   /* ---------- 网易云通道（主进程内嵌 NeteaseCloudMusicApi） ---------- */
 
-  ipcMain.handle("netease:call", (_e, method: unknown, params: unknown) => {
+  ipcMain.handle("netease:call", async (_e, method: unknown, params: unknown) => {
     if (typeof method !== "string") throw new Error("netease:call 需要方法名");
     // 收敛接口面：渲染层只能调这几个，不给它整包 380 个接口
     if (!NETEASE_ALLOWED.has(method)) throw new Error(`不允许调用网易云接口：${method}`);
-    return callNcm(method, (params ?? {}) as Record<string, unknown>);
+    try {
+      return await callNcm(method, (params ?? {}) as Record<string, unknown>);
+    } catch (err) {
+      // 上游抛的常常不是 Error（是 { code, message } 之类），
+      // 直接往上抛会让渲染层收到 "[object Object]"。这里统一压成可读字符串。
+      throw new Error(readableError(err));
+    }
   });
 
   ipcMain.handle("netease:profile", () => loginProfile());

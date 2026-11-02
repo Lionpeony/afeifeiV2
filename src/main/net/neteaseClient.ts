@@ -31,7 +31,9 @@ function load(): void {
   if (loaded) return;
   loaded = true;
   try {
-    cookie = fs.readFileSync(cookieFile(), "utf8").trim();
+    const raw = fs.readFileSync(cookieFile(), "utf8").trim();
+    // 只认带 MUSIC_U 的：早期版本把匿名 NMTID 也存下来了，那是脏凭证
+    cookie = raw.includes("MUSIC_U") ? raw : "";
   } catch {
     cookie = "";
   }
@@ -52,6 +54,21 @@ export interface NcmResult {
   body: Record<string, unknown>;
 }
 
+const COOKIE_ATTRS = /^(max-age|expires|path|domain|secure|httponly|samesite|version|comment)$/i;
+
+/**
+ * 上游回的 cookie 是完整 Set-Cookie 串（`NMTID=x; Max-Age=...; Path=/`），
+ * 直接透传会把 `Max-Age`、`Path` 这些**属性**当成 cookie 名，请求头就废了。
+ * 只留 `k=v` 的对。
+ */
+export function cleanCookie(raw: string): string {
+  return raw
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part.includes("=") && !COOKIE_ATTRS.test(part.split("=")[0].trim()))
+    .join("; ");
+}
+
 /** 调一个网易云接口。cookie 自动带上；响应里带新 cookie 就落盘。 */
 export async function callNcm(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
   load();
@@ -65,7 +82,11 @@ export async function callNcm(method: string, params: Record<string, unknown> = 
   const body = result?.body ?? {};
 
   const nextCookie = body.cookie;
-  if (typeof nextCookie === "string" && nextCookie) persist(nextCookie);
+  if (typeof nextCookie === "string" && nextCookie) {
+    const cleaned = cleanCookie(nextCookie);
+    // 只有带 MUSIC_U 的才算登录态，别把匿名 NMTID 当凭证存下来
+    if (cleaned.includes("MUSIC_U")) persist(cleaned);
+  }
 
   return body;
 }
