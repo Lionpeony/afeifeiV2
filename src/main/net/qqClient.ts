@@ -12,6 +12,8 @@ import { fetchJson } from "./fetchJson.js";
 const MUSICU = "https://u.y.qq.com/cgi-bin/musicu.fcg";
 const LYRIC = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
 const QQ_HEADERS = { Referer: "https://y.qq.com/", Origin: "https://y.qq.com" };
+/** QQ 专属会话分区（M6 P0）：登录 cookie 与网易云等其它源彻底隔离，persist: 前缀跨重启保留。 */
+export const QQ_PARTITION = "persist:qq-login";
 
 /** 收敛接口面：渲染层只能调这几个，与 netease 通道同规矩 */
 const ALLOWED = new Set(["search", "lyric", "url"]);
@@ -47,6 +49,7 @@ async function qqSearch(params: Record<string, unknown>): Promise<unknown> {
     method: "POST",
     headers: { ...QQ_HEADERS, "Content-Type": "application/json" },
     json: body,
+    partition: QQ_PARTITION,
   });
   return json;
 }
@@ -57,7 +60,7 @@ async function qqLyric(params: Record<string, unknown>): Promise<unknown> {
   const url =
     `${LYRIC}?songmid=${encodeURIComponent(songmid)}` +
     "&g_tk=5381&format=json&inCharset=utf8&outCharset=utf-8&nobase64=1";
-  const { json } = await fetchJson(url, { headers: QQ_HEADERS });
+  const { json } = await fetchJson(url, { headers: QQ_HEADERS, partition: QQ_PARTITION });
   return json;
 }
 
@@ -89,6 +92,7 @@ async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
     method: "POST",
     headers: { ...QQ_HEADERS, "Content-Type": "application/json" },
     json: body,
+    partition: QQ_PARTITION,
   });
   return json;
 }

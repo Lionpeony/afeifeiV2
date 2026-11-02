@@ -13,6 +13,9 @@
 import { BrowserWindow } from "electron";
 import { session } from "electron";
 import { log } from "../log/index.js";
+import { QQ_PARTITION } from "./qqClient.js";
+
+const qqSession = (): Electron.Session => session.fromPartition(QQ_PARTITION);
 
 const XLOGIN_URL =
   "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=100497308&daid=38&style=11&hide_border=1&proxy_url=https%3A%2F%2Fy.qq.com%2Fportal%2Fproxy.html&s_url=https%3A%2F%2Fy.qq.com%2F";
@@ -25,7 +28,7 @@ export async function qqProfile(): Promise<{
   nick: string | null;
   uid: string | null;
 }> {
-  const cookies = await session.defaultSession.cookies.get({ url: "https://y.qq.com/" });
+  const cookies = await qqSession().cookies.get({ url: "https://y.qq.com/" });
   const names = new Set(cookies.map((c) => c.name));
   const loggedIn = LOGIN_COOKIES.every((n) => names.has(n));
   if (!loggedIn) return { loggedIn: false, nick: null, uid: null };
@@ -35,10 +38,10 @@ export async function qqProfile(): Promise<{
 }
 
 export async function qqLogout(): Promise<void> {
-  const cookies = await session.defaultSession.cookies.get({ url: "https://y.qq.com/" });
+  const cookies = await qqSession().cookies.get({ url: "https://y.qq.com/" });
   for (const c of cookies) {
     const domain = (c.domain ?? "").replace(/^\./, "");
-    await session.defaultSession.cookies.remove(`https://${domain}${c.path}`, c.name);
+    await qqSession().cookies.remove(`https://${domain}${c.path}`, c.name);
   }
   log("info", "[qq] 已清除登录 cookie");
 }
@@ -70,7 +73,13 @@ export function startQrLogin(): Promise<{ qrImage: string }> {
       show: false, // 用户全程在应用内看二维码
       width: 420,
       height: 500,
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      // 登录页跑在 QQ 专属分区：qrsig/登录 cookie 只进这个分区，与其它源隔离
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        partition: QQ_PARTITION,
+      },
     });
     qrWin.on("closed", () => {
       qrWin = null;

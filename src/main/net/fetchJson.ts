@@ -1,4 +1,4 @@
-import { net } from "electron";
+import { net, session } from "electron";
 import { log } from "../log/index.js";
 
 /**
@@ -7,8 +7,10 @@ import { log } from "../log/index.js";
  * 用 Electron 的 `net.fetch` 而不是 Node 的 `fetch`：它走 Chromium 网络栈，
  * **自动带上 session 里的 cookie**。网易云扫码登录成功后 Set-Cookie 写进 session，
  * 后续所有请求就都带着登录态了 —— 不需要自己实现 CookieJar。
+ *
+ * **partition（M6 P0，Mineradio 同款做法）**：每个可登录源一个 `persist:<source>-login`
+ * 分区——cookie 隔离，网易云与 QQ 永不串号；`persist:` 前缀使 cookie 跨重启保留。
  */
-
 export interface FetchJsonOptions {
   method?: "GET" | "POST";
   /** application/x-www-form-urlencoded 的字段 */
@@ -18,6 +20,8 @@ export interface FetchJsonOptions {
   /** 额外请求头。**不要在这里塞 Cookie** —— Chromium 会忽略，cookie 只能走 session。 */
   headers?: Record<string, string>;
   timeoutMs?: number;
+  /** 会话分区：传 `persist:<source>-login` 则请求（含 cookie 收发）走该源专属 session。 */
+  partition?: string;
 }
 
 export interface FetchJsonResult {
@@ -66,7 +70,11 @@ export async function fetchJson(url: string, options: FetchJsonOptions = {}): Pr
       headers["content-type"] = "application/x-www-form-urlencoded";
     }
 
-    const response = await net.fetch(url, { method, headers, body, signal: controller.signal });
+    const init = { method, headers, body, signal: controller.signal };
+    // 指定分区时走该源专属 session（cookie 隔离）；否则默认 session
+    const response = options.partition
+      ? await session.fromPartition(options.partition).fetch(url, init)
+      : await net.fetch(url, init);
 
     const text = await response.text();
     let json: unknown = null;
