@@ -7,6 +7,7 @@ import { readCover } from "../fs/cover.js";
 import { readKey, writeKey } from "../fs/kv.js";
 import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
+import { openLoginWindow } from "../net/loginWindow.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
@@ -87,6 +88,13 @@ export function registerIpc(): void {
       throw new Error("net:setCookie 需要 (url, name, value)");
     }
     return setSessionCookie(target, name, value);
+  });
+
+  ipcMain.handle("netease:loginWindow", () => {
+    return openLoginWindow({
+      url: "https://music.163.com/#/login",
+      title: "登录网易云音乐",
+    });
   });
 
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {

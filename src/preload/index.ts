@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld("api", {
   setCookie: (url: string, name: string, value: string): Promise<void> =>
     ipcRenderer.invoke("net:setCookie", url, name, value),
   qrDataUrl: (text: string): Promise<string> => ipcRenderer.invoke("util:qrcode", text),
+  openLoginWindow: (): Promise<boolean> => ipcRenderer.invoke("netease:loginWindow"),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

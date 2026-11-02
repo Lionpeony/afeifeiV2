@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
-import { LoginDialog } from "./LoginDialog.js";
 
 export interface SourceOption {
   id: string;
@@ -14,8 +13,8 @@ export interface OnlineViewProps {
   /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。 */
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
   loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
-  startLogin(): Promise<{ key: string; qrImage: string }>;
-  pollLogin(key: string): Promise<{ code: number | string; loggedIn: boolean; message: string }>;
+  /** 打开真实浏览器窗口登录，返回是否成功拿到登录态。 */
+  loginViaWindow(): Promise<boolean>;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -29,17 +28,17 @@ function fmtDuration(ms: number): string {
  * 在线页（M3）：音源选择 + 搜索 + 结果。
  *
  * 音源列表来自注册表，**不写死** —— 加第三家源时这个下拉框自动多一项。
- * 点一首能不能播由能力声明决定：demo 源声明了 canGetUrl 但实现里明确抛错，
- * 正好验证"能力缺失/不支持"的提示链路。
+ * 登录走"真实浏览器窗口"而不是扫码接口：后者对请求频率敏感，
+ * 多申请几次 key 就会开始返回非标准码（实测 8821，风控按 IP 记）。
  */
-export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin, pollLogin }: OnlineViewProps) {
+export function OnlineView({ sources, onSearch, onPlay, loginStatus, loginViaWindow }: OnlineViewProps) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [nick, setNick] = useState<string | null>(null);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
     if (!sourceId && sources[0]) setSourceId(sources[0].id);
@@ -47,7 +46,7 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
 
   const refreshLogin = (): void => {
     void loginStatus()
-      .then((s) => setNick(s.loggedIn ? s.nick ?? "已登录" : null))
+      .then((s) => setNick(s.loggedIn ? (s.nick ?? "已登录") : null))
       .catch(() => setNick(null));
   };
 
@@ -81,11 +80,10 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
     }
   };
 
-  /**
-   * 已登录就不要再申请二维码 —— 对已登录账号反复调 unikey，
-   * 网易云会返回非标准码（实测见过 8821），表现就是"扫码坏了"。
-   */
+  /** 已登录就不打扰；未登录才开窗口。 */
   const openLogin = async (): Promise<void> => {
+    if (loggingIn) return;
+    setNote("");
     try {
       const status = await loginStatus();
       if (status.loggedIn) {
@@ -94,19 +92,30 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
         return;
       }
     } catch {
-      /* 查不到状态就当未登录，继续弹二维码 */
+      /* 查不到状态就当未登录，继续开窗口 */
     }
-    setLoginOpen(true);
+
+    setLoggingIn(true);
+    setNote("已打开登录窗口，请在弹出窗口里完成登录…");
+    try {
+      const ok = await loginViaWindow();
+      if (ok) {
+        refreshLogin();
+        setNote("登录成功，直接点歌就能播。");
+      } else {
+        setNote("登录窗口已关闭，未完成登录。");
+      }
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : "打开登录窗口失败");
+    } finally {
+      setLoggingIn(false);
+    }
   };
 
   return (
     <section className="library">
       <div className="lib-head">
-        <select
-          className="source-pick"
-          value={sourceId}
-          onChange={(e) => setSourceId(e.target.value)}
-        >
+        <select className="source-pick" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
           {sources.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -126,24 +135,11 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
         <button type="button" onClick={() => void run()} disabled={busy}>
           {busy ? "搜索中…" : "搜索"}
         </button>
-        <button type="button" onClick={() => void openLogin()}>
-          {nick ? `已登录：${nick}` : "登录"}
+        <button type="button" onClick={() => void openLogin()} disabled={loggingIn}>
+          {nick ? `已登录：${nick}` : loggingIn ? "登录中…" : "登录"}
         </button>
         <span className="lib-count">{rows.length > 0 ? `${rows.length} 条` : ""}</span>
       </div>
-
-      {loginOpen ? (
-        <LoginDialog
-          start={startLogin}
-          poll={pollLogin}
-          onSuccess={() => {
-            setLoginOpen(false);
-            refreshLogin();
-            setNote("登录成功，现在可以播放会员歌曲了");
-          }}
-          onClose={() => setLoginOpen(false)}
-        />
-      ) : null}
 
       {note ? <p className="lib-note">{note}</p> : null}
 
@@ -161,9 +157,7 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
             <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
           </div>
         ))}
-        {rows.length === 0 && !note ? (
-          <p className="lib-empty">选一个音源，输入关键词搜索。</p>
-        ) : null}
+        {rows.length === 0 && !note ? <p className="lib-empty">选一个音源，输入关键词搜索。</p> : null}
       </div>
     </section>
   );

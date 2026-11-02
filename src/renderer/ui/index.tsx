@@ -137,16 +137,7 @@ function App() {
             dispatch({ type: "player/play", trackId: url });
           }}
           loginStatus={() => services.current?.loginStatus() ?? Promise.resolve({ loggedIn: false, nick: null })}
-          startLogin={() => {
-            const svc = services.current;
-            if (!svc) return Promise.reject(new Error("还没准备好，请稍后"));
-            return svc.startLogin();
-          }}
-          pollLogin={(key) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" });
-            return svc.pollLogin(key);
-          }}
+          loginViaWindow={() => services.current?.loginViaWindow() ?? Promise.resolve(false)}
         />
       )}
 

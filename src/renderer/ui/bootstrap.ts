@@ -5,14 +5,7 @@ import { AudioEngine } from "../capability/audio/engine.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
-import {
-  checkLogin,
-  createNeteaseProvider,
-  pollQrLogin,
-  startQrLogin,
-  type LoginProfile,
-  type QrPollResult,
-} from "../capability/sources/netease/index.js";
+import { checkLogin, createNeteaseProvider, type LoginProfile } from "../capability/sources/netease/index.js";
 import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
@@ -52,6 +45,7 @@ interface Api {
   ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
   setCookie(url: string, name: string, value: string): Promise<void>;
   qrDataUrl(text: string): Promise<string>;
+  openLoginWindow(): Promise<boolean>;
 }
 
 declare global {
@@ -74,10 +68,11 @@ export interface Services {
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
-  /** 开始扫码登录：拿到 key 与二维码图 */
-  startLogin(): Promise<{ key: string; qrImage: string }>;
-  /** 轮询扫码结果 */
-  pollLogin(key: string): Promise<QrPollResult>;
+  /**
+   * 打开一个真实浏览器窗口登录。
+   * 不用扫码接口：那个接口对请求频率敏感，多申请几次 key 就会开始返回 8821（风控按 IP 记）。
+   */
+  loginViaWindow(): Promise<boolean>;
   /** 查询当前登录态 */
   loginStatus(): Promise<LoginProfile>;
 }
@@ -233,8 +228,7 @@ export async function bootstrap(): Promise<Services> {
       }
     },
 
-    startLogin: () => startQrLogin(http),
-    pollLogin: (key) => pollQrLogin(http, key),
+    loginViaWindow: () => api.openLoginWindow(),
     loginStatus: () => checkLogin(http),
 
     async scan(onProgress) {
