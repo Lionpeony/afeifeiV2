@@ -123,7 +123,12 @@ await build({
   define: { "process.env.NODE_ENV": '"production"' },
 });
 
-const css = ["src/renderer/ui/tokens.css", "src/renderer/ui/app.css", "src/renderer/ui/views/stage/stage.css"]
+const css = [
+  "src/renderer/ui/tokens.css",
+  "src/renderer/ui/app.css",
+  "src/renderer/ui/player.css",
+  "src/renderer/ui/views/stage/stage.css",
+]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");
 fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);

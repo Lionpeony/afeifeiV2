@@ -1,6 +1,6 @@
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { onTick } from "./compositor.js";
-import type { Services } from "./bootstrap.js";
+import type { Services } from "./services.js";
 
 /**
  * 主窗 → 迷你窗的桥（M5）。

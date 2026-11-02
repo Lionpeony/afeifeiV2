@@ -64,7 +64,8 @@ function persist(next: string): void {
     fs.mkdirSync(dataDir(), { recursive: true });
     fs.writeFileSync(cookieFile(), next, "utf8");
   } catch (err) {
-    log("warn", `[netease] 存 cookie 失败：${(err as Error).message}`);
+    // 00 §10.2：凭据绝不入日志。fs 错误的 message 可能带路径，只打错误码
+    log("warn", `[netease] 存 cookie 失败：code=${(err as NodeJS.ErrnoException).code ?? "unknown"}`);
   }
 }
 
