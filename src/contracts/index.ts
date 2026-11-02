@@ -82,11 +82,34 @@ export interface StageConfig {
   customTokens: Record<string, string> | null;
 }
 
+/** 下载任务（M7）。状态机：queued → active → done；分支 paused / error。 */
+export type DownloadState = "queued" | "active" | "paused" | "done" | "error";
+
+export interface DownloadItem {
+  /** `${sourceId}:${songId}` —— 同一首歌只有一个任务 */
+  id: string;
+  sourceId: string;
+  songId: string;
+  /** 显示用标题（歌名 — 歌手），也用于生成文件名 */
+  title: string;
+  /** 落盘绝对路径（downloads 目录内，由端口分配） */
+  destPath: string;
+  state: DownloadState;
+  received: number;
+  total: number;
+  /** 已重试次数（重试 3 次退避，M7 判据） */
+  tries: number;
+  /** 字节/秒，由 runner 在节流后的 progress 里算 */
+  speed: number;
+  error: string | null;
+}
+
 export interface AppState {
   player: PlayerState;
   queue: QueueState;
   audio: AudioConfig;
   stage: StageConfig;
+  download: { items: DownloadItem[] };
 }
 
 /** UI 唯一允许对外发出的东西。 */
@@ -129,7 +152,19 @@ export type Intent =
   | { type: "stage/setLyricRenderer"; renderer: LyricRenderer }
   /** 主题包覆盖（入口侧已 sanitize）。null = 清除主题包。 */
   | { type: "stage/setTheme"; tokens: Record<string, string> | null }
-  | { type: "stage/restore"; config: StageConfig };
+  | { type: "stage/restore"; config: StageConfig }
+  /** 下载（M7）。进度由 runner 节流后再进 store——状态机转移即时，字节流不逐条进。 */
+  | { type: "download/add"; item: DownloadItem }
+  | { type: "download/start"; id: string }
+  | { type: "download/pause"; id: string }
+  /** paused / error → queued（error 时 tries 保留，重试决策在 domain） */
+  | { type: "download/resume"; id: string }
+  | { type: "download/progress"; id: string; received: number; total: number; speed: number }
+  | { type: "download/done"; id: string }
+  | { type: "download/fail"; id: string; error: string; requeue: boolean }
+  | { type: "download/remove"; id: string }
+  /** 启动恢复：active/queued 一律落回 queued（进程死了，.part 还在，续传靠它） */
+  | { type: "download/restore"; items: DownloadItem[] };
 
 /** 播放器状态机的事件（不是 intent，是"引擎发生了什么"）。 */
 export type PlayerEvent =

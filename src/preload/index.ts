@@ -79,6 +79,30 @@ contextBridge.exposeInMainWorld("api", {
   exportTheme: (json: string): Promise<boolean> => ipcRenderer.invoke("theme:export", json),
   importTheme: (): Promise<unknown> => ipcRenderer.invoke("theme:import"),
 
+  // 下载（M7）：系统调用面。队列/并发/配额在渲染层环 1
+  downloadDir: (): Promise<string> => ipcRenderer.invoke("download:dir"),
+  downloadUsage: (): Promise<number> => ipcRenderer.invoke("download:usage"),
+  downloadFetch: (
+    taskId: string,
+    url: string,
+    destPath: string,
+  ): Promise<{ bytes: number; resumed: boolean }> =>
+    ipcRenderer.invoke("download:fetch", taskId, url, destPath),
+  downloadCancel: (taskId: string): Promise<void> => ipcRenderer.invoke("download:cancel", taskId),
+  downloadRemove: (filePath: string): Promise<void> => ipcRenderer.invoke("download:remove", filePath),
+  onDownloadProgress: (cb: (p: { taskId: string; received: number; total: number }) => void): void => {
+    ipcRenderer.on("download:progress", (_e, p: unknown) => {
+      if (
+        p &&
+        typeof p === "object" &&
+        typeof (p as { taskId?: unknown }).taskId === "string" &&
+        typeof (p as { received?: unknown }).received === "number"
+      ) {
+        cb(p as { taskId: string; received: number; total: number });
+      }
+    });
+  },
+
   // 数据备份（恢复后需重启生效）
   exportBackup: (): Promise<string | null> => ipcRenderer.invoke("backup:export"),
   importBackup: (): Promise<{ restored: boolean } | null> => ipcRenderer.invoke("backup:import"),

@@ -1,5 +1,6 @@
-import type { AppState } from "../../contracts/index.js";
+import type { AppState, DownloadItem } from "../../contracts/index.js";
 import type {
+  DownloadPort,
   KeyValuePort,
   LibraryPort,
   LocalApiPort,
@@ -26,6 +27,7 @@ import {
 } from "../capability/sources/netease/index.js";
 import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary } from "../domain/library/scan.js";
+import { startDownloadRunner } from "../domain/download/runner.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
 import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/likes/index.js";
 import { loadPlaylists, savePlaylists, subscribe as subscribePlaylists } from "../domain/playlists/index.js";
@@ -77,6 +79,20 @@ export async function bootstrap(): Promise<Services> {
   const kv: KeyValuePort = {
     read: (key) => api.readStore(key),
     write: (key, json) => api.writeStore(key, json),
+  };
+
+  // 下载的系统调用面（M7）。进度事件：桥里单订阅，按 taskId 分发到进行中的 fetch
+  const progressCbs = new Map<string, (received: number, total: number) => void>();
+  api.onDownloadProgress((p) => progressCbs.get(p.taskId)?.(p.received, p.total));
+  const download: DownloadPort = {
+    dir: api.downloadDir,
+    usage: api.downloadUsage,
+    fetch: (taskId, url, destPath, onProgress) => {
+      progressCbs.set(taskId, onProgress);
+      return api.downloadFetch(taskId, url, destPath).finally(() => progressCbs.delete(taskId));
+    },
+    cancel: api.downloadCancel,
+    remove: api.downloadRemove,
   };
 
   // 音源本地通道：加密、cookie、限流都在主进程一侧，渲染层只给方法名。
@@ -207,7 +223,7 @@ export async function bootstrap(): Promise<Services> {
     void persister.flush(getState, () => clock.t(performance.now()));
   });
 
-  return {
+  const services: Services = {
     engine,
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
@@ -218,6 +234,7 @@ export async function bootstrap(): Promise<Services> {
         id: p.id,
         name: p.name,
         canAuth: p.capabilities.canLogin,
+        canDownload: p.capabilities.canGetUrl,
       })),
 
     async searchOnline(sourceId, keyword, page = 0) {
@@ -350,7 +367,49 @@ export async function bootstrap(): Promise<Services> {
       if (!dir) return null;
       return scanLibrary(library, [dir], onProgress);
     },
+
+    async downloadTrack(sourceId, track) {
+      const dir = await api.downloadDir();
+      // 文件名里的 Windows 非法字符压掉；扩展名按 320k 直链的实际格式写死 mp3（flac 待源按音质返回后处理）
+      const safe = `${track.title} - ${track.artist}`.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+      const destPath = `${dir}/${safe}.mp3`;
+      const id = `${sourceId}:${track.sourceId}`;
+      const item: DownloadItem = {
+        id,
+        sourceId,
+        songId: track.sourceId,
+        title: `${track.title} — ${track.artist}`,
+        destPath,
+        state: "queued",
+        received: 0,
+        total: 0,
+        tries: 0,
+        speed: 0,
+        error: null,
+      };
+      dispatch({ type: "download/add", item });
+      return "已加入下载队列。";
+    },
+
+    async removeDownload(id) {
+      const item = getState().download.items.find((i) => i.id === id);
+      if (item) api.downloadCancel(id); // 在途连接先断（幂等）
+      dispatch({ type: "download/remove", id });
+      if (item) await api.downloadRemove(item.destPath).catch(() => undefined);
+    },
+
+    downloadUsage: () => api.downloadUsage(),
   };
+
+  // 下载执行器（M7）：与播放链路同源——完成后走曲库，不做"边下边播"
+  startDownloadRunner({
+    port: download,
+    library,
+    kv,
+    resolveUrl: (sourceId, songId) => services.resolveOnlineUrl(sourceId, songId, "320k"),
+  });
+
+  return services;
 }
 
 /** store → engine 的单向同步。任何"引擎反过来改 store"都是 bug。 */

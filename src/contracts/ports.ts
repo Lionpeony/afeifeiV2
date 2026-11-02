@@ -53,10 +53,34 @@ export interface HttpPort {
       headers?: Record<string, string>;
     },
   ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
-  /** 把文本画成二维码 dataURL（扫码登录用） */
-  qrDataUrl(text: string): Promise<string>;
   /** 写一条 session cookie（有些接口要求带基础 cookie，否则 301/400） */
   setCookie(url: string, name: string, value: string): Promise<void>;
+}
+
+/**
+ * 下载的系统调用面（M7）。队列 / 并发 / 重试 / 配额是业务，在环 1；
+ * 这里只有「把一个 URL 流到指定文件」与目录的统计、删除。
+ * 断点续传由实现自治：同目录的 `<destPath>.part` 是续传依据，完成后原子 rename。
+ */
+export interface DownloadPort {
+  /** 下载根目录（不存在则创建）。 */
+  dir(): Promise<string>;
+  /** 根目录当前占用字节数（含 .part）。 */
+  usage(): Promise<number>;
+  /**
+   * 流式下载。每次调用自动从 `<destPath>.part` 续传；完成后 rename 成 destPath。
+   * progress 回调频率是实现细节，调用方负责节流。
+   */
+  fetch(
+    taskId: string,
+    url: string,
+    destPath: string,
+    onProgress: (received: number, total: number) => void,
+  ): Promise<{ bytes: number; resumed: boolean }>;
+  /** 中止进行中的 fetch（.part 保留，下次调用续传）。未知 id 静默成功。 */
+  cancel(taskId: string): void;
+  /** 删除 downloads 目录内的文件（含 .part）。目录外的路径一律拒绝。 */
+  remove(filePath: string): Promise<void>;
 }
 
 /**

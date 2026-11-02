@@ -46,6 +46,18 @@ export interface Api {
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
   exportTheme(json: string): Promise<boolean>;
   importTheme(): Promise<unknown>;
+
+  // 下载（M7，桥接 DownloadPort）
+  downloadDir(): Promise<string>;
+  downloadUsage(): Promise<number>;
+  downloadFetch(
+    taskId: string,
+    url: string,
+    destPath: string,
+  ): Promise<{ bytes: number; resumed: boolean }>;
+  downloadCancel(taskId: string): Promise<void>;
+  downloadRemove(filePath: string): Promise<void>;
+  onDownloadProgress(cb: (p: { taskId: string; received: number; total: number }) => void): () => void;
   exportBackup(): Promise<string | null>;
   importBackup(): Promise<{ restored: boolean } | null>;
 }
@@ -64,8 +76,8 @@ export interface Services {
   scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
   /** 取封面（带缓存与请求去重）。 */
   cover(id: string, path: string): Promise<string | null>;
-  /** 已注册的音源（UI 的选项来源就是它，不写死）。 */
-  sources(): { id: string; name: string; canAuth: boolean }[];
+  /** 已注册的音源（UI 的选项来源就是它，不写死）。canDownload = canGetUrl（M7）。 */
+  sources(): { id: string; name: string; canAuth: boolean; canDownload: boolean }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
   /** 在线曲目歌词。错误已翻译成人话。 */
@@ -86,6 +98,13 @@ export interface Services {
   exportBackup(): Promise<string | null>;
   /** 恢复备份。恢复后需重启生效。 */
   importBackup(): Promise<{ restored: boolean } | null>;
+
+  /** 加入下载队列（M7）。返回给用户看的一句话。 */
+  downloadTrack(sourceId: string, track: { sourceId: string; title: string; artist: string }): Promise<string>;
+  /** 取消并删除一个任务（含磁盘文件）。 */
+  removeDownload(id: string): Promise<void>;
+  /** 下载目录当前占用（字节）。 */
+  downloadUsage(): Promise<number>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */

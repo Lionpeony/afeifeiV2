@@ -1,5 +1,5 @@
 import { dialog, ipcMain } from "electron";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/index.js";
 import { loadState, saveState } from "../fs/state.js";
@@ -14,6 +14,8 @@ import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
+import { cancelFetch, dirUsage, fetchToFile } from "../fs/fetchToFile.js";
+import { dataDir } from "../paths.js";
 import {
   appendIndexLog,
   clearIndexLog,
@@ -279,6 +281,45 @@ export function registerIpc(): void {
 
   ipcMain.handle("backup:export", () => exportBackup());
   ipcMain.handle("backup:import", () => importBackup());
+
+  /* ---------- 下载（M7，系统调用面；队列/并发/配额是环 1 的业务） ---------- */
+
+  const downloadsDir = (): string => path.join(dataDir(), "downloads");
+  /** 防穿越：dest/remove 只准落在 downloads 目录内。 */
+  const insideDownloads = (p: string): boolean => {
+    const rel = path.relative(downloadsDir(), path.resolve(p));
+    return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+  };
+
+  ipcMain.handle("download:dir", async () => {
+    const dir = downloadsDir();
+    await mkdir(dir, { recursive: true });
+    return dir;
+  });
+  ipcMain.handle("download:usage", () => dirUsage(downloadsDir()));
+  ipcMain.handle(
+    "download:fetch",
+    (e, taskId: unknown, url: unknown, destPath: unknown) => {
+      if (typeof taskId !== "string" || !taskId) throw new Error("download:fetch 需要 taskId");
+      if (typeof url !== "string" || !/^https?:\/\//i.test(url)) throw new Error("download:fetch 需要合法 URL");
+      if (typeof destPath !== "string" || !insideDownloads(destPath)) {
+        throw new Error("download:fetch 的目标路径必须在下载目录内");
+      }
+      return fetchToFile(taskId, url, destPath, (received, total) => {
+        if (!e.sender.isDestroyed()) e.sender.send("download:progress", { taskId, received, total });
+      });
+    },
+  );
+  ipcMain.handle("download:cancel", (_e, taskId: unknown) => {
+    if (typeof taskId === "string") cancelFetch(taskId);
+  });
+  ipcMain.handle("download:remove", async (_e, filePath: unknown) => {
+    if (typeof filePath !== "string" || !insideDownloads(filePath)) {
+      throw new Error("download:remove 只能删下载目录内的文件");
+    }
+    await rm(filePath, { force: true });
+    await rm(`${filePath}.part`, { force: true });
+  });
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */
   ipcMain.handle("store:read", (_e, key: unknown) => {

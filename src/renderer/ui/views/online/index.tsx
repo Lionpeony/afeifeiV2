@@ -6,6 +6,8 @@ export interface SourceOption {
   id: string;
   name: string;
   canAuth: boolean;
+  /** 能力驱动（00 §7.2）：canGetUrl 才有下载按钮，UI 不做特判 */
+  canDownload: boolean;
 }
 
 export interface OnlineViewProps {
@@ -13,6 +15,8 @@ export interface OnlineViewProps {
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。 */
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  /** 加入下载队列（M7）。返回给用户看的一句话。 */
+  onDownload(sourceId: string, track: RemoteTrack): Promise<string>;
   /** 查某音源的登录态（登录按钮/退出按钮随源切换，不再网易云专属）。 */
   loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
   /** 开始登录：网易云弹扫码窗，QQ 按通道出码（channel 可选）。 */
@@ -41,6 +45,7 @@ export function OnlineView({
   sources,
   onSearch,
   onPlay,
+  onDownload,
   loginStatus,
   startLogin,
   pollLogin,
@@ -103,6 +108,15 @@ export function OnlineView({
     setNote("");
     try {
       await onPlay(sourceId, track);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const download = async (track: RemoteTrack): Promise<void> => {
+    setNote("");
+    try {
+      setNote(await onDownload(sourceId, track));
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -227,6 +241,19 @@ export function OnlineView({
             <span className="lib-artist">{track.artist}</span>
             <span className="lib-artist">{track.album}</span>
             <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
+            {currentSource?.canDownload ? (
+              <button
+                type="button"
+                className="dl-btn"
+                title="下载到本地"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void download(track);
+                }}
+              >
+                下载
+              </button>
+            ) : null}
           </div>
         ))}
         {rows.length === 0 && !note ? <p className="lib-empty">选一个音源，输入关键词搜索。</p> : null}

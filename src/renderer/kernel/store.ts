@@ -1,4 +1,4 @@
-import type { AppState, Intent } from "../../contracts/index.js";
+import type { AppState, DownloadItem, Intent } from "../../contracts/index.js";
 import { clampCursor, orderOf, prevAction, pushHistory, stepBackward, stepForward } from "./queue.js";
 
 /**
@@ -29,6 +29,7 @@ const initialState: AppState = {
     lyricRenderer: "press",
     customTokens: null,
   },
+  download: { items: [] },
 };
 
 /** 音频配置的限幅（±12dB，与 capability 侧 GAIN_LIMIT_DB 同值）。kernel 不 import capability，这里只做数值 clamp。 */
@@ -66,6 +67,7 @@ function switchTo(current: AppState, cursor: number): AppState {
       queue: { ...queue, cursor: -1 },
       audio: current.audio,
       stage: current.stage,
+      download: current.download,
     };
   }
   const trackId = queue.items[cursor];
@@ -83,6 +85,7 @@ function switchTo(current: AppState, cursor: number): AppState {
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
     audio: current.audio,
       stage: current.stage,
+      download: current.download,
   };
 }
 
@@ -113,6 +116,7 @@ function reduce(current: AppState, intent: Intent): AppState {
         queue: nextQueue,
         audio: current.audio,
       stage: current.stage,
+        download: current.download,
       };
     }
 
@@ -190,6 +194,7 @@ function reduce(current: AppState, intent: Intent): AppState {
           queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
           audio: current.audio,
       stage: current.stage,
+          download: current.download,
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
@@ -198,6 +203,7 @@ function reduce(current: AppState, intent: Intent): AppState {
         queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
         audio: current.audio,
       stage: current.stage,
+        download: current.download,
       };
       return switchTo(staged, cursor);
     }
@@ -304,9 +310,106 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, stage: c };
     }
 
+    /* ---- 下载（M7）。状态机转移即时；字节进度由 runner 节流后再进来 ---- */
+
+    case "download/add": {
+      if (current.download.items.some((i) => i.id === intent.item.id)) return current;
+      return { ...current, download: { items: [...current.download.items, intent.item] } };
+    }
+
+    case "download/start": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "queued" ? { ...i, state: "active" as const } : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/pause": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "active" ? { ...i, state: "paused" as const, speed: 0 } : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/resume": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "paused" || i.state === "error" ? { ...i, state: "queued" as const } : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/progress": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "active"
+          ? {
+              ...i,
+              received: intent.received,
+              total: intent.total,
+              speed: Math.max(0, intent.speed),
+            }
+          : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/done": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "active"
+          ? { ...i, state: "done" as const, received: i.total > 0 ? i.total : i.received, speed: 0 }
+          : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/fail": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "active" || i.state === "queued"
+          ? {
+              ...i,
+              state: (intent.requeue ? "queued" : "error") as typeof i.state,
+              tries: i.tries + 1,
+              speed: 0,
+              error: intent.error,
+            }
+          : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
+    case "download/remove": {
+      const items = current.download.items.filter((i) => i.id !== intent.id);
+      return items.length === current.download.items.length
+        ? current
+        : { ...current, download: { items } };
+    }
+
+    case "download/restore": {
+      const same =
+        current.download.items.length === intent.items.length &&
+        current.download.items.every((i, idx) => {
+          const r = intent.items[idx];
+          return r && i.id === r.id && i.state === r.state && i.received === r.received;
+        });
+      if (same) return current;
+      return { ...current, download: { items: intent.items } };
+    }
+
     default:
       return current;
   }
+}
+
+/** 对指定 id 的条目做一次映射；没找到返回原数组（引用不变 = 不通知）。 */
+function mapItem(
+  items: DownloadItem[],
+  id: string,
+  fn: (i: DownloadItem) => DownloadItem,
+): DownloadItem[] {
+  const idx = items.findIndex((i) => i.id === id);
+  if (idx < 0) return items;
+  const next = [...items];
+  next[idx] = fn(items[idx]);
+  return next;
 }
 
 export function dispatch(intent: Intent): void {

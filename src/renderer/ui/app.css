@@ -318,6 +318,30 @@ body,
   text-align: right;
 }
 
+/* 下载（M7）：行内按钮 + 管理页操作列 */
+.dl-btn,
+.lib-actions button {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 2px 8px;
+  font-size: 12px;
+}
+.dl-btn:hover,
+.lib-actions button:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.lib-actions {
+  width: 150px;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
 .lib-empty {
   padding: 32px 8px;
   color: var(--fg-dim);

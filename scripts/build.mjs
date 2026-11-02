@@ -42,6 +42,7 @@ if (TEST) {
       "input-esc": "src/renderer/ui/input/resolve-esc.ts",
       "input-commands": "src/renderer/ui/input/commands.ts",
       "library-state": "src/renderer/domain/library/state.ts",
+      "download-queue": "src/renderer/domain/download/queue.ts",
     },
     outdir: "dist-test",
     bundle: true,

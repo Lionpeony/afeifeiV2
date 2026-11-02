@@ -14,6 +14,7 @@ import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
+import { DownloadsView } from "./views/downloads/index.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -32,7 +33,7 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const [tab, setTab] = useState<"local" | "online" | "stage">("local");
+  const [tab, setTab] = useState<"local" | "online" | "stage" | "downloads">("local");
   const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const services = useRef<Services | null>(null);
@@ -212,6 +213,9 @@ function App() {
           <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
             播放页
           </button>
+          <button type="button" className={tab === "downloads" ? "on" : ""} onClick={() => setTab("downloads")}>
+            下载
+          </button>
           <button type="button" onClick={() => void onImportSource()}>
             导入源
           </button>
@@ -248,6 +252,15 @@ function App() {
           scanNote={scanNote}
           cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
         />
+      ) : tab === "downloads" ? (
+        services.current ? (
+          <DownloadsView
+            services={services.current}
+            onRemove={(id) => services.current?.removeDownload(id) ?? Promise.resolve()}
+          />
+        ) : (
+          <p className="lib-empty">还没准备好，请稍候。</p>
+        )
       ) : (
         <OnlineView
           sources={sources}
@@ -296,6 +309,11 @@ function App() {
           logout={(sourceId) => {
             const svc = services.current;
             return svc ? svc.logout(sourceId) : Promise.resolve();
+          }}
+          onDownload={(sourceId, track) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve("还没准备好，请稍后再试");
+            return svc.downloadTrack(sourceId, track);
           }}
         />
       )}
