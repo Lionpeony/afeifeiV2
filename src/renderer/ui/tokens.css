@@ -1,5 +1,10 @@
-/* token 是唯一颜色来源（50 §9.3）。全仓库只有这个文件允许写 hex。 */
+/* token 是唯一颜色来源（50 §9.3）。全仓库只有这个文件允许写 hex。
+   三层，谁写谁不许跨界：
+   ① 结构层 —— UI 骨架，永不跟封面/场景/预设变；
+   ② 场景层 —— 只被播放页（stage）读取，预设只准写这一层 + 布局参数；
+   ③ 材质层 —— 只给浮层（面板/弹窗），正文区不消费。 */
 :root {
+  /* ① 结构层 */
   --bg: #0b0b0c;
   --fg: #e8e6e3;
   --fg-dim: #8a8681;
@@ -10,4 +15,24 @@
   --danger: #d9534f;
   --bg-raised: #141414;
   --mask: rgba(0, 0, 0, 0.66);
+
+  /* ② 场景层（50 §9.2 四套预设只改这里 + 布局参数） */
+  --stage-bg: var(--bg);
+  --stage-fg: var(--fg);
+  --stage-fg-dim: var(--fg-dim);
+  --stage-tint: var(--accent);
+  --stage-wallpaper: none; /* L-a：预设给背景（纹理 / 模糊图 / 纯色） */
+  --stage-cover-size: 320px; /* L-c 封面尺寸 */
+  --stage-cover-radius: 8px; /* 0 = 圆形黑胶 */
+  --stage-cover-frame: none; /* 预设给边框/内边距 */
+  --stage-cover-spin: 0s; /* 黑胶转一圈的时长，0 = 不转 */
+  --stage-lyric-size: 22px;
+  --stage-lyric-weight: 600;
+  --stage-dur: 200ms; /* 预设切换转场时长 */
+  --stage-ease: ease-out;
+
+  /* ③ 材质层（只给浮层） */
+  --glass-bg: rgba(20, 20, 20, 0.88);
+  --glass-border: rgba(232, 230, 227, 0.08);
+  --glass-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }

@@ -37,6 +37,8 @@ if (TEST) {
       "capability-demo": "src/renderer/capability/sources/demo/index.ts",
       lyrics: "src/renderer/capability/lyrics/index.ts",
       "audio-eq": "src/renderer/capability/audio/eq.ts",
+      "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
+      "stage-presets": "src/renderer/ui/views/stage/presets.ts",
     },
     outdir: "dist-test",
     bundle: true,
@@ -88,7 +90,7 @@ await build({
   define: { "process.env.NODE_ENV": '"production"' },
 });
 
-const css = ["src/renderer/ui/tokens.css", "src/renderer/ui/app.css"]
+const css = ["src/renderer/ui/tokens.css", "src/renderer/ui/app.css", "src/renderer/ui/views/stage/stage.css"]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");
 fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);

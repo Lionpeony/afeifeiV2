@@ -11,9 +11,23 @@ import { clampCursor, orderOf, prevAction, pushHistory, stepBackward, stepForwar
 type Listener = () => void;
 
 const initialState: AppState = {
-  player: { status: "idle", trackId: null, trackTitle: null, positionMs: 0, volume: 0.8, error: null },
+  player: {
+    status: "idle",
+    trackId: null,
+    trackTitle: null,
+    positionMs: 0,
+    volume: 0.8,
+    error: null,
+    remote: null,
+  },
   queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
   audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0] },
+  stage: {
+    preset: "paper",
+    intensity: 1,
+    layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
+    lyricRenderer: "press",
+  },
 };
 
 /** 音频配置的限幅（±12dB，与 capability 侧 GAIN_LIMIT_DB 同值）。kernel 不 import capability，这里只做数值 clamp。 */
@@ -40,17 +54,34 @@ function switchTo(current: AppState, cursor: number): AppState {
   const { queue, player } = current;
   if (cursor < 0) {
     return {
-      player: { ...player, status: "ended", trackId: null, trackTitle: null, positionMs: 0 },
+      player: {
+        ...player,
+        status: "ended",
+        trackId: null,
+        trackTitle: null,
+        positionMs: 0,
+        remote: null,
+      },
       queue: { ...queue, cursor: -1 },
       audio: current.audio,
+      stage: current.stage,
     };
   }
   const trackId = queue.items[cursor];
   return {
-    // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题
-    player: { ...player, status: "loading", trackId, trackTitle: null, positionMs: 0, error: null },
+    // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题与元数据
+    player: {
+      ...player,
+      status: "loading",
+      trackId,
+      trackTitle: null,
+      positionMs: 0,
+      error: null,
+      remote: null,
+    },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
     audio: current.audio,
+      stage: current.stage,
   };
 }
 
@@ -76,9 +107,11 @@ function reduce(current: AppState, intent: Intent): AppState {
           trackTitle: intent.trackTitle ?? null,
           positionMs: 0,
           error: null,
+          remote: intent.remote ?? null,
         },
         queue: nextQueue,
         audio: current.audio,
+      stage: current.stage,
       };
     }
 
@@ -145,9 +178,17 @@ function reduce(current: AppState, intent: Intent): AppState {
       const items = intent.items;
       if (items.length === 0) {
         return {
-          player: { ...player, status: "idle", trackId: null, trackTitle: null, positionMs: 0 },
+          player: {
+            ...player,
+            status: "idle",
+            trackId: null,
+            trackTitle: null,
+            positionMs: 0,
+            remote: null,
+          },
           queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
           audio: current.audio,
+      stage: current.stage,
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
@@ -155,6 +196,7 @@ function reduce(current: AppState, intent: Intent): AppState {
         player,
         queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
         audio: current.audio,
+      stage: current.stage,
       };
       return switchTo(staged, cursor);
     }
@@ -211,6 +253,41 @@ function reduce(current: AppState, intent: Intent): AppState {
         return current;
       }
       return { ...current, audio: config };
+    }
+
+    case "stage/setPreset": {
+      if (current.stage.preset === intent.preset) return current;
+      return { ...current, stage: { ...current.stage, preset: intent.preset } };
+    }
+
+    case "stage/setIntensity": {
+      if (current.stage.intensity === intent.intensity) return current;
+      return { ...current, stage: { ...current.stage, intensity: intent.intensity } };
+    }
+
+    case "stage/toggleLayer": {
+      // cover / controls 永远开着（50 §9.2 可关列是 ❌）——发了也忽略
+      if (intent.layer === "cover" || intent.layer === "controls") return current;
+      const layers = { ...current.stage.layers, [intent.layer]: !current.stage.layers[intent.layer] };
+      return { ...current, stage: { ...current.stage, layers } };
+    }
+
+    case "stage/setLyricRenderer": {
+      if (current.stage.lyricRenderer === intent.renderer) return current;
+      return { ...current, stage: { ...current.stage, lyricRenderer: intent.renderer } };
+    }
+
+    case "stage/restore": {
+      const c = intent.config;
+      const same =
+        c.preset === current.stage.preset &&
+        c.intensity === current.stage.intensity &&
+        c.lyricRenderer === current.stage.lyricRenderer &&
+        (Object.keys(current.stage.layers) as (keyof typeof c.layers)[]).every(
+          (k) => c.layers[k] === current.stage.layers[k],
+        );
+      if (same) return current;
+      return { ...current, stage: c };
     }
 
     default:

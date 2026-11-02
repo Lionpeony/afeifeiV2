@@ -151,6 +151,27 @@ export class AudioEngine {
     if (this.graph) applyEq(this.graph, gains);
   }
 
+  private spectrumBuf: Uint8Array<ArrayBuffer> | null = null;
+
+  /** 频谱采样：聚合成 bins 个 0–1 的桶。图未建返回 null（UI 必须能纯几何降级，不画假波形）。 */
+  spectrum(bins: number): number[] | null {
+    const g = this.graph;
+    if (!g) return null;
+    const count = g.analyser.frequencyBinCount;
+    if (!this.spectrumBuf || this.spectrumBuf.length !== count) {
+      this.spectrumBuf = new Uint8Array(count);
+    }
+    g.analyser.getByteFrequencyData(this.spectrumBuf);
+    const step = Math.max(1, Math.floor(count / bins));
+    const out: number[] = [];
+    for (let i = 0; i < bins; i += 1) {
+      let sum = 0;
+      for (let j = 0; j < step; j += 1) sum += this.spectrumBuf[i * step + j] ?? 0;
+      out.push(sum / step / 255);
+    }
+    return out;
+  }
+
   /** 当前媒体时长（毫秒），没加载时是 0。UI 的进度条上限用它。 */
   durationMs(): number {
     const d = this.el.duration;
