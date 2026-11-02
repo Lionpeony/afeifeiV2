@@ -260,6 +260,94 @@ body,
 }
 .pl-more:hover { color: var(--fg); }
 
+/* 曲库三视图（M10-1）：唱片墙卡片网格 + 歌手列表 + 组详情 */
+.album-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.album-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+}
+.album-card:hover { border-color: var(--fg-dim); }
+.album-card .lib-cover {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+  border-radius: 6px;
+}
+.album-name {
+  font-size: 13px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.album-artist {
+  color: var(--fg-dim);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.artist-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.artist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+}
+.artist-item:hover { border-color: var(--fg-dim); }
+.group-detail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.group-back {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.group-back:hover { color: var(--fg); }
+.group-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .lib-list {
   flex: 1;
   min-height: 0;

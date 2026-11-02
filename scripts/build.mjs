@@ -39,6 +39,7 @@ if (TEST) {
       "audio-eq": "src/renderer/capability/audio/eq.ts",
       "audio-crossfade": "src/renderer/capability/audio/crossfade.ts",
       "audio-eq-response": "src/renderer/capability/audio/eq-response.ts",
+      "library-group": "src/renderer/domain/library/group.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
       "stage-tint": "src/renderer/ui/views/stage/tint.ts",
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",

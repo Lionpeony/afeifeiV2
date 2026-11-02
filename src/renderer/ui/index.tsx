@@ -6,6 +6,7 @@ import { EQ_BANDS, EQ_DEFAULT, PREAMP_DEFAULT } from "../capability/audio/eq.js"
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
 import type { Services } from "./services.js";
+import type { Track } from "../domain/library/schema.js";
 import { onFrame } from "./compositor.js";
 import { EqCurve } from "./EqCurve.js";
 import { StageView } from "./views/stage/index.js";
@@ -105,6 +106,12 @@ function App() {
     if (rows.length === 0) return;
     // 队列 = 当前筛选结果，从点击那首开始 —— 搜完直接播不会把整个库冲掉
     dispatch({ type: "queue/set", items: rows.map((r) => r.path), startAt: index });
+  };
+
+  // 分组视图（M10-1）：队列 = 该专辑/歌手的曲目，比跳进全库筛选更符合直觉
+  const onPlayGroup = (tracks: Track[], startAt: number): void => {
+    if (tracks.length === 0) return;
+    dispatch({ type: "queue/set", items: tracks.map((r) => r.path), startAt });
   };
 
   const onScan = async (): Promise<void> => {
@@ -287,6 +294,7 @@ function App() {
       ) : tab === "local" ? (
         <LibraryView
           onPlay={onPlay}
+          onPlayGroup={onPlayGroup}
           onScan={() => void onScan()}
           scanning={scanning}
           scanNote={scanNote}
