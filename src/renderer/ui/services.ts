@@ -6,6 +6,7 @@ import type { AudioEngine } from "../capability/audio/engine.js";
 import type { LyricDoc, OnlinePlaylist, Quality, SearchResult } from "../../contracts/capability.js";
 import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
+import type { Theme } from "./theme.js";
 import { errorText, translateError } from "../capability/errors.js";
 
 export interface Api {
@@ -82,6 +83,10 @@ declare global {
 
 export interface Services {
   engine: AudioEngine;
+  /** 启动时读到的明暗主题（docs/09 B4）。 */
+  theme: Theme;
+  /** 切换并持久化，返回生效值。 */
+  setTheme(theme: Theme): Theme;
   pick(): Promise<string[]>;
   positionMs(): number;
   /** 选目录并扫描。取消返回 null。 */

@@ -36,6 +36,7 @@ import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
 
 import { humanize, type Api, type NcmBody, type Services } from "./services.js";
+import { applyTheme, isTheme, THEME_KEY, type Theme } from "./theme.js";
 
 declare global {
   interface Window {
@@ -210,6 +211,11 @@ export async function bootstrap(): Promise<Services> {
 
   await Promise.all([loadLikes(kv), loadPlaylists(kv), loadHistory(kv)]);
 
+  // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排
+  const storedTheme = await kv.read(THEME_KEY);
+  const theme: Theme = isTheme(storedTheme) ? storedTheme : "light";
+  applyTheme(theme);
+
   // 音频配置：入口先 sanitize 再进 store——坏数据在这里挡下，不进真相
   const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
   dispatch({ type: "audio/restore", config: savedAudio });
@@ -233,6 +239,12 @@ export async function bootstrap(): Promise<Services> {
 
   const services: Services = {
     engine,
+    theme,
+    setTheme(next) {
+      applyTheme(next);
+      void kv.write(THEME_KEY, next);
+      return next;
+    },
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
     cover: (id, path) => loadCover(library, id, path),

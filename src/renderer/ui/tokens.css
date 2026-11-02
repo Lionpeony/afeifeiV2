@@ -41,4 +41,39 @@
   --glass-shadow:
     0 12px 32px rgba(23, 21, 15, 0.18),
     0 1px 0 rgba(23, 21, 15, 0.12);
+
+  /* 纸纹（app.css html::after 消费）：日间 .05 multiply */
+  --grain-opacity: 0.05;
+  --grain-blend: multiply;
+
+  color-scheme: light;
+}
+
+/* 夜间（docs/09 B4）：同一套 token 名换值，一份 CSS 通吃，不新增选择器。
+   暗纸上砂色不是纸色的反相——墨底要留一点暖，正文对底 ≥4.5:1 才不改排版观感。 */
+:root[data-theme="dark"] {
+  --bg: #171613;
+  --fg: #ece8dd;
+  --fg-dim: #9c9484;
+  --line: rgba(236, 232, 221, 0.3);
+  --line-soft: rgba(236, 232, 221, 0.14);
+  --row-hover: rgba(236, 232, 221, 0.07);
+  --accent: #e0492f; /* 朱砂在暗底上提亮一档，否则发乌 */
+  --accent-ink: #171613;
+  --brass: #c9a35c;
+  --danger: #e0654b;
+  --bg-raised: #211e1a;
+  --mask: rgba(0, 0, 0, 0.6);
+
+  --glass-bg: rgba(33, 30, 26, 0.97);
+  --glass-border: rgba(236, 232, 221, 0.26);
+  --glass-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(236, 232, 221, 0.08);
+
+  /* 暗底上 multiply 会把颗粒乘成纯黑，换 soft-light 才看得见；浓度减半（50 §16 亮度纪律） */
+  --grain-opacity: 0.025;
+  --grain-blend: soft-light;
+
+  color-scheme: dark;
 }

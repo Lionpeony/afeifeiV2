@@ -9,7 +9,8 @@ body,
   font: 14px/1.6 system-ui, "Segoe UI", sans-serif;
 }
 
-/* 纸纹颗粒（ref/20 §3.5）：日间 .05 multiply，盖在一切之上但不挡交互。
+/* 纸纹颗粒（ref/20 §3.5）：盖在一切之上但不挡交互。浓度与混合模式跟主题走
+   （夜间 .025 soft-light，见 tokens.css）。
    噪点用 SVG feTurbulence data-uri（%23 转义 #，躲开 lint 规则 5 的裸 hex 扫描）。 */
 html::after {
   content: "";
@@ -18,8 +19,8 @@ html::after {
   z-index: 60;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  opacity: 0.05;
-  mix-blend-mode: multiply;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
 }
 
 /* 骨架（docs/09 B1）：顶栏（品牌+状态） / 左 72px 竖导航 + 右内容 / 底部 console。
@@ -47,6 +48,22 @@ html::after {
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: var(--fg);
+}
+
+/* 明暗切换（docs/09 B4）：沉在顶栏右端，不加边框——纸面角落不该多一块筹码 */
+.theme-toggle {
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-dim);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+.theme-toggle:hover {
   color: var(--fg);
 }
 

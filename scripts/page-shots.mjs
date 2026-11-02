@@ -115,5 +115,15 @@ app.whenReady().then(async () => {
     console.log(`shot → docs/assets/page-${id}.png`);
   }
 
+  // 夜间一版（docs/09 B4 证据）：同一进程切主题，不重启、不重排
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "本地")?.click()`,
+    true,
+  );
+  await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
+  await sleep(300);
+  fs.writeFileSync(path.join(OUT, "page-local-dark.png"), (await win.webContents.capturePage()).toPNG());
+  console.log("shot → docs/assets/page-local-dark.png");
+
   app.quit();
 });

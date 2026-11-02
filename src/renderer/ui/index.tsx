@@ -14,6 +14,7 @@ import { StageView } from "./views/stage/index.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
 import { registerCommand } from "./input/commands.js";
+import { currentTheme, type Theme } from "./theme.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
 import { LibraryView } from "./views/library/index.js";
@@ -42,6 +43,7 @@ function App() {
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
+  const [theme, setThemeState] = useState<Theme>("light");
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
@@ -66,6 +68,13 @@ function App() {
     }
   };
 
+  /* 明暗切换（docs/09 B4）：当前值以 DOM 上的 data-theme 为准，不靠闭包里的旧 state。 */
+  const toggleTheme = (): void => {
+    const svc = services.current;
+    if (!svc) return;
+    setThemeState(svc.setTheme(currentTheme() === "dark" ? "light" : "dark"));
+  };
+
   useEffect(() => {
     const offFrame = onFrame(syncPosition);
     const offStore = subscribe(() => {
@@ -84,6 +93,7 @@ function App() {
       if (!alive) return;
       services.current = s;
       setSources(s.sources());
+      setThemeState(s.theme);
       syncPosition();
       startMiniBridge(s);
       startLyricBridge();
@@ -190,6 +200,7 @@ function App() {
         },
       }),
       registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
+      registerCommand({ id: "theme-toggle", label: "切换日间 / 夜间", run: toggleTheme }),
       registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
       registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
       registerCommand({ id: "open-lyric", label: "打开桌面歌词", run: () => void services.current?.openLyric() }),
@@ -253,6 +264,9 @@ function App() {
             <span className="notice">{notice.text}</span>
           )
         ) : null}
+        <button type="button" className="theme-toggle" onClick={toggleTheme} title="日间 / 夜间（只换 token 值）">
+          {theme === "dark" ? "夜间" : "日间"}
+        </button>
       </header>
 
       <div className="body">

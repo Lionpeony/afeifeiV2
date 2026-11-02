@@ -242,6 +242,16 @@ async function main() {
   const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".seg button")].map((b) => b.textContent)`);
   assert.ok(sourceOptions.length > 0, "音源分段是空的（注册表没接上）");
 
+  /* ---- 明暗主题（docs/09 B4）：切一次再切回，data-theme 是唯一开关 ---- */
+  const beforeTheme = await app.evaluate(`document.documentElement.dataset.theme ?? "(未设)"`);
+  await app.evaluate(`document.querySelector(".theme-toggle")?.click()`);
+  const flippedTheme = await app.evaluate(`document.documentElement.dataset.theme`);
+  assert.notEqual(flippedTheme, beforeTheme, "点明暗按钮后 data-theme 没变");
+  await app.evaluate(`document.querySelector(".theme-toggle")?.click()`);
+  const backTheme = await app.evaluate(`document.documentElement.dataset.theme`);
+  assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
+  console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
+
   await app.evaluate(`(() => {
     const input = document.querySelector(".search");
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
