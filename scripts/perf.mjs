@@ -68,9 +68,9 @@ async function once() {
   const app = await launch({ port: PORT, profile: PROFILE });
   current = app;
 
-  const ready = await app.waitFor(`(document.querySelector(".lib-count")?.textContent ?? "").includes("${COUNT}")`, 15000);
+  const ready = await app.waitFor(`(document.querySelector(".stat")?.textContent ?? "").includes("${COUNT}")`, 15000);
   if (!ready) {
-    const count = await app.evaluate(`document.querySelector(".lib-count")?.textContent ?? "(无)"`);
+    const count = await app.evaluate(`document.querySelector(".stat")?.textContent ?? "(无)"`);
     const indexLen = await app.evaluate(`window.api.loadIndex().then((s) => (s ? s.length : -1))`);
     const rows = await app.evaluate(`document.querySelectorAll(".lib-row").length`);
     throw new Error(`重启后曲库没恢复。界面计数=${count} 索引字节=${indexLen} 渲染行=${rows}`);

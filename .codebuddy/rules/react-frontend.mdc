@@ -1,0 +1,29 @@
+---
+description: 写 React 组件时遵守：组件拆分、hooks 依赖、渲染性能、状态设计
+globs: "*.jsx,*.tsx"
+alwaysApply: false
+---
+
+# React 开发规则
+
+## 组件与状态
+- 组件单一职责，超过 200 行先拆子组件；状态放在最小的公共父组件，避免把所有状态都提到顶层。
+- 派生数据（可从 props/state 算出来的）不要存 state，直接渲染时计算；列表过滤/排序结果同理。
+- 列表渲染必须带稳定 `key`（业务 id），禁止用数组下标当 key（有增删排序时必错）。
+- 受控输入（input/textarea）值必须绑定 state 并在 onChange 更新，禁止只读 defaultValue 后手工同步。
+
+## Hooks
+- `useEffect` 依赖数组如实填写，禁止为了少执行而漏依赖（用 eslint 提示为准）；确需跳过时写注释说明原因。
+- useEffect 里创建的订阅/定时器必须在清理函数中取消。
+- `useMemo` / `useCallback` 只用于有实际开销的场景（大列表计算、传给 memo 子组件的回调），不滥用。
+- 事件处理函数内禁止直接读写 ref 当前渲染快照以外的状态造成闭包陈旧值问题，必要时用函数式 setState。
+
+## 渲染性能
+- 高频变化的值（进度条、播放时间、频谱、鼠标位置）不放进 state/props，用 ref + rAF 直接操作 DOM 或订阅外部信号，避免整棵组件树每帧 re-render。
+- 长列表（>100 项）必须做虚拟化或分页，不一次性渲染全量 DOM。
+- 传递给 memo 组件的 props 保持引用稳定（对象/回调用 useMemo/useCallback 包裹）。
+- context 的 value 是对象时用 useMemo 包裹，防止每次渲染都重建导致所有消费者重渲。
+
+## 结构约定（本项目）
+- 组件文件用 PascalCase 或与所在分区一致的命名；入口、桥接、宿主各司其职，构建产物 `*.bundle.js` 是生成文件，禁止手改。
+- 改了 `.jsx` 必须重新构建产物再验证（本项目命令：`npm run build:ui`）。

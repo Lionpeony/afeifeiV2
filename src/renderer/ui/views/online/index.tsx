@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageHead } from "../../PageHead.js";
+import { toast } from "../../toast.js";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import { LoginDialog } from "./LoginDialog.js";
 
@@ -119,7 +120,7 @@ export function OnlineView({
   const download = async (track: RemoteTrack): Promise<void> => {
     setNote("");
     try {
-      setNote(await onDownload(sourceId, track));
+      toast(await onDownload(sourceId, track)); // 成功是瞬态通知，走小票不占 note
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }

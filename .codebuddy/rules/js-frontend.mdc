@@ -1,0 +1,28 @@
+---
+description: 写 JavaScript / 操作 DOM / 处理事件时遵守：事件委托、监听器清理、异步错误处理、性能
+globs: "*.js,*.jsx,*.ts"
+alwaysApply: false
+---
+
+# JavaScript / DOM 开发规则
+
+## DOM
+- 批量插入用 `DocumentFragment` 或一次性拼 `innerHTML`，禁止循环里逐个 `appendChild` 触发多次重排。
+- 列表/表格类事件用**事件委托**挂在父容器上（`e.target.closest('[data-id]')`），不要给每一行动作都 addEventListener。
+- 频繁读写布局属性（offsetWidth、getBoundingClientRect）时，先读后写，避免强制同步布局。
+- 能用 CSS 完成的（hover、过渡、显隐）不写 JS；能用 transform/opacity 的不用 top/left 做动画。
+
+## 事件与生命周期
+- 动态创建的元素上挂的监听器、`setInterval/setTimeout`、ResizeObserver，必须在元素销毁/组件卸载时清理，防止内存泄漏。
+- 全局事件（window/document）监听器只注册一次并记录取消函数；同一事件多处监听时注意 stopPropagation 的使用是否会互相误伤。
+- `innerHTML` 拼接的内容若含用户数据必须转义；优先用 `textContent` / `createElement`。
+
+## 异步与错误
+- 所有 await 必须有 catch（或外层统一兜底），禁止裸 `try {} catch {}` 吞错误——至少 console.error 带原始 Error 对象（保留堆栈），不要只打印 `err.message`。
+- 竞态场景（连续切换、快速点击）用 token / AbortController 取消上一次请求，"最后一次生效"。
+- 防抖（输入搜索）节流（滚动/resize/轮询）按场景使用；常驻 setInterval 要确认页面隐藏时是否有必要继续跑。
+
+## 语言习惯
+- 优先 `const`；比较用 `===`；字符串模板用反引号。
+- 一个函数做一件事，超过 60 行先考虑拆分；相同逻辑出现第二次就提取函数。
+- 新代码禁止 `var`，禁止修改对象原型，禁止 eval / new Function。

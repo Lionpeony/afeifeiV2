@@ -113,9 +113,10 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
         <button type="button" className="primary" onClick={onScan} disabled={scanning}>
           {scanning ? "扫描中…" : "扫描目录"}
         </button>
-        <span className="lib-count">
-          {shown.length === total ? `${total} 首` : `${shown.length} / ${total}`}
-        </span>
+        <div className="stat">
+          <b>{shown.length === total ? total : `${shown.length} / ${total}`}</b>
+          <span>TRACKS</span>
+        </div>
       </div>
 
       {scanNote ? <p className="lib-note">{scanNote}</p> : null}
@@ -126,6 +127,11 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
         <ArtistsPage tracks={shown} onPlayGroup={onPlayGroup} cover={cover} />
       ) : (
         <div className="lib-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+        <div className="lib-thead">
+          <span className="th-title">曲目 / TITLE</span>
+          <span className="th-artist">歌手 / ARTIST</span>
+          <span className="th-dur">时长 / TIME</span>
+        </div>
         <div style={{ height: win.totalHeight, position: "relative" }}>
           <div style={{ transform: `translateY(${win.offsetY}px)` }}>
             {visible.map((track, offset) => (

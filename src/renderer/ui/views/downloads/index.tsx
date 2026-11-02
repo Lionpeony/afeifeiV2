@@ -3,6 +3,7 @@ import { dispatch, getState, subscribe } from "../../../kernel/index.js";
 import { downloadRows, fmtBytes, fmtSpeed, type DownloadRow } from "../../../projection/download.js";
 import type { Services } from "../../services.js";
 import { PageHead } from "../../PageHead.js";
+import { toast } from "../../toast.js";
 
 const STATE_TEXT: Record<DownloadRow["state"], string> = {
   queued: "排队中",
@@ -41,7 +42,7 @@ export function DownloadsView({
 
   const act = (fn: () => void, msg?: string): void => {
     fn();
-    if (msg) setNote(msg);
+    if (msg) toast(msg);
   };
 
   return (

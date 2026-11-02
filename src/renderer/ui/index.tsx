@@ -9,6 +9,7 @@ import type { Services } from "./services.js";
 import type { Track } from "../domain/library/schema.js";
 import { onFrame } from "./compositor.js";
 import { EqCurve } from "./EqCurve.js";
+import { Toaster } from "./Toaster.js";
 import { StageView } from "./views/stage/index.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -44,6 +45,7 @@ function App() {
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
+  const tipEl = useRef<HTMLSpanElement>(null);
   const dragging = useRef(false);
 
   // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
@@ -458,13 +460,25 @@ function App() {
             onPointerUp={() => {
               dragging.current = false;
             }}
+            onPointerMove={(e) => {
+              // 悬停时间泡：直接写 DOM（每帧级事件不走 React），松手即隐
+              const tip = tipEl.current;
+              if (!tip) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+              const duration = services.current?.engine.durationMs() ?? 0;
+              tip.textContent = fmt(pct * duration);
+              tip.style.left = `${pct * 100}%`;
+            }}
             onChange={(e) => dispatch({ type: "player/seek", positionMs: Number(e.target.value) })}
           />
+          <span ref={tipEl} className="seek-tip" aria-hidden="true" />
           <span ref={timeEl} className="time">
             0:00 / 0:00
           </span>
         </div>
       </footer>
+      <Toaster />
 
       {fxOpen && (
         <div className="fx-panel" role="dialog" aria-label="音效设置">

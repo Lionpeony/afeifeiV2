@@ -121,6 +121,30 @@ input.seek.playing::-webkit-slider-thumb {
   }
 }
 
+/* 悬停时间泡（docs/09 B2，旧仓 type.css:121 同款）：mono 10px 纸底票，跟随指针 */
+.seek-tip {
+  position: absolute;
+  bottom: 30px;
+  transform: translateX(-50%);
+  padding: 3px 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 10px/1 ui-monospace, Consolas, monospace;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.seekrow {
+  position: relative;
+}
+.seekrow:hover .seek-tip {
+  opacity: 1;
+}
+
 /* 其余滑杆（音量/EQ/前置）统一墨色 accent */
 input[type="range"] {
   accent-color: var(--fg);

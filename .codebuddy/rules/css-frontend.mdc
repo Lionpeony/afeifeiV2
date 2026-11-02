@@ -1,0 +1,26 @@
+---
+description: 写 CSS / 改样式时遵守：命名、选择器、!important、布局适配、样式卫生
+globs: "*.css,*.jsx,*.js,*.html"
+alwaysApply: false
+---
+
+# CSS 开发规则
+
+## 命名与组织
+- class 用小写中划线：`play-list-item`，语义化命名，禁止 `style1` / `red-text` 这类表现型命名。
+- 一处功能的样式放一处；删除功能时同步删除它的样式（不留死样式）。新增 class 前先搜索是否已有同类可复用。
+
+## 选择器
+- 选择器嵌套不超过 3 层，特异性保持低位；优先加 class，不靠 `div > span:nth-child(2)` 这种位置选择器（结构一变就错）。
+- 同名规则禁止重复定义；发现多处定义同名选择器时，合并为一份而不是再叠一层覆盖。
+- 禁止新增 `!important`；必须覆盖第三方/历史样式时，先尝试提高特异性，实在不行用 `!important` 并加注释说明为什么。
+
+## 布局与适配
+- 布局用 flex/grid，禁止 float 布局和固定 px 宽度的多列布局；自适应列用 `repeat(auto-fill, minmax(最小宽度, 1fr))`。
+- 文字容器必须有溢出策略：单行 `overflow:hidden; text-overflow:ellipsis; white-space:nowrap`（flex/grid 子项要补 `min-width:0`），多行用 max-height + 渐隐。
+- 图片必须设 `object-fit: cover` + 固定宽高比（`aspect-ratio` 或占位尺寸），防止加载中布局抖动和变形。
+- 响应式断点用 `@media`，从大屏往下写（max-width）；关键页面至少验证 1280 / 1024 / 900 三档宽度。
+
+## 卫生
+- 修改样式前先确认该 class 真的有 DOM 在用（全局搜索），改完顺手清理确认无引用的规则。
+- 尺寸、颜色、间距相同的值出现 3 次以上，提为 CSS 变量。

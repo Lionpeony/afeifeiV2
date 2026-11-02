@@ -130,6 +130,12 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
         </div>
 
         <div className="lib-list">
+          <div className="lib-thead online-thead">
+            <span className="th-title">曲目 / TITLE</span>
+            <span className="th-a">歌手 / ARTIST</span>
+            <span className="th-b">专辑 / ALBUM</span>
+            <span className="th-dur">时长 / TIME</span>
+          </div>
           {tracks.map((track) => (
             <div
               key={track.sourceId}
