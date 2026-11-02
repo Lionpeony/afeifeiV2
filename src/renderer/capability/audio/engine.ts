@@ -59,13 +59,11 @@ export class AudioEngine {
     const src = await this.resolveSrc(track);
     if (!src) return false;
 
+    // 切歌前把增益压到很低（不压到 0，避免淡入逻辑出问题时变成静音）
     if (this.graph) {
-      const now = this.graph.ctx.currentTime;
       const gain = this.graph.fade.gain;
-      gain.cancelScheduledValues(now);
-      gain.setValueAtTime(gain.value, now);
-      gain.linearRampToValueAtTime(0, now + 0.008);
-      await new Promise((r) => setTimeout(r, 10));
+      gain.cancelScheduledValues(this.graph.ctx.currentTime);
+      gain.value = 0.2;
     }
 
     this.currentSrc = track;
@@ -104,14 +102,20 @@ export class AudioEngine {
     }
   }
 
-  /** 淡入到 1。切歌后的第一声，以及暂停后恢复播放都走这里。 */
+  /**
+   * 把增益恢复到 1。
+   *
+   * **这里不能再用 ramp**。`linearRampToValueAtTime` 依赖 AudioContext 的时间轴推进，
+   * 而刚从 suspended 恢复时 currentTime 不往前走，ramp 永远到不了终点，
+   * 增益就卡在 0——表现正是"进度条在走、但完全没声音"。
+   *
+   * 短 ramp 防的那点咔哒声，远不值得冒"整个播放器静音"的风险。
+   */
   private fadeIn(): void {
     if (!this.graph) return;
-    const now = this.graph.ctx.currentTime;
     const gain = this.graph.fade.gain;
-    gain.cancelScheduledValues(now);
-    gain.setValueAtTime(0, now);
-    gain.linearRampToValueAtTime(1, now + 0.02);
+    gain.cancelScheduledValues(this.graph.ctx.currentTime);
+    gain.value = 1;
   }
 
   pause(): void {
