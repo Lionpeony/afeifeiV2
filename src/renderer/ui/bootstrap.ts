@@ -9,6 +9,7 @@ import type {
   StoragePort,
 } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
+import { sanitizeAudioConfig } from "../capability/audio/eq.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
@@ -169,6 +170,16 @@ export async function bootstrap(): Promise<Services> {
     persister.schedule(getState, () => clock.t(performance.now()));
   };
 
+  // 音频配置变了 → 500ms 合并写一次 KV。拖滑杆会连续 dispatch，不去抖就每格一次写盘
+  let audioSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleAudioSave = (): void => {
+    if (audioSaveTimer) clearTimeout(audioSaveTimer);
+    audioSaveTimer = setTimeout(() => {
+      audioSaveTimer = null;
+      void kv.write("audio-eq", JSON.stringify(getState().audio));
+    }, 500);
+  };
+
   let prev = getState();
   subscribe(() => {
     const next = getState();
@@ -177,6 +188,8 @@ export async function bootstrap(): Promise<Services> {
     if (next.player.status === "playing" && prev.player.status !== "playing" && next.player.trackId) {
       if (recordPlay(next.player.trackId)) void saveHistory(kv);
     }
+
+    if (next.audio !== prev.audio) scheduleAudioSave();
 
     reconcile(prev, next, engine);
     prev = next;
@@ -191,6 +204,10 @@ export async function bootstrap(): Promise<Services> {
   performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
 
   await Promise.all([loadLikes(kv), loadPlaylists(kv), loadHistory(kv)]);
+
+  // 音频配置：入口先 sanitize 再进 store——坏数据在这里挡下，不进真相
+  const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
+  dispatch({ type: "audio/restore", config: savedAudio });
 
   const snapshot = await persister.restore();
   if (snapshot) {
@@ -316,4 +333,13 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   }
 
   if (n.volume !== p.volume) engine.setVolume(n.volume);
+
+  // 音频配置与播放状态分开比较：调 EQ 不该碰播放链路，反之亦然。
+  // p/n 是 player 域，audio 在 AppState 顶层，从 prev/next 取。
+  const pa = prev.audio;
+  const na = next.audio;
+  if (na !== pa) {
+    if (na.preampDb !== pa.preampDb) engine.setPreamp(na.preampDb);
+    if (na.eq.some((v: number, i: number) => v !== pa.eq[i])) engine.setEq(na.eq);
+  }
 }

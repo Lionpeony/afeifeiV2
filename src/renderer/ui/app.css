@@ -402,3 +402,50 @@ button.primary {
   width: 140px;
   accent-color: var(--accent);
 }
+
+/* 音效面板：浮层用 raised 底 + line 描边，z 用面板层 40（00 §9.2） */
+.fx-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 96px;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  min-width: 300px;
+  padding: 12px 16px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--mask);
+}
+
+.fx-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.fx-head button {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.fx-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+
+.fx-val {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

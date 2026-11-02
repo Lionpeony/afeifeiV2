@@ -1,7 +1,7 @@
 import type { ErrorCode } from "../../../contracts/index.js";
 import type { MediaPort } from "../../../contracts/ports.js";
 import { clock } from "../../kernel/clock.js";
-import { createGraph, resumeGraph, type AudioGraph } from "./graph.js";
+import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, type AudioGraph } from "./graph.js";
 
 export interface EngineHooks {
   onReady?: () => void;
@@ -21,6 +21,9 @@ export class AudioEngine {
   private graph: AudioGraph | null = null;
   private hooks: EngineHooks = {};
   private currentSrc: string | null = null;
+  /** 图还没建（还没播过第一首）时暂存的音频配置，建图后立即应用。 */
+  private pendingPreamp: number | null = null;
+  private pendingEq: number[] | null = null;
 
   constructor(media: MediaPort) {
     this.media = media;
@@ -91,7 +94,12 @@ export class AudioEngine {
   }
 
   async play(): Promise<void> {
-    if (!this.graph) this.graph = createGraph(this.el);
+    if (!this.graph) {
+      this.graph = createGraph(this.el);
+      // 建图前收到的配置在这里一次应用——不能丢，否则"先调 EQ 再点播放"会静默失效
+      if (this.pendingPreamp !== null) applyPreamp(this.graph, this.pendingPreamp);
+      if (this.pendingEq) applyEq(this.graph, this.pendingEq);
+    }
     await resumeGraph(this.graph);
     try {
       await this.el.play();
@@ -129,6 +137,18 @@ export class AudioEngine {
 
   setVolume(volume: number): void {
     this.el.volume = Math.min(1, Math.max(0, volume));
+  }
+
+  /** 前置增益（dB）。图未建时暂存，建图后应用。 */
+  setPreamp(db: number): void {
+    this.pendingPreamp = db;
+    if (this.graph) applyPreamp(this.graph, db);
+  }
+
+  /** 整组 6 段 EQ（dB）。图未建时暂存，建图后应用。 */
+  setEq(gains: number[]): void {
+    this.pendingEq = [...gains];
+    if (this.graph) applyEq(this.graph, gains);
   }
 
   /** 当前媒体时长（毫秒），没加载时是 0。UI 的进度条上限用它。 */

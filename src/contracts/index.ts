@@ -50,9 +50,18 @@ export interface QueueState {
   shuffleSeed: number;
 }
 
+/** 音频链路配置（50 §5.1）。与播放状态分开：换歌不动它，重启要恢复它。 */
+export interface AudioConfig {
+  /** 前置增益（dB，±12）。ReplayGain 的手动版。 */
+  preampDb: number;
+  /** 6 段 EQ 增益（dB，各 ±12），与 capability/audio/eq.ts 的 EQ_BANDS 对齐。 */
+  eq: number[];
+}
+
 export interface AppState {
   player: PlayerState;
   queue: QueueState;
+  audio: AudioConfig;
 }
 
 /** UI 唯一允许对外发出的东西。 */
@@ -74,7 +83,13 @@ export type Intent =
   /** 装载但不播（恢复上次状态用）。 */
   | { type: "player/cue"; trackId: TrackId; positionMs?: number }
   /** 引擎加载完成，loading 可以落到 paused。 */
-  | { type: "player/ready" };
+  | { type: "player/ready" }
+  /** 前置增益（dB，越界由 store clamp）。 */
+  | { type: "audio/setPreamp"; db: number }
+  /** 整组设置 6 段 EQ（dB）。长度不齐整组拒绝。 */
+  | { type: "audio/setEq"; gains: number[] }
+  /** 恢复持久化的音频配置（入口侧已 sanitize）。 */
+  | { type: "audio/restore"; config: AudioConfig };
 
 /** 播放器状态机的事件（不是 intent，是"引擎发生了什么"）。 */
 export type PlayerEvent =

@@ -13,7 +13,13 @@ type Listener = () => void;
 const initialState: AppState = {
   player: { status: "idle", trackId: null, trackTitle: null, positionMs: 0, volume: 0.8, error: null },
   queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
+  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0] },
 };
+
+/** 音频配置的限幅（±12dB，与 capability 侧 GAIN_LIMIT_DB 同值）。kernel 不 import capability，这里只做数值 clamp。 */
+const AUDIO_LIMIT_DB = 12;
+const clampAudioDb = (v: number): number =>
+  Number.isFinite(v) ? Math.min(AUDIO_LIMIT_DB, Math.max(-AUDIO_LIMIT_DB, v)) : 0;
 
 let state: AppState = initialState;
 const listeners = new Set<Listener>();
@@ -36,6 +42,7 @@ function switchTo(current: AppState, cursor: number): AppState {
     return {
       player: { ...player, status: "ended", trackId: null, trackTitle: null, positionMs: 0 },
       queue: { ...queue, cursor: -1 },
+      audio: current.audio,
     };
   }
   const trackId = queue.items[cursor];
@@ -43,6 +50,7 @@ function switchTo(current: AppState, cursor: number): AppState {
     // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题
     player: { ...player, status: "loading", trackId, trackTitle: null, positionMs: 0, error: null },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
+    audio: current.audio,
   };
 }
 
@@ -70,6 +78,7 @@ function reduce(current: AppState, intent: Intent): AppState {
           error: null,
         },
         queue: nextQueue,
+        audio: current.audio,
       };
     }
 
@@ -138,12 +147,14 @@ function reduce(current: AppState, intent: Intent): AppState {
         return {
           player: { ...player, status: "idle", trackId: null, trackTitle: null, positionMs: 0 },
           queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
+          audio: current.audio,
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
       const staged: AppState = {
         player,
         queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
+        audio: current.audio,
       };
       return switchTo(staged, cursor);
     }
@@ -174,6 +185,32 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "queue/restore": {
       const restored = intent.state;
       return { ...current, queue: { ...restored, cursor: clampCursor(restored.items, restored.cursor) } };
+    }
+
+    case "audio/setPreamp": {
+      const preampDb = clampAudioDb(intent.db);
+      if (current.audio.preampDb === preampDb) return current;
+      return { ...current, audio: { ...current.audio, preampDb } };
+    }
+
+    case "audio/setEq": {
+      // 长度不齐整组拒绝——部分生效的 EQ 比不生效更难排查
+      if (intent.gains.length !== current.audio.eq.length) return current;
+      const eq = intent.gains.map(clampAudioDb);
+      if (eq.every((v, i) => v === current.audio.eq[i])) return current;
+      return { ...current, audio: { ...current.audio, eq } };
+    }
+
+    case "audio/restore": {
+      const config = intent.config;
+      if (
+        config.preampDb === current.audio.preampDb &&
+        config.eq.length === current.audio.eq.length &&
+        config.eq.every((v, i) => v === current.audio.eq[i])
+      ) {
+        return current;
+      }
+      return { ...current, audio: config };
     }
 
     default:

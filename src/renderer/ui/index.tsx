@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { AppState } from "../../contracts/index.js";
 import { getFiltered } from "../domain/library/state.js";
+import { EQ_BANDS, EQ_DEFAULT, PREAMP_DEFAULT } from "../capability/audio/eq.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap, type Services } from "./bootstrap.js";
 import { onFrame } from "./compositor.js";
@@ -26,6 +27,7 @@ function App() {
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
   const [tab, setTab] = useState<"local" | "online">("local");
+  const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
@@ -210,6 +212,10 @@ function App() {
             下一首
           </button>
 
+          <button type="button" aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
+            音效
+          </button>
+
           <label className="volume">
             音量
             <input
@@ -222,6 +228,58 @@ function App() {
           </label>
         </div>
       </footer>
+
+      {fxOpen && (
+        <div className="fx-panel" role="dialog" aria-label="音效设置">
+          <div className="fx-head">
+            <span>音效</span>
+            <button
+              type="button"
+              onClick={() =>
+                dispatch({
+                  type: "audio/restore",
+                  config: { preampDb: PREAMP_DEFAULT, eq: EQ_DEFAULT },
+                })
+              }
+            >
+              重置
+            </button>
+          </div>
+          <label className="fx-row">
+            <span>前置</span>
+            <input
+              type="range"
+              min="-12"
+              max="12"
+              step="1"
+              value={Math.round(state.audio.preampDb)}
+              onChange={(e) => dispatch({ type: "audio/setPreamp", db: Number(e.target.value) })}
+            />
+            <span className="fx-val">{Math.round(state.audio.preampDb)} dB</span>
+          </label>
+          {state.audio.eq.map((db, i) => {
+            const hz = EQ_BANDS[i];
+            return (
+              <label className="fx-row" key={hz}>
+                <span>{hz >= 1000 ? `${hz / 1000}k` : hz}</span>
+                <input
+                  type="range"
+                  min="-12"
+                  max="12"
+                  step="1"
+                  value={Math.round(db)}
+                  onChange={(e) => {
+                    const gains = [...state.audio.eq];
+                    gains[i] = Number(e.target.value);
+                    dispatch({ type: "audio/setEq", gains });
+                  }}
+                />
+                <span className="fx-val">{Math.round(db)} dB</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
