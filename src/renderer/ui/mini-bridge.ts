@@ -1,3 +1,4 @@
+import type { ErrorCode } from "../../contracts/index.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { onTick } from "./compositor.js";
 import type { Services } from "./services.js";
@@ -46,11 +47,29 @@ export function startMiniBridge(services: Services): void {
     else if (action === "prev") dispatch({ type: "queue/prev", atPositionMs: services.positionMs() });
   });
 
-  // afeifei:// 冷/热启动都汇到这里。play 只收本地 id（在线 source 链路等 QQ getUrl 打通后接）
+  // afeifei:// 冷/热启动都汇到这里。无 source = 本地曲库 id；带 source = 在线曲目
   const handleScheme = (intent: { action: string; id: string; source?: string }): void => {
     if (intent.action !== "play") return;
     if (intent.source) {
-      console.warn(`[scheme] 在线播放（source=${intent.source}）尚未接通，已忽略`);
+      // 在线分支（M6.1 收尾）：resolveOnlineUrl 拿直链 → player/play，
+      // 失败（未登录/无版权）把 humanize 过的错误码打进播放条
+      const sourceId = intent.source;
+      void (async () => {
+        try {
+          const url = await services.resolveOnlineUrl(sourceId, intent.id, "320k");
+          dispatch({
+            type: "player/play",
+            trackId: url,
+            // scheme 只带 id，拿不到标题/封面元数据（QQ 源无详情接口）——遗留，接上详情接口后补
+            trackTitle: `在线曲目 · ${sourceId}`,
+            remote: { sourceId, songId: intent.id },
+          });
+        } catch (err) {
+          const code = (err as { code?: ErrorCode }).code;
+          if (code) dispatch({ type: "player/error", code });
+          else console.warn(`[scheme] 在线播放失败（source=${sourceId} id=${intent.id}）`);
+        }
+      })();
       return;
     }
     dispatch({ type: "queue/set", items: [intent.id], startAt: 0 });
