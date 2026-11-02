@@ -3,6 +3,7 @@ import { app, BrowserWindow, protocol } from "electron";
 import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
+import { registerMiniIpc } from "./miniWindow.js";
 import { MEDIA_SCHEME, registerMediaProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 
@@ -28,6 +29,7 @@ if (!locked) {
     registerAppProtocol(path.join(__dirname, "renderer"));
     registerMediaProtocol();
     registerIpc();
+    registerMiniIpc();
 
     const win = new BrowserWindow({
       width: 1280,

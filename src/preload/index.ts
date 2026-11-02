@@ -41,6 +41,15 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("user:install", sourceId, code),
   callUserSource: (sourceId: string, method: string, params?: unknown): Promise<unknown> =>
     ipcRenderer.invoke("user:call", sourceId, method, params),
+
+  // 迷你窗：主窗只管推投影、收意图转发
+  openMini: (): Promise<void> => ipcRenderer.invoke("mini:open"),
+  pushMiniState: (json: string): void => ipcRenderer.send("mini:state", json),
+  onMiniAction: (cb: (action: string) => void): void => {
+    ipcRenderer.on("mini:forward", (_e, action: unknown) => {
+      if (typeof action === "string") cb(action);
+    });
+  },
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

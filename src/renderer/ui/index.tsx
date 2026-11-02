@@ -7,6 +7,7 @@ import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap, type Services } from "./bootstrap.js";
 import { onFrame } from "./compositor.js";
 import { StageView } from "./views/stage/index.js";
+import { startMiniBridge } from "./mini-bridge.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
 
@@ -69,6 +70,7 @@ function App() {
       services.current = s;
       setSources(s.sources());
       syncPosition();
+      startMiniBridge(s);
     });
     return () => {
       alive = false;
@@ -141,6 +143,9 @@ function App() {
             }
           >
             导入源
+          </button>
+          <button type="button" onClick={() => void services.current?.openMini()}>
+            迷你窗
           </button>
         </div>
         <span className="status" data-status={status}>

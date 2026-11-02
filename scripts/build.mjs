@@ -89,6 +89,28 @@ await build({
   external: ["electron"],
 });
 
+// 迷你窗：独立 preload（只 3 个方法）+ 独立渲染产物
+await build({
+  entryPoints: ["src/preload/mini.ts"],
+  outfile: path.join(OUT, "mini-preload.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: NODE_TARGET,
+  external: ["electron"],
+});
+
+await build({
+  entryPoints: ["src/renderer/mini.tsx"],
+  outfile: path.join(OUT, "renderer", "mini.js"),
+  bundle: true,
+  platform: "browser",
+  format: "iife",
+  target: BROWSER_TARGET,
+  jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+});
+
 // 必须是 iife：file:// 下 ES module 会被 CORS 拦掉，#root 永远是空的。
 await build({
   entryPoints: ["src/renderer/ui/index.tsx"],
@@ -106,5 +128,7 @@ const css = ["src/renderer/ui/tokens.css", "src/renderer/ui/app.css", "src/rende
   .join("\n");
 fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
 fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
+fs.copyFileSync("src/renderer/mini.html", path.join(OUT, "renderer", "mini.html"));
+fs.copyFileSync("src/renderer/mini.css", path.join(OUT, "renderer", "mini.css"));
 
 console.log("build ok → dist/");

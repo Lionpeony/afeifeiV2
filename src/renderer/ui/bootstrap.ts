@@ -62,6 +62,9 @@ interface Api {
   importUserSource(): Promise<{ name: string; code: string } | null>;
   installUserSource(sourceId: string, code: string): Promise<unknown>;
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
+  openMini(): Promise<void>;
+  pushMiniState(json: string): void;
+  onMiniAction(cb: (action: string) => void): void;
 }
 
 declare global {
@@ -90,6 +93,8 @@ export interface Services {
   importSource(): Promise<{ name: string; code: string } | null>;
   /** 装进沙箱 + 存 KV + 注册。返回音源 id 与名字。 */
   installSource(fileName: string, code: string): Promise<{ id: string; name: string }>;
+  /** 开/聚焦迷你窗。 */
+  openMini(): Promise<void>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始扫码：拿到 key 与服务端画好的二维码图 */
@@ -336,6 +341,7 @@ export async function bootstrap(): Promise<Services> {
     },
 
     spectrum: (bins) => engine.spectrum(bins),
+    openMini: () => api.openMini(),
 
     importSource: () => api.importUserSource(),
 
