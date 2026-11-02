@@ -62,7 +62,12 @@ const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Err
 
 function ensureChild(): UtilityProcess {
   if (child) return child;
-  child = utilityProcess.fork(path.join(__dirname, "sandbox-child.js"));
+  // 00 §用户源：内存 128MB 上限（M6-4 兑现规格）。本版 ForkOptions 没有 resourceLimits，
+  // 用 V8 堆上限兑现：超限 OOM → exit → 下次调用自动重启（崩溃不扩散）
+  child = utilityProcess.fork(path.join(__dirname, "sandbox-child.js"), [], {
+    serviceName: "user-source",
+    execArgv: ["--max-old-space-size=128"],
+  });
 
   child.on("message", (msg: Reply) => {
     if ("kind" in msg) {
