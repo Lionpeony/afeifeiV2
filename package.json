@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "music-metadata": "^7.14.0",
+    "NeteaseCloudMusicApi": "^4.32.0",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

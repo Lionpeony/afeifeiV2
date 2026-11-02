@@ -1,11 +1,23 @@
 import type { Quality, RemoteTrack, SearchResult } from "../../contracts/capability.js";
 import type { AppState } from "../../contracts/index.js";
-import type { HttpPort, KeyValuePort, LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
+import type {
+  KeyValuePort,
+  LibraryPort,
+  LocalApiPort,
+  MediaPort,
+  RawMeta,
+  StoragePort,
+} from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
-import { checkLogin, createNeteaseProvider, type LoginProfile } from "../capability/sources/netease/index.js";
+import {
+  createNeteaseProvider,
+  pollQrLogin,
+  startQrLogin,
+  type QrSession,
+} from "../capability/sources/netease/index.js";
 import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
@@ -34,18 +46,10 @@ interface Api {
   readStore(key: string): Promise<string | null>;
   writeStore(key: string, json: string): Promise<void>;
 
-  // 出站网络与工具
-  fetchJson(
-    url: string,
-    options?: {
-      method?: "GET" | "POST";
-      form?: Record<string, string | number | boolean>;
-      headers?: Record<string, string>;
-    },
-  ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
-  setCookie(url: string, name: string, value: string): Promise<void>;
-  qrDataUrl(text: string): Promise<string>;
-  openLoginWindow(): Promise<boolean>;
+  // 音源本地通道（主进程内嵌 SDK）
+  ncmCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
+  ncmProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  ncmLogout(): Promise<void>;
 }
 
 declare global {
@@ -68,13 +72,13 @@ export interface Services {
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
-  /**
-   * 打开一个真实浏览器窗口登录。
-   * 不用扫码接口：那个接口对请求频率敏感，多申请几次 key 就会开始返回 8821（风控按 IP 记）。
-   */
-  loginViaWindow(): Promise<boolean>;
-  /** 查询当前登录态 */
-  loginStatus(): Promise<LoginProfile>;
+  /** 开始扫码：拿到 key 与服务端画好的二维码图 */
+  startLogin(): Promise<QrSession>;
+  /** 轮询扫码结果 */
+  pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
+  /** 查询当前登录态（只看账号接口，不看 cookie 字段） */
+  loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
+  logout(): Promise<void>;
 }
 
 /** 把能力层抛的错收敛成一句人话。界面永远只看到这句话。 */
@@ -123,15 +127,16 @@ export async function bootstrap(): Promise<Services> {
     write: (key, json) => api.writeStore(key, json),
   };
 
-  const http: HttpPort = {
-    fetchJson: (url, options) => api.fetchJson(url, options),
-    qrDataUrl: (text) => api.qrDataUrl(text),
-    setCookie: (url, name, value) => api.setCookie(url, name, value),
+  // 音源本地通道：加密、cookie、限流都在主进程一侧，渲染层只给方法名
+  const localApi: LocalApiPort = {
+    call: (_namespace, method, params) => api.ncmCall(method, params),
+    profile: () => api.ncmProfile(),
+    logout: () => api.ncmLogout(),
   };
 
   // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
   registerProvider(demoProvider);
-  registerProvider(createNeteaseProvider(http));
+  registerProvider(createNeteaseProvider(localApi));
 
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);
@@ -228,8 +233,13 @@ export async function bootstrap(): Promise<Services> {
       }
     },
 
-    loginViaWindow: () => api.openLoginWindow(),
-    loginStatus: () => checkLogin(http),
+    startLogin: () => startQrLogin(localApi),
+    pollLogin: (key) => pollQrLogin(localApi, key),
+    loginStatus: async () => {
+      const profile = await api.ncmProfile();
+      return { loggedIn: profile.loggedIn, nick: profile.nick };
+    },
+    logout: () => api.ncmLogout(),
 
     async scan(onProgress) {
       const dir = await api.pickDir();

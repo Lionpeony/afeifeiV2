@@ -1,4 +1,5 @@
 import { dialog, ipcMain } from "electron";
+import { log } from "../log/index.js";
 import { loadState, saveState } from "../fs/state.js";
 import { grant } from "../media/tokens.js";
 import { readTags, scanDirs } from "../fs/readTags.js";
@@ -7,7 +8,7 @@ import { readCover } from "../fs/cover.js";
 import { readKey, writeKey } from "../fs/kv.js";
 import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
-import { openLoginWindow } from "../net/loginWindow.js";
+import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
@@ -18,6 +19,19 @@ import {
 } from "../fs/indexFile.js";
 
 const AUDIO_EXT = ["mp3", "flac", "m4a", "wav", "opus", "ogg", "aac"];
+
+/** 允许渲染层调用的网易云接口白名单。加接口要在这里登记。 */
+const NETEASE_ALLOWED = new Set([
+  "cloudsearch",
+  "song_url_v1",
+  "song_detail",
+  "lyric",
+  "login_qr_key",
+  "login_qr_create",
+  "login_qr_check",
+  "user_account",
+  "logout",
+]);
 
 /**
  * 全部 IPC 在这里登记，一个地方看得完（50 §11）。
@@ -90,12 +104,17 @@ export function registerIpc(): void {
     return setSessionCookie(target, name, value);
   });
 
-  ipcMain.handle("netease:loginWindow", () => {
-    return openLoginWindow({
-      url: "https://music.163.com/#/login",
-      title: "登录网易云音乐",
-    });
+  /* ---------- 网易云通道（主进程内嵌 NeteaseCloudMusicApi） ---------- */
+
+  ipcMain.handle("netease:call", (_e, method: unknown, params: unknown) => {
+    if (typeof method !== "string") throw new Error("netease:call 需要方法名");
+    // 收敛接口面：渲染层只能调这几个，不给它整包 380 个接口
+    if (!NETEASE_ALLOWED.has(method)) throw new Error(`不允许调用网易云接口：${method}`);
+    return callNcm(method, (params ?? {}) as Record<string, unknown>);
   });
+
+  ipcMain.handle("netease:profile", () => loginProfile());
+  ipcMain.handle("netease:logout", () => clearLogin());
 
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {
     if (typeof text !== "string") throw new Error("util:qrcode 需要文本");

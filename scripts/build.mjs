@@ -59,7 +59,9 @@ await build({
   platform: "node",
   format: "cjs",
   target: NODE_TARGET,
-  external: ["electron"],
+  // NeteaseCloudMusicApi 按目录扫描 300+ 个模块并动态 require，打不进 bundle，
+  // 运行时从 node_modules 加载（打包 exe 时要 asarUnpack，见 package.json 的 build 段）
+  external: ["electron", "NeteaseCloudMusicApi"],
   sourcemap: true,
 });
 

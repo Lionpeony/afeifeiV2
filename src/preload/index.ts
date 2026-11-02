@@ -25,16 +25,12 @@ contextBridge.exposeInMainWorld("api", {
   readStore: (key: string): Promise<string | null> => ipcRenderer.invoke("store:read", key),
   writeStore: (key: string, json: string): Promise<void> => ipcRenderer.invoke("store:write", key, json),
 
-  // 出站网络与工具
-  fetchJson: (
-    url: string,
-    options?: { method?: "GET" | "POST"; form?: Record<string, string | number | boolean>; headers?: Record<string, string> },
-  ): Promise<{ status: number; json: unknown; setCookie: string[] }> =>
-    ipcRenderer.invoke("net:fetchJson", url, options),
-  setCookie: (url: string, name: string, value: string): Promise<void> =>
-    ipcRenderer.invoke("net:setCookie", url, name, value),
-  qrDataUrl: (text: string): Promise<string> => ipcRenderer.invoke("util:qrcode", text),
-  openLoginWindow: (): Promise<boolean> => ipcRenderer.invoke("netease:loginWindow"),
+  // 音源本地通道（主进程内嵌 SDK，加密与 cookie 都在那一侧）
+  ncmCall: (method: string, params?: Record<string, unknown>): Promise<unknown> =>
+    ipcRenderer.invoke("netease:call", method, params),
+  ncmProfile: (): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> =>
+    ipcRenderer.invoke("netease:profile"),
+  ncmLogout: (): Promise<void> => ipcRenderer.invoke("netease:logout"),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

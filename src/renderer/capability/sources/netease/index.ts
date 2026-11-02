@@ -1,93 +1,30 @@
-import type {
-  LyricDoc,
-  RemoteTrack,
-  SearchResult,
-  SourceProvider,
-} from "../../../../contracts/capability.js";
-import type { HttpPort } from "../../../../contracts/ports.js";
+import type { LyricDoc, RemoteTrack, SearchResult, SourceProvider } from "../../../../contracts/capability.js";
+import type { LocalApiPort } from "../../../../contracts/ports.js";
 import { parseLyrics } from "../../lyrics/index.js";
 
 /**
- * 网易云音源（50 §7.2 的第一个真实实现）。
+ * 网易云音源。
  *
- * 全部走官方域名 music.163.com 的明文 `/api` 接口（GET 或 POST form），
- * 不用任何第三方中转，也不做 weapi/eapi 加密。接口清单来自旧仓库
- * `app/main/sources/netease.js` 的注释（已跑通），这里是重写而不是搬运。
+ * 走主进程内嵌的 NeteaseCloudMusicApi（weapi/eapi 加密通道），
+ * 也就是 LX Music 与 Folia 都在用的那条路。**不碰** `music.163.com/api/*` 明文接口——
+ * 那套按 IP 限流，多申请几次扫码 key 就返回 8821。
  *
- * 登录态靠 Chromium session 里的 cookie：扫码成功后 Set-Cookie 自动生效，
- * 后续请求天然带着它 —— 所以下面每个请求都不需要手动拼 cookie。
+ * 渲染层这里只认"方法名 + 参数"，加密、cookie 都在主进程一侧，不进渲染层。
  */
 
-const HOST = "https://music.163.com";
-const REFERER = "https://music.163.com/";
-/** 网页版裸接口不带这两个基础 cookie 会 301/400 */
-const BASE_COOKIES = { os: "pc", appver: "8.10.90" } as const;
-
-interface ApiOptions {
-  method?: "GET" | "POST";
-  query?: Record<string, string | number>;
-  form?: Record<string, string | number>;
+interface ApiError extends Error {
+  code: string;
 }
 
-function err(code: string, message: string): Error {
-  return Object.assign(new Error(message), { code });
+function err(code: string, message: string): ApiError {
+  return Object.assign(new Error(message), { code }) as ApiError;
 }
 
-export function createNeteaseProvider(http: HttpPort): SourceProvider {
-  let baseCookiesReady = false;
-  /** 登录态缓存：界面会反复取地址，每首都查一次账号接口不划算 */
-  let loginCache: { at: number; loggedIn: boolean } = { at: 0, loggedIn: false };
-  const LOGIN_TTL = 30 * 1000;
+export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
+  const ncm = <T>(method: string, params: Record<string, unknown> = {}): Promise<T> =>
+    api.call("netease", method, params) as Promise<T>;
 
-  async function ensureBaseCookies(): Promise<void> {
-    if (baseCookiesReady) return;
-    for (const [name, value] of Object.entries(BASE_COOKIES)) {
-      await http.setCookie(HOST, name, value);
-    }
-    baseCookiesReady = true;
-  }
-
-  async function api(pathname: string, options: ApiOptions = {}): Promise<Record<string, unknown>> {
-    await ensureBaseCookies();
-
-    const url = new URL(HOST + pathname);
-    for (const [key, value] of Object.entries(options.query ?? {})) {
-      url.searchParams.set(key, String(value));
-    }
-
-    const result = await http.fetchJson(url.toString(), {
-      method: options.method ?? "GET",
-      form: options.form,
-      headers: { referer: REFERER, origin: HOST },
-    });
-
-    const body = result.json;
-    if (!body || typeof body !== "object") {
-      throw err("network", `网易云返回非 JSON（HTTP ${result.status}）`);
-    }
-
-    const code = (body as { code?: number }).code;
-    if (code === 301 || code === -460 || code === -462) throw err("auth-required", "需要登录");
-    if (code === 401) throw err("auth-expired", "登录已过期");
-    if (code === 404) throw err("track-missing", "资源不存在");
-
-    return body as Record<string, unknown>;
-  }
-
-  async function isLoggedIn(): Promise<boolean> {
-    if (Date.now() - loginCache.at < LOGIN_TTL) return loginCache.loggedIn;
-    try {
-      const body = await api("/api/nuser/account/get");
-      const account = body.account as { id?: number } | null;
-      loginCache = { at: Date.now(), loggedIn: !!account?.id };
-    } catch {
-      // 网络出错时不要谎报已登录（旧仓库在这踩过，界面会显示假用户名）
-      loginCache = { at: Date.now(), loggedIn: false };
-    }
-    return loginCache.loggedIn;
-  }
-
-  /* ---------------- 数据归一化：老接口 artists/album/duration，新接口 ar/al/dt ---------------- */
+  /* ---------- 数据归一化 ---------- */
 
   function pickArtists(song: Record<string, unknown>): string {
     const list = (song.ar ?? song.artists) as { name?: string }[] | undefined;
@@ -97,11 +34,10 @@ export function createNeteaseProvider(http: HttpPort): SourceProvider {
   }
 
   function pickAlbum(song: Record<string, unknown>): { name: string; cover?: string } {
-    const al = (song.al ?? song.album ?? {}) as { name?: string; picUrl?: string; blurPicUrl?: string };
-    return { name: al.name ?? "未知专辑", cover: al.picUrl ?? al.blurPicUrl };
+    const al = (song.al ?? song.album ?? {}) as { name?: string; picUrl?: string };
+    return { name: al.name ?? "未知专辑", cover: al.picUrl };
   }
 
-  /** 网易云时长单位是毫秒；个别老接口给秒，这里兜底判断 */
   function pickDuration(song: Record<string, unknown>): number {
     const raw = Number(song.dt ?? song.duration ?? 0);
     if (!Number.isFinite(raw) || raw <= 0) return 0;
@@ -122,9 +58,9 @@ export function createNeteaseProvider(http: HttpPort): SourceProvider {
     };
   }
 
-  /* ---------------------------------- 契约实现 ---------------------------------- */
+  /* ---------- 契约实现 ---------- */
 
-  const provider: SourceProvider = {
+  return {
     id: "netease",
     name: "网易云音乐",
 
@@ -142,192 +78,131 @@ export function createNeteaseProvider(http: HttpPort): SourceProvider {
     },
 
     traits: {
-      requiresAuth: false, // 搜索与部分播放地址匿名可用
-      qualities: ["128k", "320k"], // flac 需要会员，先不声明
+      requiresAuth: false, // 搜索匿名可用
+      qualities: ["128k", "320k"],
     },
 
     async search(keyword: string, page = 0): Promise<SearchResult> {
       const limit = 30;
-      const body = await api("/api/cloudsearch/pc", {
-        method: "POST",
-        form: {
-          s: keyword,
-          type: 1,
-          limit,
-          offset: page * limit,
-        },
+      const body = await ncm<{ result?: { songs?: Record<string, unknown>[]; songCount?: number } }>("cloudsearch", {
+        keywords: keyword,
+        type: 1,
+        limit,
+        offset: page * limit,
       });
 
-      const result = (body.result ?? {}) as { songs?: Record<string, unknown>[]; songCount?: number };
-      const songs = result.songs ?? [];
+      const songs = body?.result?.songs ?? [];
       const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
-      const total = Number(result.songCount ?? 0);
+      const total = Number(body?.result?.songCount ?? 0);
 
-      return {
-        items,
-        nextPage: (page + 1) * limit < total ? page + 1 : undefined,
-      };
+      return { items, nextPage: (page + 1) * limit < total ? page + 1 : undefined };
     },
 
     async getDetail(sourceId: string): Promise<RemoteTrack> {
-      const body = await api("/api/v3/song/detail", {
-        method: "POST",
-        form: { c: JSON.stringify([{ id: Number(sourceId) }]) },
-      });
-      const songs = (body.songs ?? []) as Record<string, unknown>[];
-      const track = songs.length > 0 ? toTrack(songs[0]) : null;
+      const body = await ncm<{ songs?: Record<string, unknown>[] }>("song_detail", { ids: sourceId });
+      const song = (body?.songs ?? [])[0];
+      const track = song ? toTrack(song) : null;
       if (!track) throw err("track-missing", `歌曲不存在：${sourceId}`);
       return track;
     },
 
     async getUrl(sourceId: string, quality): Promise<string> {
-      const level = quality === "320k" ? "exhigh" : "standard";
-      const body = await api("/api/song/enhance/player/url/v1", {
-        query: {
-          ids: JSON.stringify([Number(sourceId)]),
-          level,
-          encodeType: "mp3",
-        },
+      const body = await ncm<{ data?: { url?: string | null; code?: number; fee?: number }[] }>("song_url_v1", {
+        id: sourceId,
+        level: quality === "320k" ? "exhigh" : "standard",
       });
 
-      const data = (body.data ?? []) as { url?: string | null; code?: number; fee?: number }[];
-      const first = data[0];
+      const first = (body?.data ?? [])[0];
       if (!first?.url) {
-        // 没地址有三种原因，别混成一句"没有版权"：
-        //   未登录（网易云对匿名用户基本不给地址，码常是 -110）
-        //   需要会员 / 音质不可用
-        //   真的无版权
-        const loggedIn = await isLoggedIn();
-        if (!loggedIn) throw err("auth-required", "需要登录后才能播放");
+        // 有地址就播；没有的话：未登录 / 需要会员 / 真无版权，三种要分开说
+        const profile = await api.profile("netease").catch(() => ({ loggedIn: false }));
+        if (!profile.loggedIn) throw err("auth-required", "需要登录后才能播放");
         throw err(first?.fee === 1 ? "quality-unavailable" : "track-missing", "这首歌暂时没有可播放的地址");
       }
       return first.url;
     },
 
     async getLyric(sourceId: string): Promise<LyricDoc> {
-      const body = await api("/api/song/lyric", {
-        query: { id: sourceId, lv: -1, tv: -1, kv: -1, rv: -1, yv: -1 },
-      });
+      const body = await ncm<{
+        lrc?: { lyric?: string };
+        tlyric?: { lyric?: string };
+        yrc?: { lyric?: string };
+        klyric?: { lyric?: string };
+      }>("lyric", { id: sourceId });
 
-      const pick = (key: string): string => {
-        const node = body[key] as { lyric?: string } | undefined;
-        return (node?.lyric ?? "").trim();
-      };
+      const pick = (node?: { lyric?: string }): string => (node?.lyric ?? "").trim();
 
-      // 优先级：YRC（逐字最准）> QRC > LRC；纯文本兜底
-      const yrc = pick("yrc");
-      const qrc = pick("klyric");
-      const lrc = pick("lrc");
-      const translated = pick("tlyric");
+      const yrc = pick(body?.yrc);
+      const qrc = pick(body?.klyric);
+      const lrc = pick(body?.lrc);
+      const translated = pick(body?.tlyric);
 
       const source = yrc || qrc || lrc || translated;
       if (!source) throw err("track-missing", "这首歌没有歌词");
 
       const doc = parseLyrics(source);
+      if (!translated) return doc;
 
-      // 翻译层单独解析，挂到 docs 上（渲染器按需取）
-      if (translated) {
-        const zh = parseLyrics(translated);
-        const result: LyricDoc = { ...doc, translations: [{ lang: "zh", lines: zh.lines }] };
-        return result;
-      }
-      return doc;
+      const zh = parseLyrics(translated);
+      return { ...doc, translations: [{ lang: "zh", lines: zh.lines }] };
     },
 
     async login(): Promise<void> {
-      // 扫码流程由 UI 编排（要展示二维码、轮询），这里只做登录态确认
-      loginCache = { at: 0, loggedIn: false }; // 强制重新查一次
-      if (!(await isLoggedIn())) throw err("auth-required", "尚未登录");
+      const profile = await api.profile("netease");
+      if (!profile.loggedIn) throw err("auth-required", "尚未登录");
     },
   };
-
-  return provider;
 }
 
-/** 扫码登录的工具（不属于 SourceProvider 契约，UI 直接调）。 */
-export interface QrLoginSession {
+/* ---------------- 扫码登录（不属于契约，UI 直接调） ---------------- */
+
+export interface QrSession {
   key: string;
+  /** 服务端直接画好的二维码 dataURL，不需要前端再引二维码库 */
   qrImage: string;
 }
 
-export async function startQrLogin(http: HttpPort): Promise<QrLoginSession> {
-  const result = await http.fetchJson(`${HOST}/api/login/qrcode/unikey`, {
-    method: "POST",
-    form: { type: 1 },
-    headers: { referer: REFERER },
-  });
-  const key = (result.json as { unikey?: string } | null)?.unikey;
+export async function startQrLogin(api: LocalApiPort): Promise<QrSession> {
+  const keyBody = (await api.call("netease", "login_qr_key")) as { data?: { unikey?: string } };
+  const key = keyBody?.data?.unikey;
   if (!key) throw err("network", "获取二维码失败");
 
-  const qrImage = await http.qrDataUrl(`https://music.163.com/login?codekey=${key}`);
+  const qrBody = (await api.call("netease", "login_qr_create", { key, qrimg: true })) as {
+    data?: { qrimg?: string };
+  };
+  const qrImage = qrBody?.data?.qrimg ?? "";
+  if (!qrImage) throw err("network", "二维码生成失败");
+
   return { key, qrImage };
 }
 
 export interface QrPollResult {
-  code: number | string;
+  code: number;
   loggedIn: boolean;
   message: string;
 }
 
-export interface LoginProfile {
-  loggedIn: boolean;
-  nick: string | null;
-  uid: string | null;
-}
+const QR_MESSAGES: Record<number, string> = {
+  800: "二维码已过期，请刷新",
+  801: "等待扫码",
+  802: "已扫码，请在手机上确认",
+};
 
-/** 当前登录态。网络出错时**不谎报已登录**（旧仓库在这踩过，界面上会显示假的用户名）。 */
-export async function checkLogin(http: HttpPort): Promise<LoginProfile> {
-  try {
-    const result = await http.fetchJson(`${HOST}/api/nuser/account/get`, { headers: { referer: REFERER } });
-    const body = result.json as { account?: { id?: number }; profile?: { nickname?: string } } | null;
-    const uid = body?.account?.id;
-    return uid
-      ? { loggedIn: true, nick: body?.profile?.nickname ?? null, uid: String(uid) }
-      : { loggedIn: false, nick: null, uid: null };
-  } catch {
-    return { loggedIn: false, nick: null, uid: null };
-  }
-}
-
-/** 轮询扫码结果：800 过期 / 801 待扫 / 802 待确认 / 803 成功。 */
-export async function pollQrLogin(http: HttpPort, key: string): Promise<QrPollResult> {
-  const result = await http.fetchJson(
-    `${HOST}/api/login/qrcode/client/login?key=${encodeURIComponent(key)}&type=1`,
-    { headers: { referer: REFERER } },
-  );
-
-  const body = result.json;
-  const code = typeof body === "object" && body !== null ? ((body as { code?: number }).code ?? 0) : 0;
-
-  // 拿不到码时把原始响应带出来：否则界面只有"未知状态"，谁也没法排查
-  if (code === 0) {
-    return { code: 0, loggedIn: false, message: `响应异常（HTTP ${result.status}）：${JSON.stringify(body).slice(0, 80)}` };
-  }
-
-  if (code === 803) {
-    // cookie 已经被 Chromium session 吸收，再用一次接口确认登录态
-    const check = await http.fetchJson(`${HOST}/api/nuser/account/get`, { headers: { referer: REFERER } });
-    const account = (check.json as { account?: { id?: number } } | null)?.account;
-    return account?.id
-      ? { code: 803, loggedIn: true, message: "登录成功" }
-      : { code: 803, loggedIn: false, message: "扫码成功但没拿到登录态，请重试" };
-  }
-
-  const messages: Record<number, string> = {
-    800: "二维码已过期，请刷新",
-    801: "等待扫码",
-    802: "已扫码，请在手机上确认",
+export async function pollQrLogin(api: LocalApiPort, key: string): Promise<QrPollResult> {
+  const body = (await api.call("netease", "login_qr_check", { key })) as {
+    code?: number;
+    message?: string;
   };
 
-  // 未知码（实测见过 8821）：多半是请求太密被风控了。
-  // **不要继续每 2 秒重试** —— 越重试越久解不开，界面上要停下来并让人手动刷新。
-  const known = messages[code];
-  if (!known) {
-    return {
-      code,
-      loggedIn: false,
-      message: `扫码服务返回异常（code=${code}），可能请求过于频繁，请稍后点刷新`,
-    };
+  const code = Number(body?.code ?? 0);
+
+  if (code === 803) {
+    // 803 时响应里带 cookie，主进程已经落盘；这里再用账号接口确认一次
+    const profile = await api.profile("netease");
+    return profile.loggedIn
+      ? { code, loggedIn: true, message: `登录成功${profile.nick ? `：${profile.nick}` : ""}` }
+      : { code, loggedIn: false, message: "扫码成功但没拿到登录态，请重试" };
   }
-  return { code, loggedIn: false, message: known };
+
+  return { code, loggedIn: false, message: QR_MESSAGES[code] ?? `未知状态（code=${code}）` };
 }

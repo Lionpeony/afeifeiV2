@@ -59,6 +59,17 @@ export interface HttpPort {
   setCookie(url: string, name: string, value: string): Promise<void>;
 }
 
+/**
+ * 音源的本地通道。主进程侧内嵌了音源 SDK（网易云走 weapi 加密通道），
+ * 渲染层只按"方法名 + 参数"调用，不认识加密细节，也不碰 cookie。
+ */
+export interface LocalApiPort {
+  call(namespace: string, method: string, params?: Record<string, unknown>): Promise<unknown>;
+  /** 登录态摘要（昵称 / uid），登录判定只看接口返回 */
+  profile(namespace: string): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  logout(namespace: string): Promise<void>;
+}
+
 /** 曲库索引的存取与扫描。 */
 export interface LibraryPort {
   pickDir(): Promise<string | null>;
