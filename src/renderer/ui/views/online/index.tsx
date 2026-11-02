@@ -81,6 +81,24 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
     }
   };
 
+  /**
+   * 已登录就不要再申请二维码 —— 对已登录账号反复调 unikey，
+   * 网易云会返回非标准码（实测见过 8821），表现就是"扫码坏了"。
+   */
+  const openLogin = async (): Promise<void> => {
+    try {
+      const status = await loginStatus();
+      if (status.loggedIn) {
+        setNick(status.nick ?? "已登录");
+        setNote(`已登录${status.nick ? `：${status.nick}` : ""}，直接点歌就能播。`);
+        return;
+      }
+    } catch {
+      /* 查不到状态就当未登录，继续弹二维码 */
+    }
+    setLoginOpen(true);
+  };
+
   return (
     <section className="library">
       <div className="lib-head">
@@ -108,7 +126,7 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
         <button type="button" onClick={() => void run()} disabled={busy}>
           {busy ? "搜索中…" : "搜索"}
         </button>
-        <button type="button" onClick={() => setLoginOpen(true)}>
+        <button type="button" onClick={() => void openLogin()}>
           {nick ? `已登录：${nick}` : "登录"}
         </button>
         <span className="lib-count">{rows.length > 0 ? `${rows.length} 条` : ""}</span>

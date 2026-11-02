@@ -318,5 +318,16 @@ export async function pollQrLogin(http: HttpPort, key: string): Promise<QrPollRe
     801: "等待扫码",
     802: "已扫码，请在手机上确认",
   };
-  return { code, loggedIn: false, message: messages[code] ?? `未知状态（code=${code}）` };
+
+  // 未知码（实测见过 8821）：多半是请求太密被风控了。
+  // **不要继续每 2 秒重试** —— 越重试越久解不开，界面上要停下来并让人手动刷新。
+  const known = messages[code];
+  if (!known) {
+    return {
+      code,
+      loggedIn: false,
+      message: `扫码服务返回异常（code=${code}），可能请求过于频繁，请稍后点刷新`,
+    };
+  }
+  return { code, loggedIn: false, message: known };
 }

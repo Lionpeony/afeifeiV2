@@ -10,19 +10,23 @@ export interface LoginDialogProps {
 /**
  * 扫码登录弹层。
  *
- * 轮询用 setTimeout 链而不是 setInterval：802（已扫码待确认）时手机可能停留十几秒，
- * setInterval 会让请求堆在一起；链式等待保证"上一次回来才发下一次"。
+ * 两处刻意的设计：
+ *   1. **轮询用 setTimeout 链，不用 setInterval**。802（已扫码待确认）时手机可能停十几秒，
+ *      setInterval 会让请求堆在一起；链式等待保证"上一次回来才发下一次"。
+ *   2. **用运行代次（runId）作废旧轮询**，而不是靠布尔 alive。点"刷新"会重新拿二维码，
+ *      旧二维码的轮询必须立刻失效——否则两个 key 的 tick 会互相覆盖界面提示。
  */
 export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProps) {
   const [qrImage, setQrImage] = useState("");
   const [note, setNote] = useState("正在获取二维码…");
   const [expired, setExpired] = useState(false);
+
   const timer = useRef<number | undefined>(undefined);
+  const runId = useRef(0);
 
   /**
    * 三个 props 都是父组件里的内联箭头函数，**每次渲染都是新引用**。
-   * 如果把它们放进下面那个 effect 的依赖里，任何一次 setNote 都会让 effect 重跑，
-   * 于是反复取新二维码、反复轮询 —— 所以这里锁进 ref，effect 只跑一次。
+   * 放进 effect 依赖会让 setNote 一次就重取二维码，所以锁进 ref，effect 只跑一次。
    */
   const startRef = useRef(start);
   const pollRef = useRef(poll);
@@ -33,54 +37,63 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
     successRef.current = onSuccess;
   }, [start, poll, onSuccess]);
 
-  useEffect(() => {
-    let alive = true;
+  const begin = async (): Promise<void> => {
+    runId.current += 1;
+    const myRun = runId.current;
+    const alive = (): boolean => runId.current === myRun;
 
-    const begin = async (): Promise<void> => {
-      setExpired(false);
-      setNote("正在获取二维码…");
-      try {
-        const session = await startRef.current();
-        if (!alive) return;
-        setQrImage(session.qrImage);
-        setNote("请打开网易云音乐 App → 扫一扫");
+    if (timer.current) window.clearTimeout(timer.current);
+    setExpired(false);
+    setQrImage("");
+    setNote("正在获取二维码…");
 
-        const tick = async (): Promise<void> => {
-          if (!alive) return;
-          try {
-            const result = await pollRef.current(session.key);
-            if (!alive) return;
-            setNote(result.message);
-            if (result.loggedIn) {
-              successRef.current();
-              return;
-            }
-            if (result.code === 800) {
-              setExpired(true);
-              return;
-            }
-          } catch (err) {
-            if (!alive) return;
-            setNote(err instanceof Error ? err.message : "网络错误，稍后重试");
+    try {
+      const session = await startRef.current();
+      if (!alive()) return;
+      setQrImage(session.qrImage);
+      setNote("请打开网易云音乐 App → 扫一扫");
+
+      const tick = async (): Promise<void> => {
+        if (!alive()) return;
+        try {
+          const result = await pollRef.current(session.key);
+          if (!alive()) return;
+          setNote(result.message);
+          if (result.loggedIn) {
+            successRef.current();
+            return;
           }
-          timer.current = window.setTimeout(() => void tick(), 2000);
-        };
-
+          // 只有这两种状态值得继续轮询；过期与未知码都停下来等用户手动刷新
+          if (result.code !== 801 && result.code !== 802) {
+            setExpired(true);
+            return;
+          }
+        } catch (err) {
+          if (!alive()) return;
+          setNote(err instanceof Error ? err.message : "网络错误，稍后重试");
+        }
         timer.current = window.setTimeout(() => void tick(), 2000);
-      } catch (err) {
-        if (!alive) return;
-        setNote(err instanceof Error ? err.message : "拿不到二维码");
-      }
-    };
+      };
 
+      timer.current = window.setTimeout(() => void tick(), 2000);
+    } catch (err) {
+      if (!alive()) return;
+      setNote(err instanceof Error ? err.message : "拿不到二维码");
+      setExpired(true);
+    }
+  };
+
+  useEffect(() => {
     void begin();
-
     return () => {
-      alive = false;
+      runId.current += 1; // 让所有在途请求作废
       if (timer.current) window.clearTimeout(timer.current);
     };
     // 空依赖：props 已锁进 ref，effect 只该跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const busy = !qrImage && !expired;
 
   return (
     <div className="dialog-mask" onClick={onClose}>
@@ -89,11 +102,9 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
         {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
         <p className="dialog-note">{note}</p>
         <div className="dialog-actions">
-          {expired ? (
-            <button type="button" className="primary" onClick={() => window.location.reload()}>
-              刷新
-            </button>
-          ) : null}
+          <button type="button" className="primary" onClick={() => void begin()} disabled={busy}>
+            {expired ? "刷新" : "换一张"}
+          </button>
           <button type="button" onClick={onClose}>
             关闭
           </button>
