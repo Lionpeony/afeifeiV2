@@ -108,7 +108,7 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
             歌手
           </button>
         </div>
-        <button type="button" onClick={onScan} disabled={scanning}>
+        <button type="button" className="primary" onClick={onScan} disabled={scanning}>
           {scanning ? "扫描中…" : "扫描目录"}
         </button>
         <span className="lib-count">

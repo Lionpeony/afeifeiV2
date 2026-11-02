@@ -19,13 +19,13 @@ html, body { margin: 0; height: 100%; background: var(--bg-raised); color: var(-
   text-overflow: ellipsis;
 }
 .mini-time { margin: 2px 0 4px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
-.mini-bar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.mini-bar { height: 3px; background: var(--line); border-radius: 0; overflow: hidden; }
 .mini-bar-fill { height: 100%; background: var(--accent); transition: width 0.4s linear; }
 .mini-btns { display: flex; gap: 4px; }
 .mini-btns button {
   background: none;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: 0;
   color: var(--fg-dim);
   cursor: pointer;
   padding: 4px 8px;

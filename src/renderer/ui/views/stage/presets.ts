@@ -113,9 +113,10 @@ export const PRESETS: StagePresetDef[] = [
     wallpaperFromCover: true, // 封面 blur 48px / scale 1.15 / 亮度 -18%
     lyricRenderer: "theatrical",
     tokens: {
-      "--stage-bg": "var(--bg)",
-      "--stage-fg": "var(--fg)",
-      "--stage-fg-dim": "var(--fg-dim)",
+      // 深色封面模糊底上墨字不可读：cinema 显式用纸色字（2026-11-03 纸面化换装）
+      "--stage-bg": "#17150f",
+      "--stage-fg": "#f3f1ea",
+      "--stage-fg-dim": "rgba(243, 241, 234, 0.6)",
       "--stage-tint": "var(--accent)",
       "--stage-wallpaper": "none", // 壁纸由封面图层承担（wallpaperFromCover）
       "--stage-cover-size": "300px",
