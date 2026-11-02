@@ -80,7 +80,13 @@ async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
 /* ---------- 扫码登录（包内三件套，语义与网易云对齐） ---------- */
 
 async function qqQrStart(): Promise<unknown> {
-  const keyBody = await callApi<{ code?: number; data?: { unikey?: string } }>("/login/qr/key");
+  // key 这一步要看状态码：上次登录失败后包有 15s 冷却，冷却内回 429 + retryAfterMs
+  const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key`);
+  if (keyRes.status === 429) {
+    const waitSec = Math.ceil(Number((keyRes.json as { retryAfterMs?: number })?.retryAfterMs ?? 15_000) / 1000);
+    throw new Error(`登录太频繁，约 ${waitSec} 秒后再点「刷新」`);
+  }
+  const keyBody = keyRes.json as { data?: { unikey?: string } };
   const key = keyBody?.data?.unikey;
   if (!key) throw new Error("获取二维码失败");
   // create 返回 data.qrimg = dataURL（2026-11-03 实测，channel=qq/wechat 均验证）
