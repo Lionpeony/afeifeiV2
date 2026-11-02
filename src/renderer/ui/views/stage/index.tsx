@@ -45,7 +45,11 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
   const rootRef = useRef<HTMLDivElement>(null);
   const lyricListRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const coverRef = useRef<HTMLImageElement | null>(null);
   const lastActiveRef = useRef(-999);
+  /* 电影感视差（50 §9.2：±8px、阻尼 0.12）：鼠标定目标，onTick 里插值，只写 transform */
+  const parallaxTarget = useRef({ x: 0, y: 0 });
+  const parallaxCurrent = useRef({ x: 0, y: 0 });
 
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [doc, setDoc] = useState<LyricDoc | null>(null);
@@ -150,6 +154,17 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
             }
           }
         }
+        // 电影感视差：每帧向目标阻尼插值（0.12），intensity=0 或非 cinema 时不动
+        if (stage.preset === "cinema" && stage.intensity > 0) {
+          const cur = parallaxCurrent.current;
+          const tgt = parallaxTarget.current;
+          if (Math.abs(cur.x - tgt.x) > 0.05 || Math.abs(cur.y - tgt.y) > 0.05) {
+            cur.x += (tgt.x - cur.x) * 0.12;
+            cur.y += (tgt.y - cur.y) * 0.12;
+            const img = coverRef.current;
+            if (img) img.style.transform = `translate(${cur.x.toFixed(2)}px, ${cur.y.toFixed(2)}px)`;
+          }
+        }
         // 频谱（L-b，电影感）：每帧画。analyser 没数据就留空 —— 不画假波形
         if (stage.preset === "cinema" && stage.layers.visual && canvasRef.current) {
           const data = spectrum(SPECTRUM_BARS);
@@ -167,7 +182,7 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
           }
         }
       }),
-    [doc, renderer, stage.preset, stage.layers.visual, spectrum],
+    [doc, renderer, stage.preset, stage.layers.visual, stage.intensity, spectrum],
   );
 
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
@@ -177,6 +192,15 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
       ref={rootRef}
       className={`stage preset-${stage.preset} fx-${stage.intensity}`}
       style={{ "--stage-wallpaper-img": coverUrl ? `url(${JSON.stringify(coverUrl)})` : "none" } as React.CSSProperties}
+      onMouseMove={(e) => {
+        if (stage.preset !== "cinema" || stage.intensity === 0) return;
+        const r = rootRef.current?.getBoundingClientRect();
+        if (!r) return;
+        parallaxTarget.current = {
+          x: (e.clientX / r.width - 0.5) * 16, // ±8px（50 §9.2）
+          y: (e.clientY / r.height - 0.5) * 16,
+        };
+      }}
     >
       {/* L-a 壁纸 */}
       {stage.layers.wallpaper ? (
@@ -191,7 +215,7 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
       {/* L-c 封面（不可关） */}
       <div className="st-cover-wrap">
         {coverUrl ? (
-          <img className="st-cover" src={coverUrl} alt="" />
+          <img ref={coverRef} className="st-cover" src={coverUrl} alt="" />
         ) : (
           <div className="st-cover st-cover-empty" />
         )}

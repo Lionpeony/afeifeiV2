@@ -48,6 +48,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-fg-dim": "var(--fg-dim)",
       "--stage-tint": "var(--accent)",
       "--stage-wallpaper":
+        // 纸噪点（SVG feTurbulence data-uri，opacity 0.035 按 50 §9.2）+ 底部微光渐变，双层叠加
+        "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E\")," +
         "radial-gradient(ellipse at 50% 28%, rgba(232, 230, 227, 0.04), transparent 62%)",
       "--stage-cover-size": "320px",
       "--stage-cover-radius": "8px",
