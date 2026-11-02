@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { AppState } from "../../contracts/index.js";
-import { getFiltered } from "../domain/library/state.js";
+import { getFiltered, searchTracks } from "../domain/library/state.js";
 import { EQ_BANDS, EQ_DEFAULT, PREAMP_DEFAULT } from "../capability/audio/eq.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
@@ -409,7 +409,20 @@ function App() {
         </div>
       )}
 
-      {paletteOpen ? <CommandPalette onClose={() => setPaletteOpen(false)} /> : null}
+      {paletteOpen ? (
+        <CommandPalette
+          onClose={() => setPaletteOpen(false)}
+          // 「Ctrl+K 搜索 → 播放」验收：命中本地歌直接进队列播放（拼音索引复用，见 library/state）
+          searchSongs={(q) =>
+            searchTracks(q).map((t) => ({
+              id: `song:${t.id}`,
+              label: `${t.title} — ${t.artist}`,
+              hint: "本地",
+              run: () => dispatch({ type: "queue/set", items: [t.path], startAt: 0 }),
+            }))
+          }
+        />
+      ) : null}
     </main>
   );
 }

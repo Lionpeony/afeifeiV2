@@ -42,3 +42,9 @@ export function isRangeTarget(el: EventTarget | null): boolean {
   if (!el || (el as HTMLElement).tagName !== "INPUT") return false;
   return (el as HTMLInputElement).type === "range";
 }
+
+/** 焦点在 <select>：方向键/空格属于下拉展开，应用快捷键静默（00 §9.5「滑杆或 select」）。 */
+export function isListTarget(el: EventTarget | null): boolean {
+  if (!el || (el as HTMLElement).tagName !== "SELECT") return false;
+  return true;
+}

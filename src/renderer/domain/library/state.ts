@@ -46,23 +46,33 @@ export function setQuery(next: string): void {
   applyQuery(next, true);
 }
 
-function applyQuery(raw: string, shouldNotify: boolean): void {
-  const keyword = raw.trim();
-  if (!keyword) {
-    filtered = all;
-  } else {
-    const hits: { track: Track; score: number }[] = [];
-    for (const track of all) {
-      const key = keys.get(track.id);
-      if (!key || !matchKey(key, keyword)) continue;
-      hits.push({ track, score: scoreKey(key, keyword) });
-    }
-    // 稳定排序：同分保持原有顺序（通常是文件名顺序），不会在打字时乱跳
-    hits.sort((a, b) => a.score - b.score);
-    filtered = hits.map((h) => h.track);
+function rank(keyword: string): { track: Track; score: number }[] {
+  const kw = keyword.trim();
+  if (!kw) return [];
+  const hits: { track: Track; score: number }[] = [];
+  for (const track of all) {
+    const key = keys.get(track.id);
+    if (!key || !matchKey(key, kw)) continue;
+    hits.push({ track, score: scoreKey(key, kw) });
   }
+  // 稳定排序：同分保持原有顺序（通常是文件名顺序），不会在打字时乱跳
+  hits.sort((a, b) => a.score - b.score);
+  return hits;
+}
 
+function applyQuery(raw: string, shouldNotify: boolean): void {
+  filtered = raw.trim() ? rank(raw).map((h) => h.track) : all;
   if (shouldNotify) notify();
+}
+
+/**
+ * 一次性查询（命令面板用）：**不动全局 query、不触发通知**。
+ * 与曲库搜索共用同一份拼音索引缓存，5000 条下无额外建键成本。
+ */
+export function searchTracks(keyword: string, limit = 12): Track[] {
+  return rank(keyword)
+    .slice(0, limit)
+    .map((h) => h.track);
 }
 
 export function trackById(id: TrackId): Track | undefined {

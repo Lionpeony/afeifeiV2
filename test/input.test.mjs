@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isTextTarget, isRangeTarget, resolveEsc } from "../dist-test/input-esc.mjs";
+import { isTextTarget, isRangeTarget, isListTarget, resolveEsc } from "../dist-test/input-esc.mjs";
 import { COMMAND_LIMIT, filterCommands } from "../dist-test/input-commands.mjs";
+import { setTracks, searchTracks } from "../dist-test/library-state.mjs";
 
 /** DOM 类判定用假对象：isTextTarget 只访问 tagName/type/isContentEditable。 */
 function fakeEl(tag, type, contentEditable = false) {
@@ -59,6 +60,30 @@ test("isRangeTarget：只有 input[type=range]", () => {
   assert.equal(isRangeTarget(fakeEl("INPUT", "range")), true);
   assert.equal(isRangeTarget(fakeEl("INPUT", "text")), false);
   assert.equal(isRangeTarget(null), false);
+});
+
+test("isListTarget：只有 <select>（方向键/空格归下拉，00 §9.5）", () => {
+  assert.equal(isListTarget(fakeEl("SELECT", undefined)), true);
+  assert.equal(isListTarget(fakeEl("INPUT", "text")), false);
+  assert.equal(isListTarget(null), false);
+});
+
+/* ---- 面板搜歌（searchTracks：一次性查询，不动全局 query） ---- */
+
+test("searchTracks：命中标题并截到上限，且不污染曲库全局搜索词", async () => {
+  const { getQuery, setQuery } = await import("../dist-test/library-state.mjs");
+  const tracks = [
+    { id: "a", path: "a.mp3", title: "晴天", artist: "周杰伦", album: "", durationMs: 0, size: 1, mtimeMs: 0, hasCover: false },
+    { id: "b", path: "b.mp3", title: "听妈妈的话", artist: "周杰伦", album: "", durationMs: 0, size: 1, mtimeMs: 0, hasCover: false },
+    { id: "c", path: "c.mp3", title: "夜曲", artist: "周杰伦", album: "", durationMs: 0, size: 1, mtimeMs: 0, hasCover: false },
+  ];
+  setTracks(tracks);
+  const out = searchTracks("晴天");
+  assert.equal(out.length, 1);
+  assert.equal(out[0].title, "晴天");
+  assert.equal(getQuery(), "", "searchTracks 不得改动全局搜索词");
+  assert.equal(searchTracks("周杰伦").length <= 12, true);
+  assert.equal(searchTracks("").length, 0, "空关键词不搜");
 });
 
 /* ---- 命令过滤 ---- */

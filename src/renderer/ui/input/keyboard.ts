@@ -10,7 +10,7 @@
  *   ⑤ 有模态打开 → 静默
  *   ⑥ 匹配命令表
  */
-import { resolveEsc, isTextTarget, isRangeTarget } from "./resolve-esc.js";
+import { resolveEsc, isTextTarget, isRangeTarget, isListTarget } from "./resolve-esc.js";
 import { idsOf, closeTop } from "./panels.js";
 
 export interface KeyboardActions {
@@ -35,8 +35,8 @@ export function installKeyboard(actions: KeyboardActions): () => void {
       return;
     }
 
-    // 文本输入与滑杆：键属于元素，不属于应用
-    if (isTextTarget(e.target) || isRangeTarget(e.target)) return;
+    // 文本输入与滑杆/下拉：键属于元素，不属于应用（00 §9.5「焦点在滑杆或 select」）
+    if (isTextTarget(e.target) || isRangeTarget(e.target) || isListTarget(e.target)) return;
 
     // 模态打开：快捷键整体静默
     if (idsOf("modal").length > 0) return;

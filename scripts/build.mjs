@@ -41,6 +41,7 @@ if (TEST) {
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",
       "input-esc": "src/renderer/ui/input/resolve-esc.ts",
       "input-commands": "src/renderer/ui/input/commands.ts",
+      "library-state": "src/renderer/domain/library/state.ts",
     },
     outdir: "dist-test",
     bundle: true,

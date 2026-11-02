@@ -5,13 +5,23 @@ import { pushPanel } from "./panels.js";
 /**
  * Ctrl+K 命令面板（00 §9.5）：结果上限 12 条，全键盘可用。
  * ↑/↓ 选择、Enter 执行、Esc 关闭（Esc 走全局 resolveEsc，本组件只注册为面板）。
+ * 命令之外还能搜本地歌（searchSongs 提供，命中即播）——「Ctrl+K 搜索 → 播放」验收行。
  */
-export function CommandPalette({ onClose }: { onClose(): void }) {
+export function CommandPalette({
+  onClose,
+  searchSongs,
+}: {
+  onClose(): void;
+  searchSongs?: (query: string) => Command[];
+}) {
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const cmds: Command[] = useMemo(() => filterCommands(listCommands(), query), [query]);
+  const cmds: Command[] = useMemo(
+    () => filterCommands([...listCommands(), ...(searchSongs?.(query) ?? [])], query),
+    [query, searchSongs],
+  );
 
   useEffect(() => pushPanel("command-palette", "modal", onClose), [onClose]);
   useEffect(() => inputRef.current?.focus(), []);
@@ -34,7 +44,7 @@ export function CommandPalette({ onClose }: { onClose(): void }) {
         <input
           ref={inputRef}
           className="palette-input"
-          placeholder="输入命令…（↑↓ 选择，Enter 执行）"
+          placeholder="输入命令或歌名…（↑↓ 选择，Enter 执行）"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
