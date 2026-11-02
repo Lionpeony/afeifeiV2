@@ -28,6 +28,11 @@ export type ErrorCode =
 export interface PlayerState {
   status: PlayerStatus;
   trackId: TrackId | null;
+  /**
+   * 显示用的标题。本地曲目由 UI 从路径取，在线曲目的 trackId 是直链，
+   * 不单独给标题的话播放条会显示成一串签名串。
+   */
+  trackTitle: string | null;
   positionMs: number;
   volume: number;
   error: ErrorCode | null;
@@ -53,7 +58,7 @@ export interface AppState {
 /** UI 唯一允许对外发出的东西。 */
 export type Intent =
   /** 带 trackId = 换歌并播；不带 = 播当前（引擎加载完成后也用它） */
-  | { type: "player/play"; trackId?: TrackId }
+  | { type: "player/play"; trackId?: TrackId; trackTitle?: string | null }
   | { type: "player/pause" }
   | { type: "player/toggle" }
   | { type: "player/seek"; positionMs: number }

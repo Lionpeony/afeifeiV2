@@ -134,7 +134,8 @@ function App() {
             if (!svc) return;
             // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
             const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-            dispatch({ type: "player/play", trackId: url });
+            // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名
+            dispatch({ type: "player/play", trackId: url, trackTitle: `${track.title} — ${track.artist}` });
           }}
           loginStatus={() => services.current?.loginStatus() ?? Promise.resolve({ loggedIn: false, nick: null })}
           startLogin={() => {
@@ -161,7 +162,7 @@ function App() {
       )}
 
       <footer className="player">
-        <p className="track">{baseName(trackId)}</p>
+        <p className="track">{state.player.trackTitle ?? baseName(trackId)}</p>
 
         <div className="bar">
           <input

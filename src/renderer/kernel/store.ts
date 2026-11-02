@@ -11,7 +11,7 @@ import { clampCursor, orderOf, prevAction, pushHistory, stepBackward, stepForwar
 type Listener = () => void;
 
 const initialState: AppState = {
-  player: { status: "idle", trackId: null, positionMs: 0, volume: 0.8, error: null },
+  player: { status: "idle", trackId: null, trackTitle: null, positionMs: 0, volume: 0.8, error: null },
   queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
 };
 
@@ -34,13 +34,14 @@ function switchTo(current: AppState, cursor: number): AppState {
   const { queue, player } = current;
   if (cursor < 0) {
     return {
-      player: { ...player, status: "ended", trackId: null, positionMs: 0 },
+      player: { ...player, status: "ended", trackId: null, trackTitle: null, positionMs: 0 },
       queue: { ...queue, cursor: -1 },
     };
   }
   const trackId = queue.items[cursor];
   return {
-    player: { ...player, status: "loading", trackId, positionMs: 0, error: null },
+    // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题
+    player: { ...player, status: "loading", trackId, trackTitle: null, positionMs: 0, error: null },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
   };
 }
@@ -60,7 +61,14 @@ function reduce(current: AppState, intent: Intent): AppState {
       const nextQueue =
         cursor >= 0 ? { ...queue, cursor, history: pushHistory(queue.history, trackId) } : queue;
       return {
-        player: { ...player, status: "playing", trackId, positionMs: 0, error: null },
+        player: {
+          ...player,
+          status: "playing",
+          trackId,
+          trackTitle: intent.trackTitle ?? null,
+          positionMs: 0,
+          error: null,
+        },
         queue: nextQueue,
       };
     }
@@ -128,7 +136,7 @@ function reduce(current: AppState, intent: Intent): AppState {
       const items = intent.items;
       if (items.length === 0) {
         return {
-          player: { ...player, status: "idle", trackId: null, positionMs: 0 },
+          player: { ...player, status: "idle", trackId: null, trackTitle: null, positionMs: 0 },
           queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
         };
       }
