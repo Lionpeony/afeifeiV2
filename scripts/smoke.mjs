@@ -2,9 +2,13 @@
 /**
  * 冒烟（51 §2.5，M1 起接入）。真起 Electron + CDP，不注入假数据、不打真网。
  *
- * 两阶段：
- *   1. 界面 / 桥 / 状态 / 控件 / 样式 / 真实解码播放 / 存档写入
- *   2. 强杀后重启，验证队列与音量被恢复（模拟断电，不走 beforeunload）
+ * 三阶段：
+ *   1. 界面 / 桥 / 控件 / 真实解码播放 / 无效令牌 / 写入 20 首队列存档
+ *   2. 强杀重启 → 恢复（曲目/位置/音量/暂停态）→ 连切 20 首
+ *   3. 存档指向已删文件 → 强杀重启 → 必须落进 error 态而不是崩
+ *
+ * 「切歌不爆音」是听觉判据，冒烟只能证明状态一致、不进 error、进度条不越界；
+ * 不爆音的结构性保证在代码里（切歌只改 src，不重建 AudioContext、不动 gain）。
  *
  * 用独立 userData，别把冒烟写进真实应用数据。
  */
@@ -17,6 +21,7 @@ import fs from "node:fs";
 const PORT = 9333;
 const PROFILE = path.join(os.tmpdir(), `afeifei-smoke-${process.pid}`);
 const EXE = path.join("node_modules", "electron", "dist", process.platform === "win32" ? "electron.exe" : "electron");
+const MEDIA_DIR = "C:\\Windows\\Media";
 
 if (!fs.existsSync(EXE)) {
   console.error(`✗ 找不到 Electron：${EXE}（先 npm install）`);
@@ -25,16 +30,21 @@ if (!fs.existsSync(EXE)) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** 系统自带的示例音频。没有就跳过播放验证，不让冒烟变成"看你机器安不安装媒体文件"。 */
-function findSampleAudio() {
+/** 系统自带的示例音频。没有就跳过播放相关验证，不让冒烟变成"看你机器安不安装媒体文件"。 */
+function listSamples(limit) {
   try {
-    const dir = "C:\\Windows\\Media";
-    const hit = fs.readdirSync(dir).find((f) => f.toLowerCase().endsWith(".wav"));
-    return hit ? path.join(dir, hit) : null;
+    return fs
+      .readdirSync(MEDIA_DIR)
+      .filter((f) => f.toLowerCase().endsWith(".wav"))
+      .slice(0, limit)
+      .map((f) => path.join(MEDIA_DIR, f));
   } catch {
-    return null;
+    return [];
   }
 }
+
+const NEXT_BUTTON = `[...document.querySelectorAll("button")].find((b) => b.textContent === "下一首")`;
+const PLAY_BUTTON = `[...document.querySelectorAll("button")].find((b) => b.textContent === "播放" || b.textContent === "暂停")`;
 
 async function waitTarget(getLog, timeoutMs = 20000) {
   const started = Date.now();
@@ -92,7 +102,6 @@ function connect(url) {
   };
 }
 
-/** 起一个实例，挂上 CDP，返回 evaluate / waitFor / close。 */
 async function launch(extraArgs = [], reloadFirst = true) {
   const child = spawn(
     EXE,
@@ -115,7 +124,6 @@ async function launch(extraArgs = [], reloadFirst = true) {
   await client.send("Log.enable");
   await client.send("Page.enable");
 
-  // 重载一次：脚本执行期异常只有在 Runtime.enable 之后发生的才抓得到
   if (reloadFirst) await client.send("Page.reload", { ignoreCache: true });
 
   const evaluate = async (expression) => {
@@ -142,7 +150,6 @@ async function launch(extraArgs = [], reloadFirst = true) {
     log: () => log,
     async close({ hard = false } = {}) {
       client.close();
-      // hard = 直接杀，模拟断电；不给 beforeunload 机会
       child.kill(hard ? "SIGKILL" : "SIGTERM");
       await new Promise((resolve) => {
         if (child.exitCode !== null) return resolve();
@@ -155,17 +162,41 @@ async function launch(extraArgs = [], reloadFirst = true) {
 
 let current = null;
 
-async function main() {
-  const sample = findSampleAudio();
-  const baseName = sample ? path.basename(sample) : null;
+/** 排队时用的存档：20 首真歌 + 位置 2000ms + 音量 30%。 */
+function snapshotOf(samples) {
+  return {
+    v: 1,
+    trackId: samples[0],
+    positionMs: 2000,
+    volume: 0.3,
+    queue: { items: samples, cursor: 0, context: samples, history: [], mode: "order", shuffleSeed: 1 },
+  };
+}
 
-  /* ---------------- 阶段 1：界面与播放 ---------------- */
+function snapshotOfMissing(missingPath) {
+  return {
+    v: 1,
+    trackId: missingPath,
+    positionMs: 0,
+    volume: 0.5,
+    queue: { items: [missingPath], cursor: 0, context: [], history: [], mode: "order", shuffleSeed: 1 },
+  };
+}
+
+async function main() {
+  const samples = listSamples(20);
+  const hasAudio = samples.length >= 2;
+  const first = hasAudio ? path.basename(samples[0]) : null;
+
+  if (!hasAudio) console.log(`  SKIP 播放相关验证：${MEDIA_DIR} 下 wav 不足 2 个`);
+  else console.log(`  样本：${samples.length} 个 wav`);
+
+  /* ---------------- 阶段 1：界面 / 播放 / 存档 ---------------- */
   const app = await launch(["--autoplay-policy=no-user-gesture-required"]);
   current = app;
 
   if (!(await app.waitFor(`document.querySelector("h1")?.textContent === "afeifei"`))) {
-    const href = await app.evaluate(`location.href`);
-    throw new Error(`界面没渲染出来。href=${href}\n页面事件：\n${app.events().join("\n") || "(无)"}`);
+    throw new Error(`界面没渲染出来。页面事件：\n${app.events().join("\n") || "(无)"}`);
   }
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
@@ -178,9 +209,9 @@ async function main() {
   );
   assert.equal(badToken, 410, `无效令牌应返回 410，实际 ${badToken}`);
 
-  if (sample) {
-    const token = await app.evaluate(`window.api.grant(${JSON.stringify(sample)})`);
-    assert.ok(token, `grant 没返回令牌：${sample}`);
+  if (hasAudio) {
+    const token = await app.evaluate(`window.api.grant(${JSON.stringify(samples[0])})`);
+    assert.ok(token, `grant 没返回令牌：${samples[0]}`);
 
     const probe = await app.evaluate(`new Promise((resolve) => {
       const a = new Audio("appmedia://${token}");
@@ -197,65 +228,89 @@ async function main() {
 
     assert.ok(probe.duration > 0, `解码失败：${JSON.stringify(probe)}`);
     assert.ok(probe.currentTime > 0, `播放没有推进：${JSON.stringify(probe)}`);
-    console.log(`  解码 + 播放 OK：${baseName}，时长 ${probe.duration.toFixed(2)}s`);
-  } else {
-    console.log("  SKIP 播放验证：没找到示例音频（C:\\Windows\\Media\\*.wav）");
-  }
+    console.log(`  解码 + 播放 OK：${first}，时长 ${probe.duration.toFixed(2)}s`);
 
-  /* ---------------- 存档 + 强杀 ---------------- */
-  if (sample) {
-    const snapshot = {
-      v: 1,
-      trackId: sample,
-      positionMs: 2000,
-      volume: 0.3,
-      queue: { items: [sample], cursor: 0, context: [sample], history: [], mode: "order", shuffleSeed: 1 },
-    };
-    await app.evaluate(`window.api.saveState(${JSON.stringify(JSON.stringify(snapshot))})`);
-
+    await app.evaluate(`window.api.saveState(${JSON.stringify(JSON.stringify(snapshotOf(samples)))})`);
     const roundtrip = await app.evaluate(`window.api.loadState()`);
     assert.ok(
-      typeof roundtrip === "string" && roundtrip.includes(baseName),
+      typeof roundtrip === "string" && roundtrip.includes(first),
       `saveState 之后 loadState 拿不到内容：${String(roundtrip).slice(0, 120)}`,
     );
   }
 
-  // 强杀：不走 beforeunload，等价于断电/任务管理器结束进程
   await app.close({ hard: true });
   current = null;
   await sleep(1200);
 
-  /* ---------------- 阶段 2：重启恢复 ---------------- */
-  if (sample) {
+  /* ---------------- 阶段 2：重启恢复 + 连切 20 首 ---------------- */
+  if (hasAudio) {
     const app2 = await launch([]);
     current = app2;
 
-    const restored = await app2.waitFor(
-      `document.querySelector(".track")?.textContent === ${JSON.stringify(baseName)}`,
-      10000,
-    );
-    if (!restored) {
+    if (!(await app2.waitFor(`document.querySelector(".track")?.textContent === ${JSON.stringify(first)}`, 10000))) {
       const shown = await app2.evaluate(`document.querySelector(".track")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);
       throw new Error(`重启后没恢复出上次的曲目。界面显示 ${shown}；存档 ${raw}`);
     }
 
-    const volume = await app2.evaluate(`document.querySelector(".volume input")?.value ?? ""`);
-    assert.equal(volume, "30", `音量应从存档恢复成 30，实际 ${volume}`);
-
-    const status = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
-    assert.ok(status.startsWith("paused") || status.startsWith("loading"), `恢复后应停在暂停态，实际 ${status}`);
-
-    // 位置：存档写的是 2000ms，允许 1s 节流误差（50 §18 第 7 条）
+    assert.equal(await app2.evaluate(`document.querySelector(".volume input")?.value`), "30", "音量应恢复成 30");
+    const status0 = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
+    assert.ok(status0.startsWith("paused") || status0.startsWith("loading"), `恢复后应停在暂停态，实际 ${status0}`);
     const position = await app2.evaluate(`Number(document.querySelector(".bar input")?.value ?? 0)`);
-    assert.ok(Math.abs(position - 2000) <= 1000, `位置应从存档恢复成 2000±1000ms，实际 ${position}`);
+    assert.ok(Math.abs(position - 2000) <= 1000, `位置应恢复成 2000±1000ms，实际 ${position}`);
+    console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态");
 
-    console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态 均来自存档");
-    await app2.close();
+    // 先真播起来，再连切 —— 暂停态切歌测不到"边播边切"
+    await app2.evaluate(`${PLAY_BUTTON}.click()`);
+    await sleep(600);
+
+    const seen = new Set();
+    for (let i = 1; i <= 20; i += 1) {
+      await app2.evaluate(`${NEXT_BUTTON}.click()`);
+      await sleep(200);
+      const status = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
+      assert.ok(!status.startsWith("error"), `第 ${i} 次切歌落进 error：${status}`);
+      const track = await app2.evaluate(`document.querySelector(".track")?.textContent ?? ""`);
+      seen.add(track);
+      const bar = await app2.evaluate(
+        `(() => { const b = document.querySelector(".bar input"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
+      );
+      assert.ok(bar.v <= bar.m + 1000, `第 ${i} 次切歌后进度条越界：${bar.v} > ${bar.m}`);
+    }
+    assert.ok(seen.size >= 15, `20 次切歌应切到多个不同曲目，实际只有 ${seen.size} 个`);
+    console.log(`  连切 20 首 OK：经过 ${seen.size} 个不同曲目，无 error、进度条不越界`);
+
+    await app2.close({ hard: true });
+    current = null;
+    await sleep(1200);
+  }
+
+  /* ---------------- 阶段 3：文件被删 → error 态 ---------------- */
+  if (hasAudio) {
+    const missingPath = path.join(MEDIA_DIR, "__deleted__", "gone.mp3");
+
+    const app3 = await launch([], false);
+    current = app3;
+    await app3.waitFor(`document.querySelector("h1")?.textContent === "afeifei"`);
+    await app3.evaluate(`window.api.saveState(${JSON.stringify(JSON.stringify(snapshotOfMissing(missingPath)))})`);
+    await app3.close({ hard: true });
+    current = null;
+    await sleep(1200);
+
+    const app4 = await launch([]);
+    current = app4;
+
+    const errored = await app4.waitFor(`(document.querySelector(".status")?.textContent ?? "").startsWith("error")`, 10000);
+    const shown = await app4.evaluate(`document.querySelector(".status")?.textContent ?? "(无)"`);
+    assert.ok(errored, `文件不存在时应进入 error 态，实际 ${shown}`);
+    assert.ok(shown.includes("track-missing"), `error 码应为 track-missing，实际 ${shown}`);
+    console.log(`  文件被删 OK：界面落进 ${shown}`);
+
+    await app4.close();
     current = null;
   }
 
-  console.log("SMOKE PASS：界面 / 桥 / 状态 / 控件 / 样式 / 播放 / 恢复 均正常");
+  console.log("SMOKE PASS：界面 / 桥 / 控件 / 播放 / 恢复 / 连切 / 错误态 均正常");
 }
 
 try {
@@ -263,6 +318,7 @@ try {
   process.exit(0);
 } catch (err) {
   console.error(`✗ SMOKE 失败：${err.message}`);
+  if (current?.events().length) console.error(`--- 页面事件：\n${current.events().join("\n")}`);
   if (current?.log().trim()) console.error(`--- 应用输出：\n${current.log().trim()}`);
   try {
     await current?.close({ hard: true });

@@ -46,7 +46,13 @@ export class AudioEngine {
     return "unknown";
   }
 
-  /** 换曲：把路径换成令牌，再交给 <audio>。返回是否真的换了。 */
+  /**
+   * 换曲：把路径换成令牌，再交给 <audio>。返回是否真的换了。
+   *
+   * 切歌必须是「先淡出、换 src、再淡入」：直接换 src 是波形硬切，会咔哒一声。
+   * 8ms 淡出 + 10ms 换源 + play 时 20ms 淡入，加起来约 38ms，耳朵几乎无感，
+   * 但足以把不连续的跳变压掉。
+   */
   async load(track: string): Promise<boolean> {
     if (this.currentSrc === track) return false;
 
@@ -54,6 +60,15 @@ export class AudioEngine {
     if (!token) {
       this.hooks.onError?.("track-missing");
       return false;
+    }
+
+    if (this.graph) {
+      const now = this.graph.ctx.currentTime;
+      const gain = this.graph.fade.gain;
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(gain.value, now);
+      gain.linearRampToValueAtTime(0, now + 0.008);
+      await new Promise((r) => setTimeout(r, 10));
     }
 
     this.currentSrc = track;
@@ -67,10 +82,21 @@ export class AudioEngine {
     await resumeGraph(this.graph);
     try {
       await this.el.play();
+      this.fadeIn();
     } catch (err) {
       // 用户没点过页面就 play() 会被拒；这不是错误，别把界面打成 error
       if ((err as DOMException).name !== "NotAllowedError") this.hooks.onError?.("unknown");
     }
+  }
+
+  /** 淡入到 1。切歌后的第一声，以及暂停后恢复播放都走这里。 */
+  private fadeIn(): void {
+    if (!this.graph) return;
+    const now = this.graph.ctx.currentTime;
+    const gain = this.graph.fade.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(0, now);
+    gain.linearRampToValueAtTime(1, now + 0.02);
   }
 
   pause(): void {
