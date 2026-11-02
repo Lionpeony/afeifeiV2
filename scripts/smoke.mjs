@@ -218,6 +218,33 @@ async function main() {
   );
   assert.equal(badToken, 410, `无效令牌应返回 410，实际 ${badToken}`);
 
+  /* ---- 在线页：注册表 → 搜索 → 能力缺失 → 人话提示 ---- */
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
+  assert.ok(await app.waitFor(`document.querySelector(".source-pick") !== null`, 5000), "在线页没出来");
+
+  const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".source-pick option")].map((o) => o.textContent)`);
+  assert.ok(sourceOptions.length > 0, "音源下拉是空的（注册表没接上）");
+
+  await app.evaluate(`(() => {
+    const input = document.querySelector(".search");
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    setter.call(input, "示例");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  })()`);
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "搜索")?.click()`);
+  assert.ok(await app.waitFor(`document.querySelectorAll(".online-row").length > 0`, 5000), "在线搜索没出结果");
+
+  // 点第一条：示例源声明了 canGetUrl 但实现里明确拒绝，界面必须给中文人话而不是错误码
+  await app.evaluate(`document.querySelector(".online-row")?.click()`);
+  assert.ok(await app.waitFor(`(document.querySelector(".lib-note")?.textContent ?? "").length > 0`, 5000), "点击后没有提示");
+  const noteText = await app.evaluate(`document.querySelector(".lib-note")?.textContent ?? ""`);
+  assert.ok(
+    /不支持|问题|失败|有点慢/.test(noteText),
+    `提示应是中文人话，实际：${noteText}`,
+  );
+  assert.ok(!/capability-missing|Error:/.test(noteText), `不该把错误码或原始异常漏给界面：${noteText}`);
+  console.log(`  在线链路 OK：${sourceOptions.length} 个音源，点击后提示「${noteText}」`);
+
   if (hasAudio) {
     const token = await app.evaluate(`window.api.grant(${JSON.stringify(samples[0])})`);
     assert.ok(token, `grant 没返回令牌：${samples[0]}`);

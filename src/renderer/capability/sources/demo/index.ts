@@ -16,11 +16,14 @@ const TRACKS: RemoteTrack[] = [
 ];
 
 const LYRIC: LyricDoc = {
+  format: "lrc",
   plain: "第一行示例歌词\n第二行示例歌词",
   lines: [
-    { at: 0, text: "第一行示例歌词" },
-    { at: 4000, text: "第二行示例歌词" },
+    { at: 0, dur: 4000, text: "第一行示例歌词" },
+    { at: 4000, dur: 4000, text: "第二行示例歌词" },
   ],
+  words: [],
+  translations: [],
 };
 
 export const demoProvider: SourceProvider = {
@@ -63,8 +66,8 @@ export const demoProvider: SourceProvider = {
   async getUrl(sourceId: string, quality): Promise<string> {
     const found = TRACKS.some((t) => t.sourceId === sourceId);
     if (!found) throw new Error("404 not found");
-    // 示例源不给真地址：UI 拿到它应该显示"该源不支持播放"
-    throw new Error(`capability-missing: 示例音源不提供 ${quality} 播放地址`);
+    // 示例源不给真地址。错误必须**结构化带 code**，不要指望上层去猜 message
+    throw Object.assign(new Error(`示例音源不提供 ${quality} 播放地址`), { code: "capability-missing" });
   },
 
   async getLyric(sourceId: string): Promise<LyricDoc> {

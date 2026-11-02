@@ -35,6 +35,7 @@ if (TEST) {
       "capability-registry": "src/renderer/capability/registry.ts",
       "capability-errors": "src/renderer/capability/errors.ts",
       "capability-demo": "src/renderer/capability/sources/demo/index.ts",
+      lyrics: "src/renderer/capability/lyrics/index.ts",
     },
     outdir: "dist-test",
     bundle: true,

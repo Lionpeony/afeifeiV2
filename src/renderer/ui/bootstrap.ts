@@ -1,6 +1,10 @@
+import type { Quality, RemoteTrack, SearchResult } from "../../contracts/capability.js";
 import type { AppState } from "../../contracts/index.js";
 import type { KeyValuePort, LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
+import { errorText, translateError } from "../capability/errors.js";
+import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
+import { demoProvider } from "../capability/sources/demo/index.js";
 import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
@@ -44,6 +48,20 @@ export interface Services {
   scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
   /** 取封面（带缓存与请求去重）。 */
   cover(id: string, path: string): Promise<string | null>;
+  /** 已注册的音源（UI 的选项来源就是它，不写死）。 */
+  sources(): { id: string; name: string; canAuth: boolean }[];
+  /** 在线搜索。错误已经翻译成人话，直接显示。 */
+  searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
+  /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
+  resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
+}
+
+/** 把能力层抛的错收敛成一句人话。界面永远只看到这句话。 */
+function humanize(err: unknown): Error {
+  const code = translateError(err);
+  const wrapped = new Error(errorText(code));
+  (wrapped as Error & { code?: string }).code = code;
+  return wrapped;
 }
 
 /**
@@ -83,6 +101,9 @@ export async function bootstrap(): Promise<Services> {
     read: (key) => api.readStore(key),
     write: (key, json) => api.writeStore(key, json),
   };
+
+  // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
+  registerProvider(demoProvider);
 
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);
@@ -146,6 +167,39 @@ export async function bootstrap(): Promise<Services> {
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
     cover: (id, path) => loadCover(library, id, path),
+
+    sources: () =>
+      listProviders().map((p) => ({
+        id: p.id,
+        name: p.name,
+        canAuth: p.capabilities.canLogin,
+      })),
+
+    async searchOnline(sourceId, keyword, page = 0) {
+      const provider = getProvider(sourceId);
+      if (!provider) throw humanize({ code: "capability-missing" });
+      // UI 只按声明办事：没声明 canSearch 就不该调到这来
+      if (!provider.capabilities.canSearch) throw humanize({ code: "capability-missing" });
+      try {
+        return await provider.search(keyword, page);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    async resolveOnlineUrl(sourceId, trackId, quality) {
+      const provider = getProvider(sourceId);
+      if (!provider) throw humanize({ code: "capability-missing" });
+      if (!provider.capabilities.canGetUrl || !provider.getUrl) {
+        throw humanize({ code: "capability-missing" });
+      }
+      try {
+        return await provider.getUrl(trackId, quality);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
     async scan(onProgress) {
       const dir = await api.pickDir();
       if (!dir) return null;

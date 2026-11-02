@@ -6,6 +6,7 @@ import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap, type Services } from "./bootstrap.js";
 import { onFrame } from "./compositor.js";
 import { LibraryView } from "./views/library/index.js";
+import { OnlineView, type SourceOption } from "./views/online/index.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -24,6 +25,8 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
+  const [tab, setTab] = useState<"local" | "online">("local");
+  const [sources, setSources] = useState<SourceOption[]>([]);
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
@@ -34,7 +37,9 @@ function App() {
   useEffect(() => {
     let alive = true;
     void bootstrap().then((s) => {
-      if (alive) services.current = s;
+      if (!alive) return;
+      services.current = s;
+      setSources(s.sources());
     });
     return () => {
       alive = false;
@@ -94,19 +99,43 @@ function App() {
     <main className="shell">
       <header className="top">
         <h1>afeifei</h1>
+        <div className="lib-tabs">
+          <button type="button" className={tab === "local" ? "on" : ""} onClick={() => setTab("local")}>
+            本地
+          </button>
+          <button type="button" className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
+            在线
+          </button>
+        </div>
         <span className="status" data-status={status}>
           {status}
           {error ? ` · ${error}` : ""}
         </span>
       </header>
 
-      <LibraryView
-        onPlay={onPlay}
-        onScan={() => void onScan()}
-        scanning={scanning}
-        scanNote={scanNote}
-        cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
-      />
+      {tab === "local" ? (
+        <LibraryView
+          onPlay={onPlay}
+          onScan={() => void onScan()}
+          scanning={scanning}
+          scanNote={scanNote}
+          cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+        />
+      ) : (
+        <OnlineView
+          sources={sources}
+          onSearch={(sourceId, keyword) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve({ items: [] });
+            return svc.searchOnline(sourceId, keyword);
+          }}
+          onPlay={async (sourceId, track) => {
+            const svc = services.current;
+            if (!svc) return;
+            await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+          }}
+        />
+      )}
 
       <footer className="player">
         <p className="track">{baseName(trackId)}</p>

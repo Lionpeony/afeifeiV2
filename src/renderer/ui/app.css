@@ -85,6 +85,20 @@ body,
   text-align: right;
 }
 
+.source-pick {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  outline: none;
+}
+
+.online-row .lib-artist:nth-last-of-type(2) {
+  width: 140px;
+}
+
 .lib-note {
   margin: 0 0 8px;
   color: var(--fg-dim);

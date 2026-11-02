@@ -59,6 +59,12 @@ export function translateError(raw: unknown): ErrorCode {
   for (const rule of MESSAGE_RULES) {
     if (rule.match.test(text)) return rule.code;
   }
+
+  // 兜底：有些源会把码直接写在 message 里（`"capability-missing: xxx"`）。
+  // 这不是好习惯，但拦在这里总比让用户看见"出了点问题"强。
+  const mentioned = (Object.keys(ERROR_INFO) as ErrorCode[]).find((code) => text.includes(code));
+  if (mentioned) return mentioned;
+
   return "unknown";
 }
 

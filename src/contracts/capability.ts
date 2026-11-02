@@ -60,15 +60,36 @@ export interface SearchResult {
   nextPage?: number;
 }
 
+export type LyricFormat = "lrc" | "qrc" | "yrc" | "ttml" | "plain";
+
+export interface LyricLine {
+  /** 开始（毫秒，与 clock 同一单位） */
+  at: number;
+  /** 持续（毫秒）。没有结束标记时按下一行推算 */
+  dur: number;
+  text: string;
+}
+
+export interface LyricWord {
+  /** 属于第几行（lines 的索引） */
+  line: number;
+  at: number;
+  dur: number;
+  char: string;
+}
+
+/**
+ * 解析一次，渲染器可换（50 §7.4）。
+ * **时间一律毫秒** —— 与 clock 同单位，渲染层不再做单位换算（少一次换错的机会）。
+ */
 export interface LyricDoc {
-  /** 纯文本（无时间轴） */
+  format: LyricFormat;
+  /** 纯文本（无时间轴），给"极简"渲染器和复制用 */
   plain: string;
-  /** 逐行 [开始毫秒, 文本] */
-  lines: { at: number; text: string }[];
-  /** 逐字：行索引 → 每个字的起始毫秒（与 chars 对齐） */
-  words?: { line: number; at: number; char: string }[];
-  /** 翻译 / 罗马音等附加层，按语言标记 */
-  translations?: { lang: string; lines: { at: number; text: string }[] }[];
+  lines: LyricLine[];
+  words: LyricWord[];
+  /** 翻译层，按语言标记；没有就是空数组 */
+  translations: { lang: string; lines: LyricLine[] }[];
 }
 
 /**
