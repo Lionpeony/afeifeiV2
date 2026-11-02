@@ -127,7 +127,13 @@ export function startDownloadRunner(deps: DownloadRunnerDeps): () => void {
       const { bytes } = await port.fetch(item.id, url, item.destPath, (received, total) => {
         pending.set(item.id, { received, total, lastReceived: received, lastAt: performance.now() });
       });
+      // 完成前先把这个任务攒着的进度落进 store：小文件全程不足一个 flush 周期时，
+      // 这是唯一一次 flush——不落的话 done 之后显示 0 B（真机踩过）
+      const last = pending.get(item.id);
       pending.delete(item.id);
+      if (last) {
+        dispatch({ type: "download/progress", id: item.id, received: last.received, total: last.total, speed: 0 });
+      }
       dispatch({ type: "download/done", id: item.id });
       void ingestToLibrary(item, bytes);
     } catch (err) {
