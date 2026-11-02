@@ -9,12 +9,16 @@
  */
 import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
 import assert from "node:assert/strict";
 import { cleanupProfile, launch, sleep } from "./lib/harness.mjs";
 
 const PORT = 9334;
 const PROFILE = path.join(os.tmpdir(), `afeifei-perf-${process.pid}`);
 const COUNT = 5000;
+const BASELINE_FILE = "perf-baseline.json";
+/** 劣化超过基线 20% 即红（docs/04 M8 第 4 项；I5 的"预算进 CI"补完）。 */
+const REGRESSION = 1.2;
 
 const BUDGET = {
   restoreMs: 120,
@@ -42,7 +46,13 @@ function fakeSnapshot(count) {
 
 let current = null;
 
-async function main() {
+const median = (arr) => {
+  const s = [...arr].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+
+/** 单次完整测量（seed → 重启 → 恢复/滚动/搜索）。返回三个指标，预算断言在内。 */
+async function once() {
   /* ---- 准备：把 5000 条写进快照 ---- */
   const seed = await launch({ port: PORT, profile: PROFILE });
   current = seed;
@@ -153,11 +163,72 @@ async function main() {
   await app.close();
   current = null;
   console.log("PERF PASS：3 条预算全部达标");
+  return { restoreMs, frameP95Ms: frame.p95, searchMs };
+}
+
+/** 基线对比：当前值劣化超过基线 20% 即失败。无基线文件时跳过（首次先 --baseline 存档）。 */
+function compareBaseline(m) {
+  if (!fs.existsSync(BASELINE_FILE)) {
+    console.log("  （无 perf-baseline.json，跳过基线对比。先跑 node scripts/perf.mjs --baseline 存档）");
+    return;
+  }
+  let base;
+  try {
+    base = JSON.parse(fs.readFileSync(BASELINE_FILE, "utf8"));
+  } catch {
+    console.log("  （基线文件读不出，跳过对比）");
+    return;
+  }
+  const checks = [
+    ["二次启动恢复", m.restoreMs, base.restoreMs],
+    ["滚动帧 p95", m.frameP95Ms, base.frameP95Ms],
+    ["搜索响应", m.searchMs, base.searchMs],
+  ];
+  const bad = checks.filter(([, now, base0]) => base0 > 0 && now > base0 * REGRESSION);
+  if (bad.length) {
+    throw new Error(
+      `性能较基线劣化超过 ${Math.round((REGRESSION - 1) * 100)}%：\n  · ` +
+        bad.map(([n, now, b]) => `${n} ${now.toFixed(1)}ms > 基线 ${Number(b).toFixed(1)}ms`).join("\n  · "),
+    );
+  }
+  console.log(
+    `  基线对比 OK（劣化 <20%）：恢复 ${m.restoreMs.toFixed(1)}/${Number(base.restoreMs).toFixed(1)} · ` +
+      `p95 ${m.frameP95Ms.toFixed(1)}/${Number(base.frameP95Ms).toFixed(1)} · ` +
+      `搜索 ${m.searchMs.toFixed(1)}/${Number(base.searchMs).toFixed(1)}`,
+  );
+}
+
+async function main() {
+  // --baseline：跑三次取中位存档（机器波动取中位，docs/04 M8 走偏表）。每轮之间清 profile。
+  if (process.argv.includes("--baseline")) {
+    const runs = [];
+    for (let i = 0; i < 3; i += 1) {
+      cleanupProfile(PROFILE);
+      console.log(`\n—— 基线采样 ${i + 1}/3`);
+      runs.push(await once());
+    }
+    cleanupProfile(PROFILE);
+    const base = {
+      savedAt: new Date().toISOString(),
+      restoreMs: median(runs.map((r) => r.restoreMs)),
+      frameP95Ms: median(runs.map((r) => r.frameP95Ms)),
+      searchMs: median(runs.map((r) => r.searchMs)),
+    };
+    fs.writeFileSync(BASELINE_FILE, JSON.stringify(base, null, 2));
+    console.log(
+      `\n基线已写入 ${BASELINE_FILE}（三次取中位）：` +
+        `恢复 ${base.restoreMs.toFixed(1)}ms · p95 ${base.frameP95Ms.toFixed(1)}ms · 搜索 ${base.searchMs.toFixed(1)}ms`,
+    );
+    return;
+  }
+
+  const m = await once();
+  cleanupProfile(PROFILE);
+  compareBaseline(m);
 }
 
 try {
   await main();
-  cleanupProfile(PROFILE);
   process.exit(0);
 } catch (err) {
   console.error(`✗ PERF 失败：${err.message}`);

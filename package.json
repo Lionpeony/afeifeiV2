@@ -52,7 +52,7 @@
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico"
     },
     "portable": {
       "unpackDirName": "Afeifei"
