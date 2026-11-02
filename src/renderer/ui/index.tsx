@@ -270,11 +270,13 @@ function App() {
               remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
             });
           }}
-          loginStatus={() => services.current?.loginStatus() ?? Promise.resolve({ loggedIn: false, nick: null })}
-          startLogin={() => {
+          loginStatus={(sourceId) =>
+            services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
+          }
+          startLogin={(sourceId, channel) => {
             const svc = services.current;
             if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
-            return svc.startLogin();
+            return svc.startLogin(sourceId, channel);
           }}
           pollLogin={(key) => {
             const svc = services.current;
@@ -290,6 +292,10 @@ function App() {
             const svc = services.current;
             if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
             return svc.loginByCaptcha(phone, captcha);
+          }}
+          logout={(sourceId) => {
+            const svc = services.current;
+            return svc ? svc.logout(sourceId) : Promise.resolve();
           }}
         />
       )}

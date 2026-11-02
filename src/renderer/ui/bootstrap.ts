@@ -292,10 +292,10 @@ export async function bootstrap(): Promise<Services> {
     },
 
     // 登录按源路由：网易云扫码 / QQ 扫码（key 带真实 unikey，加 qq: 前缀供轮询分流；
-    // 前缀丢了轮询就会拿字面量当 key，check 永远 800）
-    startLogin: async (sourceId) => {
+    // 前缀丢了轮询就会拿字面量当 key，check 永远 800。channel 决定码用哪个 App 扫）
+    startLogin: async (sourceId, channel) => {
       if (sourceId === "qq") {
-        const { key, qrImage } = await api.qqLogin();
+        const { key, qrImage } = await api.qqLogin(channel);
         return { key: `qq:${key}`, qrImage };
       }
       return startQrLogin(localApi);

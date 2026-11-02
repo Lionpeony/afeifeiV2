@@ -36,7 +36,7 @@ export async function callQq(method: string, params: Record<string, unknown> = {
     case "url":
       return qqUrl(params);
     case "qrStart":
-      return qqQrStart();
+      return qqQrStart(params);
     case "qrPoll":
       return qqQrPoll(params);
     case "status":
@@ -79,7 +79,11 @@ async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
 
 /* ---------- 扫码登录（包内三件套，语义与网易云对齐） ---------- */
 
-async function qqQrStart(): Promise<unknown> {
+/** 扫码通道：码要用哪个 App 扫。包按通道决定换凭证时上报的账号类型，选错必被上游拒。 */
+const QR_CHANNELS = new Set(["qq", "qqmusic", "wechat"]);
+
+async function qqQrStart(params: Record<string, unknown>): Promise<unknown> {
+  const channel = typeof params.channel === "string" && QR_CHANNELS.has(params.channel) ? params.channel : "qq";
   // key 这一步要看状态码：上次登录失败后包有 15s 冷却，冷却内回 429 + retryAfterMs
   const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key`);
   if (keyRes.status === 429) {
@@ -91,7 +95,7 @@ async function qqQrStart(): Promise<unknown> {
   if (!key) throw new Error("获取二维码失败");
   // create 返回 data.qrimg = dataURL（2026-11-03 实测，channel=qq/wechat 均验证）
   const create = await callApi<{ code?: number; data?: { qrimg?: string } }>(
-    `/login/qr/create?key=${encodeURIComponent(key)}&channel=qq`,
+    `/login/qr/create?key=${encodeURIComponent(key)}&channel=${channel}`,
   );
   const qrImage = create?.data?.qrimg ?? "";
   if (!qrImage) throw new Error("QQ 登录页没有给出二维码");

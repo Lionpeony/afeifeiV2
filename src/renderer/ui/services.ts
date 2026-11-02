@@ -35,7 +35,7 @@ export interface Api {
   importUserSource(): Promise<{ name: string; code: string } | null>;
   installUserSource(sourceId: string, code: string): Promise<unknown>;
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
-  qqLogin(): Promise<{ key: string; qrImage: string }>;
+  qqLogin(channel?: string): Promise<{ key: string; qrImage: string }>;
   qqPoll(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
   qqLogout(): Promise<void>;
@@ -89,7 +89,7 @@ export interface Services {
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */
-  startLogin(sourceId: string): Promise<QrSession | { loggedIn: boolean }>;
+  startLogin(sourceId: string, channel?: string): Promise<QrSession | { loggedIn: boolean }>;
   /** 轮询扫码结果（key 前缀 qq: 走 QQ）。qrImage 有值 = 页面刷新了二维码，UI 要更新。 */
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string; qrImage?: string }>;
   /** 查询某音源的登录态（只看账号接口 / cookie，不看凭据字段） */

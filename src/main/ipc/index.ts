@@ -161,8 +161,12 @@ export function registerIpc(): void {
 
   /* ---------- QQ 扫码登录（本地 qqBackend 服务承载，见 main/net/qqBackend.ts） ---------- */
 
-  ipcMain.handle("qq:login", async () => {
-    const r = (await callQq("qrStart", {})) as { key?: string; qrImage?: string };
+  ipcMain.handle("qq:login", async (_e, channel: unknown) => {
+    // channel 可选（"qq" | "qqmusic" | "wechat"，白名单在 qqClient 里校验）
+    const r = (await callQq("qrStart", typeof channel === "string" ? { channel } : {})) as {
+      key?: string;
+      qrImage?: string;
+    };
     return { key: r.key ?? "", qrImage: r.qrImage ?? "" };
   });
   ipcMain.handle("qq:poll", async (_e, key: unknown) => {

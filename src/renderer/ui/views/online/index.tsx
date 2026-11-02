@@ -15,8 +15,8 @@ export interface OnlineViewProps {
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
   /** 查某音源的登录态（登录按钮/退出按钮随源切换，不再网易云专属）。 */
   loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
-  /** 开始登录：网易云弹扫码窗，QQ 开真实登录页。 */
-  startLogin(sourceId: string): Promise<{ key?: string; qrImage?: string; loggedIn?: boolean }>;
+  /** 开始登录：网易云弹扫码窗，QQ 按通道出码（channel 可选）。 */
+  startLogin(sourceId: string, channel?: string): Promise<{ key?: string; qrImage?: string; loggedIn?: boolean }>;
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
@@ -191,16 +191,27 @@ export function OnlineView({
 
       {loginOpen ? (
         <LoginDialog
-          start={async () => {
+          start={async (ch) => {
             // 两个源的 startLogin 返回同形状 { key, qrImage }；pollLogin 按 key 前缀分流
-            const r = await startLogin(sourceId);
+            const r = await startLogin(sourceId, ch);
             if (typeof r.key !== "string" || typeof r.qrImage !== "string") {
               throw new Error("获取二维码失败");
             }
             return { key: r.key, qrImage: r.qrImage };
           }}
           poll={pollLogin}
-          scanHint={sourceId === "qq" ? "请用「手机 QQ」App → 扫一扫（不是 QQ 音乐 App）" : "请打开网易云音乐 App → 扫一扫"}
+          // QQ 源三个扫码通道（Folia 同款）：用哪个 App 扫就选哪个，换凭证按通道匹配账号类型。
+          // QQ 音乐 App 排第一作默认——最常见；实测手机 QQ 通道也可能被上游拒（50006）。
+          channels={
+            sourceId === "qq"
+              ? [
+                  { id: "qqmusic", name: "QQ音乐 App", hint: "请用「QQ音乐」App → 扫一扫" },
+                  { id: "qq", name: "手机 QQ", hint: "请用「手机 QQ」→ 扫一扫" },
+                  { id: "wechat", name: "微信", hint: "请用「微信」→ 扫一扫" },
+                ]
+              : undefined
+          }
+          scanHint={sourceId === "qq" ? "请用「手机 QQ」App → 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
           sendCaptcha={sourceId === "netease" ? sendCaptcha : undefined}
           loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {

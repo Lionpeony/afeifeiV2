@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
 export interface LoginDialogProps {
-  /** 拿到 key 与服务端画好的二维码图 */
-  start(): Promise<{ key: string; qrImage: string }>;
+  /** 拿到 key 与服务端画好的二维码图；QQ 源带通道参数（码用哪个 App 扫） */
+  start(channel?: string): Promise<{ key: string; qrImage: string }>;
   poll(key: string): Promise<{ code: number; loggedIn: boolean; message: string; qrImage?: string }>;
-  /** 扫码提示（哪个 App 扫） */
+  /** 扫码提示（哪个 App 扫）；有 channels 时被选中通道的 hint 覆盖 */
   scanHint: string;
+  /** 可选扫码通道（QQ 源）：显示切换标签，换通道会重新取码 */
+  channels?: { id: string; name: string; hint: string }[];
   /** 手机号登录：发短信验证码（仅网易云源提供） */
   sendCaptcha?(phone: string): Promise<{ ok: boolean; message: string }>;
   /** 手机号登录：用验证码换登录态 */
@@ -24,8 +26,9 @@ export interface LoginDialogProps {
  * 轮询用 setTimeout 链（ui/ 里禁 setInterval），只在 801/802 继续，
  * 用运行代次作废旧轮询。
  */
-export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
+export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
   const [mode, setMode] = useState<"qr" | "phone">("qr");
+  const [channel, setChannel] = useState(channels?.[0]?.id ?? "");
 
   const [qrImage, setQrImage] = useState("");
   const [qrNote, setQrNote] = useState("正在获取二维码…");
@@ -60,10 +63,10 @@ export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha
     setQrNote("正在获取二维码…");
 
     try {
-      const session = await startRef.current();
+      const session = await startRef.current(channel || undefined);
       if (!alive()) return;
       setQrImage(session.qrImage);
-      setQrNote(scanHint);
+      setQrNote(channels?.find((c) => c.id === channel)?.hint ?? scanHint);
 
       const tick = async (): Promise<void> => {
         if (!alive()) return;
@@ -99,6 +102,7 @@ export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha
     }
   };
 
+  // 挂载与换通道都重新取码（begin 内部用运行代次作废旧轮询）
   useEffect(() => {
     void begin();
     return () => {
@@ -106,7 +110,7 @@ export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha
       if (timer.current) window.clearTimeout(timer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [channel]);
 
   // 切到手机号模式就停掉扫码轮询，别让它在后台白跑
   useEffect(() => {
@@ -176,6 +180,15 @@ export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha
 
         {mode === "qr" ? (
           <>
+            {channels && channels.length > 1 ? (
+              <div className="dialog-tabs">
+                {channels.map((c) => (
+                  <button key={c.id} type="button" className={channel === c.id ? "on" : ""} onClick={() => setChannel(c.id)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
             <p className="dialog-note">{qrNote}</p>
             <div className="dialog-actions">
