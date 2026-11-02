@@ -77,11 +77,12 @@ export class AudioEngine {
   /**
    * 本地路径 → 换令牌；远程地址 → 直接用。
    *
-   * 远程地址给的是音源返回的 CDN 直链，用不到 appmedia 协议；
-   * 但它必须已经在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
+   * **http 也要放行**：网易云 CDN 给的直链就是 `http://m7.music.126.net/...`，
+   * 只认 https 会让它掉进"换令牌"分支、扩展名校验不过、最后报 track-missing。
+   * 远程地址同样必须已在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
    */
   private async resolveSrc(track: string): Promise<string | null> {
-    if (/^https:\/\//i.test(track)) return track;
+    if (/^https?:\/\//i.test(track)) return track;
 
     const token = await this.media.grant(track);
     if (!token) {
