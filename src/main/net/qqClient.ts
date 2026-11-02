@@ -79,11 +79,13 @@ async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
 
 /* ---------- 扫码登录（包内三件套，语义与网易云对齐） ---------- */
 
-/** 扫码通道：码要用哪个 App 扫。包按通道决定换凭证时上报的账号类型，选错必被上游拒。 */
+/** 扫码通道。默认 qqmusic：换凭证按扫码 App 实报的账号类型适配（Folia 同款一张码三种 App 都能扫）；
+ *  qq 通道只会按手机 QQ 换凭证，别的 App 扫必被上游拒（50006）。 */
 const QR_CHANNELS = new Set(["qq", "qqmusic", "wechat"]);
+const DEFAULT_CHANNEL = "qqmusic";
 
 async function qqQrStart(params: Record<string, unknown>): Promise<unknown> {
-  const channel = typeof params.channel === "string" && QR_CHANNELS.has(params.channel) ? params.channel : "qq";
+  const channel = typeof params.channel === "string" && QR_CHANNELS.has(params.channel) ? params.channel : DEFAULT_CHANNEL;
   // key 这一步要看状态码：上次登录失败后包有 15s 冷却，冷却内回 429 + retryAfterMs
   const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key`);
   if (keyRes.status === 429) {

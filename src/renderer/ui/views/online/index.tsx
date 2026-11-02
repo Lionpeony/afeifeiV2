@@ -200,18 +200,8 @@ export function OnlineView({
             return { key: r.key, qrImage: r.qrImage };
           }}
           poll={pollLogin}
-          // QQ 源三个扫码通道（Folia 同款）：用哪个 App 扫就选哪个，换凭证按通道匹配账号类型。
-          // QQ 音乐 App 排第一作默认——最常见；实测手机 QQ 通道也可能被上游拒（50006）。
-          channels={
-            sourceId === "qq"
-              ? [
-                  { id: "qqmusic", name: "QQ音乐 App", hint: "请用「QQ音乐」App → 扫一扫" },
-                  { id: "qq", name: "手机 QQ", hint: "请用「手机 QQ」→ 扫一扫" },
-                  { id: "wechat", name: "微信", hint: "请用「微信」→ 扫一扫" },
-                ]
-              : undefined
-          }
-          scanHint={sourceId === "qq" ? "请用「手机 QQ」App → 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          // Folia 同款：一张码三种 App 都能扫（qqmusic 通道换凭证按 App 实报类型适配，见 qqClient）
+          scanHint={sourceId === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
           sendCaptcha={sourceId === "netease" ? sendCaptcha : undefined}
           loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {
