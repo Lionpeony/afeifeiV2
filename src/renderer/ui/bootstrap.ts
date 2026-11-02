@@ -291,24 +291,27 @@ export async function bootstrap(): Promise<Services> {
       return installed;
     },
 
-    // 登录按源路由：网易云扫码 / QQ 隐藏页扫码（key 前缀 qq: 走 QQ 轮询）
+    // 登录按源路由：网易云扫码 / QQ 扫码（key 带真实 unikey，加 qq: 前缀供轮询分流；
+    // 前缀丢了轮询就会拿字面量当 key，check 永远 800）
     startLogin: async (sourceId) => {
       if (sourceId === "qq") {
-        const { qrImage } = await api.qqLogin();
-        return { key: "qq", qrImage };
+        const { key, qrImage } = await api.qqLogin();
+        return { key: `qq:${key}`, qrImage };
       }
       return startQrLogin(localApi);
     },
     pollLogin: async (key) => {
-      if (key === "qq") {
-        const r = await api.qqPoll(key);
-        // check 的 code 与网易云同款（801 未扫 / 802 已扫 / 803 成功）；包返回英文状态，这里翻译
+      if (key.startsWith("qq:")) {
+        const r = await api.qqPoll(key.slice(3));
+        // check 的 code 与网易云同款（800 失效 / 801 未扫 / 802 已扫 / 803 成功）；包返回英文状态，这里翻译
         const hint =
-          r.code === 802
-            ? "已扫码，请在手机上确认"
-            : r.code === 801 || r.code === 802
+          r.code === 800
+            ? "二维码已失效，请点「刷新」重新扫码"
+            : r.code === 801
               ? "等待扫码"
-              : r.message;
+              : r.code === 802
+                ? "已扫码，请在手机上确认"
+                : r.message;
         return {
           code: r.loggedIn ? 803 : r.code,
           loggedIn: r.loggedIn,

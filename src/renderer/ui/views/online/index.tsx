@@ -200,7 +200,7 @@ export function OnlineView({
             return { key: r.key, qrImage: r.qrImage };
           }}
           poll={pollLogin}
-          scanHint={sourceId === "qq" ? "请用 QQ 或微信 App → 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          scanHint={sourceId === "qq" ? "请用「手机 QQ」App → 扫一扫（不是 QQ 音乐 App）" : "请打开网易云音乐 App → 扫一扫"}
           sendCaptcha={sourceId === "netease" ? sendCaptcha : undefined}
           loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {

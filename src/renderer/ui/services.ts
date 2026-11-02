@@ -35,7 +35,7 @@ export interface Api {
   importUserSource(): Promise<{ name: string; code: string } | null>;
   installUserSource(sourceId: string, code: string): Promise<unknown>;
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
-  qqLogin(): Promise<{ qrImage: string }>;
+  qqLogin(): Promise<{ key: string; qrImage: string }>;
   qqPoll(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
   qqLogout(): Promise<void>;

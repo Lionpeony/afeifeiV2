@@ -167,11 +167,26 @@ export function registerIpc(): void {
   });
   ipcMain.handle("qq:poll", async (_e, key: unknown) => {
     if (typeof key !== "string" || !key) throw new Error("qq:poll 需要 key");
-    const check = (await callQq("qrPoll", { key })) as { code?: number; message?: string };
+    const check = (await callQq("qrPoll", { key })) as {
+      code?: number;
+      message?: string;
+      failureHint?: { key?: string; message?: string };
+    };
+    // 会话建立失败时包带 failureHint（英文预置文案），按 key 换成人话；没有映射的透出原文
+    const HINTS: Record<string, string> = {
+      "login.wrong-scan-app": "扫码用的 App 不对：请用「手机 QQ」App 扫码重试（不是 QQ 音乐 App）",
+      "login.device-limit": "登录设备数已达上限，请在 QQ 音乐 App 里移除一台旧设备再试",
+      "login.rate-limited": "登录太频繁，稍等一会再试",
+      "login.account-restricted": "账号受限，暂时无法登录",
+      "login.account-banned": "账号已被封禁",
+      "login.account-binding": "账号绑定异常，请在 QQ 音乐 App 里检查",
+      "login.rejected": "QQ 音乐拒绝了这次登录，请重试",
+    };
+    const hint = check.failureHint?.key ? HINTS[check.failureHint.key] : undefined;
     // 包的 check 语义与网易云对齐（801=未扫 / 802=已扫待确认 / 803=成功，成功时包会把会话写进响应 cookie）
     const status = (await callQq("status", {})) as { data?: Record<string, unknown> };
     const loggedIn = !!status.data && Object.keys(status.data).length > 0;
-    return { code: check.code ?? 801, loggedIn, message: check.message ?? "" };
+    return { code: check.code ?? 801, loggedIn, message: hint ?? check.message ?? "" };
   });
   ipcMain.handle("qq:profile", async () => {
     const s = (await callQq("status", {})) as { data?: { uin?: unknown; nick?: unknown } };
