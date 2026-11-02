@@ -296,7 +296,14 @@ export async function pollQrLogin(http: HttpPort, key: string): Promise<QrPollRe
     { headers: { referer: REFERER } },
   );
 
-  const code = (result.json as { code?: number } | null)?.code ?? 0;
+  const body = result.json;
+  const code = typeof body === "object" && body !== null ? ((body as { code?: number }).code ?? 0) : 0;
+
+  // 拿不到码时把原始响应带出来：否则界面只有"未知状态"，谁也没法排查
+  if (code === 0) {
+    return { code: 0, loggedIn: false, message: `响应异常（HTTP ${result.status}）：${JSON.stringify(body).slice(0, 80)}` };
+  }
+
   if (code === 803) {
     // cookie 已经被 Chromium session 吸收，再用一次接口确认登录态
     const check = await http.fetchJson(`${HOST}/api/nuser/account/get`, { headers: { referer: REFERER } });
@@ -311,5 +318,5 @@ export async function pollQrLogin(http: HttpPort, key: string): Promise<QrPollRe
     801: "等待扫码",
     802: "已扫码，请在手机上确认",
   };
-  return { code, loggedIn: false, message: messages[code] ?? "未知状态" };
+  return { code, loggedIn: false, message: messages[code] ?? `未知状态（code=${code}）` };
 }

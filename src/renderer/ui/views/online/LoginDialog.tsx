@@ -19,6 +19,20 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
   const [expired, setExpired] = useState(false);
   const timer = useRef<number | undefined>(undefined);
 
+  /**
+   * 三个 props 都是父组件里的内联箭头函数，**每次渲染都是新引用**。
+   * 如果把它们放进下面那个 effect 的依赖里，任何一次 setNote 都会让 effect 重跑，
+   * 于是反复取新二维码、反复轮询 —— 所以这里锁进 ref，effect 只跑一次。
+   */
+  const startRef = useRef(start);
+  const pollRef = useRef(poll);
+  const successRef = useRef(onSuccess);
+  useEffect(() => {
+    startRef.current = start;
+    pollRef.current = poll;
+    successRef.current = onSuccess;
+  }, [start, poll, onSuccess]);
+
   useEffect(() => {
     let alive = true;
 
@@ -26,7 +40,7 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
       setExpired(false);
       setNote("正在获取二维码…");
       try {
-        const session = await start();
+        const session = await startRef.current();
         if (!alive) return;
         setQrImage(session.qrImage);
         setNote("请打开网易云音乐 App → 扫一扫");
@@ -34,11 +48,11 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
         const tick = async (): Promise<void> => {
           if (!alive) return;
           try {
-            const result = await poll(session.key);
+            const result = await pollRef.current(session.key);
             if (!alive) return;
             setNote(result.message);
             if (result.loggedIn) {
-              onSuccess();
+              successRef.current();
               return;
             }
             if (result.code === 800) {
@@ -65,7 +79,8 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
       alive = false;
       if (timer.current) window.clearTimeout(timer.current);
     };
-  }, [start, poll, onSuccess]);
+    // 空依赖：props 已锁进 ref，effect 只该跑一次
+  }, []);
 
   return (
     <div className="dialog-mask" onClick={onClose}>
