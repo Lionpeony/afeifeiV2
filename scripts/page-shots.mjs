@@ -46,6 +46,7 @@ const PAGES = [
   ["本地", "local"],
   ["在线", "online"],
   ["歌单", "playlists"],
+  ["播放页", "stage"],
   ["下载", "downloads"],
 ];
 

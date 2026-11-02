@@ -257,7 +257,7 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
               ))}
             </div>
           ) : (
-            <p className="st-lyric-empty">{lyricNote || "…"}</p>
+            lyricNote ? <p className="st-lyric-empty">{lyricNote}</p> : null
           )}
         </div>
       ) : null}

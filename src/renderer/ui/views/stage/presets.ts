@@ -46,7 +46,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-bg": "var(--bg)",
       "--stage-fg": "var(--fg)",
       "--stage-fg-dim": "var(--fg-dim)",
-      "--stage-tint": "var(--accent)",
+      // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
+      "--stage-tint": "transparent",
       "--stage-wallpaper":
         // 纸噪点（SVG feTurbulence data-uri，opacity 0.035 按 50 §9.2）+ 底部微光渐变，双层叠加
         "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E\")," +
@@ -71,7 +72,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-bg": "var(--bg)",
       "--stage-fg": "var(--fg)",
       "--stage-fg-dim": "var(--fg-dim)",
-      "--stage-tint": "var(--accent)",
+      // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
+      "--stage-tint": "transparent",
       "--stage-wallpaper":
         "repeating-radial-gradient(circle at 50% 40%, rgba(232, 230, 227, 0.028) 0 2px, transparent 2px 8px)",
       "--stage-cover-size": "360px",
@@ -94,7 +96,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-bg": "var(--bg)",
       "--stage-fg": "var(--fg)",
       "--stage-fg-dim": "var(--fg-dim)",
-      "--stage-tint": "var(--accent)",
+      // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
+      "--stage-tint": "transparent",
       "--stage-wallpaper": "none",
       "--stage-cover-size": "min(62vw, 460px)",
       "--stage-cover-radius": "4px",
@@ -117,7 +120,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-bg": "#17150f",
       "--stage-fg": "#f3f1ea",
       "--stage-fg-dim": "rgba(243, 241, 234, 0.6)",
-      "--stage-tint": "var(--accent)",
+      // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
+      "--stage-tint": "transparent",
       "--stage-wallpaper": "none", // 壁纸由封面图层承担（wallpaperFromCover）
       "--stage-cover-size": "300px",
       "--stage-cover-radius": "12px",
