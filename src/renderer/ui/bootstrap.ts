@@ -102,7 +102,9 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
         void engine.play();
       }
     });
-    if (n.status !== "loading") clock.seek(n.positionMs, now);
+    // 无论处于 loading 还是 playing，时钟锚点都要立刻跟上 ——
+    // 否则恢复上次位置后进度条会从 0 开始，与音频真实位置对不上（I1）。
+    clock.seek(n.positionMs, now);
     return;
   }
 
