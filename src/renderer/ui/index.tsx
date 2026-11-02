@@ -9,6 +9,7 @@ import type { Services } from "./services.js";
 import { onFrame } from "./compositor.js";
 import { StageView } from "./views/stage/index.js";
 import { startMiniBridge } from "./mini-bridge.js";
+import { startLyricBridge } from "./lyric-bridge.js";
 import { registerCommand } from "./input/commands.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
@@ -77,6 +78,7 @@ function App() {
       setSources(s.sources());
       syncPosition();
       startMiniBridge(s);
+      startLyricBridge();
 
       // 更新提示（M8）：一条线，不弹窗不打断播放
       s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
@@ -176,6 +178,7 @@ function App() {
       registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
       registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
       registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
+      registerCommand({ id: "open-lyric", label: "打开桌面歌词", run: () => void services.current?.openLyric() }),
       registerCommand({
         id: "backup-export",
         label: "备份数据（导出到目录）",
@@ -250,6 +253,9 @@ function App() {
           </button>
           <button type="button" onClick={() => void services.current?.openMini()}>
             迷你窗
+          </button>
+          <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词（穿透态点此解锁）">
+            桌面歌词
           </button>
         </div>
         <span className="status" data-status={status}>

@@ -5,6 +5,7 @@ import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
 import { startQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
+import { registerLyricIpc } from "./lyricWindow.js";
 import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 import { installCrashGuard } from "./crash.js";
@@ -90,6 +91,7 @@ if (!locked) {
     registerStreamProtocol(); // M6.1：远端音频代理（跨源直连进 EQ 图会被消成静音）
     registerIpc();
     registerMiniIpc();
+    registerLyricIpc();
     startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）
 
     const win = new BrowserWindow({

@@ -1,0 +1,51 @@
+/* 桌面歌词窗（M9-1）：透明窗上的一行白字黑边。app.css 链入了 tokens.css，变量在这里同样生效。
+   文字必须不依赖主题也能读：固定白字 + 深色描影（rgb/rgba，不碰裸 hex，lint 规则 5）。 */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+#root { height: 100%; }
+
+.lyric {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  -webkit-app-region: drag; /* 交互态整窗可拖位置；穿透态下区域无意义 */
+}
+.lyric-line {
+  margin: 0;
+  max-width: 100%;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow:
+    0 0 4px rgba(0, 0, 0, 0.9),
+    0 2px 8px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 工具条：交互态悬停浮现（右上角），穿透态整个窗口收不到鼠标，自然不可见 */
+.lyric-tools {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.lyric:hover .lyric-tools { opacity: 1; }
+.lyric-tools button {
+  background: rgba(0, 0, 0, 0.55);
+  border: none;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.lyric-tools button:hover { background: rgba(0, 0, 0, 0.8); }

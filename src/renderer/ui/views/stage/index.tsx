@@ -3,6 +3,7 @@ import type { LyricDoc, RemoteTrack } from "../../../../contracts/capability.js"
 import type { AppState, StageLayer } from "../../../../contracts/index.js";
 import { dispatch } from "../../../kernel/index.js";
 import { onTick } from "../../compositor.js";
+import { setLyricDoc } from "../../lyric-bridge.js";
 import { karaokeState, minimalState, pressState, theatricalState } from "./lyric-state.js";
 import { LAYER_KEYS, PRESETS } from "./presets.js";
 
@@ -92,12 +93,16 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
   useEffect(() => {
     let alive = true;
     setDoc(null);
+    setLyricDoc(null); // 桌面歌词窗同步清行（M9-1）
     setLyricNote("");
     lastActiveRef.current = -999;
     if (remote) {
       lyric(remote.sourceId, remote.songId)
         .then((d) => {
-          if (alive) setDoc(d);
+          if (alive) {
+            setDoc(d);
+            setLyricDoc(d);
+          }
         })
         .catch((err: unknown) => {
           if (alive) setLyricNote(err instanceof Error ? err.message : "歌词拿不到");

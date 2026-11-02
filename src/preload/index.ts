@@ -58,6 +58,11 @@ contextBridge.exposeInMainWorld("api", {
     });
   },
 
+  // 桌面歌词窗（M9-1）：同迷你窗，只推投影；解锁在主进程（穿透态窗口收不到鼠标）
+  openLyric: (): Promise<void> => ipcRenderer.invoke("lyric:open"),
+  unlockLyric: (): Promise<void> => ipcRenderer.invoke("lyric:unlock"),
+  pushLyricState: (json: string): void => ipcRenderer.send("lyric:state", json),
+
   // afeifei:// 冷/热启动：主进程解析后的结构化 intent（渲染层不碰原始 URL）
   onSchemeUrl: (cb: (intent: { action: string; id: string; source?: string }) => void): void => {
     ipcRenderer.on("scheme:url", (_e, intent: unknown) => {

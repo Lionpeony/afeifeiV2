@@ -42,6 +42,10 @@ export interface Api {
   openMini(): Promise<void>;
   pushMiniState(json: string): void;
   onMiniAction(cb: (action: string) => void): void;
+  /** 开桌面歌词窗；已开着且在穿透态则解锁（M9-1）。 */
+  openLyric(): Promise<void>;
+  unlockLyric(): Promise<void>;
+  pushLyricState(json: string): void;
   onSchemeUrl(cb: (intent: { action: string; id: string; source?: string }) => void): void;
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
   exportTheme(json: string): Promise<boolean>;
@@ -98,6 +102,10 @@ export interface Services {
   installSource(fileName: string, code: string): Promise<{ id: string; name: string }>;
   /** 开/聚焦迷你窗。 */
   openMini(): Promise<void>;
+  /** 开桌面歌词窗；已开着且在穿透态则解锁（M9-1）。 */
+  openLyric(): Promise<void>;
+  /** 解锁桌面歌词（穿透 → 交互）。 */
+  unlockLyric(): Promise<void>;
   /** 导出当前场景层 token 到文件。取消/失败返回 false。 */
   exportTheme(): Promise<boolean>;
   /** 从文件导入主题包，返回 sanitize 过的 token 覆盖。取消返回 null。 */

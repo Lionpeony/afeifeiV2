@@ -117,6 +117,28 @@ await build({
   define: { "process.env.NODE_ENV": '"production"' },
 });
 
+// 桌面歌词窗（M9-1）：同迷你窗——独立 preload（只 3 个方法）+ 独立渲染产物
+await build({
+  entryPoints: ["src/preload/lyric.ts"],
+  outfile: path.join(OUT, "lyric-preload.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: NODE_TARGET,
+  external: ["electron"],
+});
+
+await build({
+  entryPoints: ["src/renderer/lyric.tsx"],
+  outfile: path.join(OUT, "renderer", "lyric.js"),
+  bundle: true,
+  platform: "browser",
+  format: "iife",
+  target: BROWSER_TARGET,
+  jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+});
+
 // 必须是 iife：file:// 下 ES module 会被 CORS 拦掉，#root 永远是空的。
 await build({
   entryPoints: ["src/renderer/ui/index.tsx"],
@@ -141,5 +163,7 @@ fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
 fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
 fs.copyFileSync("src/renderer/mini.html", path.join(OUT, "renderer", "mini.html"));
 fs.copyFileSync("src/renderer/mini.css", path.join(OUT, "renderer", "mini.css"));
+fs.copyFileSync("src/renderer/lyric.html", path.join(OUT, "renderer", "lyric.html"));
+fs.copyFileSync("src/renderer/lyric.css", path.join(OUT, "renderer", "lyric.css"));
 
 console.log("build ok → dist/");
