@@ -81,10 +81,13 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(PROFILE, "library.json"), JSON.stringify({ v: 1, tracks: TRACKS, savedAt: Date.now() }));
   registerMinimalIpc();
 
+  const [shotW, shotH] = (process.env.SHOTS_SIZE ?? "1334x747").split("x").map(Number);
+  const suffix = process.env.SHOTS_SUFFIX ?? "";
+
   const win = new BrowserWindow({
-    width: 1334,
-    height: 747,
-    useContentSize: true, // 1334×747 指可绘制区，不含窗口边框
+    width: shotW,
+    height: shotH,
+    useContentSize: true, // 尺寸指可绘制区，不含窗口边框
     show: true,
     webPreferences: {
       preload: path.resolve("dist/preload.js"),
@@ -111,8 +114,8 @@ app.whenReady().then(async () => {
     if (!ok) throw new Error(`找不到导航项「${label}」`);
     await sleep(400); // 切页后一帧
     const img = await win.webContents.capturePage();
-    fs.writeFileSync(path.join(OUT, `page-${id}.png`), img.toPNG());
-    console.log(`shot → docs/assets/page-${id}.png`);
+    fs.writeFileSync(path.join(OUT, `page-${id}${suffix}.png`), img.toPNG());
+    console.log(`shot → docs/assets/page-${id}${suffix}.png`);
   }
 
   // 夜间一版（docs/09 B4 证据）：同一进程切主题，不重启、不重排
@@ -122,8 +125,8 @@ app.whenReady().then(async () => {
   );
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
   await sleep(300);
-  fs.writeFileSync(path.join(OUT, "page-local-dark.png"), (await win.webContents.capturePage()).toPNG());
-  console.log("shot → docs/assets/page-local-dark.png");
+  fs.writeFileSync(path.join(OUT, `page-local-dark${suffix}.png`), (await win.webContents.capturePage()).toPNG());
+  console.log(`shot → docs/assets/page-local-dark${suffix}.png`);
 
   app.quit();
 });

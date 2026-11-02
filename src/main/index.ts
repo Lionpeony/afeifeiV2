@@ -97,6 +97,10 @@ if (!locked) {
     const win = new BrowserWindow({
       width: 1280,
       height: 800,
+      // 布局下限：rail 5×44 + tail 4×34 ≈ 388，加顶栏与 console 后 620 才不裁「设置」入口；
+      // 宽度给到 960 是因为页头（标题 + 统计 + 5 个排序 chip + 扫描按钮）再窄就把按钮压成竖排
+      minWidth: 960,
+      minHeight: 620,
       backgroundColor: "#0b0b0c",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
