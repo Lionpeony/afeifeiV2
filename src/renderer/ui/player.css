@@ -219,6 +219,16 @@ button.primary:hover:not(:disabled) {
   color: var(--fg);
 }
 
+/* 面板分区小标（docs/09 B3）：mono 大写，和"值"拉开层级 */
+.fx-label {
+  margin-top: 4px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+
 .fx-head button {
   background: none;
   border: 1px solid var(--line);

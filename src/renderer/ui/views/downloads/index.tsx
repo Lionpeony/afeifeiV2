@@ -49,7 +49,7 @@ export function DownloadsView({
     <section className="library">
       <PageHead title="下载" meta="DOWNLOADS" />
       <div className="lib-head">
-        <span className="lib-count">
+        <span className="badge">
           已用 {fmtBytes(usage)} / 2GB · {rows.length} 个任务
         </span>
         <button
@@ -62,10 +62,15 @@ export function DownloadsView({
         >
           更改下载目录
         </button>
-        {note ? <span className="lib-count">{note}</span> : null}
+        {note ? <span className="badge">{note}</span> : null}
       </div>
 
       <div className="lib-list">
+        <div className="lib-thead dl-thead">
+          <span className="th-title">TASK</span>
+          <span className="th-artist">STATUS</span>
+          <span className="th-actions">ACTION</span>
+        </div>
         {rows.map((r) => (
           <div key={r.id} className="lib-row online-row" title={r.destPath}>
             <span className="lib-title">{r.title}</span>

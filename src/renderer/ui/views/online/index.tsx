@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PageHead } from "../../PageHead.js";
+import { Segmented } from "../../Segmented.js";
 import { toast } from "../../toast.js";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import { LoginDialog } from "./LoginDialog.js";
@@ -166,14 +167,14 @@ export function OnlineView({
     <section className="library">
       <PageHead title="在线" meta={`ONLINE · ${sources.length} SOURCES`} />
       <div className="lib-head">
-        <select className="source-pick" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-              {s.canAuth ? "" : "（免登录）"}
-            </option>
-          ))}
-        </select>
+        {sources.length > 0 ? (
+          <Segmented
+            label="音源"
+            items={sources.map((s) => ({ id: s.id, name: s.name }))}
+            value={sourceId}
+            onChange={setSourceId}
+          />
+        ) : null}
         <input
           className="search"
           value={keyword}
@@ -183,29 +184,26 @@ export function OnlineView({
             if (e.key === "Enter") void run();
           }}
         />
-        <button type="button" onClick={() => void run()} disabled={busy}>
+        <button type="button" className="primary" onClick={() => void run()} disabled={busy}>
           {busy ? "搜索中…" : "搜索"}
         </button>
-        <button
-          type="button"
-          onClick={() => void openLogin()}
-          disabled={!canLogin}
-          title={canLogin ? "" : "该音源免登录"}
-        >
-          {!canLogin
-            ? "免登录"
-            : loggedIn
-              ? nick
-                ? `已登录：${nick}`
-                : "已登录"
-              : `登录${sourceName}`}
-        </button>
-        {canLogin && loggedIn ? (
-          <button type="button" onClick={() => void doLogout()}>
-            退出
+        {currentSource && !canLogin ? <span className="badge">免登录</span> : null}
+        {canLogin && !loggedIn ? (
+          <button type="button" onClick={() => void openLogin()}>
+            登录{sourceName}
           </button>
         ) : null}
-        <span className="lib-count">{rows.length > 0 ? `${rows.length} 条` : ""}</span>
+        {canLogin && loggedIn ? (
+          <>
+            <span className="badge badge--on" title={nick ? `已登录：${nick}` : "已登录"}>
+              {nick ? nick : "已登录"}
+            </span>
+            <button type="button" onClick={() => void doLogout()}>
+              退出
+            </button>
+          </>
+        ) : null}
+        {rows.length > 0 ? <span className="badge">{rows.length} 条</span> : null}
       </div>
 
       {loginOpen ? (
@@ -235,6 +233,12 @@ export function OnlineView({
       {note ? <p className="lib-note">{note}</p> : null}
 
       <div className="lib-list">
+        <div className={`lib-thead online-thead${currentSource?.canDownload ? " with-btn" : ""}`}>
+          <span className="th-title">TITLE</span>
+          <span className="th-a">ARTIST</span>
+          <span className="th-b">ALBUM</span>
+          <span className="th-dur">TIME</span>
+        </div>
         {rows.map((track) => (
           <div
             key={track.sourceId}

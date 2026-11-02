@@ -27,7 +27,7 @@ export function ArtistsPage({
           ← 返回歌手列表
         </button>
         <p className="group-title">
-          {current.artist} <span className="lib-count">{current.tracks.length} 首</span>
+          {current.artist} <span className="meta">{current.tracks.length} 首</span>
         </p>
         <div className="lib-list">
           <TrackRows
@@ -47,7 +47,7 @@ export function ArtistsPage({
       {artists.map((a) => (
         <button type="button" key={a.artist} className="artist-item" onClick={() => setOpen(a.artist)}>
           <span className="artist-name">{a.artist}</span>
-          <span className="lib-count">{a.tracks.length} 首</span>
+          <span className="meta">{a.tracks.length} 首</span>
         </button>
       ))}
     </div>

@@ -237,10 +237,10 @@ async function main() {
 
   /* ---- 在线页：注册表 → 搜索 → 能力缺失 → 人话提示 ---- */
   await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
-  assert.ok(await app.waitFor(`document.querySelector(".source-pick") !== null`, 5000), "在线页没出来");
+  assert.ok(await app.waitFor(`document.querySelector(".seg") !== null`, 5000), "在线页没出来");
 
-  const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".source-pick option")].map((o) => o.textContent)`);
-  assert.ok(sourceOptions.length > 0, "音源下拉是空的（注册表没接上）");
+  const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".seg button")].map((b) => b.textContent)`);
+  assert.ok(sourceOptions.length > 0, "音源分段是空的（注册表没接上）");
 
   await app.evaluate(`(() => {
     const input = document.querySelector(".search");

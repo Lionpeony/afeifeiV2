@@ -28,7 +28,7 @@ export function AlbumWall({
           ← 返回唱片墙
         </button>
         <p className="group-title">
-          {open.album} <span className="lib-count">{open.artist} · {open.tracks.length} 首</span>
+          {open.album} <span className="meta">{open.artist} · {open.tracks.length} 首</span>
         </p>
         <div className="lib-list">
           <TrackRows

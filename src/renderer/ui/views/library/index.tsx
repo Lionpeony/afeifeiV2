@@ -80,7 +80,7 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
 
   return (
     <section className="library">
-      <PageHead title="本地" meta={`LIBRARY · ${total} TRACKS`} />
+      <PageHead title="本地" meta="LIBRARY" />
       <div className="lib-head">
         <input
           className="search"
@@ -128,9 +128,9 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
       ) : (
         <div className="lib-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
         <div className="lib-thead">
-          <span className="th-title">曲目 / TITLE</span>
-          <span className="th-artist">歌手 / ARTIST</span>
-          <span className="th-dur">时长 / TIME</span>
+          <span className="th-title">TITLE</span>
+          <span className="th-artist">ARTIST</span>
+          <span className="th-dur">TIME</span>
         </div>
         <div style={{ height: win.totalHeight, position: "relative" }}>
           <div style={{ transform: `translateY(${win.offsetY}px)` }}>

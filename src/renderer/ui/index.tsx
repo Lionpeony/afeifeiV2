@@ -483,7 +483,7 @@ function App() {
       {fxOpen && (
         <div className="fx-panel" role="dialog" aria-label="音效设置">
           <div className="fx-head">
-            <span>音效</span>
+            <span className="fx-label">AUDIO · 音效</span>
             <button
               type="button"
               onClick={() =>
@@ -521,6 +521,7 @@ function App() {
             </select>
             <span className="fx-val" />
           </label>
+          <span className="fx-label">EQ · 6 BANDS</span>
           {state.audio.eq.map((db, i) => {
             const hz = EQ_BANDS[i];
             return (

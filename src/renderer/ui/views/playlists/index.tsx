@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { OnlinePlaylist, RemoteTrack } from "../../../../contracts/capability.js";
 import { PageHead } from "../../PageHead.js";
+import { Segmented } from "../../Segmented.js";
 
 export interface PlaylistViewProps {
   /** 只传 canPlaylists 为 true 的源（过滤在宿主做，本组件不做能力判断） */
@@ -102,14 +103,13 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
     <section className="library">
       <PageHead title="歌单" meta="PLAYLISTS · READ ONLY" />
       <div className="lib-head">
-        <select className="source-pick" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-        <span className="lib-count">{playlists.length > 0 ? `${playlists.length} 个歌单` : ""}</span>
+        <Segmented
+          label="音源"
+          items={sources.map((s) => ({ id: s.id, name: s.name }))}
+          value={sourceId}
+          onChange={setSourceId}
+        />
+        {playlists.length > 0 ? <span className="badge">{playlists.length} 个歌单</span> : null}
       </div>
 
       {note ? <p className="lib-note">{note}</p> : null}
@@ -131,10 +131,10 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
 
         <div className="lib-list">
           <div className="lib-thead online-thead">
-            <span className="th-title">曲目 / TITLE</span>
-            <span className="th-a">歌手 / ARTIST</span>
-            <span className="th-b">专辑 / ALBUM</span>
-            <span className="th-dur">时长 / TIME</span>
+            <span className="th-title">TITLE</span>
+            <span className="th-a">ARTIST</span>
+            <span className="th-b">ALBUM</span>
+            <span className="th-dur">TIME</span>
           </div>
           {tracks.map((track) => (
             <div
