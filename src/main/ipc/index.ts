@@ -8,6 +8,7 @@ import { readTags, scanDirs } from "../fs/readTags.js";
 import { statFiles } from "../fs/statFiles.js";
 import { readCover } from "../fs/cover.js";
 import { readKey, writeKey } from "../fs/kv.js";
+import { exportBackup, importBackup } from "../fs/backup.js";
 import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
@@ -216,6 +217,11 @@ export function registerIpc(): void {
     if (text.length > 100_000) throw new Error("主题文件过大");
     return JSON.parse(text) as unknown;
   });
+
+  /* ---------- 数据备份（M6.6，见 main/fs/backup.ts） ---------- */
+
+  ipcMain.handle("backup:export", () => exportBackup());
+  ipcMain.handle("backup:import", () => importBackup());
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */
   ipcMain.handle("store:read", (_e, key: unknown) => {

@@ -42,6 +42,8 @@ export interface Api {
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
   exportTheme(json: string): Promise<boolean>;
   importTheme(): Promise<unknown>;
+  exportBackup(): Promise<string | null>;
+  importBackup(): Promise<{ restored: boolean } | null>;
 }
 
 declare global {
@@ -76,6 +78,10 @@ export interface Services {
   exportTheme(): Promise<boolean>;
   /** 从文件导入主题包，返回 sanitize 过的 token 覆盖。取消返回 null。 */
   importTheme(): Promise<Record<string, string> | null>;
+  /** 备份数据到目录。取消返回 null。 */
+  exportBackup(): Promise<string | null>;
+  /** 恢复备份。恢复后需重启生效。 */
+  importBackup(): Promise<{ restored: boolean } | null>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始扫码：拿到 key 与服务端画好的二维码图 */

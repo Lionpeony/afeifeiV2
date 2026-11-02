@@ -71,6 +71,10 @@ contextBridge.exposeInMainWorld("api", {
   // 主题包（主进程只负责文件读写，不认识 token）
   exportTheme: (json: string): Promise<boolean> => ipcRenderer.invoke("theme:export", json),
   importTheme: (): Promise<unknown> => ipcRenderer.invoke("theme:import"),
+
+  // 数据备份（恢复后需重启生效）
+  exportBackup: (): Promise<string | null> => ipcRenderer.invoke("backup:export"),
+  importBackup: (): Promise<{ restored: boolean } | null> => ipcRenderer.invoke("backup:import"),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

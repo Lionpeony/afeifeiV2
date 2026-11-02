@@ -260,6 +260,9 @@ export async function bootstrap(): Promise<Services> {
     spectrum: (bins) => engine.spectrum(bins),
     openMini: () => api.openMini(),
 
+    exportBackup: () => api.exportBackup(),
+    importBackup: () => api.importBackup(),
+
     async exportTheme() {
       const s = getState().stage;
       const preset = PRESETS.find((p) => p.id === s.preset) ?? PRESETS[0];

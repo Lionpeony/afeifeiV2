@@ -164,6 +164,22 @@ function App() {
       registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
       registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
       registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
+      registerCommand({
+        id: "backup-export",
+        label: "备份数据（导出到目录）",
+        run: () =>
+          void services.current?.exportBackup().then((dest) => {
+            if (dest) setScanNote(`已备份到 ${dest}`);
+          }),
+      }),
+      registerCommand({
+        id: "backup-import",
+        label: "恢复备份（重启后生效）",
+        run: () =>
+          void services.current?.importBackup().then((r) => {
+            if (r?.restored) setScanNote("备份已恢复，重启应用后生效");
+          }),
+      }),
     ];
     return () => offs.forEach((off) => off());
     // eslint-disable-next-line react-hooks/exhaustive-deps

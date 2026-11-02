@@ -47,7 +47,7 @@ let cacheFlushTimer: NodeJS.Timeout | null = null;
 function loadCacheFromDisk(): void {
   try {
     const raw = fs.readFileSync(CACHE_FILE(), "utf8");
-    for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, { value?: unknown }>)) {
+    for (const [k, v] of Object.entries(JSON.parse(raw) as Record<string, { value?: unknown; expire?: unknown }>)) {
       if (typeof v?.value === "string" && typeof v.expire === "number") {
         cache.set(k, { value: v.value, expire: v.expire });
       }
