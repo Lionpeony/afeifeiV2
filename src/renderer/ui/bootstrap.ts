@@ -65,6 +65,8 @@ interface Api {
   openMini(): Promise<void>;
   pushMiniState(json: string): void;
   onMiniAction(cb: (action: string) => void): void;
+  onSchemeUrl(cb: (intent: { action: string; id: string; source?: string }) => void): void;
+  schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
 }
 
 declare global {

@@ -50,6 +50,23 @@ contextBridge.exposeInMainWorld("api", {
       if (typeof action === "string") cb(action);
     });
   },
+
+  // afeifei:// 冷/热启动：主进程解析后的结构化 intent（渲染层不碰原始 URL）
+  onSchemeUrl: (cb: (intent: { action: string; id: string; source?: string }) => void): void => {
+    ipcRenderer.on("scheme:url", (_e, intent: unknown) => {
+      if (
+        intent &&
+        typeof intent === "object" &&
+        typeof (intent as { action?: unknown }).action === "string" &&
+        typeof (intent as { id?: unknown }).id === "string"
+      ) {
+        cb(intent as { action: string; id: string; source?: string });
+      }
+    });
+  },
+  /** 启动兜底：send 可能早于订阅，渲染层就绪后主动拉一次 pending。 */
+  schemePoll: (): Promise<{ action: string; id: string; source?: string } | null> =>
+    ipcRenderer.invoke("scheme:poll"),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

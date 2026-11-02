@@ -45,4 +45,19 @@ export function startMiniBridge(services: Services): void {
     else if (action === "next") dispatch({ type: "queue/next" });
     else if (action === "prev") dispatch({ type: "queue/prev", atPositionMs: services.positionMs() });
   });
+
+  // afeifei:// 冷/热启动都汇到这里。play 只收本地 id（在线 source 链路等 QQ getUrl 打通后接）
+  const handleScheme = (intent: { action: string; id: string; source?: string }): void => {
+    if (intent.action !== "play") return;
+    if (intent.source) {
+      console.warn(`[scheme] 在线播放（source=${intent.source}）尚未接通，已忽略`);
+      return;
+    }
+    dispatch({ type: "queue/set", items: [intent.id], startAt: 0 });
+  };
+  api.onSchemeUrl(handleScheme);
+  // 冷启动兜底：主进程 send 可能早于这里的订阅，就绪后主动拉一次 pending
+  void api.schemePoll().then((p) => {
+    if (p) handleScheme(p);
+  });
 }

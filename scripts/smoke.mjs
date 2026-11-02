@@ -368,6 +368,21 @@ async function main() {
     current = null;
   }
 
+  /* ---------------- 阶段 4：afeifei:// 冷启动（M5 判据） ---------------- */
+  if (hasAudio) {
+    const app5 = await launch([`afeifei://play?id=${encodeURIComponent(samples[0])}`]);
+    current = app5;
+    const started = await app5.waitFor(
+      `document.querySelector(".track")?.textContent === ${JSON.stringify(first)}`,
+      10000,
+    );
+    const track5 = await app5.evaluate(`document.querySelector(".track")?.textContent ?? "(无)"`);
+    assert.ok(started, `afeifei://play 冷启动没把歌拉起来，界面显示 ${track5}`);
+    console.log("  scheme 冷启动 OK：afeifei://play 直接拉起曲目");
+    await app5.close();
+    current = null;
+  }
+
   console.log("SMOKE PASS：界面 / 桥 / 控件 / 播放 / 恢复 / 连切 / 错误态 均正常");
 }
 
