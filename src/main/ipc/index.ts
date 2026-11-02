@@ -29,6 +29,8 @@ const NETEASE_ALLOWED = new Set([
   "login_qr_key",
   "login_qr_create",
   "login_qr_check",
+  "captcha_sent",
+  "captcha_verify",
   "user_account",
   "logout",
 ]);

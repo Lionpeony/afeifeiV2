@@ -78,7 +78,17 @@ export interface Services {
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   /** 查询当前登录态（只看账号接口，不看 cookie 字段） */
   loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
+  /** 手机号登录：发短信验证码 */
+  sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
+  /** 手机号登录：用验证码换登录态 */
+  loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
   logout(): Promise<void>;
+}
+
+interface NcmBody {
+  code?: number;
+  msg?: string;
+  message?: string;
 }
 
 /** 把能力层抛的错收敛成一句人话。界面永远只看到这句话。 */
@@ -240,6 +250,23 @@ export async function bootstrap(): Promise<Services> {
       return { loggedIn: profile.loggedIn, nick: profile.nick };
     },
     logout: () => api.ncmLogout(),
+
+    async sendCaptcha(phone) {
+      const body = (await api.ncmCall("captcha_sent", { phone })) as NcmBody;
+      const ok = body?.code === 200;
+      return { ok, message: ok ? "验证码已发送" : (body?.msg ?? body?.message ?? `发送失败（code=${body?.code}）`) };
+    },
+
+    async loginByCaptcha(phone, captcha) {
+      const body = (await api.ncmCall("captcha_verify", { phone, captcha })) as NcmBody;
+      if (body?.code !== 200) {
+        return { ok: false, message: body?.msg ?? body?.message ?? `登录失败（code=${body?.code}）` };
+      }
+      const profile = await api.ncmProfile();
+      return profile.loggedIn
+        ? { ok: true, message: `登录成功${profile.nick ? `：${profile.nick}` : ""}` }
+        : { ok: false, message: "验证通过但没拿到登录态，请重试" };
+    },
 
     async scan(onProgress) {
       const dir = await api.pickDir();

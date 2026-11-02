@@ -16,6 +16,8 @@ export interface OnlineViewProps {
   loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
   startLogin(): Promise<{ key: string; qrImage: string }>;
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
+  sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
+  loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -32,7 +34,16 @@ function fmtDuration(ms: number): string {
  * 登录走"真实浏览器窗口"而不是扫码接口：后者对请求频率敏感，
  * 多申请几次 key 就会开始返回非标准码（实测 8821，风控按 IP 记）。
  */
-export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin, pollLogin }: OnlineViewProps) {
+export function OnlineView({
+  sources,
+  onSearch,
+  onPlay,
+  loginStatus,
+  startLogin,
+  pollLogin,
+  sendCaptcha,
+  loginByCaptcha,
+}: OnlineViewProps) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
@@ -131,6 +142,8 @@ export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin,
         <LoginDialog
           start={startLogin}
           poll={pollLogin}
+          sendCaptcha={sendCaptcha}
+          loginByCaptcha={loginByCaptcha}
           onSuccess={() => {
             setLoginOpen(false);
             refreshLogin();

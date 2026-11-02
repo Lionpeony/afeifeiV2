@@ -147,6 +147,16 @@ function App() {
             if (!svc) return Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" });
             return svc.pollLogin(key);
           }}
+          sendCaptcha={(phone) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
+            return svc.sendCaptcha(phone);
+          }}
+          loginByCaptcha={(phone, captcha) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
+            return svc.loginByCaptcha(phone, captcha);
+          }}
         />
       )}
 

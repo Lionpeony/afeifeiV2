@@ -1,33 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 
 export interface LoginDialogProps {
-  /** 拿到 key 与服务端画好的二维码图（不需要前端再引二维码库） */
+  /** 拿到 key 与服务端画好的二维码图 */
   start(): Promise<{ key: string; qrImage: string }>;
   poll(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
+  /** 手机号登录：发短信验证码 */
+  sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
+  /** 手机号登录：用验证码换登录态 */
+  loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
   onSuccess(): void;
   onClose(): void;
 }
 
 /**
- * 扫码登录弹层。
+ * 登录弹层，两种方式：
  *
- * 三个刻意的设计：
- *   1. **轮询用 setTimeout 链**，不用 setInterval —— 802（待确认）时手机可能停十几秒，
- *      setInterval 会让请求堆在一起。
- *   2. **只在 801/802 继续轮询**。800（过期）与其它码都停下来等用户手动刷新，
- *      无限重试是最容易被服务端风控的行为。
- *   3. **运行代次（runId）作废旧轮询**。点"刷新"会换新二维码，旧 key 的在途请求必须立刻失效，
- *      否则两个 tick 会互相覆盖界面提示。
+ *   扫码 —— 最省事，但**手机端网易云 App 有自己的设备环境检测**，
+ *           账号/设备被标记时会直接弹"检测到当前设备环境异常"。
+ *   手机号 + 短信验证码 —— 不经过 App 的设备检测，是扫码被拦时的备选。
+ *
+ * 轮询用 setTimeout 链（ui/ 里禁 setInterval），只在 801/802 继续，
+ * 用运行代次作废旧轮询。
  */
-export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProps) {
+export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
+  const [mode, setMode] = useState<"qr" | "phone">("qr");
+
   const [qrImage, setQrImage] = useState("");
-  const [note, setNote] = useState("正在获取二维码…");
+  const [qrNote, setQrNote] = useState("正在获取二维码…");
   const [stopped, setStopped] = useState(false);
+
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [phoneNote, setPhoneNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   const timer = useRef<number | undefined>(undefined);
   const runId = useRef(0);
 
-  // props 是父组件的内联函数，每次渲染都是新引用；锁进 ref，effect 只跑一次
   const startRef = useRef(start);
   const pollRef = useRef(poll);
   const successRef = useRef(onSuccess);
@@ -45,20 +55,20 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
     if (timer.current) window.clearTimeout(timer.current);
     setStopped(false);
     setQrImage("");
-    setNote("正在获取二维码…");
+    setQrNote("正在获取二维码…");
 
     try {
       const session = await startRef.current();
       if (!alive()) return;
       setQrImage(session.qrImage);
-      setNote("请打开网易云音乐 App → 扫一扫");
+      setQrNote("请打开网易云音乐 App → 扫一扫");
 
       const tick = async (): Promise<void> => {
         if (!alive()) return;
         try {
           const result = await pollRef.current(session.key);
           if (!alive()) return;
-          setNote(result.message);
+          setQrNote(result.message);
 
           if (result.loggedIn) {
             successRef.current();
@@ -70,7 +80,7 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
           }
         } catch (err) {
           if (!alive()) return;
-          setNote(err instanceof Error ? err.message : "网络错误，稍后重试");
+          setQrNote(err instanceof Error ? err.message : "网络错误，稍后重试");
           setStopped(true);
           return;
         }
@@ -80,7 +90,7 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
       timer.current = window.setTimeout(() => void tick(), 2000);
     } catch (err) {
       if (!alive()) return;
-      setNote(err instanceof Error ? err.message : "拿不到二维码");
+      setQrNote(err instanceof Error ? err.message : "拿不到二维码");
       setStopped(true);
     }
   };
@@ -94,20 +104,116 @@ export function LoginDialog({ start, poll, onSuccess, onClose }: LoginDialogProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 切到手机号模式就停掉扫码轮询，别让它在后台白跑
+  useEffect(() => {
+    if (mode !== "phone") return;
+    runId.current += 1;
+    if (timer.current) window.clearTimeout(timer.current);
+  }, [mode]);
+
+  // 60 秒倒计时：ui/ 里禁 setInterval，用「状态驱动 + setTimeout」
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = window.setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [countdown]);
+
+  const send = async (): Promise<void> => {
+    if (!/^1\d{10}$/.test(phone)) {
+      setPhoneNote("请输入 11 位手机号");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await sendCaptcha(phone);
+      setPhoneNote(result.message);
+      if (result.ok) setCountdown(60);
+    } catch (err) {
+      setPhoneNote(err instanceof Error ? err.message : "发送失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = async (): Promise<void> => {
+    if (code.trim().length < 4) {
+      setPhoneNote("请输入收到的验证码");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await loginByCaptcha(phone, code.trim());
+      setPhoneNote(result.message);
+      if (result.ok) onSuccess();
+    } catch (err) {
+      setPhoneNote(err instanceof Error ? err.message : "登录失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="dialog-mask" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
         <h2>登录网易云</h2>
-        {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
-        <p className="dialog-note">{note}</p>
-        <div className="dialog-actions">
-          <button type="button" className="primary" onClick={() => void begin()}>
-            {stopped ? "刷新" : "换一张"}
+
+        <div className="dialog-tabs">
+          <button type="button" className={mode === "qr" ? "on" : ""} onClick={() => setMode("qr")}>
+            扫码
           </button>
-          <button type="button" onClick={onClose}>
-            关闭
+          <button type="button" className={mode === "phone" ? "on" : ""} onClick={() => setMode("phone")}>
+            手机号
           </button>
         </div>
+
+        {mode === "qr" ? (
+          <>
+            {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
+            <p className="dialog-note">{qrNote}</p>
+            <div className="dialog-actions">
+              <button type="button" className="primary" onClick={() => void begin()}>
+                {stopped ? "刷新" : "换一张"}
+              </button>
+              <button type="button" onClick={onClose}>
+                关闭
+              </button>
+            </div>
+            <p className="dialog-hint">扫码被手机端拦截时，改用「手机号」登录。</p>
+          </>
+        ) : (
+          <>
+            <label className="field">
+              <span>手机号</span>
+              <input
+                value={phone}
+                inputMode="tel"
+                placeholder="11 位手机号"
+                onChange={(e) => setPhone(e.target.value.trim())}
+              />
+            </label>
+            <div className="dialog-actions">
+              <button type="button" onClick={() => void send()} disabled={busy || countdown > 0}>
+                {countdown > 0 ? `${countdown}s 后重发` : "发送验证码"}
+              </button>
+            </div>
+
+            <label className="field">
+              <span>验证码</span>
+              <input value={code} inputMode="numeric" placeholder="短信里的验证码" onChange={(e) => setCode(e.target.value)} />
+            </label>
+
+            <p className="dialog-note">{phoneNote}</p>
+
+            <div className="dialog-actions">
+              <button type="button" className="primary" onClick={() => void submit()} disabled={busy}>
+                登录
+              </button>
+              <button type="button" onClick={onClose}>
+                关闭
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
