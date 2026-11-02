@@ -80,14 +80,15 @@ async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
 /* ---------- 扫码登录（包内三件套，语义与网易云对齐） ---------- */
 
 /** 扫码通道。默认 qqmusic：换凭证按扫码 App 实报的账号类型适配（Folia 同款一张码三种 App 都能扫）；
- *  qq 通道只会按手机 QQ 换凭证，别的 App 扫必被上游拒（50006）。 */
+ *  qq 通道只会按手机 QQ 换凭证，别的 App 扫必被上游拒（50006）。
+ *  **通道在 /login/qr/key 这一步定死**（包的 create 路由不读 channel），不传就是包默认 qq。 */
 const QR_CHANNELS = new Set(["qq", "qqmusic", "wechat"]);
 const DEFAULT_CHANNEL = "qqmusic";
 
 async function qqQrStart(params: Record<string, unknown>): Promise<unknown> {
   const channel = typeof params.channel === "string" && QR_CHANNELS.has(params.channel) ? params.channel : DEFAULT_CHANNEL;
   // key 这一步要看状态码：上次登录失败后包有 15s 冷却，冷却内回 429 + retryAfterMs
-  const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key`);
+  const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key?channel=${channel}`);
   if (keyRes.status === 429) {
     const waitSec = Math.ceil(Number((keyRes.json as { retryAfterMs?: number })?.retryAfterMs ?? 15_000) / 1000);
     throw new Error(`登录太频繁，约 ${waitSec} 秒后再点「刷新」`);
@@ -95,9 +96,9 @@ async function qqQrStart(params: Record<string, unknown>): Promise<unknown> {
   const keyBody = keyRes.json as { data?: { unikey?: string } };
   const key = keyBody?.data?.unikey;
   if (!key) throw new Error("获取二维码失败");
-  // create 返回 data.qrimg = dataURL（2026-11-03 实测，channel=qq/wechat 均验证）
+  // create 只认 key（实测确认 channel 参数被忽略），码画在 key 对应的会话上
   const create = await callApi<{ code?: number; data?: { qrimg?: string } }>(
-    `/login/qr/create?key=${encodeURIComponent(key)}&channel=${channel}`,
+    `/login/qr/create?key=${encodeURIComponent(key)}`,
   );
   const qrImage = create?.data?.qrimg ?? "";
   if (!qrImage) throw new Error("QQ 登录页没有给出二维码");

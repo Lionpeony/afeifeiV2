@@ -8,13 +8,14 @@
  *
  * 需要 网络（create 要调 QQ 上游拿二维码）。跑法：node scripts/qq-selfcheck.mjs
  */
-process.env.PORT = "3210";
+const PORT = process.env.PORT ?? "3210";
+process.env.PORT = PORT;
 process.env.NODE_ENV = "production";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 require("d:/AI/afeifei-v2/node_modules/@yakult-green-tea/qq-music-api/dist/src/app.js");
 
-const BASE = "http://127.0.0.1:3210";
+const BASE = `http://127.0.0.1:${PORT}`;
 const results = [];
 const check = (name, ok, detail) => {
   results.push({ name, ok, detail });
@@ -33,14 +34,14 @@ setTimeout(async () => {
     check("服务已启动且 /login/channels 可达", ch.status === 200 && Array.isArray(ch.json?.data?.channels),
       `channels=${JSON.stringify(ch.json?.data?.channels)}`);
 
-    // ② 扫码 key
-    const keyRes = await get("/login/qr/key");
+    // ② 扫码 key（channel 在这一步定死，生产默认 qqmusic 万能码）
+    const keyRes = await get("/login/qr/key?channel=qqmusic");
     const key = keyRes.json?.data?.unikey;
     check("/login/qr/key 返回 unikey", keyRes.status === 200 && typeof key === "string" && key.length > 10,
       `key 长度=${key?.length ?? 0}`);
 
-    // ③ 二维码（create）——必须是 dataURL 且非空
-    const create = await get(`/login/qr/create?key=${encodeURIComponent(key)}&channel=qq`);
+    // ③ 二维码（create）——必须是 dataURL 且非空（create 路由不读 channel，只认 key）
+    const create = await get(`/login/qr/create?key=${encodeURIComponent(key)}`);
     const qrimg = create.json?.data?.qrimg ?? "";
     check("/login/qr/create 返回非空 dataURL 二维码",
       create.status === 200 && qrimg.startsWith("data:image/"),
