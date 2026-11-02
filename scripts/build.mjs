@@ -78,6 +78,17 @@ await build({
   external: ["electron"],
 });
 
+// 用户源沙箱子进程：独立产物，utilityProcess.fork 按 __dirname 找它
+await build({
+  entryPoints: ["src/main/sandbox/child.ts"],
+  outfile: path.join(OUT, "sandbox-child.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: NODE_TARGET,
+  external: ["electron"],
+});
+
 // 必须是 iife：file:// 下 ES module 会被 CORS 拦掉，#root 永远是空的。
 await build({
   entryPoints: ["src/renderer/ui/index.tsx"],

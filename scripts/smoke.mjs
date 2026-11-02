@@ -218,6 +218,23 @@ async function main() {
   );
   assert.equal(badToken, 410, `无效令牌应返回 410，实际 ${badToken}`);
 
+  /* ---- 用户源沙箱：恶意被拒、正常可用、主窗无感（M5 判据） ---- */
+  const evil = await app.evaluate(
+    `window.api.installUserSource("evil-test", 'const fs = require("fs");').then(() => "ok").catch(e => String(e.message))`,
+  );
+  assert.notEqual(evil, "ok", `require("fs") 必须被拒，实际：${evil}`);
+  assert.ok(/require|createProvider/.test(evil), `拒绝原因应可读：${evil}`);
+
+  const demoUser = `function createProvider(host){return {id:"demo-user",name:"示例用户源",capabilities:["search"],async search(){return {items:[{sourceId:"u1",title:"用户源歌曲",artist:"沙箱",album:"-",durationMs:180000}]}}}}`;
+  const loaded = await app.evaluate(
+    `window.api.installUserSource("tmp-1", ${JSON.stringify(demoUser)}).then(m => m.name).catch(e => "ERR:" + e.message)`,
+  );
+  assert.equal(loaded, "示例用户源", `正常用户源应装载成功：${loaded}`);
+  const found = await app.evaluate(
+    `window.api.callUserSource("demo-user", "search", {keyword:"x"}).then(r => r.items.length).catch(e => "ERR:" + e.message)`,
+  );
+  assert.equal(found, 1, `用户源 search 应可用：${found}`);
+
   /* ---- 在线页：注册表 → 搜索 → 能力缺失 → 人话提示 ---- */
   await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
   assert.ok(await app.waitFor(`document.querySelector(".source-pick") !== null`, 5000), "在线页没出来");

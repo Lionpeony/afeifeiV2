@@ -33,6 +33,14 @@ contextBridge.exposeInMainWorld("api", {
   ncmLogout: (): Promise<void> => ipcRenderer.invoke("netease:logout"),
   qqCall: (method: string, params?: Record<string, unknown>): Promise<unknown> =>
     ipcRenderer.invoke("qq:call", method, params),
+
+  // 用户源沙箱（主进程独立进程，崩溃不波及主窗）
+  importUserSource: (): Promise<{ name: string; code: string } | null> =>
+    ipcRenderer.invoke("user:import"),
+  installUserSource: (sourceId: string, code: string): Promise<unknown> =>
+    ipcRenderer.invoke("user:install", sourceId, code),
+  callUserSource: (sourceId: string, method: string, params?: unknown): Promise<unknown> =>
+    ipcRenderer.invoke("user:call", sourceId, method, params),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

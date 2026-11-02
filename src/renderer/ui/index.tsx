@@ -121,6 +121,27 @@ function App() {
           <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
             播放页
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void (async () => {
+                const svc = services.current;
+                if (!svc) return;
+                try {
+                  const picked = await svc.importSource();
+                  if (!picked) return;
+                  const installed = await svc.installSource(picked.name, picked.code);
+                  setSources(svc.sources());
+                  setScanNote(`已导入音源：${installed.name}`);
+                  setTab("online");
+                } catch (err) {
+                  setScanNote(err instanceof Error ? err.message : String(err));
+                }
+              })()
+            }
+          >
+            导入源
+          </button>
         </div>
         <span className="status" data-status={status}>
           {status}

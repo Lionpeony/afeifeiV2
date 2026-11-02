@@ -12,6 +12,11 @@ import { AudioEngine } from "../capability/audio/engine.js";
 import { sanitizeAudioConfig } from "../capability/audio/eq.js";
 import { sanitizeStageConfig } from "./views/stage/presets.js";
 import { createQqProvider } from "../capability/sources/qq/index.js";
+import {
+  createUserProvider,
+  type StoredUserSource,
+  type UserManifest,
+} from "../capability/sources/user/index.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
@@ -54,6 +59,9 @@ interface Api {
   ncmProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
   ncmLogout(): Promise<void>;
   qqCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
+  importUserSource(): Promise<{ name: string; code: string } | null>;
+  installUserSource(sourceId: string, code: string): Promise<unknown>;
+  callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
 }
 
 declare global {
@@ -78,6 +86,10 @@ export interface Services {
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   /** 频谱采样（0–1 的 bins 个桶）。没在播返回 null。 */
   spectrum(bins: number): number[] | null;
+  /** 弹文件框选一个 .js 用户源，返回内容。取消返回 null。 */
+  importSource(): Promise<{ name: string; code: string } | null>;
+  /** 装进沙箱 + 存 KV + 注册。返回音源 id 与名字。 */
+  installSource(fileName: string, code: string): Promise<{ id: string; name: string }>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始扫码：拿到 key 与服务端画好的二维码图 */
@@ -159,6 +171,31 @@ export async function bootstrap(): Promise<Services> {
   registerProvider(demoProvider);
   registerProvider(createNeteaseProvider(localApi));
   registerProvider(createQqProvider(localApi));
+
+  // 用户源：KV 里的代码重装进沙箱。单个装失败不挡启动 —— 少一个源比白屏好
+  const readStoredSources = async (): Promise<StoredUserSource[]> => {
+    try {
+      return JSON.parse((await kv.read("user-sources")) ?? "[]") as StoredUserSource[];
+    } catch {
+      return [];
+    }
+  };
+
+  const installAndRegister = async (code: string): Promise<{ id: string; name: string }> => {
+    // 装载键用临时值；子进程以 provider 自报的 id 存取，manifest.id 与之必然一致
+    const manifest = (await api.installUserSource(`tmp-${Date.now()}`, code)) as UserManifest;
+    registerProvider(createUserProvider(manifest, (m, p) => api.callUserSource(manifest.id, m, p)));
+    return { id: manifest.id, name: manifest.name };
+  };
+
+  for (const s of await readStoredSources()) {
+    try {
+      await installAndRegister(s.code);
+      console.info(`[user] 已恢复音源：${s.name}`);
+    } catch (err) {
+      console.warn(`[user] 音源 ${s.name} 装载失败，已跳过：${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);
@@ -299,6 +336,17 @@ export async function bootstrap(): Promise<Services> {
     },
 
     spectrum: (bins) => engine.spectrum(bins),
+
+    importSource: () => api.importUserSource(),
+
+    async installSource(_fileName, code) {
+      const installed = await installAndRegister(code);
+      // 同 id 覆盖，其余保留
+      const list = await readStoredSources();
+      const next = [...list.filter((s) => s.id !== installed.id), { id: installed.id, name: installed.name, code }];
+      await kv.write("user-sources", JSON.stringify(next));
+      return installed;
+    },
 
     startLogin: () => startQrLogin(localApi),
     pollLogin: (key) => pollQrLogin(localApi, key),

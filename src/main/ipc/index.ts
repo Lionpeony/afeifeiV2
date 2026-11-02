@@ -1,4 +1,6 @@
 import { dialog, ipcMain } from "electron";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { log } from "../log/index.js";
 import { loadState, saveState } from "../fs/state.js";
 import { grant } from "../media/tokens.js";
@@ -10,6 +12,7 @@ import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
+import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
@@ -158,6 +161,36 @@ export function registerIpc(): void {
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {
     if (typeof text !== "string") throw new Error("util:qrcode 需要文本");
     return qrDataUrl(text);
+  });
+
+  /* ---------- 用户源沙箱（见 main/sandbox/；崩溃与超时都不波及主窗） ---------- */
+
+  ipcMain.handle("user:install", (_e, sourceId: unknown, code: unknown) => {
+    if (typeof sourceId !== "string" || typeof code !== "string") {
+      throw new Error("user:install 需要 (string, string)");
+    }
+    if (code.length > 200_000) throw new Error("源代码过大（>200KB）");
+    return installUserSource(sourceId, code);
+  });
+
+  ipcMain.handle("user:call", (_e, sourceId: unknown, method: unknown, params: unknown) => {
+    if (typeof sourceId !== "string" || typeof method !== "string") {
+      throw new Error("user:call 需要 (string, string)");
+    }
+    return callUserSource(sourceId, method, params);
+  });
+
+  ipcMain.handle("user:import", async () => {
+    const r = await dialog.showOpenDialog({
+      filters: [{ name: "JS 音源", extensions: ["js"] }],
+      properties: ["openFile"],
+    });
+    if (r.canceled || r.filePaths.length === 0) return null;
+    const p = r.filePaths[0];
+    if (!/\.js$/i.test(p)) throw new Error("只接受 .js 文件");
+    const code = await readFile(p, "utf8");
+    if (code.length > 200_000) throw new Error("源文件过大（>200KB）");
+    return { name: path.basename(p), code };
   });
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */
