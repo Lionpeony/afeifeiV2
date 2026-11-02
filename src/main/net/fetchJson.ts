@@ -13,6 +13,8 @@ export interface FetchJsonOptions {
   method?: "GET" | "POST";
   /** application/x-www-form-urlencoded 的字段 */
   form?: Record<string, string | number | boolean>;
+  /** 直接以 JSON 发出的请求体（QQ 的 musicu.fcg 只认 JSON body）。与 form 互斥，json 优先。 */
+  json?: unknown;
   /** 额外请求头。**不要在这里塞 Cookie** —— Chromium 会忽略，cookie 只能走 session。 */
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -54,7 +56,10 @@ export async function fetchJson(url: string, options: FetchJsonOptions = {}): Pr
     const headers: Record<string, string> = { ...(options.headers ?? {}) };
 
     let body: string | undefined;
-    if (options.form) {
+    if (options.json !== undefined) {
+      body = JSON.stringify(options.json);
+      headers["content-type"] = "application/json";
+    } else if (options.form) {
       body = new URLSearchParams(
         Object.entries(options.form).map(([k, v]) => [k, String(v)]),
       ).toString();

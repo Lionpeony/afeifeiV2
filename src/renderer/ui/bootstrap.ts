@@ -10,6 +10,7 @@ import type {
 } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { sanitizeAudioConfig } from "../capability/audio/eq.js";
+import { createQqProvider } from "../capability/sources/qq/index.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
@@ -51,6 +52,7 @@ interface Api {
   ncmCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
   ncmProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
   ncmLogout(): Promise<void>;
+  qqCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
 }
 
 declare global {
@@ -138,16 +140,20 @@ export async function bootstrap(): Promise<Services> {
     write: (key, json) => api.writeStore(key, json),
   };
 
-  // 音源本地通道：加密、cookie、限流都在主进程一侧，渲染层只给方法名
+  // 音源本地通道：加密、cookie、限流都在主进程一侧，渲染层只给方法名。
+  // namespace 决定走哪条主进程通道（netease / qq）。
   const localApi: LocalApiPort = {
-    call: (_namespace, method, params) => api.ncmCall(method, params),
-    profile: () => api.ncmProfile(),
-    logout: () => api.ncmLogout(),
+    call: (namespace, method, params) =>
+      namespace === "qq" ? api.qqCall(method, params) : api.ncmCall(method, params),
+    profile: (namespace) =>
+      namespace === "qq" ? Promise.resolve({ loggedIn: false, nick: null, uid: null }) : api.ncmProfile(),
+    logout: (namespace) => (namespace === "qq" ? Promise.resolve() : api.ncmLogout()),
   };
 
   // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
   registerProvider(demoProvider);
   registerProvider(createNeteaseProvider(localApi));
+  registerProvider(createQqProvider(localApi));
 
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);

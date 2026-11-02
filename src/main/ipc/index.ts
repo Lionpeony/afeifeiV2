@@ -9,6 +9,7 @@ import { readKey, writeKey } from "../fs/kv.js";
 import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
+import { callQq } from "../net/qqClient.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
@@ -141,6 +142,18 @@ export function registerIpc(): void {
 
   ipcMain.handle("netease:profile", () => loginProfile());
   ipcMain.handle("netease:logout", () => clearLogin());
+
+  /* ---------- QQ 音乐通道（匿名接口，见 main/net/qqClient.ts 的实测记录） ---------- */
+
+  ipcMain.handle("qq:call", async (_e, method: unknown, params: unknown) => {
+    if (typeof method !== "string") throw new Error("qq:call 需要方法名");
+    try {
+      return await callQq(method, (params ?? {}) as Record<string, unknown>);
+    } catch (err) {
+      // 同 netease:call —— 上游错误压成可读字符串，别让渲染层收到 [object Object]
+      throw new Error(readableError(err));
+    }
+  });
 
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {
     if (typeof text !== "string") throw new Error("util:qrcode 需要文本");

@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld("api", {
   ncmProfile: (): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> =>
     ipcRenderer.invoke("netease:profile"),
   ncmLogout: (): Promise<void> => ipcRenderer.invoke("netease:logout"),
+  qqCall: (method: string, params?: Record<string, unknown>): Promise<unknown> =>
+    ipcRenderer.invoke("qq:call", method, params),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),
