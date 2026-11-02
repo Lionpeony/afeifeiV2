@@ -137,9 +137,11 @@ for (const file of styled) {
 /* ---------- 规则 6：主进程无业务 ---------- */
 const mainFiles = walk(path.join(SRC, "main")).filter((f) => /\.(ts|tsx)$/.test(f));
 const BIZ = /\b(library|playlist|dedupe)\b/;
+/** 去掉字符串字面量再判：文件名 "library.json" 不是业务判断，`function loadLibrary` 才是。 */
+const stripStrings = (s) => s.replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, '""');
 for (const file of mainFiles) {
   const n = norm(file);
-  const src = stripComments(read(file));
+  const src = stripStrings(stripComments(read(file)));
   for (const spec of importsOf(src)) {
     // 按解析后的真实路径判，不按字符串里有没有 "renderer"（目录名可能合法地叫别的）
     const target = spec.startsWith(".") ? resolveLocal(file, spec) : null;

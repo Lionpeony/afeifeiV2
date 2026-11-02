@@ -1,6 +1,7 @@
 import type { AppState } from "../../contracts/index.js";
-import type { MediaPort, StoragePort } from "../../contracts/ports.js";
+import type { LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
+import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
 import { clock } from "../kernel/clock.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
@@ -11,6 +12,15 @@ interface Api {
   saveState(json: string): Promise<void>;
   pickFiles(): Promise<string[]>;
   grant(filePath: string): Promise<string | null>;
+  pickDir(): Promise<string | null>;
+  scan(dirs: string[]): Promise<string[]>;
+  readTags(filePaths: string[]): Promise<unknown[]>;
+  statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
+  loadIndex(): Promise<string | null>;
+  saveIndex(json: string): Promise<void>;
+  readIndexLog(): Promise<string>;
+  appendIndexLog(lines: string): Promise<void>;
+  clearIndexLog(): Promise<void>;
 }
 
 declare global {
@@ -23,6 +33,8 @@ export interface Services {
   engine: AudioEngine;
   pick(): Promise<string[]>;
   positionMs(): number;
+  /** 选目录并扫描。取消返回 null。 */
+  scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
 }
 
 /**
@@ -43,6 +55,18 @@ export async function bootstrap(): Promise<Services> {
     pickFiles: () => api.pickFiles(),
     grant: (filePath) => api.grant(filePath),
     urlOf: (id) => `appmedia://${id}`,
+  };
+
+  const library: LibraryPort = {
+    pickDir: () => api.pickDir(),
+    scan: (dirs) => api.scan(dirs),
+    readTags: (paths) => api.readTags(paths) as Promise<RawMeta[]>,
+    statFiles: (paths) => api.statFiles(paths),
+    loadIndex: () => api.loadIndex(),
+    saveIndex: (json) => api.saveIndex(json),
+    readLog: () => api.readIndexLog(),
+    appendLog: (lines) => api.appendIndexLog(lines),
+    clearLog: () => api.clearIndexLog(),
   };
 
   const engine = new AudioEngine(media);
@@ -66,6 +90,13 @@ export async function bootstrap(): Promise<Services> {
     persistNow();
   });
 
+  // 曲库恢复走快照 + 日志回放，毫秒级；不在这里扫描目录
+  // 打点留在生产代码里：perf 脚本读它，用户也能在 DevTools 里看到这条
+  performance.mark("afeifei:restore-start");
+  await restoreLibrary(library);
+  performance.mark("afeifei:restore-end");
+  performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
+
   const snapshot = await persister.restore();
   if (snapshot) {
     dispatch({ type: "queue/restore", state: snapshot.queue });
@@ -83,6 +114,11 @@ export async function bootstrap(): Promise<Services> {
     engine,
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
+    async scan(onProgress) {
+      const dir = await api.pickDir();
+      if (!dir) return null;
+      return scanLibrary(library, [dir], onProgress);
+    },
   };
 }
 

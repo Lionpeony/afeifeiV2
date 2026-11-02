@@ -16,6 +16,7 @@ const steps = [
   ["test", [node, "--test"]],
   ["build", [node, "scripts/build.mjs"]],
   ["smoke", [node, "scripts/smoke.mjs"]], // M1 起接入：真起 Electron + CDP
+  ["perf", [node, "scripts/perf.mjs"]], // M2 起接入：3 条性能预算
 ];
 
 for (const [name, [cmd, ...args]] of steps) {

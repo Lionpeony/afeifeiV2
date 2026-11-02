@@ -18,3 +18,30 @@ export interface MediaPort {
   /** 拼出可交给 <audio src> 的 URL。 */
   urlOf(id: string): string;
 }
+
+/** 主进程读出来的一条原始元数据（还没规范化成 Track）。 */
+export interface RawMeta {
+  path: string;
+  title: string;
+  artist: string;
+  album: string;
+  durationMs: number;
+  size: number;
+  mtimeMs: number;
+  hasCover: boolean;
+}
+
+/** 曲库索引的存取与扫描。 */
+export interface LibraryPort {
+  pickDir(): Promise<string | null>;
+  scan(dirs: string[]): Promise<string[]>;
+  /** 一次拿一批，调用方负责分片（200 个一片）。 */
+  readTags(filePaths: string[]): Promise<RawMeta[]>;
+  /** 批量取 size/mtime，用于判断哪些文件真的变了（增量扫描的依据）。 */
+  statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
+  loadIndex(): Promise<string | null>;
+  saveIndex(json: string): Promise<void>;
+  readLog(): Promise<string>;
+  appendLog(lines: string): Promise<void>;
+  clearLog(): Promise<void>;
+}
