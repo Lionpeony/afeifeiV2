@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+/**
+ * esbuild 打包（51 §1.3）。
+ *   node scripts/build.mjs          产物 → dist/（main / preload / renderer / css / html）
+ *   node scripts/build.mjs --test   产物 → dist-test/kernel.mjs，供 node --test 消费
+ *
+ * 为什么不用 Vite：单窗口应用不需要 dev server / HMR / 插件生态，多一层就多一个失败点。
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { build } from "esbuild";
+
+const TEST = process.argv.includes("--test");
+const NODE_TARGET = "node20";
+const BROWSER_TARGET = "chrome120";
+
+if (TEST) {
+  fs.rmSync("dist-test", { recursive: true, force: true });
+  await build({
+    entryPoints: ["src/renderer/kernel/index.ts"],
+    outfile: "dist-test/kernel.mjs",
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: NODE_TARGET,
+  });
+  console.log("build:test ok → dist-test/kernel.mjs");
+  process.exit(0);
+}
+
+const OUT = "dist";
+fs.rmSync(OUT, { recursive: true, force: true });
+fs.mkdirSync(path.join(OUT, "renderer"), { recursive: true });
+
+await build({
+  entryPoints: ["src/main/index.ts"],
+  outfile: path.join(OUT, "main.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: NODE_TARGET,
+  external: ["electron"],
+  sourcemap: true,
+});
+
+await build({
+  entryPoints: ["src/preload/index.ts"],
+  outfile: path.join(OUT, "preload.js"),
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  target: NODE_TARGET,
+  external: ["electron"],
+});
+
+await build({
+  entryPoints: ["src/renderer/ui/index.tsx"],
+  outfile: path.join(OUT, "renderer", "app.js"),
+  bundle: true,
+  platform: "browser",
+  format: "esm",
+  target: BROWSER_TARGET,
+  jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+});
+
+const css = ["src/renderer/ui/tokens.css", "src/renderer/ui/app.css"]
+  .map((f) => fs.readFileSync(f, "utf8"))
+  .join("\n");
+fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
+fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
+
+console.log("build ok → dist/");

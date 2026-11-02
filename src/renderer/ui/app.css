@@ -1,0 +1,31 @@
+/* 只准用 var(--*) —— 这里的任何 hex 都会被 lint 规则 5 判红。 */
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.6 system-ui, "Segoe UI", sans-serif;
+}
+
+.shell {
+  padding: 48px;
+}
+
+.shell h1 {
+  margin: 0 0 4px;
+  font-size: 28px;
+  letter-spacing: 0.08em;
+}
+
+.hint {
+  margin: 0 0 24px;
+  color: var(--fg-dim);
+}
+
+.state {
+  margin: 0;
+  color: var(--accent);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+}
