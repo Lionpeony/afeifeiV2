@@ -67,6 +67,10 @@ contextBridge.exposeInMainWorld("api", {
   /** 启动兜底：send 可能早于订阅，渲染层就绪后主动拉一次 pending。 */
   schemePoll: (): Promise<{ action: string; id: string; source?: string } | null> =>
     ipcRenderer.invoke("scheme:poll"),
+
+  // 主题包（主进程只负责文件读写，不认识 token）
+  exportTheme: (json: string): Promise<boolean> => ipcRenderer.invoke("theme:export", json),
+  importTheme: (): Promise<unknown> => ipcRenderer.invoke("theme:import"),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

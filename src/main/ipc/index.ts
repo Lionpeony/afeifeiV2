@@ -1,5 +1,5 @@
 import { dialog, ipcMain } from "electron";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/index.js";
 import { loadState, saveState } from "../fs/state.js";
@@ -191,6 +191,30 @@ export function registerIpc(): void {
     const code = await readFile(p, "utf8");
     if (code.length > 200_000) throw new Error("源文件过大（>200KB）");
     return { name: path.basename(p), code };
+  });
+
+  /* ---------- 主题包（M5）：JSON 单文件，内容只是场景层 token —— 主进程不认识 token 的含义 ---------- */
+
+  ipcMain.handle("theme:export", async (_e, json: unknown) => {
+    if (typeof json !== "string") throw new Error("theme:export 需要 JSON 字符串");
+    const r = await dialog.showSaveDialog({
+      defaultPath: "afeifei-theme.json",
+      filters: [{ name: "Afeifei 主题", extensions: ["json"] }],
+    });
+    if (r.canceled || !r.filePath) return false;
+    await writeFile(r.filePath, json, "utf8");
+    return true;
+  });
+
+  ipcMain.handle("theme:import", async () => {
+    const r = await dialog.showOpenDialog({
+      filters: [{ name: "Afeifei 主题", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+    if (r.canceled || r.filePaths.length === 0) return null;
+    const text = await readFile(r.filePaths[0], "utf8");
+    if (text.length > 100_000) throw new Error("主题文件过大");
+    return JSON.parse(text) as unknown;
   });
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */

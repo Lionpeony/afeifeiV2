@@ -15,6 +15,10 @@ export interface StageViewProps {
   cover(trackId: string): Promise<string | null>;
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   spectrum(bins: number): number[] | null;
+  /** 导出当前场景层 token 到文件（M5 主题包）。 */
+  exportTheme(): Promise<boolean>;
+  /** 从文件导入主题包，返回覆盖值。取消返回 null。 */
+  importTheme(): Promise<Record<string, string> | null>;
 }
 
 const fmt = (ms: number): string => {
@@ -35,7 +39,7 @@ function karaChars(doc: LyricDoc, lineIndex: number): string[] {
  * 切预设 = 换一组场景层 token，不重建 store、不重解码封面 —— 控件层不位移。
  * 每帧只写 transform / opacity / --p（合成器友好），不动布局属性。
  */
-export function StageView({ state, cover, lyric, spectrum }: StageViewProps) {
+export function StageView({ state, cover, lyric, spectrum, exportTheme, importTheme }: StageViewProps) {
   const { player, stage } = state;
   const preset = PRESETS.find((p) => p.id === stage.preset) ?? PRESETS[0];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,14 +56,15 @@ export function StageView({ state, cover, lyric, spectrum }: StageViewProps) {
   const title = player.trackTitle ?? player.trackId ?? "未在播放";
   const renderer = stage.lyricRenderer;
 
-  /* ---- 预设 token：只写场景层变量，写完就完，不触发任何重渲染 ---- */
+  /* ---- 预设 token + 主题包覆盖：只写场景层变量，写完就完，不触发任何重渲染 ---- */
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    for (const [key, value] of Object.entries(preset.tokens)) {
+    const merged = { ...preset.tokens, ...(stage.customTokens ?? {}) };
+    for (const [key, value] of Object.entries(merged)) {
       root.style.setProperty(key, value);
     }
-  }, [preset]);
+  }, [preset, stage.customTokens]);
 
   /* ---- 封面：本地取缓存缩略图；在线用 remote.coverUrl ---- */
   useEffect(() => {
@@ -244,6 +249,22 @@ export function StageView({ state, cover, lyric, spectrum }: StageViewProps) {
             <option value="minimal">单行</option>
             <option value="theatrical">剧场</option>
           </select>
+          {stage.customTokens ? (
+            <button
+              type="button"
+              className="on"
+              title="已应用导入的主题包，点击清除"
+              onClick={() => dispatch({ type: "stage/setTheme", tokens: null })}
+            >
+              自定义主题 ✕
+            </button>
+          ) : null}
+          <button type="button" onClick={() => void importTheme().catch(() => undefined)}>
+            导入主题
+          </button>
+          <button type="button" onClick={() => void exportTheme()}>
+            导出主题
+          </button>
           <button type="button" onClick={() => setMenuOpen(!menuOpen)}>
             图层
           </button>

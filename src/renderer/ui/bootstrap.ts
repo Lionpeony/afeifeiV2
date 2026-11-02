@@ -10,7 +10,7 @@ import type {
 } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { sanitizeAudioConfig } from "../capability/audio/eq.js";
-import { sanitizeStageConfig } from "./views/stage/presets.js";
+import { PRESETS, sanitizeStageConfig, sanitizeThemeTokens } from "./views/stage/presets.js";
 import { createQqProvider } from "../capability/sources/qq/index.js";
 import {
   createUserProvider,
@@ -67,6 +67,8 @@ interface Api {
   onMiniAction(cb: (action: string) => void): void;
   onSchemeUrl(cb: (intent: { action: string; id: string; source?: string }) => void): void;
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
+  exportTheme(json: string): Promise<boolean>;
+  importTheme(): Promise<unknown>;
 }
 
 declare global {
@@ -97,6 +99,10 @@ export interface Services {
   installSource(fileName: string, code: string): Promise<{ id: string; name: string }>;
   /** 开/聚焦迷你窗。 */
   openMini(): Promise<void>;
+  /** 导出当前场景层 token 到文件。取消/失败返回 false。 */
+  exportTheme(): Promise<boolean>;
+  /** 从文件导入主题包，返回 sanitize 过的 token 覆盖。取消返回 null。 */
+  importTheme(): Promise<Record<string, string> | null>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始扫码：拿到 key 与服务端画好的二维码图 */
@@ -344,6 +350,23 @@ export async function bootstrap(): Promise<Services> {
 
     spectrum: (bins) => engine.spectrum(bins),
     openMini: () => api.openMini(),
+
+    async exportTheme() {
+      const s = getState().stage;
+      const preset = PRESETS.find((p) => p.id === s.preset) ?? PRESETS[0];
+      const tokens = { ...preset.tokens, ...(s.customTokens ?? {}) };
+      const json = JSON.stringify({ name: preset.name, version: 1, tokens }, null, 2);
+      return api.exportTheme(json);
+    },
+
+    async importTheme() {
+      const raw = await api.importTheme();
+      if (!raw) return null;
+      const tokens = sanitizeThemeTokens((raw as { tokens?: unknown }).tokens ?? raw);
+      if (!tokens) throw new Error("这个文件里没有可用的主题 token");
+      dispatch({ type: "stage/setTheme", tokens });
+      return tokens;
+    },
 
     importSource: () => api.importUserSource(),
 

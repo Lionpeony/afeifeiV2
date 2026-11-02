@@ -164,6 +164,10 @@ function App() {
             return svc.lyric(sourceId, songId);
           }}
           spectrum={(bins) => services.current?.spectrum(bins) ?? null}
+          exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
+          importTheme={() =>
+            services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))
+          }
         />
       ) : tab === "local" ? (
         <LibraryView

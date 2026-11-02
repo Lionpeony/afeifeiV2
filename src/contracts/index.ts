@@ -78,6 +78,8 @@ export interface StageConfig {
   intensity: 0 | 1 | 2;
   layers: Record<StageLayer, boolean>;
   lyricRenderer: LyricRenderer;
+  /** 导入的主题包对场景层 token 的覆盖。null = 没有导入。键必须登记过。 */
+  customTokens: Record<string, string> | null;
 }
 
 export interface AppState {
@@ -125,6 +127,8 @@ export type Intent =
   /** cover / controls 不可关，发了也忽略。 */
   | { type: "stage/toggleLayer"; layer: StageLayer }
   | { type: "stage/setLyricRenderer"; renderer: LyricRenderer }
+  /** 主题包覆盖（入口侧已 sanitize）。null = 清除主题包。 */
+  | { type: "stage/setTheme"; tokens: Record<string, string> | null }
   | { type: "stage/restore"; config: StageConfig };
 
 /** 播放器状态机的事件（不是 intent，是"引擎发生了什么"）。 */

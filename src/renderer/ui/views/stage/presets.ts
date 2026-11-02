@@ -141,9 +141,16 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    customTokens: null,
   };
   if (!raw || typeof raw !== "object") return fallback;
-  const r = raw as { preset?: unknown; intensity?: unknown; layers?: unknown; lyricRenderer?: unknown };
+  const r = raw as {
+    preset?: unknown;
+    intensity?: unknown;
+    layers?: unknown;
+    lyricRenderer?: unknown;
+    customTokens?: unknown;
+  };
   const layers = { ...fallback.layers };
   if (r.layers && typeof r.layers === "object") {
     const l = r.layers as Record<string, unknown>;
@@ -158,7 +165,20 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     lyricRenderer: RENDERERS.includes(r.lyricRenderer as LyricRenderer)
       ? (r.lyricRenderer as LyricRenderer)
       : fallback.lyricRenderer,
+    customTokens: sanitizeThemeTokens(r.customTokens),
   };
+}
+
+/** 主题包里的 token：键必须在白名单内、值必须是短字符串。空集返回 null（等于没包）。 */
+export function sanitizeThemeTokens(raw: unknown): Record<string, string> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!(STAGE_TOKEN_KEYS as readonly string[]).includes(k)) continue; // 未登记的键直接丢，不报错（导入要宽容）
+    if (typeof v !== "string" || v.length === 0 || v.length > 200) continue;
+    out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 /** 预设缺 token 明确报错（M4 判据：丢目录/缺 token 不能静默）——这里是数据完整性断言。 */

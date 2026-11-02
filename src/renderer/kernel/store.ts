@@ -27,6 +27,7 @@ const initialState: AppState = {
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    customTokens: null,
   },
 };
 
@@ -275,6 +276,19 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "stage/setLyricRenderer": {
       if (current.stage.lyricRenderer === intent.renderer) return current;
       return { ...current, stage: { ...current.stage, lyricRenderer: intent.renderer } };
+    }
+
+    case "stage/setTheme": {
+      const tokens = intent.tokens;
+      const cur = current.stage.customTokens;
+      const same =
+        (tokens === null && cur === null) ||
+        (tokens !== null &&
+          cur !== null &&
+          Object.keys(tokens).length === Object.keys(cur).length &&
+          Object.entries(tokens).every(([k, v]) => cur[k] === v));
+      if (same) return current;
+      return { ...current, stage: { ...current.stage, customTokens: tokens } };
     }
 
     case "stage/restore": {

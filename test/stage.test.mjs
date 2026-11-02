@@ -14,6 +14,7 @@ import {
   STAGE_TOKEN_KEYS,
   assertPresetComplete,
   sanitizeStageConfig,
+  sanitizeThemeTokens,
 } from "../dist-test/stage-presets.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
@@ -161,4 +162,29 @@ test("sanitizeStageConfig：坏数据回落默认，cover/controls 强制 true",
 
 test("LAYER_KEYS 与契约五层一致", () => {
   assert.deepEqual(LAYER_KEYS, ["wallpaper", "visual", "cover", "lyric", "controls"]);
+});
+
+/* ---- 主题包（M5） ---- */
+
+test("sanitizeThemeTokens：未登记的键丢弃、坏值丢弃", () => {
+  const out = sanitizeThemeTokens({
+    "--stage-bg": "red",
+    "--bogus": "x",
+    "--stage-dur": 123,
+    "--stage-ease": "",
+  });
+  assert.deepEqual(out, { "--stage-bg": "red" });
+});
+
+test("sanitizeThemeTokens：非对象 / 空集 → null", () => {
+  assert.equal(sanitizeThemeTokens(null), null);
+  assert.equal(sanitizeThemeTokens([1]), null);
+  assert.equal(sanitizeThemeTokens({ "--bogus": "x" }), null);
+});
+
+test("stage/setTheme：覆盖生效，null 清除", () => {
+  dispatch({ type: "stage/setTheme", tokens: { "--stage-tint": "teal" } });
+  assert.deepEqual(getState().stage.customTokens, { "--stage-tint": "teal" });
+  dispatch({ type: "stage/setTheme", tokens: null });
+  assert.equal(getState().stage.customTokens, null);
 });
