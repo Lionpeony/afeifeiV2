@@ -1,4 +1,4 @@
-import type { Quality, RemoteTrack, SearchResult } from "../../contracts/capability.js";
+import type { LyricDoc, Quality, RemoteTrack, SearchResult } from "../../contracts/capability.js";
 import type { AppState } from "../../contracts/index.js";
 import type {
   KeyValuePort,
@@ -10,6 +10,7 @@ import type {
 } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { sanitizeAudioConfig } from "../capability/audio/eq.js";
+import { sanitizeStageConfig } from "./views/stage/presets.js";
 import { createQqProvider } from "../capability/sources/qq/index.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
@@ -73,6 +74,10 @@ export interface Services {
   sources(): { id: string; name: string; canAuth: boolean }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
+  /** 在线曲目歌词。错误已翻译成人话。 */
+  lyric(sourceId: string, songId: string): Promise<LyricDoc>;
+  /** 频谱采样（0–1 的 bins 个桶）。没在播返回 null。 */
+  spectrum(bins: number): number[] | null;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始扫码：拿到 key 与服务端画好的二维码图 */
@@ -186,6 +191,16 @@ export async function bootstrap(): Promise<Services> {
     }, 500);
   };
 
+  // 播放页配置同理（预设 / 层 / 渲染器），低频操作但拖菜单也会连发
+  let stageSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleStageSave = (): void => {
+    if (stageSaveTimer) clearTimeout(stageSaveTimer);
+    stageSaveTimer = setTimeout(() => {
+      stageSaveTimer = null;
+      void kv.write("stage-ui", JSON.stringify(getState().stage));
+    }, 500);
+  };
+
   let prev = getState();
   subscribe(() => {
     const next = getState();
@@ -196,6 +211,7 @@ export async function bootstrap(): Promise<Services> {
     }
 
     if (next.audio !== prev.audio) scheduleAudioSave();
+    if (next.stage !== prev.stage) scheduleStageSave();
 
     reconcile(prev, next, engine);
     prev = next;
@@ -214,6 +230,10 @@ export async function bootstrap(): Promise<Services> {
   // 音频配置：入口先 sanitize 再进 store——坏数据在这里挡下，不进真相
   const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
   dispatch({ type: "audio/restore", config: savedAudio });
+
+  // 播放页配置（预设 / 层开关 / 歌词渲染器），同 audio 的模式
+  const savedStage = sanitizeStageConfig(await kv.read("stage-ui"));
+  dispatch({ type: "stage/restore", config: savedStage });
 
   const snapshot = await persister.restore();
   if (snapshot) {
@@ -265,6 +285,20 @@ export async function bootstrap(): Promise<Services> {
         throw humanize(err);
       }
     },
+
+    async lyric(sourceId, songId) {
+      const provider = getProvider(sourceId);
+      if (!provider || !provider.capabilities.canGetLyric || !provider.getLyric) {
+        throw humanize({ code: "capability-missing" });
+      }
+      try {
+        return await provider.getLyric(songId);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    spectrum: (bins) => engine.spectrum(bins),
 
     startLogin: () => startQrLogin(localApi),
     pollLogin: (key) => pollQrLogin(localApi, key),

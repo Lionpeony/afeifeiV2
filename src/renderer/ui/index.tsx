@@ -6,6 +6,7 @@ import { EQ_BANDS, EQ_DEFAULT, PREAMP_DEFAULT } from "../capability/audio/eq.js"
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap, type Services } from "./bootstrap.js";
 import { onFrame } from "./compositor.js";
+import { StageView } from "./views/stage/index.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
 
@@ -26,7 +27,7 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const [tab, setTab] = useState<"local" | "online">("local");
+  const [tab, setTab] = useState<"local" | "online" | "stage">("local");
   const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const services = useRef<Services | null>(null);
@@ -117,6 +118,9 @@ function App() {
           <button type="button" className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
             在线
           </button>
+          <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
+            播放页
+          </button>
         </div>
         <span className="status" data-status={status}>
           {status}
@@ -124,7 +128,18 @@ function App() {
         </span>
       </header>
 
-      {tab === "local" ? (
+      {tab === "stage" ? (
+        <StageView
+          state={state}
+          cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
+          lyric={(sourceId, songId) => {
+            const svc = services.current;
+            if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
+            return svc.lyric(sourceId, songId);
+          }}
+          spectrum={(bins) => services.current?.spectrum(bins) ?? null}
+        />
+      ) : tab === "local" ? (
         <LibraryView
           onPlay={onPlay}
           onScan={() => void onScan()}
@@ -145,8 +160,14 @@ function App() {
             if (!svc) return;
             // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
             const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-            // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名
-            dispatch({ type: "player/play", trackId: url, trackTitle: `${track.title} — ${track.artist}` });
+            // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名；
+            // remote 带音源内标识，播放页的歌词/封面从这取
+            dispatch({
+              type: "player/play",
+              trackId: url,
+              trackTitle: `${track.title} — ${track.artist}`,
+              remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
+            });
           }}
           loginStatus={() => services.current?.loginStatus() ?? Promise.resolve({ loggedIn: false, nick: null })}
           startLogin={() => {

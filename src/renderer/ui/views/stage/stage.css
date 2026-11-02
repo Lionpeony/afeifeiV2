@@ -1,0 +1,180 @@
+/* 播放页（M4）。五层按 z 收口（50 §9.2）：0 壁纸 / 1 视觉 / 2 封面 / 3 歌词 / 4 控件。
+   颜色只走场景层 token（--stage-*）；切预设只换变量值，任何元素不许位移。 */
+
+.stage {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  justify-items: center;
+  gap: 20px;
+  min-height: 100%;
+  padding: 32px 16px 16px;
+  background: var(--stage-bg);
+  color: var(--stage-fg);
+  overflow: hidden;
+  transition: background var(--stage-dur) var(--stage-ease);
+}
+
+/* ---- L-a 壁纸（z 0） ---- */
+.st-wallpaper {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--stage-wallpaper);
+  background-size: cover;
+  background-position: center;
+  transition: background var(--stage-dur) var(--stage-ease);
+  pointer-events: none;
+}
+.st-wallpaper.from-cover {
+  background-image: var(--stage-wallpaper-img);
+  filter: blur(48px) brightness(0.82) saturate(1.1);
+  transform: scale(1.15); /* 模糊边缘外扩，不露黑边 */
+}
+
+/* ---- L-b 视觉（z 1） ---- */
+.st-spectrum {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 100%;
+  height: 120px;
+  pointer-events: none;
+}
+
+/* ---- L-c 封面（z 2，不可关） ---- */
+.st-cover-wrap {
+  position: relative;
+  z-index: 2;
+  margin-top: 12px;
+}
+.st-cover {
+  display: block;
+  width: var(--stage-cover-size);
+  height: var(--stage-cover-size);
+  object-fit: cover;
+  border-radius: var(--stage-cover-radius);
+  border: var(--stage-cover-frame, none);
+  box-shadow: var(--stage-cover-shadow, none);
+  transition:
+    width var(--stage-dur) var(--stage-ease),
+    height var(--stage-dur) var(--stage-ease),
+    border-radius var(--stage-dur) var(--stage-ease);
+  background: var(--bg-raised);
+}
+.fx-1 .st-cover, .fx-2 .st-cover { animation: st-spin var(--stage-cover-spin) linear infinite; }
+.fx-0 .st-cover { animation: none; } /* 动效关：黑胶也不转 —— intensity=0 必须好看 */
+@keyframes st-spin {
+  to { transform: rotate(360deg); }
+}
+.st-cover-empty { background: var(--bg-raised); border: 1px dashed var(--line); }
+
+/* ---- L-d 歌词（z 3） ---- */
+.st-lyric {
+  position: relative;
+  z-index: 3;
+  width: min(680px, 92vw);
+  height: 132px; /* 3 行 + 余量，行高 36px */
+  overflow: hidden;
+  text-align: center;
+}
+.st-lines {
+  will-change: transform;
+  transition: transform var(--stage-dur) var(--stage-ease);
+}
+.st-line {
+  height: 36px;
+  line-height: 36px;
+  margin: 0;
+  font-size: var(--stage-lyric-size);
+  font-weight: var(--stage-lyric-weight);
+  color: var(--stage-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--stage-dur) var(--stage-ease);
+}
+.st-line.on { color: var(--stage-fg); }
+
+/* 单行 / 逐字：只显示活动行 */
+.r-minimal .st-line, .r-karaoke .st-line { display: none; }
+.r-minimal .st-line.on, .r-karaoke .st-line.on { display: block; }
+
+/* 逐字：字级渐变推进。--p 由合成器每帧写入（0–1） */
+.st-k {
+  background: linear-gradient(90deg, var(--stage-tint) calc(var(--p, 0) * 100%), var(--stage-fg-dim) 0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* 无逐字数据的行：整行进度 --lp */
+.r-karaoke .st-line.on { background: linear-gradient(90deg, var(--stage-tint) calc(var(--lp, 0) * 100%), transparent 0); }
+.r-karaoke .st-line.on .st-k { background: none; -webkit-text-fill-color: currentColor; color: inherit; }
+
+.st-lyric-empty {
+  margin: 48px 0 0;
+  color: var(--stage-fg-dim);
+  font-size: 14px;
+}
+
+/* ---- L-e 控件（z 4，不可关）：切预设时这里一个像素都不许动 ---- */
+.st-controls {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.st-presets { display: flex; gap: 4px; }
+.st-presets button, .st-tools button, .st-tools select {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+.st-presets button.on {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.st-tools { display: flex; gap: 8px; align-items: center; }
+
+/* 图层开关浮层：材质层 token */
+.st-menu {
+  position: absolute;
+  right: 16px;
+  bottom: 64px;
+  z-index: 40;
+  display: grid;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  box-shadow: var(--glass-shadow);
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+.st-menu label { display: flex; align-items: center; gap: 6px; }
+
+.st-meta {
+  margin: 0;
+  color: var(--fg-dim);
+  font-size: 12px;
+  z-index: 4;
+}
+
+/* 动效档位 0 = 全关。同一元素只命中一个 fx-N 类，直接覆盖即可，不用 !important。 */
+.fx-0 .st-lines,
+.fx-0 .st-cover,
+.fx-0 .st-wallpaper,
+.fx-0 .st-line {
+  transition: none;
+  animation: none;
+}
