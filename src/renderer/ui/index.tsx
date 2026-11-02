@@ -100,7 +100,13 @@ function App() {
         </span>
       </header>
 
-      <LibraryView onPlay={onPlay} onScan={() => void onScan()} scanning={scanning} scanNote={scanNote} />
+      <LibraryView
+        onPlay={onPlay}
+        onScan={() => void onScan()}
+        scanning={scanning}
+        scanNote={scanNote}
+        cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+      />
 
       <footer className="player">
         <p className="track">{baseName(trackId)}</p>

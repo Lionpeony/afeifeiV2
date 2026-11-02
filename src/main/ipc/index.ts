@@ -3,6 +3,8 @@ import { loadState, saveState } from "../fs/state.js";
 import { grant } from "../media/tokens.js";
 import { readTags, scanDirs } from "../fs/readTags.js";
 import { statFiles } from "../fs/statFiles.js";
+import { readCover } from "../fs/cover.js";
+import { readKey, writeKey } from "../fs/kv.js";
 import {
   appendIndexLog,
   clearIndexLog,
@@ -59,11 +61,29 @@ export function registerIpc(): void {
     return readTags(filePaths as string[]);
   });
 
+  ipcMain.handle("library:cover", (_e, filePath: unknown) => {
+    if (typeof filePath !== "string") return null;
+    return readCover(filePath);
+  });
+
   ipcMain.handle("library:statFiles", (_e, filePaths: unknown) => {
     if (!Array.isArray(filePaths) || filePaths.some((p) => typeof p !== "string")) {
       throw new Error("library:statFiles 只接受字符串数组");
     }
     return statFiles(filePaths as string[]);
+  });
+
+  /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */
+  ipcMain.handle("store:read", (_e, key: unknown) => {
+    if (typeof key !== "string") return null;
+    return readKey(key);
+  });
+
+  ipcMain.handle("store:write", (_e, key: unknown, json: unknown) => {
+    if (typeof key !== "string" || typeof json !== "string") {
+      throw new Error("store:write 需要 (string, string)");
+    }
+    return writeKey(key, json);
   });
 
   ipcMain.handle("library:loadIndex", () => loadIndex());

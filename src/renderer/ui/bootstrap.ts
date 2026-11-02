@@ -1,7 +1,11 @@
 import type { AppState } from "../../contracts/index.js";
-import type { LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
+import type { KeyValuePort, LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
+import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
+import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
+import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/likes/index.js";
+import { loadPlaylists, savePlaylists, subscribe as subscribePlaylists } from "../domain/playlists/index.js";
 import { clock } from "../kernel/clock.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
@@ -16,11 +20,14 @@ interface Api {
   scan(dirs: string[]): Promise<string[]>;
   readTags(filePaths: string[]): Promise<unknown[]>;
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
+  cover(filePath: string): Promise<string | null>;
   loadIndex(): Promise<string | null>;
   saveIndex(json: string): Promise<void>;
   readIndexLog(): Promise<string>;
   appendIndexLog(lines: string): Promise<void>;
   clearIndexLog(): Promise<void>;
+  readStore(key: string): Promise<string | null>;
+  writeStore(key: string, json: string): Promise<void>;
 }
 
 declare global {
@@ -35,6 +42,8 @@ export interface Services {
   positionMs(): number;
   /** 选目录并扫描。取消返回 null。 */
   scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
+  /** 取封面（带缓存与请求去重）。 */
+  cover(id: string, path: string): Promise<string | null>;
 }
 
 /**
@@ -62,11 +71,17 @@ export async function bootstrap(): Promise<Services> {
     scan: (dirs) => api.scan(dirs),
     readTags: (paths) => api.readTags(paths) as Promise<RawMeta[]>,
     statFiles: (paths) => api.statFiles(paths),
+    cover: (path) => api.cover(path),
     loadIndex: () => api.loadIndex(),
     saveIndex: (json) => api.saveIndex(json),
     readLog: () => api.readIndexLog(),
     appendLog: (lines) => api.appendIndexLog(lines),
     clearLog: () => api.clearIndexLog(),
+  };
+
+  const kv: KeyValuePort = {
+    read: (key) => api.readStore(key),
+    write: (key, json) => api.writeStore(key, json),
   };
 
   const engine = new AudioEngine(media);
@@ -78,6 +93,14 @@ export async function bootstrap(): Promise<Services> {
     onError: (code) => dispatch({ type: "player/error", code }),
   });
 
+  // 收藏 / 歌单变了就落盘。收藏不是高频操作，一次一带足矣
+  subscribeLikes(() => {
+    void saveLikes(kv);
+  });
+  subscribePlaylists(() => {
+    void savePlaylists(kv);
+  });
+
   const persistNow = (): void => {
     persister.schedule(getState, () => clock.t(performance.now()));
   };
@@ -85,6 +108,12 @@ export async function bootstrap(): Promise<Services> {
   let prev = getState();
   subscribe(() => {
     const next = getState();
+
+    // 刚开始播一首 → 记历史
+    if (next.player.status === "playing" && prev.player.status !== "playing" && next.player.trackId) {
+      if (recordPlay(next.player.trackId)) void saveHistory(kv);
+    }
+
     reconcile(prev, next, engine);
     prev = next;
     persistNow();
@@ -96,6 +125,8 @@ export async function bootstrap(): Promise<Services> {
   await restoreLibrary(library);
   performance.mark("afeifei:restore-end");
   performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
+
+  await Promise.all([loadLikes(kv), loadPlaylists(kv), loadHistory(kv)]);
 
   const snapshot = await persister.restore();
   if (snapshot) {
@@ -114,6 +145,7 @@ export async function bootstrap(): Promise<Services> {
     engine,
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
+    cover: (id, path) => loadCover(library, id, path),
     async scan(onProgress) {
       const dir = await api.pickDir();
       if (!dir) return null;

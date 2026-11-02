@@ -19,6 +19,11 @@ contextBridge.exposeInMainWorld("api", {
   readTags: (filePaths: string[]): Promise<unknown[]> => ipcRenderer.invoke("library:readTags", filePaths),
   statFiles: (filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]> =>
     ipcRenderer.invoke("library:statFiles", filePaths),
+  cover: (filePath: string): Promise<string | null> => ipcRenderer.invoke("library:cover", filePath),
+
+  // 通用小文件（收藏 / 歌单 / 历史）
+  readStore: (key: string): Promise<string | null> => ipcRenderer.invoke("store:read", key),
+  writeStore: (key: string, json: string): Promise<void> => ipcRenderer.invoke("store:write", key, json),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

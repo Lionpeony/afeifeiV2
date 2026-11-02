@@ -112,6 +112,53 @@ body,
   background: var(--row-hover);
 }
 
+.lib-cover {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.lib-cover--empty {
+  display: inline-block;
+  background: var(--line-soft);
+}
+
+.lib-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.lib-tabs button {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.lib-tabs button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lib-like {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: var(--fg-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.lib-like:hover {
+  color: var(--fg);
+}
+
+.lib-like.on {
+  color: var(--accent);
+}
+
 .lib-title {
   flex: 1;
   overflow: hidden;

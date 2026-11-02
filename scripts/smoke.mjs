@@ -200,7 +200,16 @@ async function main() {
   }
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
-  assert.equal(await app.evaluate(`document.querySelectorAll("button").length`), 4, "按钮数应为 4");
+
+  // 按钮数会随功能增长，所以断"关键按钮存在"而不是断总数
+  const labels = await app.evaluate(`[...document.querySelectorAll("button")].map((b) => b.textContent)`);
+  for (const need of ["扫描目录", "全部", "收藏", "上一首", "下一首"]) {
+    assert.ok(labels.includes(need), `缺按钮「${need}」，实际：${labels.join("/")}`);
+  }
+  assert.ok(
+    labels.includes("播放") || labels.includes("暂停"),
+    `缺播放按钮，实际：${labels.join("/")}`,
+  );
   assert.equal(await app.evaluate(`document.querySelector(".volume input")?.value`), "80", "音量初始值");
   assert.ok((await app.evaluate(`document.styleSheets.length`)) >= 1, "样式表没加载");
 

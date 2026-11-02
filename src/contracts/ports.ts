@@ -31,6 +31,15 @@ export interface RawMeta {
   hasCover: boolean;
 }
 
+/**
+ * 通用小文件存储：一个 key 一个文件。
+ * 收藏 / 歌单 / 历史各用各的 key，加新东西不用改主进程。
+ */
+export interface KeyValuePort {
+  read(key: string): Promise<string | null>;
+  write(key: string, json: string): Promise<void>;
+}
+
 /** 曲库索引的存取与扫描。 */
 export interface LibraryPort {
   pickDir(): Promise<string | null>;
@@ -39,6 +48,8 @@ export interface LibraryPort {
   readTags(filePaths: string[]): Promise<RawMeta[]>;
   /** 批量取 size/mtime，用于判断哪些文件真的变了（增量扫描的依据）。 */
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
+  /** 取封面缩略图（160px 的 dataURL）。没有封面返回 null。 */
+  cover(filePath: string): Promise<string | null>;
   loadIndex(): Promise<string | null>;
   saveIndex(json: string): Promise<void>;
   readLog(): Promise<string>;
