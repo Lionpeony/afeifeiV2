@@ -26,7 +26,7 @@ async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
 /** 渲染层可见的接口面：与旧实现同名，底层换服务。 */
 const ALLOWED = new Set(["search", "lyric", "url", "qrStart", "qrPoll", "status", "logout"]);
 
-export async function callQq(method: string, params: Record<string, unknown>): Promise<unknown> {
+export async function callQq(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
   if (!ALLOWED.has(method)) throw new Error(`不允许调用 QQ 接口：${method}`);
   switch (method) {
     case "search":
@@ -38,7 +38,7 @@ export async function callQq(method: string, params: Record<string, unknown>): P
     case "qrStart":
       return qqQrStart();
     case "qrPoll":
-      return qqQrPoll();
+      return qqQrPoll(params);
     case "status":
       return qqStatus();
     case "logout":
@@ -92,8 +92,11 @@ async function qqQrStart(): Promise<unknown> {
   return { key, qrImage };
 }
 
-async function qqQrPoll(): Promise<unknown> {
-  return callApi("/login/qr/check");
+async function qqQrPoll(params: Record<string, unknown>): Promise<unknown> {
+  // key 是扫码会话的标识，check 必须带着——丢了永远 801（Waiting for QR scan）
+  const key = String(params.key ?? "");
+  if (!key) throw new Error("缺少扫码会话 key");
+  return callApi(`/login/qr/check?key=${encodeURIComponent(key)}`);
 }
 
 /* ---------- 登录态 ---------- */

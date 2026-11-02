@@ -165,9 +165,10 @@ export function registerIpc(): void {
     const r = (await callQq("qrStart", {})) as { key?: string; qrImage?: string };
     return { key: r.key ?? "", qrImage: r.qrImage ?? "" };
   });
-  ipcMain.handle("qq:poll", async () => {
-    const check = (await callQq("qrPoll", {})) as { code?: number; message?: string };
-    // 包的 check 语义与网易云对齐（801=未扫）；登录完成与否以 /login/status 为准
+  ipcMain.handle("qq:poll", async (_e, key: unknown) => {
+    if (typeof key !== "string" || !key) throw new Error("qq:poll 需要 key");
+    const check = (await callQq("qrPoll", { key })) as { code?: number; message?: string };
+    // 包的 check 语义与网易云对齐（801=未扫 / 802=已扫待确认 / 803=成功，成功时包会把会话写进响应 cookie）
     const status = (await callQq("status", {})) as { data?: Record<string, unknown> };
     const loggedIn = !!status.data && Object.keys(status.data).length > 0;
     return { code: check.code ?? 801, loggedIn, message: check.message ?? "" };

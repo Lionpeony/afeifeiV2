@@ -301,13 +301,18 @@ export async function bootstrap(): Promise<Services> {
     },
     pollLogin: async (key) => {
       if (key === "qq") {
-        const r = await api.qqPoll();
-        // LoginDialog 的语义：801/802 = 继续轮询，loggedIn = 成功
+        const r = await api.qqPoll(key);
+        // check 的 code 与网易云同款（801 未扫 / 802 已扫 / 803 成功）；包返回英文状态，这里翻译
+        const hint =
+          r.code === 802
+            ? "已扫码，请在手机上确认"
+            : r.code === 801 || r.code === 802
+              ? "等待扫码"
+              : r.message;
         return {
-          code: r.loggedIn ? 803 : 801,
+          code: r.loggedIn ? 803 : r.code,
           loggedIn: r.loggedIn,
-          message: r.message,
-          qrImage: r.qrImage ?? undefined,
+          message: r.loggedIn ? "登录成功" : hint,
         };
       }
       return pollQrLogin(localApi, key);
