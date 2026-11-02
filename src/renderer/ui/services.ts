@@ -59,6 +59,13 @@ export interface Api {
   downloadCancel(taskId: string): Promise<void>;
   downloadRemove(filePath: string): Promise<void>;
   onDownloadProgress(cb: (p: { taskId: string; received: number; total: number }) => void): () => void;
+
+  // 更新与崩溃（M8）
+  onUpdateAvailable(cb: (v: { version: string; url: string }) => void): void;
+  lastCrash(): Promise<{ at: string; kind: string; file: string } | null>;
+  markCrashSeen(file: string): Promise<void>;
+  /** 外链（白名单域，主进程校验）。 */
+  openExternal(url: string): Promise<void>;
   exportBackup(): Promise<string | null>;
   importBackup(): Promise<{ restored: boolean } | null>;
 }
@@ -108,6 +115,14 @@ export interface Services {
   downloadUsage(): Promise<number>;
   /** 自定义下载目录。取消返回 null；已有文件不搬。 */
   setDownloadDir(): Promise<string | null>;
+
+  /** 有新版本（启动 30s 查一次，非弹窗，只提示）。 */
+  onUpdateAvailable(cb: (v: { version: string; url: string }) => void): void;
+  /** 上次异常退出的崩溃记录；没有或已提示过返回 null。 */
+  lastCrash(): Promise<{ at: string; kind: string; file: string } | null>;
+  markCrashSeen(file: string): Promise<void>;
+  /** 打开发布页（白名单域，主进程校验）。 */
+  openExternal(url: string): Promise<void>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */

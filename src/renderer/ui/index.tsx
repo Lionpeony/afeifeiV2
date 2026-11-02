@@ -34,6 +34,7 @@ function App() {
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
   const [tab, setTab] = useState<"local" | "online" | "stage" | "downloads">("local");
+  const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const services = useRef<Services | null>(null);
@@ -76,6 +77,16 @@ function App() {
       setSources(s.sources());
       syncPosition();
       startMiniBridge(s);
+
+      // 更新提示（M8）：一条线，不弹窗不打断播放
+      s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
+      // 上次异常退出：提示一次，之后不再烦
+      void s.lastCrash().then((c) => {
+        if (c) {
+          setNotice({ text: `上次异常退出（${c.kind}），详情见 ${c.file}` });
+          void s.markCrashSeen(c.file);
+        }
+      });
     });
     return () => {
       alive = false;
@@ -216,6 +227,24 @@ function App() {
           <button type="button" className={tab === "downloads" ? "on" : ""} onClick={() => setTab("downloads")}>
             下载
           </button>
+          {notice ? (
+            notice.url ? (
+              <button
+                type="button"
+                className="notice"
+                title={notice.text}
+                onClick={() => {
+                  const url = notice.url;
+                  if (url) void services.current?.openExternal(url);
+                  setNotice(null);
+                }}
+              >
+                {notice.text}
+              </button>
+            ) : (
+              <span className="notice">{notice.text}</span>
+            )
+          ) : null}
           <button type="button" onClick={() => void onImportSource()}>
             导入源
           </button>

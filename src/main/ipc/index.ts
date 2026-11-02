@@ -15,6 +15,8 @@ import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { cancelFetch, dirUsage, fetchToFile } from "../fs/fetchToFile.js";
+import { lastCrash, markCrashSeen } from "../crash.js";
+import { shell } from "electron";
 import { dataDir } from "../paths.js";
 import {
   appendIndexLog,
@@ -337,6 +339,20 @@ export function registerIpc(): void {
     }
     await rm(filePath, { force: true });
     await rm(`${filePath}.part`, { force: true });
+  });
+
+  /* ---------- 崩溃记录与外链（M8） ---------- */
+
+  ipcMain.handle("app:lastCrash", () => lastCrash());
+  ipcMain.handle("app:markCrashSeen", (_e, file: unknown) => {
+    if (typeof file === "string") markCrashSeen(file);
+  });
+  // 外链白名单（00 §11）：只放行我们的发布页域，其余一律拒绝
+  ipcMain.handle("app:openExternal", (_e, url: unknown) => {
+    if (typeof url !== "string" || !/^https:\/\/github\.com\//i.test(url)) {
+      throw new Error("只允许打开 GitHub 上的发布页");
+    }
+    return shell.openExternal(url);
   });
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */

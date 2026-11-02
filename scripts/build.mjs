@@ -43,6 +43,7 @@ if (TEST) {
       "input-commands": "src/renderer/ui/input/commands.ts",
       "library-state": "src/renderer/domain/library/state.ts",
       "download-queue": "src/renderer/domain/download/queue.ts",
+      "update-semver": "src/main/update/semver.ts",
     },
     outdir: "dist-test",
     bundle: true,

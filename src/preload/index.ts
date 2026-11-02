@@ -104,6 +104,24 @@ contextBridge.exposeInMainWorld("api", {
     });
   },
 
+  // 更新检查（M8）：主进程启动 30s 查一次，有新版本才推
+  onUpdateAvailable: (cb: (v: { version: string; url: string }) => void): void => {
+    ipcRenderer.on("update:available", (_e, v: unknown) => {
+      if (
+        v &&
+        typeof v === "object" &&
+        typeof (v as { version?: unknown }).version === "string" &&
+        typeof (v as { url?: unknown }).url === "string"
+      ) {
+        cb(v as { version: string; url: string });
+      }
+    });
+  },
+  lastCrash: (): Promise<{ at: string; kind: string; file: string } | null> =>
+    ipcRenderer.invoke("app:lastCrash"),
+  markCrashSeen: (file: string): Promise<void> => ipcRenderer.invoke("app:markCrashSeen", file),
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke("app:openExternal", url),
+
   // 数据备份（恢复后需重启生效）
   exportBackup: (): Promise<string | null> => ipcRenderer.invoke("backup:export"),
   importBackup: (): Promise<{ restored: boolean } | null> => ipcRenderer.invoke("backup:import"),

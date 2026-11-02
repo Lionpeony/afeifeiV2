@@ -7,10 +7,15 @@ import { startQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
 import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
+import { installCrashGuard } from "./crash.js";
+import { startUpdateCheck } from "./update/checker.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
 // 分多次调用会互相覆盖（见 host/index.ts）。
 protocol.registerSchemesAsPrivileged([APP_SCHEME, MEDIA_SCHEME, STREAM_SCHEME]);
+
+// 崩溃兜底（M8）越早装越好：未捕获异常 / 渲染进程退出 → crash-*.log
+installCrashGuard();
 
 // 单实例锁放 M0（51 §1.7）：M5 的 afeifei:// 依赖它，双开会抢同一份队列与日志。
 const locked = app.requestSingleInstanceLock();
@@ -105,6 +110,7 @@ if (!locked) {
 
     win.loadURL("app://afeifei/index.html");
     log("main", "window ready");
+    startUpdateCheck(win.webContents); // M8：启动 30s 后查一次新版本（非静默安装，只提示）
 
     // 冷启动：argv 里带协议 URL（第二次实例走 second-instance，这里管第一次）
     const coldUrl = schemeFromArgv(process.argv);

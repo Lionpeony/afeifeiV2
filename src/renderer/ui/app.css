@@ -318,6 +318,20 @@ body,
   text-align: right;
 }
 
+/* 顶栏提示（M8）：更新 / 崩溃，一条线不弹窗 */
+.notice {
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+span.notice {
+  cursor: default;
+}
+
 /* 下载（M7）：行内按钮 + 管理页操作列 */
 .dl-btn,
 .lib-actions button {
