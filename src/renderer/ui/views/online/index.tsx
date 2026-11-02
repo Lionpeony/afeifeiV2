@@ -13,11 +13,14 @@ export interface OnlineViewProps {
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。 */
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
-  loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
-  startLogin(): Promise<{ key: string; qrImage: string }>;
+  /** 查某音源的登录态（登录按钮/退出按钮随源切换，不再网易云专属）。 */
+  loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
+  /** 开始登录：网易云弹扫码窗，QQ 开真实登录页。 */
+  startLogin(sourceId: string): Promise<{ key?: string; qrImage?: string; loggedIn?: boolean }>;
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
+  logout(sourceId: string): Promise<void>;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -43,6 +46,7 @@ export function OnlineView({
   pollLogin,
   sendCaptcha,
   loginByCaptcha,
+  logout,
 }: OnlineViewProps) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
@@ -50,23 +54,34 @@ export function OnlineView({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [nick, setNick] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+
+  const currentSource = sources.find((s) => s.id === sourceId);
+  const canLogin = currentSource?.canAuth === true;
+  const sourceName = currentSource?.name ?? sourceId;
 
   useEffect(() => {
     if (!sourceId && sources[0]) setSourceId(sources[0].id);
   }, [sources, sourceId]);
 
   const refreshLogin = (): void => {
-    void loginStatus()
-      // nick 为 null 表示"登录了但没取到昵称"，用空串区分"未登录"与"已登录无名"
-      .then((s) => setNick(s.loggedIn ? (s.nick ?? "") : null))
-      .catch(() => setNick(null));
+    if (!sourceId) return;
+    void loginStatus(sourceId)
+      .then((s) => {
+        setLoggedIn(s.loggedIn);
+        setNick(s.loggedIn ? (s.nick ?? "") : null);
+      })
+      .catch(() => {
+        setLoggedIn(false);
+        setNick(null);
+      });
   };
 
   useEffect(() => {
     refreshLogin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sourceId]);
 
   const run = async (): Promise<void> => {
     if (!sourceId) return;
@@ -93,13 +108,35 @@ export function OnlineView({
     }
   };
 
-  /** 已登录就不打扰；未登录才弹二维码。 */
+  /**
+   * 登录按源分流：QQ 走真实窗口（startLogin 直接等用户登录完）；
+   * 网易云弹扫码 LoginDialog。已登录的源不重复弹。
+   */
   const openLogin = async (): Promise<void> => {
     setNote("");
+    if (loggedIn) {
+      setNote(`已登录${nick ? `：${nick}` : ""}。`);
+      return;
+    }
+    if (sourceId === "qq") {
+      try {
+        const r = await startLogin(sourceId);
+        if (r.loggedIn) {
+          refreshLogin();
+          setNote("QQ 音乐登录成功，直接点歌就能播。");
+        } else {
+          setNote("登录窗被关掉了，没完成登录。");
+        }
+      } catch (err) {
+        setNote(err instanceof Error ? err.message : String(err));
+      }
+      return;
+    }
     try {
-      const status = await loginStatus();
+      const status = await loginStatus(sourceId);
       if (status.loggedIn) {
-        setNick(status.nick ?? "已登录");
+        setLoggedIn(true);
+        setNick(status.nick ?? "");
         setNote(`已登录${status.nick ? `：${status.nick}` : ""}，直接点歌就能播。`);
         return;
       }
@@ -107,6 +144,18 @@ export function OnlineView({
       /* 查不到状态就当未登录，继续弹二维码 */
     }
     setLoginOpen(true);
+  };
+
+  const doLogout = async (): Promise<void> => {
+    setNote("");
+    try {
+      await logout(sourceId);
+      setLoggedIn(false);
+      setNick(null);
+      setNote(`已退出${sourceName}登录。`);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -132,15 +181,38 @@ export function OnlineView({
         <button type="button" onClick={() => void run()} disabled={busy}>
           {busy ? "搜索中…" : "搜索"}
         </button>
-        <button type="button" onClick={() => void openLogin()}>
-          {nick === null ? "登录" : nick ? `已登录：${nick}` : "已登录"}
+        <button
+          type="button"
+          onClick={() => void openLogin()}
+          disabled={!canLogin}
+          title={canLogin ? "" : "该音源免登录"}
+        >
+          {!canLogin
+            ? "免登录"
+            : loggedIn
+              ? nick
+                ? `已登录：${nick}`
+                : "已登录"
+              : `登录${sourceName}`}
         </button>
+        {canLogin && loggedIn ? (
+          <button type="button" onClick={() => void doLogout()}>
+            退出
+          </button>
+        ) : null}
         <span className="lib-count">{rows.length > 0 ? `${rows.length} 条` : ""}</span>
       </div>
 
       {loginOpen ? (
         <LoginDialog
-          start={startLogin}
+          start={async () => {
+            // LoginDialog 是网易云扫码专用；这里把带 sourceId 的新签名适配成它要的形状
+            const r = await startLogin("netease");
+            if (!("key" in r) || typeof r.key !== "string" || typeof r.qrImage !== "string") {
+              throw new Error("获取二维码失败");
+            }
+            return { key: r.key, qrImage: r.qrImage };
+          }}
           poll={pollLogin}
           sendCaptcha={sendCaptcha}
           loginByCaptcha={loginByCaptcha}

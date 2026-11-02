@@ -1,12 +1,11 @@
 /**
- * QQ 音乐通道（匿名接口）。
+ * QQ 音乐通道（M6.1：搜索/歌词匿名 + getUrl 登录态）。
  *
- * **先验后写（2026-11-02 用 node 直打实测，不靠记忆）**：
+ * **先验后写（2026-11-02 node 直打实测，2026-11-03 补登录态方案）**：
  *   - 搜索 `musicu.fcg` DoSearchForQQMusicDesktop：匿名 200 / code 0
  *   - 歌词 `fcg_query_lyric_new.fcg`：匿名 200 / code 0，`nobase64=1` 时 lrc 是明文
- *   - 播放地址 GetEVkey / GetVkey / GetPlayUrl / express_mobile3：匿名全部拿不到 vkey
- *     （code 40000 / 500003 / 104003，要么要 sign 要么要登录）
- *     → getUrl 暂不实现（canGetUrl: false），QQ 真号联调后再开
+ *   - 播放地址：匿名全拿不到 vkey（40000/500003/104003）→ 登录态走 GetEVkey，
+ *     cookie 由 session 自动携带（登录见 main/net/qqSession.ts）
  */
 import { fetchJson } from "./fetchJson.js";
 
@@ -15,11 +14,17 @@ const LYRIC = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
 const QQ_HEADERS = { Referer: "https://y.qq.com/", Origin: "https://y.qq.com" };
 
 /** 收敛接口面：渲染层只能调这几个，与 netease 通道同规矩 */
-const ALLOWED = new Set(["search", "lyric"]);
+const ALLOWED = new Set(["search", "lyric", "url"]);
+
+/** 音质前缀：128k=M500、320k=M800（flac=F000 暂不放开，qualities 只声明到 320k）。 */
+function filePrefix(quality: string): string {
+  return quality === "320k" ? "M800" : "M500";
+}
 
 export async function callQq(method: string, params: Record<string, unknown>): Promise<unknown> {
   if (!ALLOWED.has(method)) throw new Error(`不允许调用 QQ 接口：${method}`);
   if (method === "search") return qqSearch(params);
+  if (method === "url") return qqUrl(params);
   return qqLyric(params);
 }
 
@@ -53,5 +58,37 @@ async function qqLyric(params: Record<string, unknown>): Promise<unknown> {
     `${LYRIC}?songmid=${encodeURIComponent(songmid)}` +
     "&g_tk=5381&format=json&inCharset=utf8&outCharset=utf-8&nobase64=1";
   const { json } = await fetchJson(url, { headers: QQ_HEADERS });
+  return json;
+}
+
+/** 登录态取 vkey。未登录时上游不给 vkey —— 调用方（渲染层 capability）负责把错误翻译成人话。 */
+async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
+  const songmid = String(params.songmid ?? "");
+  if (!/^[0-9A-Za-z]{6,20}$/.test(songmid)) throw new Error("非法 songmid");
+  const quality = String(params.quality ?? "128k");
+  const prefix = filePrefix(quality);
+  const filename = `${prefix}${songmid}.mp3`;
+  const body = {
+    comm: { uin: 0, format: "json", ct: 24, cv: 0 },
+    req: {
+      module: "music.vkey.GetEVkey",
+      method: "GetEVkey",
+      param: {
+        guid: "1234567890",
+        song_mid: songmid,
+        song_id: 0,
+        filename: [filename],
+        songtype: [0],
+        uin: 0,
+        loginflag: 1,
+        platform: "20",
+      },
+    },
+  };
+  const { json } = await fetchJson(MUSICU, {
+    method: "POST",
+    headers: { ...QQ_HEADERS, "Content-Type": "application/json" },
+    json: body,
+  });
   return json;
 }

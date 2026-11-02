@@ -80,13 +80,13 @@ export async function bootstrap(): Promise<Services> {
   };
 
   // 音源本地通道：加密、cookie、限流都在主进程一侧，渲染层只给方法名。
-  // namespace 决定走哪条主进程通道（netease / qq）。
+  // namespace 决定走哪条主进程通道（netease / qq），登录态判定也按源各自来。
   const localApi: LocalApiPort = {
     call: (namespace, method, params) =>
       namespace === "qq" ? api.qqCall(method, params) : api.ncmCall(method, params),
     profile: (namespace) =>
-      namespace === "qq" ? Promise.resolve({ loggedIn: false, nick: null, uid: null }) : api.ncmProfile(),
-    logout: (namespace) => (namespace === "qq" ? Promise.resolve() : api.ncmLogout()),
+      namespace === "qq" ? api.qqProfile() : api.ncmProfile(),
+    logout: (namespace) => (namespace === "qq" ? api.qqLogout() : api.ncmLogout()),
   };
 
   // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
@@ -291,13 +291,15 @@ export async function bootstrap(): Promise<Services> {
       return installed;
     },
 
-    startLogin: () => startQrLogin(localApi),
+    // 登录按源路由：网易云扫码 / QQ 真实窗口（M6.1）
+    startLogin: (sourceId) =>
+      sourceId === "qq" ? api.qqLogin() : startQrLogin(localApi),
     pollLogin: (key) => pollQrLogin(localApi, key),
-    loginStatus: async () => {
-      const profile = await api.ncmProfile();
+    loginStatus: async (sourceId) => {
+      const profile = await localApi.profile(sourceId);
       return { loggedIn: profile.loggedIn, nick: profile.nick };
     },
-    logout: () => api.ncmLogout(),
+    logout: (sourceId) => localApi.logout(sourceId),
 
     async sendCaptcha(phone) {
       const body = (await api.ncmCall("captcha_sent", { phone })) as NcmBody;

@@ -13,6 +13,7 @@ import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
+import { openQqLogin, qqLogout, qqProfile } from "../net/qqSession.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
@@ -158,6 +159,12 @@ export function registerIpc(): void {
       throw new Error(readableError(err));
     }
   });
+
+  /* ---------- QQ 登录（真实窗口 + session cookie，见 main/net/qqSession.ts） ---------- */
+
+  ipcMain.handle("qq:login", () => openQqLogin());
+  ipcMain.handle("qq:profile", () => qqProfile());
+  ipcMain.handle("qq:logout", () => qqLogout());
 
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {
     if (typeof text !== "string") throw new Error("util:qrcode 需要文本");

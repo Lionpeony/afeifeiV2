@@ -59,6 +59,13 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     };
   }
 
+  interface QqUrlBody {
+    req?: {
+      code?: number;
+      data?: { midurlinfo?: { purl?: unknown }[] };
+    };
+  }
+
   return {
     id: "qq",
     name: "QQ 音乐",
@@ -66,9 +73,9 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     capabilities: {
       canSearch: true,
       canGetDetail: false,
-      canGetUrl: false, // vkey 匿名拿不到（2026-11-02 实测），真号联调后再开
+      canGetUrl: true, // 登录态走 GetEVkey（M6.1）；未登录时上游不给 vkey，错误翻译成人话
       canGetLyric: true,
-      canLogin: false,
+      canLogin: true, // 真实窗口登录（main/net/qqSession.ts）
       canGetAlbum: false,
       canGetArtist: false,
       canGetPlaylist: false,
@@ -77,7 +84,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     },
 
     traits: {
-      requiresAuth: false, // 搜索与歌词匿名可用
+      requiresAuth: false, // 搜索与歌词匿名可用；只有播放地址要登录
       qualities: ["128k", "320k"],
     },
 
@@ -101,6 +108,26 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
         throw err("track-missing", "这首歌没有歌词");
       }
       return parseLyrics(body.lrc);
+    },
+
+    async login(): Promise<void> {
+      const profile = await qq<{ loggedIn: boolean }>("profile");
+      if (!profile.loggedIn) throw err("auth-required", "尚未登录");
+    },
+
+    async getUrl(sourceId: string): Promise<string> {
+      const body = await qq<QqUrlBody>("url", { songmid: sourceId });
+      const req = body?.req;
+      if (!req || req.code !== 0) throw err("network", "QQ 音乐暂时不可用");
+      const info = req.data?.midurlinfo?.[0];
+      const purl = typeof info?.purl === "string" ? info.purl : "";
+      if (!purl) {
+        // 上游对"没登录"和"没版权"都返回空 purl —— 必须分开说（00 §10：错误只翻译一次）
+        const profile = await qq<{ loggedIn: boolean }>("profile");
+        if (!profile.loggedIn) throw err("auth-required", "请先登录 QQ 音乐");
+        throw err("quality-unavailable", "这首歌没有可播放的地址（可能需要会员）");
+      }
+      return /^https?:\/\//i.test(purl) ? purl : `http://dl.stream.qqmusic.qq.com/${purl}`;
     },
   };
 }

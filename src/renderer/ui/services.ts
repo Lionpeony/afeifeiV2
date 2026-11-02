@@ -35,6 +35,9 @@ export interface Api {
   importUserSource(): Promise<{ name: string; code: string } | null>;
   installUserSource(sourceId: string, code: string): Promise<unknown>;
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
+  qqLogin(): Promise<{ loggedIn: boolean }>;
+  qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  qqLogout(): Promise<void>;
   openMini(): Promise<void>;
   pushMiniState(json: string): void;
   onMiniAction(cb: (action: string) => void): void;
@@ -84,17 +87,18 @@ export interface Services {
   importBackup(): Promise<{ restored: boolean } | null>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
-  /** 开始扫码：拿到 key 与服务端画好的二维码图 */
-  startLogin(): Promise<QrSession>;
-  /** 轮询扫码结果 */
+  /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */
+  startLogin(sourceId: string): Promise<QrSession | { loggedIn: boolean }>;
+  /** 轮询扫码结果（仅网易云） */
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
-  /** 查询当前登录态（只看账号接口，不看 cookie 字段） */
-  loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
-  /** 手机号登录：发短信验证码 */
+  /** 查询某音源的登录态（只看账号接口 / cookie，不看凭据字段） */
+  loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
+  /** 手机号登录：发短信验证码（仅网易云） */
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
-  /** 手机号登录：用验证码换登录态 */
+  /** 手机号登录：用验证码换登录态（仅网易云） */
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
-  logout(): Promise<void>;
+  /** 退出登录（按 sourceId 路由）。 */
+  logout(sourceId: string): Promise<void>;
 }
 
 export interface NcmBody {
