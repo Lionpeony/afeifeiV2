@@ -40,6 +40,7 @@ if (TEST) {
       "audio-crossfade": "src/renderer/capability/audio/crossfade.ts",
       "audio-eq-response": "src/renderer/capability/audio/eq-response.ts",
       "library-group": "src/renderer/domain/library/group.ts",
+      recommend: "src/renderer/domain/recommend/index.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
       "stage-tint": "src/renderer/ui/views/stage/tint.ts",
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",
@@ -170,6 +171,8 @@ const css = [
   "src/renderer/ui/tokens.css",
   "src/renderer/ui/app.css",
   "src/renderer/ui/player.css",
+  "src/renderer/ui/views/pages.css",
+  "src/renderer/ui/views/sheets.css",
   "src/renderer/ui/views/stage/stage.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))

@@ -8,13 +8,19 @@ import {
   subscribe as subscribeLibrary,
 } from "../../../domain/library/state.js";
 import { isLiked, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
+import {
+  createPlaylist,
+  getPlaylists,
+  removePlaylist,
+  subscribe as subscribePlaylists,
+} from "../../../domain/playlists/index.js";
 import { selectVisible } from "../../../projection/library.js";
 import { PageHead } from "../../PageHead.js";
-import { Cover, fmtDuration, TrackRows } from "./rows.js";
+import { fmtDuration } from "./rows.js";
 import { AlbumWall } from "./album-wall.js";
 import { ArtistsPage } from "./artists.js";
 
-const ROW_HEIGHT = 38;
+const ROW_HEIGHT = 42;
 
 export interface LibraryViewProps {
   onPlay(index: number): void;
@@ -44,6 +50,8 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
   const [mode, setMode] = useState<Mode>("all");
   const [view, setView] = useState<View>("list");
   const [likeTick, setLikeTick] = useState(0);
+  const [lists, setLists] = useState(getPlaylists());
+  const [newName, setNewName] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(
@@ -56,6 +64,7 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
   );
 
   useEffect(() => subscribeLikes(() => setLikeTick((t) => t + 1)), []);
+  useEffect(() => subscribePlaylists(() => setLists(getPlaylists())), []);
 
   // 依赖 view：切走再切回来时列表元素是重挂的，observer 必须重新认领，
   // 否则视口高度停在旧值——虚拟列表会滚着滚着白屏或错位
@@ -77,6 +86,13 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
 
   const win = selectVisible(shown.length, scrollTop, viewport, ROW_HEIGHT);
   const visible = shown.slice(win.start, win.end);
+
+  // 歌单只存 trackId，播放前对回曲库：找不到说明文件已删，跳过而不是播空气
+  const playList = (ids: readonly string[]): void => {
+    const byId = new Map(getTracks().map((t) => [t.id, t]));
+    const tracks = ids.map((id) => byId.get(id)).filter((t): t is Track => t !== undefined);
+    if (tracks.length > 0) onPlayGroup(tracks, 0);
+  };
 
   return (
     <section className="library">
@@ -101,13 +117,13 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
         </div>
         <div className="lib-tabs">
           <button type="button" className={view === "list" ? "on" : ""} onClick={() => setView("list")}>
-            列表
+            曲目
           </button>
           <button type="button" className={view === "albums" ? "on" : ""} onClick={() => setView("albums")}>
-            唱片墙
+            专辑
           </button>
           <button type="button" className={view === "artists" ? "on" : ""} onClick={() => setView("artists")}>
-            歌手
+            艺人
           </button>
         </div>
         <button type="button" className="primary" onClick={onScan} disabled={scanning}>
@@ -126,50 +142,107 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
       ) : view === "artists" ? (
         <ArtistsPage tracks={shown} onPlayGroup={onPlayGroup} cover={cover} />
       ) : (
-        <div className="lib-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
-        <div className="lib-thead">
-          <span className="th-title">TITLE</span>
-          <span className="th-artist">ARTIST</span>
-          <span className="th-dur">TIME</span>
-        </div>
-        <div style={{ height: win.totalHeight, position: "relative" }}>
-          <div style={{ transform: `translateY(${win.offsetY}px)` }}>
-            {visible.map((track, offset) => (
-              <div
-                key={track.id}
-                className="lib-row"
-                data-missing={track.missing ? "true" : undefined}
-                style={{ height: ROW_HEIGHT }}
-                onClick={() => onPlay(win.start + offset)}
-                title={track.missing ? `${track.path}（文件已不在）` : track.path}
+        <div className="work">
+          <div className="tbl">
+            <div className="lib-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
+              <div className="lib-thead cols6">
+                <span className="th-no">#</span>
+                <span className="th-title">TITLE</span>
+                <span className="th-artist">ARTIST</span>
+                <span className="th-album">ALBUM</span>
+                <span className="th-dur">TIME</span>
+                <span />
+              </div>
+              <div style={{ height: win.totalHeight, position: "relative" }}>
+                <div style={{ transform: `translateY(${win.offsetY}px)` }}>
+                  {visible.map((track, offset) => (
+                    <div
+                      key={track.id}
+                      className="lib-row"
+                      data-missing={track.missing ? "true" : undefined}
+                      style={{ height: ROW_HEIGHT }}
+                      onClick={() => onPlay(win.start + offset)}
+                      title={track.missing ? `${track.path}（文件已不在）` : track.path}
+                    >
+                      <span className="lib-no">{win.start + offset + 1}</span>
+                      <span className="lib-title">
+                        {track.title}
+                        {track.missing ? <em className="lib-missing">缺失</em> : null}
+                      </span>
+                      <span className="lib-artist">{track.artist}</span>
+                      <span className="lib-album">{track.album}</span>
+                      <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
+                      <button
+                        type="button"
+                        className={`lib-like${isLiked(track.id) ? " on" : ""}`}
+                        aria-label={isLiked(track.id) ? "取消收藏" : "收藏"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLike(track.id);
+                        }}
+                      >
+                        ♥
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {shown.length === 0 ? (
+                <p className="lib-empty">
+                  {mode === "likes"
+                    ? "还没有收藏。点列表右边的 ♥ 试试。"
+                    : "还没有歌。点「扫描目录」选一个音乐文件夹。"}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          {/* 右栏：我的歌单（ref pages-v11 .pls）。点一条 = 把整单设为队列 */}
+          <aside className="pls">
+            <div className="pl-h">
+              <span>我的歌单</span>
+              <span>{lists.length}</span>
+            </div>
+            <div className="pl-new">
+              <input
+                value={newName}
+                placeholder="新歌单名…"
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  createPlaylist(newName);
+                  setNewName("");
+                }}
+              />
+              <button
+                type="button"
+                aria-label="新建歌单"
+                onClick={() => {
+                  createPlaylist(newName);
+                  setNewName("");
+                }}
               >
-                <Cover id={track.id} path={track.path} hasCover={track.hasCover} load={cover} />
-                <span className="lib-title">
-                  {track.title}
-                  {track.missing ? <em className="lib-missing">缺失</em> : null}
-                </span>
-                <span className="lib-artist">{track.artist}</span>
-                <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
+                +
+              </button>
+            </div>
+            {lists.map((list) => (
+              <div className="pl-row" key={list.id}>
+                <button type="button" className="pl-it" onClick={() => playList(list.trackIds)} title={`播放 ${list.name}`}>
+                  <span className="pl-n">{list.name}</span>
+                  <span className="pl-c">{list.trackIds.length}</span>
+                </button>
                 <button
                   type="button"
-                  className={`lib-like${isLiked(track.id) ? " on" : ""}`}
-                  aria-label={isLiked(track.id) ? "取消收藏" : "收藏"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleLike(track.id);
-                  }}
+                  className="pl-x"
+                  aria-label={`删除歌单 ${list.name}`}
+                  onClick={() => removePlaylist(list.id)}
                 >
-                  ♥
+                  ×
                 </button>
               </div>
             ))}
-          </div>
-        </div>
-        {shown.length === 0 ? (
-          <p className="lib-empty">
-            {mode === "likes" ? "还没有收藏。点列表右边的 ♥ 试试。" : "还没有歌。点「扫描目录」选一个音乐文件夹。"}
-          </p>
-        ) : null}
+            {lists.length === 0 ? <p className="pl-empty">还没有歌单。</p> : null}
+          </aside>
         </div>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { AppState } from "../../contracts/index.js";
 import { getFiltered, searchTracks } from "../domain/library/state.js";
@@ -17,10 +17,18 @@ import { registerCommand } from "./input/commands.js";
 import { currentTheme, type Theme } from "./theme.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
+import { HomeView } from "./views/home/index.js";
+import { LikedView } from "./views/liked/index.js";
+import { RadioView } from "./views/radio/index.js";
+import { RecentView } from "./views/recent/index.js";
+import { RoamView } from "./views/roam/index.js";
+import { SettingsView } from "./views/settings/index.js";
+import { getTracks } from "../domain/library/state.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
-import { PlaylistsView } from "./views/playlists/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
+import { NavIcon } from "./icons.js";
+import { NAV_FOOT, NAV_MAIN, NAV_MINE, PAGE_LABEL, type PageId } from "./pages.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -35,17 +43,27 @@ function baseName(p: string | null): string {
   return parts[parts.length - 1] || p;
 }
 
+/** 顶栏日期：设计稿是「2026.11.01 · SUN」这种票根式戳记。 */
+const today = (): string => {
+  const d = new Date();
+  const wd = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][d.getDay()];
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} · ${wd}`;
+};
+
 function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const [tab, setTab] = useState<"local" | "online" | "playlists" | "stage" | "downloads">("local");
+  const [page, setPage] = useState<PageId>("local");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
+  const [volOpen, setVolOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [theme, setThemeState] = useState<Theme>("light");
+  const [npCover, setNpCover] = useState<string | null>(null);
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
+  const totalEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
   const tipEl = useRef<HTMLSpanElement>(null);
   const dragging = useRef(false);
@@ -58,7 +76,8 @@ function App() {
     if (!svc) return;
     const position = svc.positionMs();
     const duration = svc.engine.durationMs();
-    if (timeEl.current) timeEl.current.textContent = `${fmt(position)} / ${fmt(duration)}`;
+    if (timeEl.current) timeEl.current.textContent = fmt(position);
+    if (totalEl.current) totalEl.current.textContent = fmt(duration);
     if (barEl.current && !dragging.current) {
       barEl.current.max = String(Math.max(1, Math.round(duration)));
       barEl.current.value = String(Math.round(Math.min(position, duration || position)));
@@ -113,8 +132,29 @@ function App() {
     };
   }, []);
 
-  const { status, trackId, volume, error } = state.player;
+  const { status, trackId, volume, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+
+  /* console 的 56px 封面：本地曲目走文件封面，在线曲目用音源给的封面地址。 */
+  useEffect(() => {
+    let alive = true;
+    const svc = services.current;
+    if (!svc || !trackId) {
+      setNpCover(null);
+      return;
+    }
+    void svc
+      .cover(trackId, remote?.coverUrl ?? trackId)
+      .then((url) => {
+        if (alive) setNpCover(url);
+      })
+      .catch(() => {
+        if (alive) setNpCover(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [trackId, remote?.coverUrl]);
 
   const onPlay = (index: number): void => {
     const rows = getFiltered();
@@ -160,7 +200,7 @@ function App() {
       const installed = await svc.installSource(picked.name, picked.code);
       setSources(svc.sources());
       setScanNote(`已导入音源：${installed.name}`);
-      setTab("online");
+      setPage("online");
     } catch (err) {
       setScanNote(err instanceof Error ? err.message : String(err));
     }
@@ -183,19 +223,29 @@ function App() {
       }),
       registerCommand({ id: "queue-next", label: "下一首", run: () => dispatch({ type: "queue/next" }) }),
       registerCommand({
+        id: "tab-home",
+        label: "转到：首页",
+        run: () => setPage("home"),
+      }),
+      registerCommand({
         id: "tab-local",
         label: "转到：本地曲库",
         hint: "Ctrl+F 聚焦搜索",
-        run: () => setTab("local"),
+        run: () => setPage("local"),
       }),
-      registerCommand({ id: "tab-online", label: "转到：在线搜索", run: () => setTab("online") }),
-      registerCommand({ id: "tab-stage", label: "转到：播放页", run: () => setTab("stage") }),
+      registerCommand({ id: "tab-online", label: "转到：在线搜索", run: () => setPage("online") }),
+      registerCommand({ id: "tab-radio", label: "转到：电台", run: () => setPage("radio") }),
+      registerCommand({ id: "tab-roam", label: "转到：漫游", run: () => setPage("roam") }),
+      registerCommand({ id: "tab-liked", label: "转到：喜欢的音乐", run: () => setPage("liked") }),
+      registerCommand({ id: "tab-recent", label: "转到：最近播放", run: () => setPage("recent") }),
+      registerCommand({ id: "tab-settings", label: "转到：设置", run: () => setPage("settings") }),
+      registerCommand({ id: "tab-stage", label: "转到：播放页", run: () => setPage("stage") }),
       registerCommand({
         id: "focus-search",
         label: "聚焦搜索框",
         hint: "Ctrl+F",
         run: () => {
-          setTab("local");
+          setPage("local");
           setTimeout(() => document.querySelector<HTMLInputElement>(".search")?.focus(), 0);
         },
       }),
@@ -231,266 +281,355 @@ function App() {
         togglePalette: () => setPaletteOpen((v) => !v),
         togglePlay: () => dispatch({ type: "player/toggle" }),
         focusSearch: () => {
-          setTab("local");
+          setPage("local");
           setTimeout(() => document.querySelector<HTMLInputElement>(".search")?.focus(), 0);
         },
       }),
     [],
   );
 
-  return (
-    <main className="shell">
-      <header className="top">
-        <h1>afeifei</h1>
-        <span className="status" data-status={status}>
-          {status}
-          {error ? ` · ${error}` : ""}
-        </span>
-        {notice ? (
-          notice.url ? (
-            <button
-              type="button"
-              className="notice"
-              title={notice.text}
-              onClick={() => {
-                const url = notice.url;
-                if (url) void services.current?.openExternal(url);
-                setNotice(null);
-              }}
-            >
-              {notice.text}
-            </button>
-          ) : (
-            <span className="notice">{notice.text}</span>
-          )
-        ) : null}
-        <button type="button" className="theme-toggle" onClick={toggleTheme} title="日间 / 夜间（只换 token 值）">
-          {theme === "dark" ? "夜间" : "日间"}
-        </button>
-      </header>
-
-      <div className="body">
-        <nav className="rail">
-          {(
-            [
-              ["local", "本地"],
-              ["online", "在线"],
-              ["playlists", "歌单"],
-              ["stage", "播放页"],
-              ["downloads", "下载"],
-            ] as const
-          ).map(([id, label]) => (
-            <button type="button" key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
-              {label}
-            </button>
-          ))}
-          <div className="rail-tail">
-            <button type="button" onClick={() => void onImportSource()}>
-              导入源
-            </button>
-            <button type="button" onClick={() => void services.current?.openMini()}>
-              迷你窗
-            </button>
-            <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词（穿透态点此解锁）">
-              桌面歌词
-            </button>
-          </div>
-        </nav>
-
-        <section className="main">
-          {tab === "stage" ? (
-        <StageView
-          state={state}
-          cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
-          lyric={(sourceId, songId) => {
-            const svc = services.current;
-            if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
-            return svc.lyric(sourceId, songId);
-          }}
-          spectrum={(bins) => services.current?.spectrum(bins) ?? null}
-          exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
-          importTheme={() =>
-            services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))
-          }
-        />
-      ) : tab === "local" ? (
-        <LibraryView
-          onPlay={onPlay}
-          onPlayGroup={onPlayGroup}
-          onScan={() => void onScan()}
-          scanning={scanning}
-          scanNote={scanNote}
-          cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
-        />
-      ) : tab === "downloads" ? (
-        services.current ? (
+  /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
+  const renderPage = (): ReactNode => {
+    switch (page) {
+      case "stage":
+        return (
+          <StageView
+            state={state}
+            cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
+            lyric={(sourceId, songId) => {
+              const svc = services.current;
+              if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
+              return svc.lyric(sourceId, songId);
+            }}
+            spectrum={(bins) => services.current?.spectrum(bins) ?? null}
+            exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
+            importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
+          />
+        );
+      case "home":
+        return (
+          <HomeView
+            onPlayGroup={onPlayGroup}
+            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+            onGo={setPage}
+          />
+        );
+      case "liked":
+        return <LikedView onPlayGroup={onPlayGroup} />;
+      case "recent":
+        return <RecentView onPlayGroup={onPlayGroup} />;
+      case "radio":
+        return (
+          <RadioView
+            onPlayGroup={onPlayGroup}
+            now={
+              trackId
+                ? { title: trackTitle ?? baseName(trackId), artist: remote ? "在线音源" : "本地曲库" }
+                : null
+            }
+          />
+        );
+      case "roam":
+        return (
+          <RoamView
+            onPlayGroup={onPlayGroup}
+            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+          />
+        );
+      case "settings":
+        return (
+          <SettingsView
+            theme={theme}
+            onTheme={(next) => {
+              const svc = services.current;
+              if (svc) setThemeState(svc.setTheme(next));
+            }}
+            trackCount={getTracks().length}
+            scanning={scanning}
+            notice={scanNote}
+            onScan={() => void onScan()}
+            onOpenFx={() => setFxOpen(true)}
+            onOpenLyric={() => void services.current?.openLyric()}
+            onOpenMini={() => void services.current?.openMini()}
+            onExportBackup={() =>
+              void services.current?.exportBackup().then((dest) => {
+                if (dest) setScanNote(`已备份到 ${dest}`);
+              })
+            }
+            onImportBackup={() =>
+              void services.current?.importBackup().then((r) => {
+                if (r?.restored) setScanNote("备份已恢复，重启应用后生效");
+              })
+            }
+          />
+        );
+      case "local":
+        return (
+          <LibraryView
+            onPlay={onPlay}
+            onPlayGroup={onPlayGroup}
+            onScan={() => void onScan()}
+            scanning={scanning}
+            scanNote={scanNote}
+            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+          />
+        );
+      case "downloads":
+        return services.current ? (
           <DownloadsView
             services={services.current}
             onRemove={(id) => services.current?.removeDownload(id) ?? Promise.resolve()}
           />
         ) : (
           <p className="lib-empty">还没准备好，请稍候。</p>
-        )
-      ) : tab === "playlists" ? (
-        <PlaylistsView
-          sources={sources.filter((s) => s.canPlaylists)}
-          listPlaylists={(sourceId) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve([]);
-            return svc.listPlaylists(sourceId);
-          }}
-          playlistTracks={(sourceId, playlistId, page) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ items: [] });
-            return svc.playlistTracks(sourceId, playlistId, page);
-          }}
-          onPlay={async (sourceId, track) => {
-            // 与在线页同一条链路：拿地址失败由歌单页显示人话
-            const svc = services.current;
-            if (!svc) return;
-            const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-            dispatch({
-              type: "player/play",
-              trackId: url,
-              trackTitle: `${track.title} — ${track.artist}`,
-              remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
-            });
-          }}
-        />
-      ) : (
-        <OnlineView
-          sources={sources}
-          onSearch={(sourceId, keyword) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ items: [] });
-            return svc.searchOnline(sourceId, keyword);
-          }}
-          onPlay={async (sourceId, track) => {
-            const svc = services.current;
-            if (!svc) return;
-            // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
-            const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-            // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名；
-            // remote 带音源内标识，播放页的歌词/封面从这取
-            dispatch({
-              type: "player/play",
-              trackId: url,
-              trackTitle: `${track.title} — ${track.artist}`,
-              remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
-            });
-          }}
-          loginStatus={(sourceId) =>
-            services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
-          }
-          startLogin={(sourceId, channel) => {
-            const svc = services.current;
-            if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
-            return svc.startLogin(sourceId, channel);
-          }}
-          pollLogin={(key) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" });
-            return svc.pollLogin(key);
-          }}
-          sendCaptcha={(phone) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
-            return svc.sendCaptcha(phone);
-          }}
-          loginByCaptcha={(phone, captcha) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
-            return svc.loginByCaptcha(phone, captcha);
-          }}
-          logout={(sourceId) => {
-            const svc = services.current;
-            return svc ? svc.logout(sourceId) : Promise.resolve();
-          }}
-          onDownload={(sourceId, track) => {
-            const svc = services.current;
-            if (!svc) return Promise.resolve("还没准备好，请稍后再试");
-            return svc.downloadTrack(sourceId, track);
-          }}
-        />
-          )}
+        );
+      case "online":
+        return (
+          <OnlineView
+            sources={sources}
+            onSearch={(sourceId, keyword) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve({ items: [] });
+              return svc.searchOnline(sourceId, keyword);
+            }}
+            onPlay={async (sourceId, track) => {
+              const svc = services.current;
+              if (!svc) return;
+              // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
+              const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+              // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名；
+              // remote 带音源内标识，播放页的歌词/封面从这取
+              dispatch({
+                type: "player/play",
+                trackId: url,
+                trackTitle: `${track.title} — ${track.artist}`,
+                remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
+              });
+            }}
+            loginStatus={(sourceId) =>
+              services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
+            }
+            startLogin={(sourceId, channel) => {
+              const svc = services.current;
+              if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
+              return svc.startLogin(sourceId, channel);
+            }}
+            pollLogin={(key) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" });
+              return svc.pollLogin(key);
+            }}
+            sendCaptcha={(phone) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
+              return svc.sendCaptcha(phone);
+            }}
+            loginByCaptcha={(phone, captcha) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
+              return svc.loginByCaptcha(phone, captcha);
+            }}
+            logout={(sourceId) => {
+              const svc = services.current;
+              return svc ? svc.logout(sourceId) : Promise.resolve();
+            }}
+            onDownload={(sourceId, track) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve("还没准备好，请稍后再试");
+              return svc.downloadTrack(sourceId, track);
+            }}
+          />
+        );
+      default:
+        // 还没落地的页：给明确的路标，而不是白屏
+        return (
+          <div className="wip">
+            <p className="wip-label">UNDER CONSTRUCTION · 施工中</p>
+            <h2>{PAGE_LABEL[page]}</h2>
+            <p>这一页正在按 design-demos/pages-v11 的稿子重建，先前的实现不迁移。</p>
+          </div>
+        );
+    }
+  };
+
+  const navBtn = (item: (typeof NAV_MAIN)[number]): ReactNode => (
+    <button
+      type="button"
+      key={item.id}
+      className={`it${item.small ? " sm" : ""}${page === item.id ? " on" : ""}`}
+      onClick={() => setPage(item.id)}
+      title={item.label}
+    >
+      <NavIcon name={item.icon} />
+      <span>{item.label}</span>
+    </button>
+  );
+
+  return (
+    <main className="shell">
+      <header className="tbar">
+        <h1 className="brand">
+          <i />
+          afeifei
+        </h1>
+        <span className="brand-cn">阿飞飞</span>
+        <span className="sp" />
+        <span className="date">{today()}</span>
+        <span className="status" data-status={status} title={error ?? undefined}>
+          {status}
+          {error ? ` · ${error}` : ""}
+        </span>
+        <button type="button" className="theme-toggle" onClick={toggleTheme} title="日间 / 夜间（只换 token 值）">
+          <i className="moon" />
+        </button>
+      </header>
+
+      <div className="body">
+        <nav className="rail">
+          {NAV_MAIN.map(navBtn)}
+          <span className="sp" />
+          <div className="grp">
+            <i />
+            <span>我的</span>
+            <i />
+          </div>
+          {NAV_MINE.map(navBtn)}
+          <div className="rule" />
+          {NAV_FOOT.map(navBtn)}
+        </nav>
+
+        <section className="main">
+          {notice ? (
+            notice.url ? (
+              <button
+                type="button"
+                className="notice"
+                title={notice.text}
+                onClick={() => {
+                  const url = notice.url;
+                  if (url) void services.current?.openExternal(url);
+                  setNotice(null);
+                }}
+              >
+                {notice.text}
+              </button>
+            ) : (
+              <span className="notice">{notice.text}</span>
+            )
+          ) : null}
+          {renderPage()}
         </section>
       </div>
 
-      <footer className="player">
-        <div className="console">
-          {/* 左：正在播放。整块可点跳播放页（旧仓 console 行为），hover 左缘朱砂标尺 */}
-          <button type="button" className="np" onClick={() => setTab("stage")} title="打开播放页">
-            <p className="np-title">{state.player.trackTitle ?? baseName(trackId)}</p>
-          </button>
+      <footer className="console">
+        {/* 左：正在播放。整块可点跳播放页（旧仓 console 行为） */}
+        <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
+          <span
+            className="np-art"
+            style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
+          />
+          <span className="np-tx">
+            <b>{trackTitle ?? baseName(trackId)}</b>
+            <span>{trackId ? (remote ? "在线音源" : "本地曲库") : "从曲库选一首开始"}</span>
+          </span>
+        </button>
 
+        <div className="mid">
           <div className="transport">
             <button
               type="button"
+              className="tb"
+              aria-label="上一首"
               onClick={() =>
                 dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 })
               }
             >
-              上一首
+              <i className="tb-ic ic-prev">
+                <i />
+                <i />
+              </i>
             </button>
-            <button type="button" className="primary" onClick={() => dispatch({ type: "player/toggle" })}>
-              {playing ? "暂停" : "播放"}
+            <button type="button" className="tb main" aria-label={playing ? "暂停" : "播放"} onClick={() => dispatch({ type: "player/toggle" })}>
+              <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
+                <i />
+                {playing ? <i /> : null}
+              </i>
             </button>
-            <button type="button" onClick={() => dispatch({ type: "queue/next" })}>
-              下一首
-            </button>
-            <button type="button" aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
-              音效
+            <button type="button" className="tb" aria-label="下一首" onClick={() => dispatch({ type: "queue/next" })}>
+              <i className="tb-ic ic-next">
+                <i />
+                <i />
+              </i>
             </button>
           </div>
 
-          <div className="tools">
-
-          <label className="volume">
-            音量
+          {/* 进度：原生 range 保住键盘/拖拽语义，视觉由 app.css 画成发丝轨 + 朱砂头 */}
+          <div className="seek">
+            <span ref={timeEl} className="tm">
+              0:00
+            </span>
             <input
+              ref={barEl}
+              className={`bar${playing ? " playing" : ""}`}
               type="range"
               min="0"
-              max="100"
-              value={Math.round(volume * 100)}
-              onChange={(e) => dispatch({ type: "player/setVolume", volume: Number(e.target.value) / 100 })}
+              max="1"
+              step="1"
+              defaultValue="0"
+              aria-label="播放进度"
+              onPointerDown={() => {
+                dragging.current = true;
+              }}
+              onPointerUp={() => {
+                dragging.current = false;
+              }}
+              onPointerMove={(e) => {
+                // 悬停时间泡：直接写 DOM（每帧级事件不走 React），松手即隐
+                const tip = tipEl.current;
+                if (!tip) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+                const duration = services.current?.engine.durationMs() ?? 0;
+                tip.textContent = fmt(pct * duration);
+                tip.style.left = `${pct * 100}%`;
+              }}
+              onChange={(e) => dispatch({ type: "player/seek", positionMs: Number(e.target.value) })}
             />
-          </label>
+            <span ref={tipEl} className="seek-tip" aria-hidden="true" />
+            <span ref={totalEl} className="tm">
+              0:00
+            </span>
           </div>
         </div>
 
-        {/* 进度：3px 发丝轨 + 墨色已播 + 2px 朱砂播放头（docs/09 B1）。原生 range 保住键盘/拖拽语义 */}
-        <div className="seekrow">
+        <div className="tools">
+          <button type="button" className={volOpen ? "on" : ""} aria-expanded={volOpen} onClick={() => setVolOpen(!volOpen)}>
+            音量
+          </button>
+          <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
+            词
+          </button>
+          <button type="button" onClick={() => void services.current?.openMini()} title="迷你窗">
+            迷你
+          </button>
+          <button type="button" className={fxOpen ? "on" : ""} aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
+            音效
+          </button>
+        </div>
+        {/* 音量条常驻 DOM、只切 visibility：滑杆语义与键盘可达性不因开合而丢 */}
+        <div className="vol-pop volume" hidden={!volOpen}>
           <input
-            ref={barEl}
-            className={`seek${playing ? " playing" : ""}`}
             type="range"
             min="0"
             max="1"
-            step="1"
-            defaultValue="0"
-            onPointerDown={() => {
-              dragging.current = true;
-            }}
-            onPointerUp={() => {
-              dragging.current = false;
-            }}
-            onPointerMove={(e) => {
-              // 悬停时间泡：直接写 DOM（每帧级事件不走 React），松手即隐
-              const tip = tipEl.current;
-              if (!tip) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-              const duration = services.current?.engine.durationMs() ?? 0;
-              tip.textContent = fmt(pct * duration);
-              tip.style.left = `${pct * 100}%`;
-            }}
-            onChange={(e) => dispatch({ type: "player/seek", positionMs: Number(e.target.value) })}
+            step="0.02"
+            value={volume}
+            aria-label="音量"
+            onChange={(e) => dispatch({ type: "player/setVolume", volume: Number(e.target.value) })}
           />
-          <span ref={tipEl} className="seek-tip" aria-hidden="true" />
-          <span ref={timeEl} className="time">
-            0:00 / 0:00
-          </span>
+          <span className="vol-val">{Math.round(volume * 100)}</span>
         </div>
+        <span className="stamp">入场券 · ADMIT ONE</span>
       </footer>
       <Toaster />
 
@@ -511,6 +650,7 @@ function App() {
             </button>
           </div>
           <EqCurve gains={state.audio.eq} sampleRate={services.current?.engine.sampleRate() ?? 48000} />
+          {/* 音量归控制台的「音量」按钮弹层，面板里只留音效相关，一处状态一个入口 */}
           <label className="fx-row">
             <span>前置</span>
             <input

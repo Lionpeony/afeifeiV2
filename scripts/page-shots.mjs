@@ -45,9 +45,11 @@ const TRACKS = [
 const PAGES = [
   ["本地", "local"],
   ["在线", "online"],
-  ["歌单", "playlists"],
-  ["播放页", "stage"],
-  ["下载", "downloads"],
+  ["首页", "home"],
+  ["电台", "radio"],
+  ["漫游", "roam"],
+  ["喜欢的音乐", "liked"],
+  ["最近播放", "recent"],
 ];
 
 /**

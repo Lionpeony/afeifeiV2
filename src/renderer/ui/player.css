@@ -1,109 +1,217 @@
-/* 播放条与音效面板（00 §12：app.css 超 400 行，按职责拆出）。
-   B1 重排：console 三栏（左正在播放 / 中控制 / 右工具）+ 下一行细线进度（docs/09）。 */
-.player {
-  flex: none;
-  padding: 8px 24px 12px;
-  border-top: 1px solid var(--line);
-}
-
+/* 票根控制台与音效面板（ref pages-v11/shell.css）：
+   104px 三栏 —— 左正在播放（封面 + 两行文案）/ 中走带 + 细线进度 / 右工具。 */
 .console {
+  grid-column: 1 / -1;
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr) 250px;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
+  padding: 10px 22px 12px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--fg);
 }
 
-/* 左：正在播放。整块可点跳播放页，hover 左缘朱砂标尺（旧仓 press.css:3370 同款） */
+/* 左：正在播放。整块可点跳播放页，hover 左缘朱砂标尺 */
 .np {
-  justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 13px;
   min-width: 0;
-  text-align: left;
-  background: none;
+  /* 左让 16px 给竖排票根戳，不然「入场券」压在封面上 */
+  padding: 0 0 0 16px;
   border: none;
   border-radius: 0;
-  padding: 4px 10px;
-  position: relative;
+  background: none;
+  text-align: left;
 }
 .np:hover {
-  background: rgba(216, 52, 28, 0.035);
   border-color: transparent;
   box-shadow: inset 2px 0 0 var(--accent);
 }
-.np-title {
-  margin: 0;
+.np-art {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--bg-raised);
+  background-position: center;
+  background-size: cover;
+}
+.np-tx {
+  min-width: 0;
+}
+.np-tx b {
+  display: block;
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-weight: 500;
+  line-height: 1.3;
   color: var(--fg);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
-.np:hover .np-title {
+.np:hover .np-tx b {
   color: var(--accent);
 }
+.np-tx span {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
+/* 中：走带 + 进度 */
+.mid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
 .transport {
   display: flex;
   align-items: center;
-  gap: 10px;
-  justify-self: center;
+  justify-content: center;
+  gap: 18px;
 }
-
-.tools {
-  display: flex;
-  align-items: center;
-  justify-self: end;
-}
-
-/* 进度行：细线 seek 占满 + 右侧 mono 时间 */
-.seekrow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.time {
+.transport .tb {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--fg-dim);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  min-width: 92px;
-  text-align: right;
+}
+.transport .tb:hover {
+  border-color: transparent;
+  color: var(--fg);
+}
+.transport .tb.main {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--fg);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.transport .tb.main:hover {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
 }
 
-/* 细线 seek（docs/09 B1，旧仓 type.css:79 同款）：
-   3px 发丝轨 + 墨色已播（--fill 由 JS 每帧喂）+ 2px 朱砂播放头，hover 轨变 4px。
+/* 走带图形（ref pages-v11/shell.css）：纯 CSS 三角/双杠，不用字符字形 */
+.tb-ic {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  width: 15px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+}
+.tb-ic i {
+  position: absolute;
+  display: block;
+}
+.ic-prev i,
+.ic-next i {
+  top: 1px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+.ic-prev i {
+  border-width: 5px 8px 5px 0;
+  border-color: transparent currentColor transparent transparent;
+}
+.ic-prev i:first-child {
+  left: 0;
+}
+.ic-prev i + i {
+  left: 7px;
+}
+.ic-next i {
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent currentColor;
+}
+.ic-next i:first-child {
+  left: 0;
+}
+.ic-next i + i {
+  left: 7px;
+}
+.ic-pause i {
+  top: 1px;
+  width: 3px;
+  height: 10px;
+  background: currentColor;
+}
+.ic-pause i:first-child {
+  left: 1px;
+}
+.ic-pause i + i {
+  left: 8px;
+}
+.ic-play i {
+  left: 2px;
+  top: 1px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+/* 进度：3px 发丝轨 + 墨色已播（--fill 由 JS 每帧喂）+ 2px 朱砂播放头。
    原生 range 语义（键盘/拖拽）不动，只换视觉。 */
-input.seek {
+.seek {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tm {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+input.bar {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 18px;
+  height: 14px;
   background: transparent;
   cursor: pointer;
 }
-input.seek::-webkit-slider-runnable-track {
+input.bar::-webkit-slider-runnable-track {
   height: 3px;
-  background: linear-gradient(to right, var(--fg) var(--fill, 0%), var(--line) var(--fill, 0%));
+  background: linear-gradient(to right, var(--fg) var(--fill, 0%), var(--line-soft) var(--fill, 0%));
   transition: height 0.16s ease;
 }
-input.seek::-webkit-slider-thumb {
+input.bar::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 2px;
   height: 14px;
   margin-top: -5.5px;
   background: var(--accent);
 }
-input.seek:hover::-webkit-slider-runnable-track {
+input.bar:hover::-webkit-slider-runnable-track {
   height: 4px;
 }
-input.seek:hover::-webkit-slider-thumb {
+input.bar:hover::-webkit-slider-thumb {
   height: 18px;
   margin-top: -7px;
 }
 /* 播放中朱砂头呼吸 pulse（旧仓 seek-pulse 同参数，2.4s / .12 扩散） */
-input.seek.playing::-webkit-slider-thumb {
+input.bar.playing::-webkit-slider-thumb {
   animation: seek-pulse 2.4s ease-in-out infinite;
 }
 @keyframes seek-pulse {
@@ -116,21 +224,21 @@ input.seek.playing::-webkit-slider-thumb {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  input.seek.playing::-webkit-slider-thumb {
+  input.bar.playing::-webkit-slider-thumb {
     animation: none;
   }
 }
 
-/* 悬停时间泡（docs/09 B2，旧仓 type.css:121 同款）：mono 10px 纸底票，跟随指针 */
+/* 悬停时间泡（docs/09 B2）：mono 10px 纸底票，跟随指针 */
 .seek-tip {
   position: absolute;
-  bottom: 30px;
+  bottom: 26px;
   transform: translateX(-50%);
   padding: 3px 6px;
   background: var(--bg);
   border: 1px solid var(--line);
   color: var(--fg);
-  font: 500 10px/1 ui-monospace, Consolas, monospace;
+  font: 500 10px/1 var(--font-mono);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -138,11 +246,50 @@ input.seek.playing::-webkit-slider-thumb {
   opacity: 0;
   transition: opacity 0.14s ease;
 }
-.seekrow {
-  position: relative;
-}
-.seekrow:hover .seek-tip {
+.seek:hover .seek-tip {
   opacity: 1;
+}
+
+/* 右：工具（词 / 迷你 / 音效）。设计稿的「队列」等队列视图落地后再加 */
+.tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.tools button {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+.tools button:hover {
+  border-color: var(--line-soft);
+  color: var(--fg);
+}
+.tools button.on {
+  color: var(--accent);
+}
+
+/* 票根戳：竖排 mono，压在控制台左下角 */
+.stamp {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  color: var(--fg-dim);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* 其余滑杆（音量/EQ/前置）统一墨色 accent */
@@ -181,11 +328,11 @@ button.primary:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
+/* 音量条：常驻 DOM，开合只切 hidden（原生 range 语义不因重建而丢） */
 .volume {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
   color: var(--fg-dim);
   font-size: 12px;
 }
@@ -193,6 +340,27 @@ button.primary:hover:not(:disabled) {
 .volume input {
   width: 140px;
   accent-color: var(--accent);
+}
+
+/* 音量弹层：挂在控制台右上沿，纸底 + 墨边，与票根戳同一套线 */
+.vol-pop {
+  position: absolute;
+  right: 22px;
+  bottom: calc(100% - 6px);
+  z-index: 20;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--fg);
+  box-shadow: 3px 3px 0 var(--line-soft);
+}
+.vol-pop[hidden] {
+  display: none;
+}
+.vol-val {
+  min-width: 2ch;
+  font: 500 11px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 /* 音效面板：浮层用 raised 底 + line 描边，z 用面板层 40（00 §9.2） */

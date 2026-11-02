@@ -46,6 +46,17 @@
   --grain-opacity: 0.05;
   --grain-blend: multiply;
 
+  /* 字体族（ref pages-v11/tokens.css，与旧仓 press.css 同源）：
+     标题用窄体大写做票根感，正文用系统黑体，数字/标签用等宽 */
+  --font-disp: "Bahnschrift SemiCondensed", "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
+  --font-sans: "Microsoft YaHei UI", "微软雅黑", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+
+  /* 外壳尺寸（ref pages-v11/shell.css）：标题栏 / 左导航 / 票根控制台 */
+  --tbar-h: 38px;
+  --nav-w: 96px;
+  --console-h: 104px;
+
   color-scheme: light;
 }
 

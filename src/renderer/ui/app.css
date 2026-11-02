@@ -23,48 +23,97 @@ html::after {
   mix-blend-mode: var(--grain-blend);
 }
 
-/* 骨架（docs/09 B1）：顶栏（品牌+状态） / 左 72px 竖导航 + 右内容 / 底部 console。
-   三区 flex 纵排，body 内部横排 —— 页面各自滚动，shell 不滚。 */
+/* 骨架（ref pages-v11/shell.css）：38px 票根标题栏 / 96px 图标导航 + 内容 / 104px 票根控制台。
+   grid 三行两列，页面各自滚动，shell 不滚。 */
 .shell {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  grid-template-rows: var(--tbar-h) minmax(0, 1fr) var(--console-h);
   height: 100%;
   box-sizing: border-box;
 }
 
-.top {
+/* 标题栏：品牌 + 日期戳 + 状态 + 明暗开关。38px 是设计稿的票根高度，再高压页面 */
+.tbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid var(--fg);
+}
+.brand {
   display: flex;
   align-items: baseline;
-  gap: 16px;
-  flex: none;
-  padding: 10px 24px 8px;
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.top h1 {
-  margin: 0;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  gap: 8px;
+  font-family: var(--font-disp);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--fg);
 }
+.brand i {
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+}
+/* 中文副名拆到 h1 外：h1 只留拉丁主名（冒烟断言 textContent 即产品名） */
+.brand-cn {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--fg-dim);
+}
+.tbar .sp {
+  flex: 1;
+}
+.date {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: var(--fg-dim);
+}
 
-/* 明暗切换（docs/09 B4）：沉在顶栏右端，不加边框——纸面角落不该多一块筹码 */
+/* 明暗切换（docs/09 B4）：月亮图形，夜间反色。只换 token 值，不做过渡 */
 .theme-toggle {
-  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
   padding: 0;
   border: none;
   background: none;
   color: var(--fg-dim);
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
   cursor: pointer;
 }
 .theme-toggle:hover {
+  background: var(--bg-raised);
+  border-color: transparent;
   color: var(--fg);
+}
+.theme-toggle .moon {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.theme-toggle .moon::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+:root[data-theme="dark"] .theme-toggle {
+  color: var(--accent);
 }
 
 /* 页头三件套（docs/09 B1，旧仓 .rs-head）：33px 大标 + 朱砂句号 + mono 注 + 1px 墨线 */
@@ -100,71 +149,104 @@ html::after {
 }
 
 .body {
+  /* tbar / console 都跨两列，body 也必须跨——不然会落进 96px 的导航列 */
+  grid-column: 1 / -1;
   display: flex;
-  flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
-/* 左竖导航（旧仓 nav.css 还原）：72px、行高 44、当前项 600 墨 + 右缘 22px 墨短线 */
+/* 左导航 96px（ref pages-v11/shell.css）：图标在上、名称在下。
+   比纯文字栏贵 24px，换来「图标先被看见、文字做确认」的可扫读性。 */
 .rail {
-  width: 72px;
+  width: var(--nav-w);
   flex: none;
   display: flex;
   flex-direction: column;
-  padding: 18px 0 14px;
-  border-right: 1px solid var(--line);
+  padding: 12px 0 10px;
+  border-right: 1px solid var(--line-soft);
   overflow: hidden;
 }
-.rail > button {
-  height: 44px;
+.rail .it {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 50px;
   padding: 0;
   border: none;
   border-radius: 0;
-  background: transparent;
+  background: none;
   color: var(--fg-dim);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.06em;
-  position: relative;
 }
-.rail > button:hover {
-  background: var(--bg-raised);
+.rail .it svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+.rail .it:hover {
+  background: none;
   border-color: transparent;
   color: var(--fg);
 }
-.rail > button.on {
+.rail .it.on {
   color: var(--fg);
   font-weight: 600;
 }
-.rail > button.on::after {
+.rail .it.on svg {
+  stroke-width: 1.5;
+}
+/* 当前项：左缘 3px 朱砂立标（旧仓是右缘墨短线，这次按 v11 稿改到左缘） */
+.rail .it.on::before {
   content: "";
   position: absolute;
-  right: 0;
-  top: 50%;
-  width: 22px;
-  height: 1px;
-  background: var(--fg);
-  transform: translateY(-50%);
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  background: var(--accent);
 }
-.rail-tail {
-  margin-top: auto;
+.rail .sp {
+  flex: 1;
+}
+.rail .grp {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  margin: 6px 12px 4px;
 }
-.rail-tail button {
-  height: 34px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: transparent;
+.rail .grp i {
+  flex: 1;
+  height: 1px;
+  background: var(--line-soft);
+}
+.rail .grp span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
   color: var(--fg-dim);
-  font-size: 11px;
-  letter-spacing: 0.04em;
 }
-.rail-tail button:hover {
-  color: var(--fg);
-  border-color: transparent;
-  background: var(--bg-raised);
+.rail .it.sm {
+  height: 42px;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.rail .it.sm svg {
+  width: 11px;
+  height: 11px;
+}
+.rail .rule {
+  height: 1px;
+  margin: 5px 16px 6px;
+  background: var(--line-soft);
 }
 
 /* 内容区：页面自带滚动，这里只做定位 */
@@ -173,12 +255,40 @@ html::after {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 28px 0;
+  gap: 14px;
+  padding: 20px 30px 16px 32px;
   overflow: hidden;
 }
 .main > * {
   flex: 1;
   min-height: 0;
+}
+
+/* 施工中占位：还没按 v11 稿子重建的页给明确路标，不留白屏 */
+.wip {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 40px;
+}
+.wip-label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.wip h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+}
+.wip p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fg-dim);
 }
 
 .status {
@@ -555,25 +665,186 @@ html::after {
   font-weight: 600;
 }
 
+/* 本地页两栏（ref pages-v11 05-local）：左曲库表 + 右我的歌单 */
+.work {
+  display: flex;
+  gap: 26px;
+  flex: 1;
+  min-height: 0;
+}
+.tbl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pls {
+  flex: 0 0 250px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-left: 18px;
+  border-left: 1px solid var(--line-soft);
+}
+.pl-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--fg-dim);
+}
+.pl-new {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pl-new input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: none;
+  color: var(--fg);
+  font-size: 12px;
+}
+.pl-new button {
+  width: 26px;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font-size: 14px;
+}
+.pl-new button:hover {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+.pl-it {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 6px;
+  border: none;
+  border-bottom: 1px dotted var(--line-soft);
+  background: none;
+  color: var(--fg);
+  font-size: 13px;
+  text-align: left;
+}
+.pl-it:hover {
+  background: var(--row-hover);
+  border-color: var(--line-soft);
+}
+.pl-n {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pl-c {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+}
+.pl-row {
+  display: flex;
+  align-items: center;
+}
+.pl-row .pl-it {
+  flex: 1;
+  min-width: 0;
+}
+/* 删除只在悬停时露出来：歌单行不该常驻两个可点区域 */
+.pl-x {
+  flex: none;
+  width: 20px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg-dim);
+  font-size: 13px;
+  opacity: 0;
+}
+.pl-row:hover .pl-x {
+  opacity: 1;
+}
+.pl-x:hover {
+  color: var(--accent);
+}
+.pl-empty {
+  margin: 10px 0;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
 .lib-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  border-top: 1px solid var(--line);
 }
 
+/* 行（ref pages-v11 .prow）：序号 / 歌名 / 歌手 / 专辑 / 时长 / 心，42px，点线分隔。
+   设计稿的本地表不放封面——封面留给唱片墙，列表要的是横向扫读速度。 */
 .lib-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 30px;
   align-items: center;
-  gap: 12px;
-  padding: 0 8px;
+  gap: 10px;
+  padding: 0 4px;
   box-sizing: border-box;
   cursor: pointer;
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px dotted var(--line-soft);
 }
 
 .lib-row:hover {
   background: var(--row-hover);
+}
+
+.lib-no {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.lib-album {
+  color: var(--fg-dim);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 六列表头只在本地页（.cols6）生效，在线/下载页仍用原来的 flex 表头 */
+.lib-thead.cols6 {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 30px;
+  gap: 10px;
+  padding: 0 4px 6px;
+}
+.lib-thead.cols6 > * {
+  width: auto;
+  margin: 0;
+  flex: none;
+}
+.lib-thead.cols6 .th-no,
+.lib-thead.cols6 .th-dur {
+  text-align: right;
+}
+/* 行内的旧 flex 尺寸在 grid 里会把列撑开，统一让网格说了算 */
+.lib-row > .lib-title,
+.lib-row > .lib-artist,
+.lib-row > .lib-dur {
+  width: auto;
+  flex: none;
+  min-width: 0;
 }
 
 .lib-cover {
