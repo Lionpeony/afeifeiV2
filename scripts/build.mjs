@@ -39,6 +39,8 @@ if (TEST) {
       "audio-eq": "src/renderer/capability/audio/eq.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",
+      "input-esc": "src/renderer/ui/input/resolve-esc.ts",
+      "input-commands": "src/renderer/ui/input/commands.ts",
     },
     outdir: "dist-test",
     bundle: true,

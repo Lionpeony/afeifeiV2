@@ -9,6 +9,9 @@ import type { Services } from "./services.js";
 import { onFrame } from "./compositor.js";
 import { StageView } from "./views/stage/index.js";
 import { startMiniBridge } from "./mini-bridge.js";
+import { registerCommand } from "./input/commands.js";
+import { installKeyboard } from "./input/keyboard.js";
+import { CommandPalette } from "./input/CommandPalette.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
 
@@ -110,6 +113,75 @@ function App() {
     }
   };
 
+  const onImportSource = async (): Promise<void> => {
+    const svc = services.current;
+    if (!svc) return;
+    try {
+      const picked = await svc.importSource();
+      if (!picked) return;
+      const installed = await svc.installSource(picked.name, picked.code);
+      setSources(svc.sources());
+      setScanNote(`已导入音源：${installed.name}`);
+      setTab("online");
+    } catch (err) {
+      setScanNote(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  /* ---- 键盘纪律（M6）：唯一 keydown 在 input/keyboard.ts，这里只装配命令 ---- */
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useEffect(() => {
+    const offs = [
+      registerCommand({
+        id: "play-toggle",
+        label: "播放 / 暂停",
+        hint: "Space",
+        run: () => dispatch({ type: "player/toggle" }),
+      }),
+      registerCommand({
+        id: "queue-prev",
+        label: "上一首",
+        run: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
+      }),
+      registerCommand({ id: "queue-next", label: "下一首", run: () => dispatch({ type: "queue/next" }) }),
+      registerCommand({
+        id: "tab-local",
+        label: "转到：本地曲库",
+        hint: "Ctrl+F 聚焦搜索",
+        run: () => setTab("local"),
+      }),
+      registerCommand({ id: "tab-online", label: "转到：在线搜索", run: () => setTab("online") }),
+      registerCommand({ id: "tab-stage", label: "转到：播放页", run: () => setTab("stage") }),
+      registerCommand({
+        id: "focus-search",
+        label: "聚焦搜索框",
+        hint: "Ctrl+F",
+        run: () => {
+          setTab("local");
+          setTimeout(() => document.querySelector<HTMLInputElement>(".search")?.focus(), 0);
+        },
+      }),
+      registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
+      registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
+      registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
+    ];
+    return () => offs.forEach((off) => off());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(
+    () =>
+      installKeyboard({
+        togglePalette: () => setPaletteOpen((v) => !v),
+        togglePlay: () => dispatch({ type: "player/toggle" }),
+        focusSearch: () => {
+          setTab("local");
+          setTimeout(() => document.querySelector<HTMLInputElement>(".search")?.focus(), 0);
+        },
+      }),
+    [],
+  );
+
   return (
     <main className="shell">
       <header className="top">
@@ -124,25 +196,7 @@ function App() {
           <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
             播放页
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              void (async () => {
-                const svc = services.current;
-                if (!svc) return;
-                try {
-                  const picked = await svc.importSource();
-                  if (!picked) return;
-                  const installed = await svc.installSource(picked.name, picked.code);
-                  setSources(svc.sources());
-                  setScanNote(`已导入音源：${installed.name}`);
-                  setTab("online");
-                } catch (err) {
-                  setScanNote(err instanceof Error ? err.message : String(err));
-                }
-              })()
-            }
-          >
+          <button type="button" onClick={() => void onImportSource()}>
             导入源
           </button>
           <button type="button" onClick={() => void services.current?.openMini()}>
@@ -332,6 +386,8 @@ function App() {
           })}
         </div>
       )}
+
+      {paletteOpen ? <CommandPalette onClose={() => setPaletteOpen(false)} /> : null}
     </main>
   );
 }
