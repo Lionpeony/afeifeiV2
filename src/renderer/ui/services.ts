@@ -49,6 +49,7 @@ export interface Api {
 
   // 下载（M7，桥接 DownloadPort）
   downloadDir(): Promise<string>;
+  downloadSetDir(): Promise<string | null>;
   downloadUsage(): Promise<number>;
   downloadFetch(
     taskId: string,
@@ -105,6 +106,8 @@ export interface Services {
   removeDownload(id: string): Promise<void>;
   /** 下载目录当前占用（字节）。 */
   downloadUsage(): Promise<number>;
+  /** 自定义下载目录。取消返回 null；已有文件不搬。 */
+  setDownloadDir(): Promise<string | null>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */

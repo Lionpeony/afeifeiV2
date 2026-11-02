@@ -49,6 +49,16 @@ export function DownloadsView({
         <span className="lib-count">
           已用 {fmtBytes(usage)} / 2GB · {rows.length} 个任务
         </span>
+        <button
+          type="button"
+          onClick={() =>
+            void services.setDownloadDir().then((dir) => {
+              if (dir) setNote(`下载目录已改为 ${dir}（已有文件不搬，新任务生效）`);
+            })
+          }
+        >
+          更改下载目录
+        </button>
         {note ? <span className="lib-count">{note}</span> : null}
       </div>
 

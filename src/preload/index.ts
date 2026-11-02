@@ -81,6 +81,7 @@ contextBridge.exposeInMainWorld("api", {
 
   // 下载（M7）：系统调用面。队列/并发/配额在渲染层环 1
   downloadDir: (): Promise<string> => ipcRenderer.invoke("download:dir"),
+  downloadSetDir: (): Promise<string | null> => ipcRenderer.invoke("download:setDir"),
   downloadUsage: (): Promise<number> => ipcRenderer.invoke("download:usage"),
   downloadFetch: (
     taskId: string,

@@ -284,7 +284,15 @@ export function registerIpc(): void {
 
   /* ---------- 下载（M7，系统调用面；队列/并发/配额是环 1 的业务） ---------- */
 
-  const downloadsDir = (): string => path.join(dataDir(), "downloads");
+  let downloadDirOverride: string | null | undefined;
+  /** 下载根目录：用户在「下载」页自定义过就走 KV，否则 dataDir/downloads。 */
+  const downloadsDir = (): string => {
+    if (downloadDirOverride === undefined) {
+      const raw = readKey("download-dir");
+      downloadDirOverride = typeof raw === "string" && raw ? raw : null;
+    }
+    return downloadDirOverride ?? path.join(dataDir(), "downloads");
+  };
   /** 防穿越：dest/remove 只准落在 downloads 目录内。 */
   const insideDownloads = (p: string): boolean => {
     const rel = path.relative(downloadsDir(), path.resolve(p));
@@ -294,6 +302,16 @@ export function registerIpc(): void {
   ipcMain.handle("download:dir", async () => {
     const dir = downloadsDir();
     await mkdir(dir, { recursive: true });
+    return dir;
+  });
+  /** 自定义下载目录：选目录 → 存 KV → 生效（已有文件不搬）。取消返回 null。 */
+  ipcMain.handle("download:setDir", async () => {
+    const r = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const dir = r.filePaths[0];
+    await mkdir(dir, { recursive: true });
+    await writeKey("download-dir", dir);
+    downloadDirOverride = dir;
     return dir;
   });
   ipcMain.handle("download:usage", () => dirUsage(downloadsDir()));

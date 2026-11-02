@@ -165,14 +165,16 @@ export function startDownloadRunner(deps: DownloadRunnerDeps): () => void {
       };
       await recordOp(library, { op: "upsert", track });
       setTracks([...getTracks().filter((t) => t.id !== track.id), track]);
-    } catch {
-      // 标签解析失败也入库不了就先不入——文件在磁盘上，重扫描仍会把它收进来
+    } catch (err) {
+      // 标签解析失败也先不入库——文件在磁盘上，重扫描仍会把它收进来；但不能无声
+      console.warn(`[download] 入库失败（${item.destPath}）：${err instanceof Error ? err.message : String(err)}`);
       void bytes;
     }
   };
 
   function pump(): void {
-    flushProgress();
+    // **不许在这里调 flushProgress**：flush → dispatch → subscribe → pump → flush 是同步自唤醒，
+    // 会把渲染层冻死（M7 真机首踩）。进度只由下面的 interval 驱动。
     while (activeCountOf() < MAX_ACTIVE) {
       const next = nextQueuedOf();
       if (!next || starting.has(next.id)) break;

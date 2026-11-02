@@ -339,6 +339,12 @@ function reduce(current: AppState, intent: Intent): AppState {
     }
 
     case "download/progress": {
+      // 值相同直接短路：进度 flush 每 500ms 一笔，没有变化就不该惊动任何订阅者
+      const cur = current.download.items.find((i) => i.id === intent.id);
+      if (!cur || cur.state !== "active") return current;
+      if (cur.received === intent.received && cur.total === intent.total && cur.speed === intent.speed) {
+        return current;
+      }
       const items = mapItem(current.download.items, intent.id, (i) =>
         i.state === "active"
           ? {

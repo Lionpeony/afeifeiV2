@@ -59,7 +59,27 @@ export async function fetchToFile(
 
   const ac = new AbortController();
   cancels.set(taskId, ac);
+  // 停滞看门狗：连接 20s 没有新字节就掐断——.part 还在，上层重试逻辑会续传
+  let stalled = false;
+  let lastTick = Date.now();
+  const watchdog = setInterval(() => {
+    if (Date.now() - lastTick > 20_000) {
+      stalled = true;
+      ac.abort();
+    }
+  }, 5_000);
+  // 进度回调节流：CDN 的 chunk 很碎，逐条发 IPC 会刷爆渲染层消息泵
+  let lastSent = 0;
+  const emit = (received: number, t: number): void => {
+    const now = Date.now();
+    if (now - lastSent >= 200 || t - received < 64 * 1024) {
+      lastSent = now;
+      onProgress(received, t);
+    }
+  };
+
   try {
+    log("info", `[download] 开始：${path.basename(destPath)}${from > 0 ? `（从 ${from} 字节续传）` : ""}`);
     const res = await net.fetch(url, {
       headers: from > 0 ? { range: `bytes=${from}-` } : {},
       signal: ac.signal,
@@ -75,13 +95,15 @@ export async function fetchToFile(
     const reader = res.body.getReader();
     for (;;) {
       const { done, value } = await reader.read();
+      lastTick = Date.now();
       if (done) break;
       received += value.byteLength;
       if (!out.write(Buffer.from(value))) {
         await new Promise<void>((r) => out.once("drain", r));
       }
-      onProgress(received, total > 0 ? total : received);
+      emit(received, total > 0 ? total : received);
     }
+    onProgress(received, total > 0 ? total : received);
     await new Promise<void>((resolve, reject) => {
       out.end(() => resolve());
       out.on("error", reject);
@@ -93,10 +115,12 @@ export async function fetchToFile(
     log("info", `[download] ${path.basename(destPath)} 完成（${received} 字节${start > 0 ? "，续传" : ""}）`);
     return { bytes: received, resumed: start > 0 };
   } catch (err) {
+    if (stalled) throw new Error("连接停滞，正在重试");
     // 中止不是错误：.part 留着，下次续传
     if ((err as Error).name === "AbortError") throw new Error("已取消");
     throw err;
   } finally {
+    clearInterval(watchdog);
     cancels.delete(taskId);
   }
 }

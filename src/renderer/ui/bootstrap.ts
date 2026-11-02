@@ -399,6 +399,7 @@ export async function bootstrap(): Promise<Services> {
     },
 
     downloadUsage: () => api.downloadUsage(),
+    setDownloadDir: () => api.downloadSetDir(),
   };
 
   // 下载执行器（M7）：与播放链路同源——完成后走曲库，不做"边下边播"
