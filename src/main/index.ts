@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
+import { startQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
 import { MEDIA_SCHEME, registerMediaProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
@@ -83,6 +84,7 @@ if (!locked) {
     registerMediaProtocol();
     registerIpc();
     registerMiniIpc();
+    startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）
 
     const win = new BrowserWindow({
       width: 1280,

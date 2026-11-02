@@ -1,98 +1,98 @@
 /**
- * QQ 音乐通道（M6.1：搜索/歌词匿名 + getUrl 登录态）。
+ * QQ 音乐通道（M6.1 P1）：全部走本地 `qqBackend` 服务的 HTTP 接口。
  *
- * **先验后写（2026-11-02 node 直打实测，2026-11-03 补登录态方案）**：
- *   - 搜索 `musicu.fcg` DoSearchForQQMusicDesktop：匿名 200 / code 0
- *   - 歌词 `fcg_query_lyric_new.fcg`：匿名 200 / code 0，`nobase64=1` 时 lrc 是明文
- *   - 播放地址：匿名全拿不到 vkey（40000/500003/104003）→ 登录态走 GetEVkey，
- *     cookie 由 session 自动携带（登录见 main/net/qqSession.ts）
+ * 协议细节（扫码/登录态/vkey/签名）都在 `@yakult-green-tea/qq-music-api` 包内，
+ * 这里只做「转发 + 数据归一化」。接口路径与参数为 2026-11-03 实测确认：
+ *   - 搜索 `/search?keyword=&page=&limit=`（字段：mid/name/singer[]/album.mid|title）
+ *   - 歌词 `/getLyric?songmid=`（`response.lyric` 为 LRC 文本）
+ *   - 播放 `/getMusicPlay/:songmid`（未登录/无版权 → `data.playUrl[mid].url` 为空）
+ *   - 扫码 `/login/qr/key` → `/login/qr/create?key=&channel=qq` → `/login/qr/check?key=`（801=未扫）
  */
 import { fetchJson } from "./fetchJson.js";
+import { qqApiUrl } from "./qqBackend.js";
 
-const MUSICU = "https://u.y.qq.com/cgi-bin/musicu.fcg";
-const LYRIC = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg";
-const QQ_HEADERS = { Referer: "https://y.qq.com/", Origin: "https://y.qq.com" };
-/** QQ 专属会话分区（M6 P0）：登录 cookie 与网易云等其它源彻底隔离，persist: 前缀跨重启保留。 */
-export const QQ_PARTITION = "persist:qq-login";
-
-/** 收敛接口面：渲染层只能调这几个，与 netease 通道同规矩 */
-const ALLOWED = new Set(["search", "lyric", "url"]);
-
-/** 音质前缀：128k=M500、320k=M800（flac=F000 暂不放开，qualities 只声明到 320k）。 */
-function filePrefix(quality: string): string {
-  return quality === "320k" ? "M800" : "M500";
+interface QqBody {
+  code?: number;
+  message?: string;
+  data?: unknown;
+  response?: unknown;
 }
+
+async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
+  const { json } = await fetchJson(`${qqApiUrl()}${pathAndQuery}`);
+  return json as T;
+}
+
+/** 渲染层可见的接口面：与旧实现同名，底层换服务。 */
+const ALLOWED = new Set(["search", "lyric", "url", "qrStart", "qrPoll", "status", "logout"]);
 
 export async function callQq(method: string, params: Record<string, unknown>): Promise<unknown> {
   if (!ALLOWED.has(method)) throw new Error(`不允许调用 QQ 接口：${method}`);
-  if (method === "search") return qqSearch(params);
-  if (method === "url") return qqUrl(params);
-  return qqLyric(params);
+  switch (method) {
+    case "search":
+      return qqSearch(params);
+    case "lyric":
+      return qqLyric(params);
+    case "url":
+      return qqUrl(params);
+    case "qrStart":
+      return qqQrStart();
+    case "qrPoll":
+      return qqQrPoll();
+    case "status":
+      return qqStatus();
+    case "logout":
+      return callApi("/logout");
+    default:
+      throw new Error(`QQ 接口未实现：${method}`);
+  }
 }
+
+/* ---------- 搜索 ---------- */
 
 async function qqSearch(params: Record<string, unknown>): Promise<unknown> {
   const page = Math.max(0, Number(params.page ?? 0) || 0);
-  const body = {
-    comm: { ct: 19, cv: 1845 },
-    req_1: {
-      method: "DoSearchForQQMusicDesktop",
-      module: "music.search.SearchCgiService",
-      param: {
-        search_type: 0,
-        query: String(params.keyword ?? "").slice(0, 100),
-        page_num: page + 1,
-        num_per_page: 30,
-      },
-    },
-  };
-  const { json } = await fetchJson(MUSICU, {
-    method: "POST",
-    headers: { ...QQ_HEADERS, "Content-Type": "application/json" },
-    json: body,
-    partition: QQ_PARTITION,
-  });
-  return json;
+  const keyword = String(params.keyword ?? "").slice(0, 100);
+  return callApi(`/search?keyword=${encodeURIComponent(keyword)}&page=${page + 1}&limit=30`);
 }
+
+/* ---------- 歌词 ---------- */
 
 async function qqLyric(params: Record<string, unknown>): Promise<unknown> {
   const songmid = String(params.songmid ?? "");
   if (!/^[0-9A-Za-z]{6,20}$/.test(songmid)) throw new Error("非法 songmid");
-  const url =
-    `${LYRIC}?songmid=${encodeURIComponent(songmid)}` +
-    "&g_tk=5381&format=json&inCharset=utf8&outCharset=utf-8&nobase64=1";
-  const { json } = await fetchJson(url, { headers: QQ_HEADERS, partition: QQ_PARTITION });
-  return json;
+  return callApi(`/getLyric?songmid=${encodeURIComponent(songmid)}`);
 }
 
-/** 登录态取 vkey。未登录时上游不给 vkey —— 调用方（渲染层 capability）负责把错误翻译成人话。 */
+/* ---------- 播放地址（登录态） ---------- */
+
+interface QqPlayBody {
+  code?: number;
+  data?: { playUrl?: Record<string, { url?: unknown; error?: unknown }> };
+}
+
 async function qqUrl(params: Record<string, unknown>): Promise<unknown> {
   const songmid = String(params.songmid ?? "");
   if (!/^[0-9A-Za-z]{6,20}$/.test(songmid)) throw new Error("非法 songmid");
-  const quality = String(params.quality ?? "128k");
-  const prefix = filePrefix(quality);
-  const filename = `${prefix}${songmid}.mp3`;
-  const body = {
-    comm: { uin: 0, format: "json", ct: 24, cv: 0 },
-    req: {
-      module: "music.vkey.GetEVkey",
-      method: "GetEVkey",
-      param: {
-        guid: "1234567890",
-        song_mid: songmid,
-        song_id: 0,
-        filename: [filename],
-        songtype: [0],
-        uin: 0,
-        loginflag: 1,
-        platform: "20",
-      },
-    },
-  };
-  const { json } = await fetchJson(MUSICU, {
-    method: "POST",
-    headers: { ...QQ_HEADERS, "Content-Type": "application/json" },
-    json: body,
-    partition: QQ_PARTITION,
-  });
-  return json;
+  return callApi<QqPlayBody>(`/getMusicPlay/${encodeURIComponent(songmid)}`);
+}
+
+/* ---------- 扫码登录（包内三件套，语义与网易云对齐） ---------- */
+
+async function qqQrStart(): Promise<unknown> {
+  const keyBody = await callApi<{ code?: number; data?: { unikey?: string } }>("/login/qr/key");
+  const key = keyBody?.data?.unikey;
+  if (!key) throw new Error("获取二维码失败");
+  await callApi(`/login/qr/create?key=${encodeURIComponent(key)}&channel=qq`);
+  return { key, qrImage: `/login/qr/image?key=${encodeURIComponent(key)}&channel=qq` };
+}
+
+async function qqQrPoll(): Promise<unknown> {
+  return callApi("/login/qr/check");
+}
+
+/* ---------- 登录态 ---------- */
+
+async function qqStatus(): Promise<unknown> {
+  return callApi("/login/status");
 }

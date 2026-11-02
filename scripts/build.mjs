@@ -66,7 +66,8 @@ await build({
   target: NODE_TARGET,
   // NeteaseCloudMusicApi 按目录扫描 300+ 个模块并动态 require，打不进 bundle，
   // 运行时从 node_modules 加载（打包 exe 时要 asarUnpack，见 package.json 的 build 段）
-  external: ["electron", "NeteaseCloudMusicApi"],
+  // qq-music-api 同理（自带 dist，require 即启动服务）
+  external: ["electron", "NeteaseCloudMusicApi", "@yakult-green-tea/qq-music-api"],
   sourcemap: true,
 });
 

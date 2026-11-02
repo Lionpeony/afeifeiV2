@@ -12,6 +12,7 @@
 
 | 来源 | 许可 | 取用了什么 | 落在本仓库哪里 |
 |---|---|---|---|
+| [yakult-green-tea/qq-music-api](https://github.com/yakult-green-tea/qq-music-api)（v3.3.5） | MIT | **整包依赖**：QQ 音乐扫码登录（MQTT/HTTP 双通道）、登录态会话管理（QIMEI）、登录态播放地址。作为独立服务由主进程 `qqBackend.ts` 拉起，通过 HTTP 调用 | `src/main/net/qqBackend.ts`、`src/main/net/qqClient.ts` |
 | [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) | AGPL-3.0 | **登录身份机制**：每次启动随机 `deviceId`、登录态 cookie 名清单、以及"扫码被连接重置后需换出口 IP"这一事实（来自其源码注释）。未搬其 Worker/jsdom 后端——本项目直接用同一个底层 SDK 的函数式接口 | `src/main/net/neteaseClient.ts`（`DEVICE_ID` 与 `cleanCookie`）、`src/main/ipc/index.ts`（登录态 cookie 白名单思路） |
 | [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) | MIT | 作为依赖使用（`npm i NeteaseCloudMusicApi`），未修改其源码 | `package.json` 依赖；经 `main/net/neteaseClient.ts` 调用 |
 

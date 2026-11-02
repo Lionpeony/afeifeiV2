@@ -33,7 +33,8 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     const mid = s.mid;
     if (typeof mid !== "string" || !mid) return null;
     const singer = (s.singer ?? []) as { name?: string }[];
-    const album = (s.album ?? {}) as { name?: unknown; mid?: unknown };
+    // yakult 版搜索结果的专辑名在 album.title（匿名 musicu 直连时是 album.name），两者都收
+    const album = (s.album ?? {}) as { name?: unknown; title?: unknown; mid?: unknown };
     const interval = Number(s.interval);
     return {
       sourceId: mid,
@@ -43,7 +44,9 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
           .map((a) => a?.name)
           .filter((n): n is string => !!n)
           .join(" / ") || "未知歌手",
-      album: typeof album.name === "string" && album.name ? album.name : "未知专辑",
+      album:
+      ([album.title, album.name].find((v) => typeof v === "string" && v) as string | undefined) ??
+      "未知专辑",
       durationMs: Number.isFinite(interval) && interval > 0 ? Math.round(interval * 1000) : 0,
       coverUrl:
         typeof album.mid === "string" && album.mid
@@ -60,10 +63,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
   }
 
   interface QqUrlBody {
-    req?: {
-      code?: number;
-      data?: { midurlinfo?: { purl?: unknown }[] };
-    };
+    data?: { playUrl?: Record<string, { url?: unknown }> };
   }
 
   return {
@@ -117,17 +117,15 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
 
     async getUrl(sourceId: string): Promise<string> {
       const body = await qq<QqUrlBody>("url", { songmid: sourceId });
-      const req = body?.req;
-      if (!req || req.code !== 0) throw err("network", "QQ 音乐暂时不可用");
-      const info = req.data?.midurlinfo?.[0];
-      const purl = typeof info?.purl === "string" ? info.purl : "";
-      if (!purl) {
-        // 上游对"没登录"和"没版权"都返回空 purl —— 必须分开说（00 §10：错误只翻译一次）
+      const info = body?.data?.playUrl?.[sourceId];
+      const url = typeof info?.url === "string" ? info.url : "";
+      if (!url) {
+        // 上游对"没登录"和"没版权"都返回空 url —— 必须分开说（00 §10：错误只翻译一次）
         const profile = await qq<{ loggedIn: boolean }>("profile");
         if (!profile.loggedIn) throw err("auth-required", "请先登录 QQ 音乐");
         throw err("quality-unavailable", "这首歌没有可播放的地址（可能需要会员）");
       }
-      return /^https?:\/\//i.test(purl) ? purl : `http://dl.stream.qqmusic.qq.com/${purl}`;
+      return /^https?:\/\//i.test(url) ? url : `http://dl.stream.qqmusic.qq.com/${url}`;
     },
   };
 }

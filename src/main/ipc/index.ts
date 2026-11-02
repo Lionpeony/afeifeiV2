@@ -13,7 +13,6 @@ import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
-import { pollQrLogin, qqLogout, qqProfile, startQrLogin } from "../net/qqSession.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
@@ -160,12 +159,28 @@ export function registerIpc(): void {
     }
   });
 
-  /* ---------- QQ 扫码登录（隐藏页 + 应用内二维码，见 main/net/qqSession.ts） ---------- */
+  /* ---------- QQ 扫码登录（本地 qqBackend 服务承载，见 main/net/qqBackend.ts） ---------- */
 
-  ipcMain.handle("qq:login", () => startQrLogin());
-  ipcMain.handle("qq:poll", () => pollQrLogin());
-  ipcMain.handle("qq:profile", () => qqProfile());
-  ipcMain.handle("qq:logout", () => qqLogout());
+  ipcMain.handle("qq:login", async () => {
+    const r = (await callQq("qrStart", {})) as { key?: string; qrImage?: string };
+    return { key: r.key ?? "", qrImage: r.qrImage ?? "" };
+  });
+  ipcMain.handle("qq:poll", async () => {
+    const check = (await callQq("qrPoll", {})) as { code?: number; message?: string };
+    // 包的 check 语义与网易云对齐（801=未扫）；登录完成与否以 /login/status 为准
+    const status = (await callQq("status", {})) as { data?: Record<string, unknown> };
+    const loggedIn = !!status.data && Object.keys(status.data).length > 0;
+    return { code: check.code ?? 801, loggedIn, message: check.message ?? "" };
+  });
+  ipcMain.handle("qq:profile", async () => {
+    const s = (await callQq("status", {})) as { data?: { uin?: unknown; nick?: unknown } };
+    const loggedIn = !!s.data && Object.keys(s.data).length > 0;
+    const uid = s.data?.uin != null ? String(s.data.uin) : null;
+    return { loggedIn, nick: loggedIn ? uid : null, uid };
+  });
+  ipcMain.handle("qq:logout", async () => {
+    await callQq("logout", {});
+  });
 
   ipcMain.handle("util:qrcode", (_e, text: unknown) => {
     if (typeof text !== "string") throw new Error("util:qrcode 需要文本");
