@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { dataDir } from "../paths.js";
 import { log } from "../log/index.js";
 
@@ -19,8 +20,26 @@ import { log } from "../log/index.js";
 
 type NcmFn = (params: Record<string, unknown>) => Promise<{ status: number; body: Record<string, unknown> }>;
 
+/**
+ * **每次都换一个设备标识**（照抄 Folia 的做法）。
+ *
+ * 上游 `util/request.js` 用 `deviceId: cookie.deviceId || global.deviceId`，
+ * 不设它就是 undefined —— 网易那边看来永远是同一台设备在反复撞，
+ * 一旦被限流，失败状态会一直粘着，重启也不解。
+ *
+ * Folia 源码里的原话：
+ *   「扫码请求被网易直接断开（连接被重置）后，同一设备标识和出口 IP 下继续扫码多半还是被断；
+ *     用户反馈要重新联网（换出口 IP）或重启应用才恢复。」
+ *
+ * 所以这里在 require 之前就写好，让加载期和请求期都是这个值。
+ */
+const DEVICE_ID = randomUUID().replace(/-/g, "").toUpperCase();
+(globalThis as Record<string, unknown>).deviceId = DEVICE_ID;
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const ncm = require("NeteaseCloudMusicApi") as Record<string, NcmFn>;
+
+export const currentDeviceId = (): string => DEVICE_ID;
 
 const cookieFile = (): string => path.join(dataDir(), "netease-cookie.txt");
 
