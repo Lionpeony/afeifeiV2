@@ -5,6 +5,9 @@ import { readTags, scanDirs } from "../fs/readTags.js";
 import { statFiles } from "../fs/statFiles.js";
 import { readCover } from "../fs/cover.js";
 import { readKey, writeKey } from "../fs/kv.js";
+import { fetchJson } from "../net/fetchJson.js";
+import { setSessionCookie } from "../net/cookie.js";
+import { qrDataUrl } from "../util/qrcode.js";
 import {
   appendIndexLog,
   clearIndexLog,
@@ -71,6 +74,24 @@ export function registerIpc(): void {
       throw new Error("library:statFiles 只接受字符串数组");
     }
     return statFiles(filePaths as string[]);
+  });
+
+  /* ---------- 出站网络 ---------- */
+  ipcMain.handle("net:fetchJson", (_e, url: unknown, options: unknown) => {
+    if (typeof url !== "string") throw new Error("net:fetchJson 需要一个 URL 字符串");
+    return fetchJson(url, (options ?? {}) as Record<string, never>);
+  });
+
+  ipcMain.handle("net:setCookie", (_e, target: unknown, name: unknown, value: unknown) => {
+    if (typeof target !== "string" || typeof name !== "string" || typeof value !== "string") {
+      throw new Error("net:setCookie 需要 (url, name, value)");
+    }
+    return setSessionCookie(target, name, value);
+  });
+
+  ipcMain.handle("util:qrcode", (_e, text: unknown) => {
+    if (typeof text !== "string") throw new Error("util:qrcode 需要文本");
+    return qrDataUrl(text);
   });
 
   /* ---------- 通用小文件（收藏 / 歌单 / 历史） ---------- */

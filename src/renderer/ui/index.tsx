@@ -132,7 +132,20 @@ function App() {
           onPlay={async (sourceId, track) => {
             const svc = services.current;
             if (!svc) return;
-            await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+            // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
+            const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+            dispatch({ type: "player/play", trackId: url });
+          }}
+          loginStatus={() => services.current?.loginStatus() ?? Promise.resolve({ loggedIn: false, nick: null })}
+          startLogin={() => {
+            const svc = services.current;
+            if (!svc) return Promise.reject(new Error("还没准备好，请稍后"));
+            return svc.startLogin();
+          }}
+          pollLogin={(key) => {
+            const svc = services.current;
+            if (!svc) return Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" });
+            return svc.pollLogin(key);
           }}
         />
       )}

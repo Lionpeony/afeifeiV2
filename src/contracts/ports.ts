@@ -40,6 +40,25 @@ export interface KeyValuePort {
   write(key: string, json: string): Promise<void>;
 }
 
+/**
+ * 出站 HTTP。**主进程不认识 URL 的含义**，只负责发请求、带回 JSON 与 Set-Cookie。
+ * cookie 由 Electron session 自动管理，所以扫码登录成功后不用我们自己搬运。
+ */
+export interface HttpPort {
+  fetchJson(
+    url: string,
+    options?: {
+      method?: "GET" | "POST";
+      form?: Record<string, string | number | boolean>;
+      headers?: Record<string, string>;
+    },
+  ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
+  /** 把文本画成二维码 dataURL（扫码登录用） */
+  qrDataUrl(text: string): Promise<string>;
+  /** 写一条 session cookie（有些接口要求带基础 cookie，否则 301/400） */
+  setCookie(url: string, name: string, value: string): Promise<void>;
+}
+
 /** 曲库索引的存取与扫描。 */
 export interface LibraryPort {
   pickDir(): Promise<string | null>;

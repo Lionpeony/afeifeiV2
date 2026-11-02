@@ -24,6 +24,16 @@ contextBridge.exposeInMainWorld("api", {
   // 通用小文件（收藏 / 歌单 / 历史）
   readStore: (key: string): Promise<string | null> => ipcRenderer.invoke("store:read", key),
   writeStore: (key: string, json: string): Promise<void> => ipcRenderer.invoke("store:write", key, json),
+
+  // 出站网络与工具
+  fetchJson: (
+    url: string,
+    options?: { method?: "GET" | "POST"; form?: Record<string, string | number | boolean>; headers?: Record<string, string> },
+  ): Promise<{ status: number; json: unknown; setCookie: string[] }> =>
+    ipcRenderer.invoke("net:fetchJson", url, options),
+  setCookie: (url: string, name: string, value: string): Promise<void> =>
+    ipcRenderer.invoke("net:setCookie", url, name, value),
+  qrDataUrl: (text: string): Promise<string> => ipcRenderer.invoke("util:qrcode", text),
   loadIndex: (): Promise<string | null> => ipcRenderer.invoke("library:loadIndex"),
   saveIndex: (json: string): Promise<void> => ipcRenderer.invoke("library:saveIndex", json),
   readIndexLog: (): Promise<string> => ipcRenderer.invoke("library:readLog"),

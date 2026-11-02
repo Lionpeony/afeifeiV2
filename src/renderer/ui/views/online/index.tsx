@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
+import { LoginDialog } from "./LoginDialog.js";
 
 export interface SourceOption {
   id: string;
@@ -12,6 +13,9 @@ export interface OnlineViewProps {
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。 */
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  loginStatus(): Promise<{ loggedIn: boolean; nick: string | null }>;
+  startLogin(): Promise<{ key: string; qrImage: string }>;
+  pollLogin(key: string): Promise<{ code: number | string; loggedIn: boolean; message: string }>;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -28,16 +32,29 @@ function fmtDuration(ms: number): string {
  * 点一首能不能播由能力声明决定：demo 源声明了 canGetUrl 但实现里明确抛错，
  * 正好验证"能力缺失/不支持"的提示链路。
  */
-export function OnlineView({ sources, onSearch, onPlay }: OnlineViewProps) {
+export function OnlineView({ sources, onSearch, onPlay, loginStatus, startLogin, pollLogin }: OnlineViewProps) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [nick, setNick] = useState<string | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     if (!sourceId && sources[0]) setSourceId(sources[0].id);
   }, [sources, sourceId]);
+
+  const refreshLogin = (): void => {
+    void loginStatus()
+      .then((s) => setNick(s.loggedIn ? s.nick ?? "已登录" : null))
+      .catch(() => setNick(null));
+  };
+
+  useEffect(() => {
+    refreshLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const run = async (): Promise<void> => {
     if (!sourceId) return;
@@ -91,8 +108,24 @@ export function OnlineView({ sources, onSearch, onPlay }: OnlineViewProps) {
         <button type="button" onClick={() => void run()} disabled={busy}>
           {busy ? "搜索中…" : "搜索"}
         </button>
+        <button type="button" onClick={() => setLoginOpen(true)}>
+          {nick ? `已登录：${nick}` : "登录"}
+        </button>
         <span className="lib-count">{rows.length > 0 ? `${rows.length} 条` : ""}</span>
       </div>
+
+      {loginOpen ? (
+        <LoginDialog
+          start={startLogin}
+          poll={pollLogin}
+          onSuccess={() => {
+            setLoginOpen(false);
+            refreshLogin();
+            setNote("登录成功，现在可以播放会员歌曲了");
+          }}
+          onClose={() => setLoginOpen(false)}
+        />
+      ) : null}
 
       {note ? <p className="lib-note">{note}</p> : null}
 

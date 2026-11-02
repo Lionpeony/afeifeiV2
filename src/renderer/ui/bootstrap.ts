@@ -1,10 +1,18 @@
 import type { Quality, RemoteTrack, SearchResult } from "../../contracts/capability.js";
 import type { AppState } from "../../contracts/index.js";
-import type { KeyValuePort, LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
+import type { HttpPort, KeyValuePort, LibraryPort, MediaPort, RawMeta, StoragePort } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { errorText, translateError } from "../capability/errors.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
 import { demoProvider } from "../capability/sources/demo/index.js";
+import {
+  checkLogin,
+  createNeteaseProvider,
+  pollQrLogin,
+  startQrLogin,
+  type LoginProfile,
+  type QrPollResult,
+} from "../capability/sources/netease/index.js";
 import { loadCover } from "../domain/library/cover.js";
 import { restoreLibrary, scanLibrary, type ScanStats } from "../domain/library/scan.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
@@ -32,6 +40,18 @@ interface Api {
   clearIndexLog(): Promise<void>;
   readStore(key: string): Promise<string | null>;
   writeStore(key: string, json: string): Promise<void>;
+
+  // 出站网络与工具
+  fetchJson(
+    url: string,
+    options?: {
+      method?: "GET" | "POST";
+      form?: Record<string, string | number | boolean>;
+      headers?: Record<string, string>;
+    },
+  ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
+  setCookie(url: string, name: string, value: string): Promise<void>;
+  qrDataUrl(text: string): Promise<string>;
 }
 
 declare global {
@@ -54,6 +74,12 @@ export interface Services {
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
+  /** 开始扫码登录：拿到 key 与二维码图 */
+  startLogin(): Promise<{ key: string; qrImage: string }>;
+  /** 轮询扫码结果 */
+  pollLogin(key: string): Promise<QrPollResult>;
+  /** 查询当前登录态 */
+  loginStatus(): Promise<LoginProfile>;
 }
 
 /** 把能力层抛的错收敛成一句人话。界面永远只看到这句话。 */
@@ -102,8 +128,15 @@ export async function bootstrap(): Promise<Services> {
     write: (key, json) => api.writeStore(key, json),
   };
 
+  const http: HttpPort = {
+    fetchJson: (url, options) => api.fetchJson(url, options),
+    qrDataUrl: (text) => api.qrDataUrl(text),
+    setCookie: (url, name, value) => api.setCookie(url, name, value),
+  };
+
   // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
   registerProvider(demoProvider);
+  registerProvider(createNeteaseProvider(http));
 
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);
@@ -199,6 +232,10 @@ export async function bootstrap(): Promise<Services> {
         throw humanize(err);
       }
     },
+
+    startLogin: () => startQrLogin(http),
+    pollLogin: (key) => pollQrLogin(http, key),
+    loginStatus: () => checkLogin(http),
 
     async scan(onProgress) {
       const dir = await api.pickDir();

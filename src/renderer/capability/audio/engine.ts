@@ -56,11 +56,8 @@ export class AudioEngine {
   async load(track: string): Promise<boolean> {
     if (this.currentSrc === track) return false;
 
-    const token = await this.media.grant(track);
-    if (!token) {
-      this.hooks.onError?.("track-missing");
-      return false;
-    }
+    const src = await this.resolveSrc(track);
+    if (!src) return false;
 
     if (this.graph) {
       const now = this.graph.ctx.currentTime;
@@ -72,9 +69,26 @@ export class AudioEngine {
     }
 
     this.currentSrc = track;
-    this.el.src = this.media.urlOf(token);
+    this.el.src = src;
     this.el.load();
     return true;
+  }
+
+  /**
+   * 本地路径 → 换令牌；远程地址 → 直接用。
+   *
+   * 远程地址给的是音源返回的 CDN 直链，用不到 appmedia 协议；
+   * 但它必须已经在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
+   */
+  private async resolveSrc(track: string): Promise<string | null> {
+    if (/^https:\/\//i.test(track)) return track;
+
+    const token = await this.media.grant(track);
+    if (!token) {
+      this.hooks.onError?.("track-missing");
+      return null;
+    }
+    return this.media.urlOf(token);
   }
 
   async play(): Promise<void> {

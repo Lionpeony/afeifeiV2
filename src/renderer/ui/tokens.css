@@ -8,4 +8,6 @@
   --row-hover: #161616;
   --accent: #e8555a;
   --danger: #d9534f;
+  --bg-raised: #141414;
+  --mask: rgba(0, 0, 0, 0.66);
 }
