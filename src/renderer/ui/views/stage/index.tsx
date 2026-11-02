@@ -6,6 +6,7 @@ import { onTick } from "../../compositor.js";
 import { setLyricDoc } from "../../lyric-bridge.js";
 import { karaokeState, minimalState, pressState, theatricalState } from "./lyric-state.js";
 import { LAYER_KEYS, PRESETS } from "./presets.js";
+import { sampleCoverTint } from "./tint-client.js";
 
 const LINE_H = 36; // press / theatrical 的固定行高（px），与 stage.css 一致
 const SPECTRUM_BARS = 48; // 电影感预设的频谱柱数（50 §9.2）
@@ -88,6 +89,18 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
       alive = false;
     };
   }, [player.trackId, remote?.coverUrl, cover]);
+
+  /* ---- 封面取色（M9-2）：只写 --stage-tint，量化在 Worker，失败保留当前值 ---- */
+  useEffect(() => {
+    if (!coverUrl) return;
+    let alive = true;
+    sampleCoverTint(coverUrl, (tint) => {
+      if (alive && tint) rootRef.current?.style.setProperty("--stage-tint", tint);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [coverUrl]);
 
   /* ---- 歌词：只有在线曲目拿得到（50 §7.4 解析在能力层）；本地曲目给空态 ---- */
   useEffect(() => {

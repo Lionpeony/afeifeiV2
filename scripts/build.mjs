@@ -38,6 +38,7 @@ if (TEST) {
       lyrics: "src/renderer/capability/lyrics/index.ts",
       "audio-eq": "src/renderer/capability/audio/eq.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
+      "stage-tint": "src/renderer/ui/views/stage/tint.ts",
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",
       "input-esc": "src/renderer/ui/input/resolve-esc.ts",
       "input-commands": "src/renderer/ui/input/commands.ts",
@@ -114,6 +115,17 @@ await build({
   format: "iife",
   target: BROWSER_TARGET,
   jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+});
+
+// 取色 Worker（M9-2）：量化不在主线程。独立 iife，运行时 new Worker("tint-worker.js")
+await build({
+  entryPoints: ["src/renderer/ui/views/stage/tint-worker.ts"],
+  outfile: path.join(OUT, "renderer", "tint-worker.js"),
+  bundle: true,
+  platform: "browser",
+  format: "iife",
+  target: BROWSER_TARGET,
   define: { "process.env.NODE_ENV": '"production"' },
 });
 

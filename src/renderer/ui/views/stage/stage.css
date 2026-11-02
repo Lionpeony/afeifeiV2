@@ -31,6 +31,18 @@
   filter: blur(48px) brightness(0.82) saturate(1.1);
   transform: scale(1.15); /* 模糊边缘外扩，不露黑边 */
 }
+/* 封面取色的可见落点（M9-2，00 §9.3）：--stage-tint 只进 L-a/L-b，不碰结构层。
+   18% 低混比 + 透明渐隐，封面一换背景色跟着变，UI 骨架不动。 */
+.st-wallpaper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 30%,
+    color-mix(in oklch, var(--stage-tint) 18%, transparent),
+    transparent 65%
+  );
+}
 
 /* ---- L-b 视觉（z 1） ---- */
 .st-spectrum {
