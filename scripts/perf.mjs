@@ -224,7 +224,23 @@ async function main() {
 
   const m = await once();
   cleanupProfile(PROFILE);
-  compareBaseline(m);
+  try {
+    compareBaseline(m);
+  } catch (err) {
+    // 单轮对比会吃到机器波动（verify 连跑后 CPU 热，实测 21.7→36.9ms 假红）：
+    // 劣化时重测两轮取中位再判——仍然红才是真劣化。
+    console.log(`  疑似波动，重测两轮取中位…（首轮判红：${err.message.split("\n")[0]}）`);
+    const runs = [m];
+    for (let i = 0; i < 2; i += 1) {
+      runs.push(await once());
+      cleanupProfile(PROFILE);
+    }
+    compareBaseline({
+      restoreMs: median(runs.map((r) => r.restoreMs)),
+      frameP95Ms: median(runs.map((r) => r.frameP95Ms)),
+      searchMs: median(runs.map((r) => r.searchMs)),
+    });
+  }
 }
 
 try {

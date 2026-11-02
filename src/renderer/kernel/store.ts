@@ -21,7 +21,7 @@ const initialState: AppState = {
     remote: null,
   },
   queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
-  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0] },
+  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0], crossfadeSec: 0 },
   stage: {
     preset: "paper",
     intensity: 1,
@@ -179,6 +179,12 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, player: { ...player, status: "paused" } };
     }
 
+    case "player/began": {
+      // crossfade 的入场曲已发声（M9-3）：loading 原地转 playing，trackId/队列不动
+      if (player.status !== "loading") return current;
+      return { ...current, player: { ...player, status: "playing" } };
+    }
+
     case "queue/set": {
       const items = intent.items;
       if (items.length === 0) {
@@ -250,10 +256,18 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, audio: { ...current.audio, eq } };
     }
 
+    case "audio/setCrossfade": {
+      // 档位白名单（0/3/6），不在档位一律关——kernel 不 import capability，这里就地 clamp
+      const sec = intent.sec === 3 || intent.sec === 6 ? intent.sec : 0;
+      if (current.audio.crossfadeSec === sec) return current;
+      return { ...current, audio: { ...current.audio, crossfadeSec: sec } };
+    }
+
     case "audio/restore": {
       const config = intent.config;
       if (
         config.preampDb === current.audio.preampDb &&
+        config.crossfadeSec === current.audio.crossfadeSec &&
         config.eq.length === current.audio.eq.length &&
         config.eq.every((v, i) => v === current.audio.eq[i])
       ) {

@@ -5,6 +5,7 @@
  * 频段、限幅、校验、dB→线性换算都收在这一个文件；AudioContext 相关在 graph.ts。
  */
 import type { AudioConfig } from "../../../contracts/index.js";
+import { sanitizeCrossfade } from "./crossfade.js";
 
 /** 6 段中心频率（Hz）。写死：频段一变，所有持久化数据都作废，必须走迁移。 */
 export const EQ_BANDS = [60, 200, 700, 2500, 7500, 15000] as const;
@@ -32,17 +33,18 @@ export function sanitizeGains(raw: unknown): number[] {
   return raw.map((v) => (typeof v === "number" && Number.isFinite(v) ? clampDb(v) : 0));
 }
 
-/** KV 里存的 { preampDb, eq } → 合法配置。null / 坏结构回落默认。 */
+/** KV 里存的 { preampDb, eq, crossfadeSec } → 合法配置。null / 坏结构回落默认。 */
 export function sanitizeAudioConfig(raw: unknown): AudioConfig {
   if (!raw || typeof raw !== "object") {
-    return { preampDb: PREAMP_DEFAULT, eq: [...EQ_DEFAULT] };
+    return { preampDb: PREAMP_DEFAULT, eq: [...EQ_DEFAULT], crossfadeSec: 0 };
   }
-  const r = raw as { preampDb?: unknown; eq?: unknown };
+  const r = raw as { preampDb?: unknown; eq?: unknown; crossfadeSec?: unknown };
   return {
     preampDb:
       typeof r.preampDb === "number" && Number.isFinite(r.preampDb)
         ? clampDb(r.preampDb)
         : PREAMP_DEFAULT,
     eq: sanitizeGains(r.eq),
+    crossfadeSec: sanitizeCrossfade(r.crossfadeSec),
   };
 }

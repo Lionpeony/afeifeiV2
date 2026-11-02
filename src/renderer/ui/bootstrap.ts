@@ -142,6 +142,14 @@ export async function bootstrap(): Promise<Services> {
     onReady: () => dispatch({ type: "player/ready" }),
     onEnded: () => dispatch({ type: "player/ended" }),
     onError: (code) => dispatch({ type: "player/error", code }),
+    // crossfade（M9-3）：进窗口就切下一首；repeat-one 对自己淡入没有意义，走自然 ended
+    onNearEnd: () => {
+      if (getState().queue.mode === "repeat-one") return;
+      dispatch({ type: "queue/next" });
+    },
+    onFadeStart: () => dispatch({ type: "player/began" }),
+    // 切点：新曲成为主轨，时钟一次性归零——双音轨 ≠ 双时钟（00 §3.2 #5）
+    onSwitched: () => clock.seek(0, performance.now()),
   });
 
   // 收藏 / 歌单变了就落盘。收藏不是高频操作，一次一带足矣
@@ -428,21 +436,27 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
 
   if (n.trackId && n.trackId !== p.trackId) {
     if (n.volume !== p.volume) engine.setVolume(n.volume);
+    // crossfade 预判必须在 load 之前同步做：grant 是异步的，事后问就晚了。
+    // 走 crossfade 时时钟继续跟出场曲，归零由切点回调 onSwitched 负责（00 §3.2 #5）。
+    const keepClock = engine.willCrossfade(n.trackId);
     void engine.load(n.trackId).then((changed) => {
-      if (!changed) return;
+      if (!changed || keepClock) return;
       if (n.positionMs > 0) engine.seek(n.positionMs);
       if (getState().player.status === "playing") {
         clock.start(n.positionMs, performance.now());
         void engine.play();
       }
     });
-    // 无论处于 loading 还是 playing，时钟锚点都要立刻跟上 ——
-    // 否则恢复上次位置后进度条会从 0 开始，与音频真实位置对不上（I1）。
-    clock.seek(n.positionMs, now);
+    if (!keepClock) {
+      // 无论处于 loading 还是 playing，时钟锚点都要立刻跟上 ——
+      // 否则恢复上次位置后进度条会从 0 开始，与音频真实位置对不上（I1）。
+      clock.seek(n.positionMs, now);
+    }
     return;
   }
 
-  if (n.status !== p.status) {
+  // crossfade 中状态机由 onFadeStart/onSwitched 驱动，这里别去动 clock 与播放
+  if (n.status !== p.status && !engine.isFading()) {
     if (n.status === "playing") {
       clock.start(n.positionMs, now);
       void engine.play();
@@ -466,5 +480,6 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   if (na !== pa) {
     if (na.preampDb !== pa.preampDb) engine.setPreamp(na.preampDb);
     if (na.eq.some((v: number, i: number) => v !== pa.eq[i])) engine.setEq(na.eq);
+    if (na.crossfadeSec !== pa.crossfadeSec) engine.setCrossfade(na.crossfadeSec);
   }
 }

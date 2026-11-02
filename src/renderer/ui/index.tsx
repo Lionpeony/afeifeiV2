@@ -419,7 +419,7 @@ function App() {
               onClick={() =>
                 dispatch({
                   type: "audio/restore",
-                  config: { preampDb: PREAMP_DEFAULT, eq: EQ_DEFAULT },
+                  config: { preampDb: PREAMP_DEFAULT, eq: EQ_DEFAULT, crossfadeSec: 0 },
                 })
               }
             >
@@ -437,6 +437,18 @@ function App() {
               onChange={(e) => dispatch({ type: "audio/setPreamp", db: Number(e.target.value) })}
             />
             <span className="fx-val">{Math.round(state.audio.preampDb)} dB</span>
+          </label>
+          <label className="fx-row">
+            <span>交叉淡化</span>
+            <select
+              value={state.audio.crossfadeSec}
+              onChange={(e) => dispatch({ type: "audio/setCrossfade", sec: Number(e.target.value) })}
+            >
+              <option value={0}>关</option>
+              <option value={3}>3 秒</option>
+              <option value={6}>6 秒</option>
+            </select>
+            <span className="fx-val" />
           </label>
           {state.audio.eq.map((db, i) => {
             const hz = EQ_BANDS[i];

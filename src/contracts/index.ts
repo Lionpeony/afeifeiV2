@@ -61,6 +61,8 @@ export interface AudioConfig {
   preampDb: number;
   /** 6 段 EQ 增益（dB，各 ±12），与 capability/audio/eq.ts 的 EQ_BANDS 对齐。 */
   eq: number[];
+  /** crossfade 时长（秒，0/3/6）。0 = 关（M9-3）。 */
+  crossfadeSec: number;
 }
 
 /** 播放页五层（50 §9.2）。cover 与 controls 永远开着 —— toggleLayer 对它们无效。 */
@@ -138,10 +140,14 @@ export type Intent =
   | { type: "player/cue"; trackId: TrackId; positionMs?: number }
   /** 引擎加载完成，loading 可以落到 paused。 */
   | { type: "player/ready" }
+  /** crossfade 的入场曲已发声（M9-3）：loading 原地转 playing，trackId 不动。 */
+  | { type: "player/began" }
   /** 前置增益（dB，越界由 store clamp）。 */
   | { type: "audio/setPreamp"; db: number }
   /** 整组设置 6 段 EQ（dB）。长度不齐整组拒绝。 */
   | { type: "audio/setEq"; gains: number[] }
+  /** crossfade 时长（秒，0/3/6，非法值回落 0）。 */
+  | { type: "audio/setCrossfade"; sec: number }
   /** 恢复持久化的音频配置（入口侧已 sanitize）。 */
   | { type: "audio/restore"; config: AudioConfig }
   /** 播放页配置。preset 切换不重建 store、不重解码封面（M4 判据）。 */

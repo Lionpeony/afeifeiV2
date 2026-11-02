@@ -49,14 +49,18 @@ test("sanitizeGains：长度不对 / 非数组 → 整组默认", () => {
 });
 
 test("sanitizeAudioConfig：null / 坏结构 → 全默认", () => {
-  assert.deepEqual(sanitizeAudioConfig(null), { preampDb: 0, eq: EQ_DEFAULT });
-  assert.deepEqual(sanitizeAudioConfig("junk"), { preampDb: 0, eq: EQ_DEFAULT });
-  assert.deepEqual(sanitizeAudioConfig({ preampDb: "3", eq: 7 }), { preampDb: 0, eq: EQ_DEFAULT });
+  assert.deepEqual(sanitizeAudioConfig(null), { preampDb: 0, eq: EQ_DEFAULT, crossfadeSec: 0 });
+  assert.deepEqual(sanitizeAudioConfig("junk"), { preampDb: 0, eq: EQ_DEFAULT, crossfadeSec: 0 });
+  assert.deepEqual(sanitizeAudioConfig({ preampDb: "3", eq: 7 }), {
+    preampDb: 0,
+    eq: EQ_DEFAULT,
+    crossfadeSec: 0,
+  });
 });
 
 test("sanitizeAudioConfig：合法数据原样保留（clamp 后）", () => {
-  const cfg = sanitizeAudioConfig({ preampDb: -3, eq: [1, 2, 3, 4, 5, 6] });
-  assert.deepEqual(cfg, { preampDb: -3, eq: [1, 2, 3, 4, 5, 6] });
+  const cfg = sanitizeAudioConfig({ preampDb: -3, eq: [1, 2, 3, 4, 5, 6], crossfadeSec: 3 });
+  assert.deepEqual(cfg, { preampDb: -3, eq: [1, 2, 3, 4, 5, 6], crossfadeSec: 3 });
 });
 
 /* ---------------- store 的 audio 域 ---------------- */
