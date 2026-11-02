@@ -33,7 +33,7 @@ export interface FetchJsonResult {
 
 const DEFAULT_TIMEOUT = 15000;
 
-/** 只放行 https，且不接受超长 URL —— 渲染层可信，但信任边界仍要校验。 */
+/** 只放行 https 与本机回环 http（QQ 后端是 127.0.0.1 上的本地服务），不接受超长 URL。 */
 function validate(url: string): void {
   if (typeof url !== "string" || url.length === 0 || url.length > 4096) {
     throw new Error("非法 URL");
@@ -45,7 +45,10 @@ function validate(url: string): void {
     throw new Error(`非法 URL：${url.slice(0, 80)}`);
   }
   if (parsed.protocol !== "https:") {
-    throw new Error(`只允许 https：${parsed.protocol}`);
+    const loopback = parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost";
+    if (parsed.protocol !== "http:" || !loopback) {
+      throw new Error(`只允许 https 或本机 http：${parsed.protocol}//${parsed.hostname}`);
+    }
   }
 }
 

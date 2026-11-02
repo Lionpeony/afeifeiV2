@@ -83,8 +83,13 @@ async function qqQrStart(): Promise<unknown> {
   const keyBody = await callApi<{ code?: number; data?: { unikey?: string } }>("/login/qr/key");
   const key = keyBody?.data?.unikey;
   if (!key) throw new Error("获取二维码失败");
-  await callApi(`/login/qr/create?key=${encodeURIComponent(key)}&channel=qq`);
-  return { key, qrImage: `/login/qr/image?key=${encodeURIComponent(key)}&channel=qq` };
+  // create 返回 data.qrimg = dataURL（2026-11-03 实测，channel=qq/wechat 均验证）
+  const create = await callApi<{ code?: number; data?: { qrimg?: string } }>(
+    `/login/qr/create?key=${encodeURIComponent(key)}&channel=qq`,
+  );
+  const qrImage = create?.data?.qrimg ?? "";
+  if (!qrImage) throw new Error("QQ 登录页没有给出二维码");
+  return { key, qrImage };
 }
 
 async function qqQrPoll(): Promise<unknown> {
