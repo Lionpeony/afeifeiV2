@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { dispatch, getState, subscribe } from "../../../kernel/index.js";
 import { downloadRows, fmtBytes, fmtSpeed, type DownloadRow } from "../../../projection/download.js";
 import type { Services } from "../../services.js";
+import { PageHead } from "../../PageHead.js";
 
 const STATE_TEXT: Record<DownloadRow["state"], string> = {
   queued: "排队中",
@@ -45,6 +46,7 @@ export function DownloadsView({
 
   return (
     <section className="library">
+      <PageHead title="下载" meta="DOWNLOADS" />
       <div className="lib-head">
         <span className="lib-count">
           已用 {fmtBytes(usage)} / 2GB · {rows.length} 个任务

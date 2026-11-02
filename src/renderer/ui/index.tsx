@@ -58,6 +58,9 @@ function App() {
     if (barEl.current && !dragging.current) {
       barEl.current.max = String(Math.max(1, Math.round(duration)));
       barEl.current.value = String(Math.round(Math.min(position, duration || position)));
+      // 已播比例喂给 CSS 渐变（细线 seek 的墨色填充），不触发渲染
+      const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+      barEl.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
     }
   };
 
@@ -226,57 +229,60 @@ function App() {
     <main className="shell">
       <header className="top">
         <h1>afeifei</h1>
-        <div className="lib-tabs">
-          <button type="button" className={tab === "local" ? "on" : ""} onClick={() => setTab("local")}>
-            本地
-          </button>
-          <button type="button" className={tab === "online" ? "on" : ""} onClick={() => setTab("online")}>
-            在线
-          </button>
-          <button type="button" className={tab === "playlists" ? "on" : ""} onClick={() => setTab("playlists")}>
-            歌单
-          </button>
-          <button type="button" className={tab === "stage" ? "on" : ""} onClick={() => setTab("stage")}>
-            播放页
-          </button>
-          <button type="button" className={tab === "downloads" ? "on" : ""} onClick={() => setTab("downloads")}>
-            下载
-          </button>
-          {notice ? (
-            notice.url ? (
-              <button
-                type="button"
-                className="notice"
-                title={notice.text}
-                onClick={() => {
-                  const url = notice.url;
-                  if (url) void services.current?.openExternal(url);
-                  setNotice(null);
-                }}
-              >
-                {notice.text}
-              </button>
-            ) : (
-              <span className="notice">{notice.text}</span>
-            )
-          ) : null}
-          <button type="button" onClick={() => void onImportSource()}>
-            导入源
-          </button>
-          <button type="button" onClick={() => void services.current?.openMini()}>
-            迷你窗
-          </button>
-          <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词（穿透态点此解锁）">
-            桌面歌词
-          </button>
-        </div>
         <span className="status" data-status={status}>
           {status}
           {error ? ` · ${error}` : ""}
         </span>
+        {notice ? (
+          notice.url ? (
+            <button
+              type="button"
+              className="notice"
+              title={notice.text}
+              onClick={() => {
+                const url = notice.url;
+                if (url) void services.current?.openExternal(url);
+                setNotice(null);
+              }}
+            >
+              {notice.text}
+            </button>
+          ) : (
+            <span className="notice">{notice.text}</span>
+          )
+        ) : null}
       </header>
 
-      {tab === "stage" ? (
+      <div className="body">
+        <nav className="rail">
+          {(
+            [
+              ["local", "本地"],
+              ["online", "在线"],
+              ["playlists", "歌单"],
+              ["stage", "播放页"],
+              ["downloads", "下载"],
+            ] as const
+          ).map(([id, label]) => (
+            <button type="button" key={id} className={tab === id ? "on" : ""} onClick={() => setTab(id)}>
+              {label}
+            </button>
+          ))}
+          <div className="rail-tail">
+            <button type="button" onClick={() => void onImportSource()}>
+              导入源
+            </button>
+            <button type="button" onClick={() => void services.current?.openMini()}>
+              迷你窗
+            </button>
+            <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词（穿透态点此解锁）">
+              桌面歌词
+            </button>
+          </div>
+        </nav>
+
+        <section className="main">
+          {tab === "stage" ? (
         <StageView
           state={state}
           cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
@@ -390,14 +396,57 @@ function App() {
             return svc.downloadTrack(sourceId, track);
           }}
         />
-      )}
+          )}
+        </section>
+      </div>
 
       <footer className="player">
-        <p className="track">{state.player.trackTitle ?? baseName(trackId)}</p>
+        <div className="console">
+          {/* 左：正在播放。整块可点跳播放页（旧仓 console 行为），hover 左缘朱砂标尺 */}
+          <button type="button" className="np" onClick={() => setTab("stage")} title="打开播放页">
+            <p className="np-title">{state.player.trackTitle ?? baseName(trackId)}</p>
+          </button>
 
-        <div className="bar">
+          <div className="transport">
+            <button
+              type="button"
+              onClick={() =>
+                dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 })
+              }
+            >
+              上一首
+            </button>
+            <button type="button" className="primary" onClick={() => dispatch({ type: "player/toggle" })}>
+              {playing ? "暂停" : "播放"}
+            </button>
+            <button type="button" onClick={() => dispatch({ type: "queue/next" })}>
+              下一首
+            </button>
+            <button type="button" aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
+              音效
+            </button>
+          </div>
+
+          <div className="tools">
+
+          <label className="volume">
+            音量
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(volume * 100)}
+              onChange={(e) => dispatch({ type: "player/setVolume", volume: Number(e.target.value) / 100 })}
+            />
+          </label>
+          </div>
+        </div>
+
+        {/* 进度：3px 发丝轨 + 墨色已播 + 2px 朱砂播放头（docs/09 B1）。原生 range 保住键盘/拖拽语义 */}
+        <div className="seekrow">
           <input
             ref={barEl}
+            className={`seek${playing ? " playing" : ""}`}
             type="range"
             min="0"
             max="1"
@@ -414,38 +463,6 @@ function App() {
           <span ref={timeEl} className="time">
             0:00 / 0:00
           </span>
-        </div>
-
-        <div className="buttons">
-          <button
-            type="button"
-            onClick={() =>
-              dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 })
-            }
-          >
-            上一首
-          </button>
-          <button type="button" className="primary" onClick={() => dispatch({ type: "player/toggle" })}>
-            {playing ? "暂停" : "播放"}
-          </button>
-          <button type="button" onClick={() => dispatch({ type: "queue/next" })}>
-            下一首
-          </button>
-
-          <button type="button" aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
-            音效
-          </button>
-
-          <label className="volume">
-            音量
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={Math.round(volume * 100)}
-              onChange={(e) => dispatch({ type: "player/setVolume", volume: Number(e.target.value) / 100 })}
-            />
-          </label>
         </div>
       </footer>
 

@@ -1,27 +1,67 @@
-/* 播放条与音效面板（00 §12：app.css 超 400 行，按职责拆出） */
+/* 播放条与音效面板（00 §12：app.css 超 400 行，按职责拆出）。
+   B1 重排：console 三栏（左正在播放 / 中控制 / 右工具）+ 下一行细线进度（docs/09）。 */
 .player {
   flex: none;
-  padding: 12px 0 18px;
+  padding: 8px 24px 12px;
   border-top: 1px solid var(--line);
 }
 
-.track {
-  margin: 0 0 6px;
+.console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+}
+
+/* 左：正在播放。整块可点跳播放页，hover 左缘朱砂标尺（旧仓 press.css:3370 同款） */
+.np {
+  justify-self: start;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 10px;
+  position: relative;
+}
+.np:hover {
+  background: rgba(216, 52, 28, 0.035);
+  border-color: transparent;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.np-title {
+  margin: 0;
   font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--fg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.np:hover .np-title {
+  color: var(--accent);
+}
 
-.bar {
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: center;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  justify-self: end;
+}
+
+/* 进度行：细线 seek 占满 + 右侧 mono 时间 */
+.seekrow {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.bar input {
-  flex: 1;
-  accent-color: var(--accent);
+  margin-top: 6px;
 }
 
 .time {
@@ -32,11 +72,58 @@
   text-align: right;
 }
 
-.buttons {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
+/* 细线 seek（docs/09 B1，旧仓 type.css:79 同款）：
+   3px 发丝轨 + 墨色已播（--fill 由 JS 每帧喂）+ 2px 朱砂播放头，hover 轨变 4px。
+   原生 range 语义（键盘/拖拽）不动，只换视觉。 */
+input.seek {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+input.seek::-webkit-slider-runnable-track {
+  height: 3px;
+  background: linear-gradient(to right, var(--fg) var(--fill, 0%), var(--line) var(--fill, 0%));
+  transition: height 0.16s ease;
+}
+input.seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 2px;
+  height: 14px;
+  margin-top: -5.5px;
+  background: var(--accent);
+}
+input.seek:hover::-webkit-slider-runnable-track {
+  height: 4px;
+}
+input.seek:hover::-webkit-slider-thumb {
+  height: 18px;
+  margin-top: -7px;
+}
+/* 播放中朱砂头呼吸 pulse（旧仓 seek-pulse 同参数，2.4s / .12 扩散） */
+input.seek.playing::-webkit-slider-thumb {
+  animation: seek-pulse 2.4s ease-in-out infinite;
+}
+@keyframes seek-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(216, 52, 28, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(216, 52, 28, 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  input.seek.playing::-webkit-slider-thumb {
+    animation: none;
+  }
+}
+
+/* 其余滑杆（音量/EQ/前置）统一墨色 accent */
+input[type="range"] {
+  accent-color: var(--fg);
 }
 
 /* 按钮三形态（ref/20 §4）：主操作朱砂实心 / 次操作纸底墨边 / 静默无框。直角是默认。 */

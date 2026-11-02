@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { OnlinePlaylist, RemoteTrack } from "../../../../contracts/capability.js";
+import { PageHead } from "../../PageHead.js";
 
 export interface PlaylistViewProps {
   /** 只传 canPlaylists 为 true 的源（过滤在宿主做，本组件不做能力判断） */
@@ -99,6 +100,7 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
 
   return (
     <section className="library">
+      <PageHead title="歌单" meta="PLAYLISTS · READ ONLY" />
       <div className="lib-head">
         <select className="source-pick" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
           {sources.map((s) => (

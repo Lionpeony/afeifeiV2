@@ -300,8 +300,8 @@ async function main() {
     const app2 = await launch([]);
     current = app2;
 
-    if (!(await app2.waitFor(`document.querySelector(".track")?.textContent === ${JSON.stringify(first)}`, 10000))) {
-      const shown = await app2.evaluate(`document.querySelector(".track")?.textContent ?? "(无)"`);
+    if (!(await app2.waitFor(`document.querySelector(".np-title")?.textContent === ${JSON.stringify(first)}`, 10000))) {
+      const shown = await app2.evaluate(`document.querySelector(".np-title")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);
       throw new Error(`重启后没恢复出上次的曲目。界面显示 ${shown}；存档 ${raw}`);
     }
@@ -311,10 +311,10 @@ async function main() {
     assert.ok(status0.startsWith("paused") || status0.startsWith("loading"), `恢复后应停在暂停态，实际 ${status0}`);
     // 位置要轮询等：cue 之后引擎还要 load 才会 seek，读一次必然撞上还没锚定的 0
     const positionOk = await app2.waitFor(
-      `Math.abs(Number(document.querySelector(".bar input")?.value ?? 0) - 2000) <= 1000`,
+      `Math.abs(Number(document.querySelector(".seekrow input")?.value ?? 0) - 2000) <= 1000`,
       8000,
     );
-    const position = await app2.evaluate(`Number(document.querySelector(".bar input")?.value ?? 0)`);
+    const position = await app2.evaluate(`Number(document.querySelector(".seekrow input")?.value ?? 0)`);
     assert.ok(positionOk, `位置应恢复成 2000±1000ms，实际 ${position}`);
     console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态");
 
@@ -328,10 +328,10 @@ async function main() {
       await sleep(200);
       const status = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
       assert.ok(!status.startsWith("error"), `第 ${i} 次切歌落进 error：${status}`);
-      const track = await app2.evaluate(`document.querySelector(".track")?.textContent ?? ""`);
+      const track = await app2.evaluate(`document.querySelector(".np-title")?.textContent ?? ""`);
       seen.add(track);
       const bar = await app2.evaluate(
-        `(() => { const b = document.querySelector(".bar input"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
+        `(() => { const b = document.querySelector(".seekrow input"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
       );
       assert.ok(bar.v <= bar.m + 1000, `第 ${i} 次切歌后进度条越界：${bar.v} > ${bar.m}`);
     }
@@ -373,10 +373,10 @@ async function main() {
     const app5 = await launch([`afeifei://play?id=${encodeURIComponent(samples[0])}`]);
     current = app5;
     const started = await app5.waitFor(
-      `document.querySelector(".track")?.textContent === ${JSON.stringify(first)}`,
+      `document.querySelector(".np-title")?.textContent === ${JSON.stringify(first)}`,
       10000,
     );
-    const track5 = await app5.evaluate(`document.querySelector(".track")?.textContent ?? "(无)"`);
+    const track5 = await app5.evaluate(`document.querySelector(".np-title")?.textContent ?? "(无)"`);
     assert.ok(started, `afeifei://play 冷启动没把歌拉起来，界面显示 ${track5}`);
     console.log("  scheme 冷启动 OK：afeifei://play 直接拉起曲目");
     await app5.close();

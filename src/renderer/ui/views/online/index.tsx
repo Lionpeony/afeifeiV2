@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageHead } from "../../PageHead.js";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import { LoginDialog } from "./LoginDialog.js";
 
@@ -162,6 +163,7 @@ export function OnlineView({
 
   return (
     <section className="library">
+      <PageHead title="在线" meta={`ONLINE · ${sources.length} SOURCES`} />
       <div className="lib-head">
         <select className="source-pick" value={sourceId} onChange={(e) => setSourceId(e.target.value)}>
           {sources.map((s) => (

@@ -36,7 +36,7 @@ try {
     await sleep(5000);
 
     const status = await app.evaluate(`document.querySelector(".status")?.textContent ?? "(无)"`);
-    const track = await app.evaluate(`document.querySelector(".track")?.textContent ?? "(无)"`);
+    const track = await app.evaluate(`document.querySelector(".np-title")?.textContent ?? "(无)"`);
     const note = await app.evaluate(`document.querySelector(".lib-note")?.textContent ?? "(无)"`);
     const time = await app.evaluate(`document.querySelector(".time")?.textContent ?? "(无)"`);
     console.log(`状态=${status}`);

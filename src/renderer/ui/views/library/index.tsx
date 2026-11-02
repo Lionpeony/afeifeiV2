@@ -9,6 +9,7 @@ import {
 } from "../../../domain/library/state.js";
 import { isLiked, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
 import { selectVisible } from "../../../projection/library.js";
+import { PageHead } from "../../PageHead.js";
 import { Cover, fmtDuration, TrackRows } from "./rows.js";
 import { AlbumWall } from "./album-wall.js";
 import { ArtistsPage } from "./artists.js";
@@ -79,6 +80,7 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
 
   return (
     <section className="library">
+      <PageHead title="本地" meta={`LIBRARY · ${total} TRACKS`} />
       <div className="lib-head">
         <input
           className="search"
