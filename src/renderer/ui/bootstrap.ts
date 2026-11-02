@@ -291,10 +291,27 @@ export async function bootstrap(): Promise<Services> {
       return installed;
     },
 
-    // 登录按源路由：网易云扫码 / QQ 真实窗口（M6.1）
-    startLogin: (sourceId) =>
-      sourceId === "qq" ? api.qqLogin() : startQrLogin(localApi),
-    pollLogin: (key) => pollQrLogin(localApi, key),
+    // 登录按源路由：网易云扫码 / QQ 隐藏页扫码（key 前缀 qq: 走 QQ 轮询）
+    startLogin: async (sourceId) => {
+      if (sourceId === "qq") {
+        const { qrImage } = await api.qqLogin();
+        return { key: "qq", qrImage };
+      }
+      return startQrLogin(localApi);
+    },
+    pollLogin: async (key) => {
+      if (key === "qq") {
+        const r = await api.qqPoll();
+        // LoginDialog 的语义：801/802 = 继续轮询，loggedIn = 成功
+        return {
+          code: r.loggedIn ? 803 : 801,
+          loggedIn: r.loggedIn,
+          message: r.message,
+          qrImage: r.qrImage ?? undefined,
+        };
+      }
+      return pollQrLogin(localApi, key);
+    },
     loginStatus: async (sourceId) => {
       const profile = await localApi.profile(sourceId);
       return { loggedIn: profile.loggedIn, nick: profile.nick };

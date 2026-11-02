@@ -35,7 +35,8 @@ export interface Api {
   importUserSource(): Promise<{ name: string; code: string } | null>;
   installUserSource(sourceId: string, code: string): Promise<unknown>;
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
-  qqLogin(): Promise<{ loggedIn: boolean }>;
+  qqLogin(): Promise<{ qrImage: string }>;
+  qqPoll(): Promise<{ loggedIn: boolean; message: string; qrImage: string | null }>;
   qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
   qqLogout(): Promise<void>;
   openMini(): Promise<void>;
@@ -89,8 +90,8 @@ export interface Services {
   resolveOnlineUrl(sourceId: string, trackId: string, quality: Quality): Promise<string>;
   /** 开始登录：网易云弹扫码窗，QQ 开真实登录页（用户在页面里登录）。按 sourceId 路由。 */
   startLogin(sourceId: string): Promise<QrSession | { loggedIn: boolean }>;
-  /** 轮询扫码结果（仅网易云） */
-  pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
+  /** 轮询扫码结果（key 前缀 qq: 走 QQ）。qrImage 有值 = 页面刷新了二维码，UI 要更新。 */
+  pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string; qrImage?: string }>;
   /** 查询某音源的登录态（只看账号接口 / cookie，不看凭据字段） */
   loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
   /** 手机号登录：发短信验证码（仅网易云） */

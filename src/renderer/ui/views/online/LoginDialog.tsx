@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from "react";
 export interface LoginDialogProps {
   /** 拿到 key 与服务端画好的二维码图 */
   start(): Promise<{ key: string; qrImage: string }>;
-  poll(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
-  /** 手机号登录：发短信验证码 */
-  sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
+  poll(key: string): Promise<{ code: number; loggedIn: boolean; message: string; qrImage?: string }>;
+  /** 扫码提示（哪个 App 扫） */
+  scanHint: string;
+  /** 手机号登录：发短信验证码（仅网易云源提供） */
+  sendCaptcha?(phone: string): Promise<{ ok: boolean; message: string }>;
   /** 手机号登录：用验证码换登录态 */
-  loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
+  loginByCaptcha?(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
   onSuccess(): void;
   onClose(): void;
 }
@@ -22,7 +24,7 @@ export interface LoginDialogProps {
  * 轮询用 setTimeout 链（ui/ 里禁 setInterval），只在 801/802 继续，
  * 用运行代次作废旧轮询。
  */
-export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
+export function LoginDialog({ start, poll, scanHint, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
   const [mode, setMode] = useState<"qr" | "phone">("qr");
 
   const [qrImage, setQrImage] = useState("");
@@ -61,7 +63,7 @@ export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSucces
       const session = await startRef.current();
       if (!alive()) return;
       setQrImage(session.qrImage);
-      setQrNote("请打开网易云音乐 App → 扫一扫");
+      setQrNote(scanHint);
 
       const tick = async (): Promise<void> => {
         if (!alive()) return;
@@ -69,6 +71,8 @@ export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSucces
           const result = await pollRef.current(session.key);
           if (!alive()) return;
           setQrNote(result.message);
+          // 页面自动刷新过二维码（QQ 源），同步更新图
+          if (result.qrImage) setQrImage(result.qrImage);
 
           if (result.loggedIn) {
             successRef.current();
@@ -119,6 +123,7 @@ export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSucces
   }, [countdown]);
 
   const send = async (): Promise<void> => {
+    if (!sendCaptcha) return;
     if (!/^1\d{10}$/.test(phone)) {
       setPhoneNote("请输入 11 位手机号");
       return;
@@ -136,6 +141,7 @@ export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSucces
   };
 
   const submit = async (): Promise<void> => {
+    if (!loginByCaptcha) return;
     if (code.trim().length < 4) {
       setPhoneNote("请输入收到的验证码");
       return;
@@ -155,16 +161,18 @@ export function LoginDialog({ start, poll, sendCaptcha, loginByCaptcha, onSucces
   return (
     <div className="dialog-mask" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>登录网易云</h2>
+        <h2>扫码登录</h2>
 
-        <div className="dialog-tabs">
-          <button type="button" className={mode === "qr" ? "on" : ""} onClick={() => setMode("qr")}>
-            扫码
-          </button>
-          <button type="button" className={mode === "phone" ? "on" : ""} onClick={() => setMode("phone")}>
-            手机号
-          </button>
-        </div>
+        {sendCaptcha && loginByCaptcha ? (
+          <div className="dialog-tabs">
+            <button type="button" className={mode === "qr" ? "on" : ""} onClick={() => setMode("qr")}>
+              扫码
+            </button>
+            <button type="button" className={mode === "phone" ? "on" : ""} onClick={() => setMode("phone")}>
+              手机号
+            </button>
+          </div>
+        ) : null}
 
         {mode === "qr" ? (
           <>

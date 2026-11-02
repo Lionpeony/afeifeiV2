@@ -13,7 +13,7 @@ import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
 import { callNcm, clearLogin, loginProfile } from "../net/neteaseClient.js";
 import { callQq } from "../net/qqClient.js";
-import { openQqLogin, qqLogout, qqProfile } from "../net/qqSession.js";
+import { pollQrLogin, qqLogout, qqProfile, startQrLogin } from "../net/qqSession.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { qrDataUrl } from "../util/qrcode.js";
 import {
@@ -160,9 +160,10 @@ export function registerIpc(): void {
     }
   });
 
-  /* ---------- QQ 登录（真实窗口 + session cookie，见 main/net/qqSession.ts） ---------- */
+  /* ---------- QQ 扫码登录（隐藏页 + 应用内二维码，见 main/net/qqSession.ts） ---------- */
 
-  ipcMain.handle("qq:login", () => openQqLogin());
+  ipcMain.handle("qq:login", () => startQrLogin());
+  ipcMain.handle("qq:poll", () => pollQrLogin());
   ipcMain.handle("qq:profile", () => qqProfile());
   ipcMain.handle("qq:logout", () => qqLogout());
 

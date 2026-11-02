@@ -109,27 +109,13 @@ export function OnlineView({
   };
 
   /**
-   * 登录按源分流：QQ 走真实窗口（startLogin 直接等用户登录完）；
-   * 网易云弹扫码 LoginDialog。已登录的源不重复弹。
+   * 登录统一走 LoginDialog 扫码（网易云 = 应用内二维码；QQ = 隐藏页提取的应用内二维码）。
+   * startLogin 返回的 { key, qrImage } 两个源形状一致，poll 按 key 前缀分流。
    */
   const openLogin = async (): Promise<void> => {
     setNote("");
     if (loggedIn) {
       setNote(`已登录${nick ? `：${nick}` : ""}。`);
-      return;
-    }
-    if (sourceId === "qq") {
-      try {
-        const r = await startLogin(sourceId);
-        if (r.loggedIn) {
-          refreshLogin();
-          setNote("QQ 音乐登录成功，直接点歌就能播。");
-        } else {
-          setNote("登录窗被关掉了，没完成登录。");
-        }
-      } catch (err) {
-        setNote(err instanceof Error ? err.message : String(err));
-      }
       return;
     }
     try {
@@ -206,16 +192,17 @@ export function OnlineView({
       {loginOpen ? (
         <LoginDialog
           start={async () => {
-            // LoginDialog 是网易云扫码专用；这里把带 sourceId 的新签名适配成它要的形状
-            const r = await startLogin("netease");
-            if (!("key" in r) || typeof r.key !== "string" || typeof r.qrImage !== "string") {
+            // 两个源的 startLogin 返回同形状 { key, qrImage }；pollLogin 按 key 前缀分流
+            const r = await startLogin(sourceId);
+            if (typeof r.key !== "string" || typeof r.qrImage !== "string") {
               throw new Error("获取二维码失败");
             }
             return { key: r.key, qrImage: r.qrImage };
           }}
           poll={pollLogin}
-          sendCaptcha={sendCaptcha}
-          loginByCaptcha={loginByCaptcha}
+          scanHint={sourceId === "qq" ? "请用 QQ 或微信 App → 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          sendCaptcha={sourceId === "netease" ? sendCaptcha : undefined}
+          loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {
             setLoginOpen(false);
             refreshLogin();

@@ -33,7 +33,9 @@ contextBridge.exposeInMainWorld("api", {
   ncmLogout: (): Promise<void> => ipcRenderer.invoke("netease:logout"),
   qqCall: (method: string, params?: Record<string, unknown>): Promise<unknown> =>
     ipcRenderer.invoke("qq:call", method, params),
-  qqLogin: (): Promise<{ loggedIn: boolean }> => ipcRenderer.invoke("qq:login"),
+  qqLogin: (): Promise<{ qrImage: string }> => ipcRenderer.invoke("qq:login"),
+  qqPoll: (): Promise<{ loggedIn: boolean; message: string; qrImage: string | null }> =>
+    ipcRenderer.invoke("qq:poll"),
   qqProfile: (): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> =>
     ipcRenderer.invoke("qq:profile"),
   qqLogout: (): Promise<void> => ipcRenderer.invoke("qq:logout"),
