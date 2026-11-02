@@ -12,4 +12,16 @@
 
 | 来源 | 许可 | 取用了什么 | 落在本仓库哪里 |
 |---|---|---|---|
-| （暂无代码取用） | — | — | — |
+| [chthollyphile/folia-major](https://github.com/chthollyphile/folia-major) | AGPL-3.0 | **登录身份机制**：每次启动随机 `deviceId`、登录态 cookie 名清单、以及"扫码被连接重置后需换出口 IP"这一事实（来自其源码注释）。未搬其 Worker/jsdom 后端——本项目直接用同一个底层 SDK 的函数式接口 | `src/main/net/neteaseClient.ts`（`DEVICE_ID` 与 `cleanCookie`）、`src/main/ipc/index.ts`（登录态 cookie 白名单思路） |
+| [Binaryify/NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) | MIT | 作为依赖使用（`npm i NeteaseCloudMusicApi`），未修改其源码 | `package.json` 依赖；经 `main/net/neteaseClient.ts` 调用 |
+
+### 关于 Folia 的取用说明
+
+两者同为 **AGPL-3.0**，许可兼容。取用的是**做法与常量**（随机 deviceId、cookie 名清单），不是整段代码搬运：
+
+- 本项目的网易云通道走 `NeteaseCloudMusicApi` 的**函数式接口**（主进程内直接调用），
+  而 Folia 走的是 `electron/netease/` 那套 **Worker 线程 + 本地 HTTP 服务**（`neteaseApiWorker.cjs` + `neteaseApiStartup.cjs`）。
+- 因此**没有**复制它的 Worker、jsdom 延迟加载、生命周期管理与诊断模块。
+- 若将来改为内嵌 HTTP 服务模式，需重新评估并在此补充登记。
+
+参考实现只读副本位于 `.ref/folia/`，**不进入版本控制**（见 `.gitignore`）。
