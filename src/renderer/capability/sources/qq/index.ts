@@ -3,6 +3,7 @@ import type {
   RemoteTrack,
   SearchResult,
   SourceProvider,
+  Toplist,
 } from "../../../../contracts/capability.js";
 import type { LocalApiPort } from "../../../../contracts/ports.js";
 import { parseLyrics, withTranslation } from "../../lyrics/index.js";
@@ -61,9 +62,25 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     total?: number;
   }
 
+  /* yakult 的 recommend 系路由是扁平结构：{ code: 200, groups } / { code: 200, songs, more }，
+     与旧路由（getMusicPlay 的 { data: … }）不同 —— 别照着旧路由猜 */
+  interface QqToplistsBody {
+    code?: number;
+    groups?: { toplists?: { id?: unknown; title?: unknown; total?: unknown; cover?: unknown }[] }[];
+  }
+
+  interface QqToplistBody {
+    code?: number;
+    songs?: Record<string, unknown>[];
+    total?: unknown;
+    more?: unknown;
+  }
+
   interface QqUrlBody {
     data?: { playUrl?: Record<string, { url?: unknown }> };
   }
+
+  const TOP_PREFIX = "top:";
 
   return {
     id: "qq",
@@ -77,11 +94,16 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canLogin: true, // 本地服务扫码登录（main/net/qqClient.ts）
       canGetAlbum: false,
       canGetArtist: false,
-      canGetPlaylist: false,
+      // canGetPlaylist 只被 playlistTracks（榜单下钻）消费：实现只认 top: 前缀
+      // （榜单 id），普通 QQ 歌单没接 —— canListPlaylists 仍是 false，我的歌单页不出现 QQ
+      canGetPlaylist: true,
       canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
-      canGetToplist: false, // QQ 榜单接口未接（need qqClient 白名单 + fcg 解析），先不声明
+      // A-14：榜单匿名可读（yakult /recommend/toplists + /recommend/toplist）。
+      // 榜单 id 加 top: 前缀走 getPlaylist 分流 —— 榜不是歌单，接口不同，但 UI 拿到的
+      // 是不透明 id，契约不变
+      canGetToplist: true,
     },
 
     traits: {
@@ -127,6 +149,48 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     async login(): Promise<void> {
       const profile = await qq<{ loggedIn: boolean }>("profile");
       if (!profile.loggedIn) throw err("auth-required", "尚未登录");
+    },
+
+    /**
+     * 榜单清单（A-14）。yakult /recommend/toplists 按组给，摊平成一列给 UI；
+     * id 加 top: 前缀——getPlaylist 靠它分流到榜单路由（榜不是歌单）。
+     * 没有 total 的榜给 0（UI 显示"首"数只是参考，不参与判据）。
+     */
+    async listToplists(): Promise<Toplist[]> {
+      const body = await qq<QqToplistsBody>("toplists");
+      if (!body || body.code !== 200 || !Array.isArray(body.groups)) {
+        throw err("network", "QQ 音乐榜单暂时不可用");
+      }
+      const out: Toplist[] = [];
+      for (const group of body.groups) {
+        for (const t of group.toplists ?? []) {
+          const id = typeof t.id === "number" ? t.id : Number(t.id);
+          if (!Number.isSafeInteger(id) || id <= 0) continue; // 没有 id 的榜下钻必 404，直接丢
+          out.push({
+            id: `${TOP_PREFIX}${id}`,
+            name: typeof t.title === "string" && t.title ? t.title : "未命名榜单",
+            count: Number.isSafeInteger(t.total) ? (t.total as number) : 0,
+            coverUrl: typeof t.cover === "string" && t.cover ? t.cover : undefined,
+          });
+        }
+      }
+      return out;
+    },
+
+    /** 只认 top: 前缀（榜单下钻）；QQ 的普通歌单没接，别拿这个方法当歌单入口。 */
+    async getPlaylist(listId: string, page = 0): Promise<SearchResult> {
+      if (!listId.startsWith(TOP_PREFIX)) {
+        throw err("capability-missing", "QQ 音乐的普通歌单暂不支持");
+      }
+      const id = listId.slice(TOP_PREFIX.length);
+      const limit = 30;
+      const body = await qq<QqToplistBody>("toplist", { id, offset: page * limit, limit });
+      if (!body || body.code !== 200 || !Array.isArray(body.songs)) {
+        throw err("network", "这个榜单暂时取不到曲目");
+      }
+      const items = body.songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      const more = body.more === true;
+      return { items, nextPage: more ? page + 1 : undefined };
     },
 
     async getUrl(sourceId: string): Promise<string> {

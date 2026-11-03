@@ -69,7 +69,17 @@ async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
 }
 
 /** 渲染层可见的接口面：与旧实现同名，底层换服务。 */
-const ALLOWED = new Set(["search", "lyric", "url", "qrStart", "qrPoll", "status", "logout"]);
+const ALLOWED = new Set([
+  "search",
+  "lyric",
+  "url",
+  "qrStart",
+  "qrPoll",
+  "status",
+  "logout",
+  "toplists", // A-14：榜单清单（/recommend/toplists，匿名可读）
+  "toplist", // A-14：单榜曲目（/recommend/toplist，注意榜单不是歌单，接口不同）
+]);
 
 export async function callQq(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
   if (!ALLOWED.has(method)) throw new Error(`不允许调用 QQ 接口：${method}`);
@@ -89,6 +99,10 @@ export async function callQq(method: string, params: Record<string, unknown> = {
     case "logout":
       saveToken(""); // 会话作废，本地 token 一并清掉
       return callApi("/logout");
+    case "toplists":
+      return qqToplists();
+    case "toplist":
+      return qqToplist(params);
     default:
       throw new Error(`QQ 接口未实现：${method}`);
   }
@@ -118,6 +132,30 @@ async function qqSearch(params: Record<string, unknown>): Promise<unknown> {
     for (const k of keys) searchCache.delete(k);
   }
   return body;
+}
+
+/* ---------- 榜单（A-14，匿名可读，2026-11-03 实测） ---------- */
+
+/**
+ * yakult 包实测：`/recommend/toplists` → { data: { groups: [{ id, name,
+ * toplists: [{ id, title, period?, total?, cover?, preview }] }] } }；
+ * `/recommend/toplist?id=&period=&offset=&limit=` → { data: { toplist, songs, total?, more? } }，
+ * songs 保持上游原格式（mid/name/singer[]/album/interval，与搜索同构）。
+ */
+async function qqToplists(): Promise<unknown> {
+  return callApi("/recommend/toplists");
+}
+
+async function qqToplist(params: Record<string, unknown>): Promise<unknown> {
+  const id = String(params.id ?? "");
+  if (!/^\d{1,12}$/.test(id)) throw new Error("非法榜单 id");
+  // period 空串 = 最新一期；非空必须是上游认识的一期标识
+  const period = typeof params.period === "string" ? params.period : "";
+  if (!/^[A-Za-z0-9_]*$/.test(period)) throw new Error("非法榜单期号");
+  const offset = Math.max(0, Number(params.offset ?? 0) || 0);
+  const limit = Math.min(100, Math.max(10, Number(params.limit ?? 30) || 30));
+  const q = new URLSearchParams({ id, period, offset: String(offset), limit: String(limit) });
+  return callApi(`/recommend/toplist?${q.toString()}`);
 }
 
 /* ---------- 歌词 ---------- */

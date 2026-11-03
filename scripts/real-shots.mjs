@@ -469,6 +469,41 @@ try {
   console.log(`A-14 真机：${cardN} 张榜 → 下钻 ${rowN} 首 → 第一首起播`);
 
   /*
+   * QQ 榜单（A-14 第二家源）：切 chip → 卡片 → 下钻（top: 前缀分流到 /recommend/toplist）→ 起播。
+   * 上一首还在放，所以判据要「标题变了」才认账。
+   */
+  const chartTitleBefore = await page.evaluate(`(document.querySelector(".np-tx b")?.textContent || "").trim()`);
+  const qqChartChip = await page.evaluate(`(() => {
+    const b = [...document.querySelectorAll('.seg button')].find((x) => x.textContent.includes('QQ'));
+    if (!b) return false;
+    b.click();
+    return true;
+  })()`);
+  if (!qqChartChip) throw new Error("榜单页找不到「QQ 音乐」chip：canGetToplist 没生效");
+  const qqCards = await until(page, `document.querySelectorAll('.pl-item.chart-item').length > 0`, 30000, "QQ 榜单卡片");
+  if (!qqCards) throw new Error("30s 没等到 QQ 榜单卡片：/recommend/toplists 没通");
+  const qqCardN = await page.evaluate(`document.querySelectorAll('.pl-item.chart-item').length`);
+  await page.evaluate(`document.querySelector('.pl-item.chart-item').click()`);
+  const qqChartRows = await until(page, `document.querySelectorAll('.lib-row.online-row').length > 0`, 30000, "QQ 榜单曲目");
+  if (!qqChartRows) throw new Error("30s 没等到 QQ 榜单曲目：top: 前缀分流没通");
+  const qqRowN = await page.evaluate(`document.querySelectorAll('.lib-row.online-row').length`);
+  await page.shot("real-charts-qq.png");
+  await page.evaluate(`document.querySelector('.lib-row.online-row').click()`);
+  const qqChartPlaying = await until(
+    page,
+    `(() => {
+      const label = document.querySelector("button.tb.main")?.getAttribute("aria-label");
+      const clock = (document.querySelector(".seek .tm")?.textContent || "").trim();
+      const title = (document.querySelector(".np-tx b")?.textContent || "").trim();
+      return label === "暂停" && clock !== "" && clock !== "0:00" && title !== ${JSON.stringify(chartTitleBefore)} && title !== "";
+    })()`,
+    20000,
+    "QQ 榜单曲目起播",
+  );
+  if (!qqChartPlaying) throw new Error("QQ 榜单曲目 20s 没起播（标题也没换）");
+  console.log(`A-14 真机（QQ）：${qqCardN} 张榜 → 下钻 ${qqRowN} 首 → 第一首起播`);
+
+  /*
    * QQ 真机：登录态在 qq-session-token.json（复制 profile 时一起带过来）。
    * 换源 → 搜索 → 起播。判据里"标题变了"不可省：只看计时在走，
    * 上一首（网易云）还在放也能糊弄过去。

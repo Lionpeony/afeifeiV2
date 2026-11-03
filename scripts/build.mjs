@@ -36,6 +36,7 @@ if (TEST) {
       "capability-errors": "src/renderer/capability/errors.ts",
       "capability-demo": "src/renderer/capability/sources/demo/index.ts",
       "capability-netease": "src/renderer/capability/sources/netease/index.ts",
+      "capability-qq": "src/renderer/capability/sources/qq/index.ts",
       lyrics: "src/renderer/capability/lyrics/index.ts",
       "lyric-cache": "src/renderer/capability/lyrics/cache.ts",
       "audio-eq": "src/renderer/capability/audio/eq.ts",

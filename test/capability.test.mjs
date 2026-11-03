@@ -4,6 +4,7 @@ import { __resetRegistry, assertCapabilities, can, getProvider, listProviders, r
 import { ERROR_INFO, errorText, isRetryable, translateError } from "../dist-test/capability-errors.mjs";
 import { demoProvider } from "../dist-test/capability-demo.mjs";
 import { createNeteaseProvider } from "../dist-test/capability-netease.mjs";
+import { createQqProvider } from "../dist-test/capability-qq.mjs";
 
 /* ---------- 启动断言 ---------- */
 
@@ -103,6 +104,59 @@ test("A-14 榜单：netease 走 toplist 接口，脏条目被丢掉、缺字段�
   assert.equal(lists.length, 2, "没有 id 的条目必须丢掉（否则下钻会 404）");
   assert.equal(lists[1].name, "未命名榜单");
   assert.equal(lists[1].count, 0);
+});
+
+test("A-14 榜单：QQ 摊平分组、id 加 top: 前缀、无 id 的榜丢弃（2026-11-03 实测路由）", async () => {
+  const calls = [];
+  const api = {
+    call: async (ns, method) => {
+      calls.push(`${ns}:${method}`);
+      if (method === "toplists") {
+        return {
+          code: 200,
+          groups: [
+            {
+              id: 1,
+              name: "巅峰榜",
+              toplists: [
+                { id: 4, title: "飙升榜", total: 100, cover: "https://y.gtimg.cn/1.jpg" },
+                { title: "没有 id 的榜" },
+              ],
+            },
+            { id: 2, name: "空组", toplists: [] },
+          ],
+        };
+      }
+      if (method === "toplist") {
+        return {
+          code: 200,
+          songs: [
+            { mid: "001a", name: "青花瓷", singer: [{ name: "周杰伦" }], album: { title: "我很忙", mid: "002b" }, interval: 239 },
+            { name: "没有 mid 的条目" },
+          ],
+          more: true,
+        };
+      }
+      return {};
+    },
+  };
+  const p = createQqProvider(api);
+  assert.equal(p.capabilities.canGetToplist, true);
+  assert.doesNotThrow(() => assertCapabilities(p), "声明 true 就必须真的有实现");
+
+  const lists = await p.listToplists();
+  assert.equal(calls[0], "qq:toplists");
+  assert.deepEqual(lists, [{ id: "top:4", name: "飙升榜", count: 100, coverUrl: "https://y.gtimg.cn/1.jpg" }], "空组与无 id 的榜都不出现");
+
+  const page = await p.getPlaylist("top:4", 0);
+  assert.equal(page.items.length, 1, "没有 mid 的条目必须丢掉");
+  assert.equal(page.items[0].sourceId, "001a");
+  assert.equal(page.items[0].title, "青花瓷");
+  assert.equal(page.items[0].durationMs, 239000);
+  assert.equal(page.nextPage, 1, "more=true 必须给出下一页");
+
+  // QQ 的普通歌单没接：不带前缀的 id 必须给人话，不能装作能取
+  await assert.rejects(() => p.getPlaylist("12345", 0), /歌单/);
 });
 
 test("缺 capabilities 声明 → 炸", () => {
