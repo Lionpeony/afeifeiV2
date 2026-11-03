@@ -3,7 +3,7 @@
  * 桥的类型、Services 接口、错误收敛。实现都在 bootstrap.ts。
  */
 import type { AudioEngine } from "../capability/audio/engine.js";
-import type { LyricDoc, OnlinePlaylist, Quality, SearchResult } from "../../contracts/capability.js";
+import type { LyricDoc, OnlinePlaylist, Quality, SearchResult, Toplist } from "../../contracts/capability.js";
 import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
 import type { Theme } from "./theme.js";
@@ -49,6 +49,10 @@ export interface Api {
   pushLyricState(json: string): void;
   onSchemeUrl(cb: (intent: { action: string; id: string; source?: string }) => void): void;
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
+  /** 媒体键与托盘发来的命令名（A-24）：`toggle` / `next` / `prev`，语义在命令注册表里 */
+  onPlaybackCommand(cb: (cmd: string) => void): void;
+  /** 托盘显示用（A-25）：只推「在播什么 / 是否在播」，主进程不做判断 */
+  pushTrayState(state: { playing: boolean; title: string | null }): void;
   exportTheme(json: string): Promise<boolean>;
   importTheme(): Promise<unknown>;
 
@@ -94,11 +98,20 @@ export interface Services {
   /** 取封面（带缓存与请求去重）。 */
   cover(id: string, path: string): Promise<string | null>;
   /** 已注册的音源（UI 的选项来源就是它，不写死）。canDownload = canGetUrl（M7）。 */
-  sources(): { id: string; name: string; canAuth: boolean; canDownload: boolean; canPlaylists: boolean }[];
+  sources(): {
+    id: string;
+    name: string;
+    canAuth: boolean;
+    canDownload: boolean;
+    canPlaylists: boolean;
+    canToplists: boolean;
+  }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
   /** 当前账号的在线歌单（M9-5）。未登录抛 auth-required 的人话。 */
   listPlaylists(sourceId: string): Promise<OnlinePlaylist[]>;
+  /** 榜单列表（A-14）。下钻曲目走 playlistTracks(sourceId, 榜 id)。 */
+  listToplists(sourceId: string): Promise<Toplist[]>;
   /** 歌单曲目（分页）。 */
   playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
   /** 在线曲目歌词。错误已翻译成人话。 */

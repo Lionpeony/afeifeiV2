@@ -23,6 +23,11 @@ export const STAGE_TOKEN_KEYS = [
   "--stage-bg",
   "--stage-fg",
   "--stage-fg-dim",
+  /* A-10：场景层自带的线/槽/朱砂。播放页只读这一层，结构层换主题不波及它 */
+  "--stage-line",
+  "--stage-line-soft",
+  "--stage-raised",
+  "--stage-accent",
   "--stage-tint",
   "--stage-wallpaper",
   "--stage-cover-size",
@@ -43,9 +48,13 @@ export const PRESETS: StagePresetDef[] = [
     wallpaperFromCover: false,
     lyricRenderer: "press",
     tokens: {
-      "--stage-bg": "var(--bg)",
-      "--stage-fg": "var(--fg)",
-      "--stage-fg-dim": "var(--fg-dim)",
+      "--stage-bg": "#f3f1ea",
+      "--stage-fg": "#17150f",
+      "--stage-fg-dim": "#5f5a4e",
+      "--stage-line": "rgba(23, 21, 15, 0.28)",
+      "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
+      "--stage-raised": "#ece9df",
+      "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
       "--stage-wallpaper":
@@ -54,7 +63,7 @@ export const PRESETS: StagePresetDef[] = [
         "radial-gradient(ellipse at 50% 28%, rgba(232, 230, 227, 0.04), transparent 62%)",
       "--stage-cover-size": "320px",
       "--stage-cover-radius": "8px",
-      "--stage-cover-frame": "1px solid var(--line)", // 设计稿另有 4px 内边距，暗色基底上以细框为先
+      "--stage-cover-frame": "1px solid var(--stage-line)", // 设计稿另有 4px 内边距，暗色基底上以细框为先
       "--stage-cover-shadow": "none",
       "--stage-cover-spin": "0s",
       "--stage-lyric-size": "22px",
@@ -69,16 +78,20 @@ export const PRESETS: StagePresetDef[] = [
     wallpaperFromCover: false,
     lyricRenderer: "minimal",
     tokens: {
-      "--stage-bg": "var(--bg)",
-      "--stage-fg": "var(--fg)",
-      "--stage-fg-dim": "var(--fg-dim)",
+      "--stage-bg": "#f3f1ea",
+      "--stage-fg": "#17150f",
+      "--stage-fg-dim": "#5f5a4e",
+      "--stage-line": "rgba(23, 21, 15, 0.28)",
+      "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
+      "--stage-raised": "#ece9df",
+      "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
       "--stage-wallpaper":
         "repeating-radial-gradient(circle at 50% 40%, rgba(232, 230, 227, 0.028) 0 2px, transparent 2px 8px)",
       "--stage-cover-size": "360px",
       "--stage-cover-radius": "50%",
-      "--stage-cover-frame": "1px solid var(--line-soft)",
+      "--stage-cover-frame": "1px solid var(--stage-line-soft)",
       "--stage-cover-shadow": "none",
       "--stage-cover-spin": "1.8s", // 33⅓ rpm ≈ 1.8s/圈
       "--stage-lyric-size": "18px",
@@ -93,9 +106,13 @@ export const PRESETS: StagePresetDef[] = [
     wallpaperFromCover: false,
     lyricRenderer: "karaoke",
     tokens: {
-      "--stage-bg": "var(--bg)",
-      "--stage-fg": "var(--fg)",
-      "--stage-fg-dim": "var(--fg-dim)",
+      "--stage-bg": "#f3f1ea",
+      "--stage-fg": "#17150f",
+      "--stage-fg-dim": "#5f5a4e",
+      "--stage-line": "rgba(23, 21, 15, 0.28)",
+      "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
+      "--stage-raised": "#ece9df",
+      "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
       "--stage-wallpaper": "none",
@@ -120,6 +137,11 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-bg": "#17150f",
       "--stage-fg": "#f3f1ea",
       "--stage-fg-dim": "rgba(243, 241, 234, 0.6)",
+      "--stage-line": "rgba(243, 241, 234, 0.3)",
+      "--stage-line-soft": "rgba(243, 241, 234, 0.14)",
+      "--stage-raised": "#211e1a",
+      // 暗底上朱砂提亮一档（与 tokens.css 夜间的取舍一致），否则发乌
+      "--stage-accent": "#e0492f",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
       "--stage-wallpaper": "none", // 壁纸由封面图层承担（wallpaperFromCover）
@@ -148,6 +170,7 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    translation: true,
     customTokens: null,
   };
   if (!raw || typeof raw !== "object") return fallback;
@@ -156,6 +179,7 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     intensity?: unknown;
     layers?: unknown;
     lyricRenderer?: unknown;
+    translation?: unknown;
     customTokens?: unknown;
   };
   const layers = { ...fallback.layers };
@@ -172,6 +196,8 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     lyricRenderer: RENDERERS.includes(r.lyricRenderer as LyricRenderer)
       ? (r.lyricRenderer as LyricRenderer)
       : fallback.lyricRenderer,
+    // 老存档没有这个字段 = 那时候译文是常显的，所以缺字段按 true，只有显式 false 才关
+    translation: r.translation !== false,
     customTokens: sanitizeThemeTokens(r.customTokens),
   };
 }

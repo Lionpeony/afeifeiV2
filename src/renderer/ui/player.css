@@ -267,6 +267,9 @@ input.bar.playing::-webkit-slider-thumb {
   color: var(--fg-dim);
   font-size: 13px;
   letter-spacing: 0.06em;
+  /* 睡眠按钮带倒计时会变宽：字不许竖着排，工具区也不许被挤扁 */
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .tools button:hover {
   border-color: var(--line-soft);
@@ -342,6 +345,21 @@ button.primary:hover:not(:disabled) {
   accent-color: var(--accent);
 }
 
+/* A-17 静音：与音量分开，取消静音回到原音量（av 元素 muted，不改 volume） */
+.volume .mute {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.volume .mute.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* 音量弹层：挂在控制台右上沿，纸底 + 墨边，与票根戳同一套线 */
 .vol-pop {
   position: absolute;
@@ -356,6 +374,40 @@ button.primary:hover:not(:disabled) {
 .vol-pop[hidden] {
   display: none;
 }
+/* 睡眠定时弹层（A-23）：与音量弹层同一套纸底墨边，往左让开一格 */
+.sleep-pop {
+  right: 96px;
+  min-width: 176px;
+}
+.sleep-now {
+  margin: 0 0 8px;
+  color: var(--fg-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+/* 剩余时间由合成器帧写进来（不进 React），单独给等宽数字 */
+.sleep-left {
+  margin-left: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.sleep-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sleep-opts button {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--fg);
+  font-size: 12px;
+}
+.sleep-opts button:disabled {
+  color: var(--fg-dim);
+}
+
 .vol-val {
   min-width: 2ch;
   font: 500 11px/1 var(--font-mono);
@@ -371,7 +423,8 @@ button.primary:hover:not(:disabled) {
   z-index: 40;
   display: grid;
   gap: 8px;
-  min-width: 300px;
+  /* 10 段竖排要固定宽度，否则每根滑杆按 1fr 各自伸缩，峰谷对齐看不出来 */
+  width: 392px;
   padding: 12px 16px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -418,6 +471,89 @@ button.primary:hover:not(:disabled) {
 .fx-val {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* EQ 预设（A-06）：当前增益等于某组时点亮；样式跟"重置"同一套纸边 */
+.fx-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.fx-presets button {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.fx-presets button:hover {
+  border-color: var(--fg-dim);
+  color: var(--fg);
+}
+.fx-presets button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 10 段竖排滑杆：值在顶、频率在底，中间是轨道 */
+.fx-bands {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
+  padding: 2px 0 0;
+}
+/*
+ * 0dB 基准线：Chrome 的竖排滑杆从最小值（-12）往上一路填色，
+ * 只看红色分不清是"提了"还是"压了"，所以每条轨道画一条地平线。
+ * 挂在轨道容器上（top:50%），不挂在整块上 —— 否则要把文字行高算进去，必然偏。
+ */
+.fx-track {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 88px;
+}
+.fx-track::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 50%;
+  border-top: 1px dashed color-mix(in srgb, var(--fg-dim) 45%, transparent);
+  pointer-events: none;
+}
+.fx-band {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  font-size: 9px;
+  color: var(--fg-dim);
+}
+.fx-band b {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  font-weight: 400;
+}
+.fx-band i {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+.fx-band input[type="range"] {
+  /* 竖立滑杆：writing-mode 是 Chrome 119+ 的标准做法，不用废弃的 slider-vertical */
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 16px;
+  height: 88px;
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 /* EQ 频响曲线（M9-4）：纯展示，颜色在组件里从 token 取（canvas 读不到 CSS 变量的画法限制） */

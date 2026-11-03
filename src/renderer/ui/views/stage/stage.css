@@ -1,9 +1,26 @@
 /* 播放页（stage-v10 a2「活字帖」重排）。
    五层不变量不变（50 §9.2）：0 壁纸 / 1 频谱 / 2 封面 / 3 歌词 / 4 控件（控件收进「视图」浮层）。
    颜色只走场景层 token（--stage-*）：纸面化换装后 cinema 是深底纸字，
-   所以本文件一律用 --stage-fg / --stage-fg-dim / --accent 派生，不写结构层 --line / --fg。 */
+   所以本文件一律用 --stage-fg / --stage-fg-dim / --stage-accent 派生，不写结构层 --line / --fg。
+   A-10「播放页与主题独立」由 test/stage-theme 扫描本文件守着：除 stage-scope 块外，
+   出现 var(--bg|--fg|--line|--accent|--glass-*) 即判失败。 */
 
 .stage {
+  /*
+   * 结构层 → 场景层的唯一重映射点：嵌套进来的通用组件（PageHead 的朱砂句号、
+   * 图标、滚条）在这里拿到纸面配色，切夜间才不会把播放页翻黑。
+   * 白名单标记：test/stage-theme 先把这一段剪掉再扫描，所以这里允许写结构层变量名。
+   */
+  /* stage-scope:begin */
+  --bg: var(--stage-bg);
+  --fg: var(--stage-fg);
+  --fg-dim: var(--stage-fg-dim);
+  --line: var(--stage-line);
+  --line-soft: var(--stage-line-soft);
+  --accent: var(--stage-accent);
+  --bg-raised: var(--stage-raised);
+  /* stage-scope:end */
+
   --st-box: clamp(64px, 6.6vw, 88px); /* 田字格边长：窄窗按 6.6vw 收，1180 以上封顶 88 */
   --st-side: 316px;
   position: relative;
@@ -15,6 +32,13 @@
   color: var(--stage-fg);
   overflow: hidden;
   transition: background var(--stage-dur) var(--stage-ease);
+  /* 原生控件（视图浮层里的 checkbox / select 弹层）也归场景层：
+     夜间主题会把它们刷成暗色，纸面播放页上就成了黑块 —— 这也是"与主题独立"的一部分 */
+  color-scheme: light;
+}
+/* 电影感是深底，控件跟着深 */
+.stage.preset-cinema {
+  color-scheme: dark;
 }
 
 /* ---- C0 壁纸（z 0） ---- */
@@ -57,6 +81,17 @@
   height: 120px;
   pointer-events: none;
   opacity: 0.55;
+}
+/* A-07：非电影感的三套是纸面排版：
+   底部 150px 是台词本的地盘，铺上去会压住 12 行台词；
+   台词本下方只剩几像素页脚，也放不下。
+   版心在「页头横线（约 118px）→ SCRIPT 行（约 180px）」之间有一整条空带，
+   频谱就收在这里当"声纹条"：40px 高、30% 墨，看得见起伏，不抢字。 */
+.stage:not(.preset-cinema) .st-spectrum {
+  top: 128px;
+  bottom: auto;
+  height: 36px;
+  opacity: 0.3;
 }
 
 /* ---- 版心：页头 + 左右两栏 + 台词本 ---- */
@@ -104,7 +139,7 @@
 }
 .st-viewbtn:hover,
 .st-viewbtn[aria-expanded="true"] {
-  color: var(--accent);
+  color: var(--stage-accent);
 }
 
 .st-body {
@@ -153,7 +188,7 @@
 .st-kicker i {
   width: 26px;
   height: 2px;
-  background: var(--accent);
+  background: var(--stage-accent);
 }
 .st-kicker span {
   font-family: var(--font-mono);
@@ -237,16 +272,31 @@
   font-size: calc(var(--st-box) * 0.55);
   padding-bottom: 8px;
 }
+/*
+ * 多字母 token（英文逐字数据的单位是词）：宽度随内容，字号小一档。
+ * 不这么做的话 "Dancin'" 这种 7 个字母塞进 84px 方格，字形会画到隔壁格子上，
+ * 一行的字互相压成一片（2026-11-03 真实网易云 yrc 实测）。单字仍是方格，田字格不塌。
+ */
+.st-kb.wide {
+  width: auto;
+  min-width: var(--st-box);
+  max-width: calc(var(--st-box) * 2.6);
+  padding: 0 0.24em;
+  font-size: calc(var(--st-box) * 0.42);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
 .st-kb.lit {
   color: var(--stage-fg);
 }
 .st-kb.now {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--stage-accent);
+  border-color: color-mix(in srgb, var(--stage-accent) 55%, transparent);
 }
 .st-kb.now::before,
 .st-kb.now::after {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--stage-accent) 16%, transparent);
 }
 
 /* 单行 / 剧场：大字当行 */
@@ -283,7 +333,7 @@
   transform: translateY(-50%);
   width: 2px;
   height: 12px;
-  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--stage-accent) 55%, transparent);
 }
 .st-theatrical .st-trans {
   margin: 2px 0 8px;
@@ -317,7 +367,7 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 10px 0 9px;
-  border-top: 2px solid var(--accent);
+  border-top: 2px solid var(--stage-accent);
 }
 /* 缝合线：只补过 gap 那 52px，不压到歌词区 */
 .st-side-h::before {
@@ -327,7 +377,7 @@
   top: -2px;
   width: 52px;
   height: 2px;
-  background: var(--accent);
+  background: var(--stage-accent);
 }
 .st-side-h b {
   font-size: 13px;
@@ -360,7 +410,7 @@
   flex: 0 0 30px;
   width: 30px;
   height: 30px;
-  background: var(--bg-raised) center/cover no-repeat;
+  background: var(--stage-raised) center/cover no-repeat;
   border: 1px solid color-mix(in srgb, var(--stage-fg) 22%, transparent);
 }
 .st-nx .tx {
@@ -384,6 +434,69 @@
   color: var(--stage-fg-dim);
   font-variant-numeric: tabular-nums;
 }
+/* A-20：行本体是按钮（可点播），右侧操作区默认隐形、hover/focus 显形 */
+.st-nx-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* 朱砂只给"正在播放"（tokens.css 纪律），悬停用下划线表达可点 */
+.st-nx-main:hover .tx {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* 操作区不占行宽（占位会把歌手名挤成省略号），悬停时盖在时长上 */
+.st-nx {
+  position: relative;
+}
+.st-nx-ops {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  display: flex;
+  gap: 2px;
+  padding-left: 6px;
+  background: var(--stage-bg);
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.st-nx:hover .st-nx-ops,
+.st-nx:focus-within .st-nx-ops {
+  opacity: 1;
+}
+.st-nx:hover time,
+.st-nx:focus-within time {
+  opacity: 0;
+}
+.st-nx-ops button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--stage-fg) 22%, transparent);
+  background: none;
+  color: var(--stage-fg-dim);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.st-nx-ops button:hover:enabled {
+  border-color: var(--stage-accent);
+  color: var(--stage-accent);
+}
+.st-nx-ops button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
 .st-side-empty {
   margin: 14px 0 0;
   font-size: 12px;
@@ -395,8 +508,8 @@
   align-self: flex-start;
   margin: 14px 0 0 2px;
   padding: 5px 10px 6px;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--stage-accent) 55%, transparent);
+  color: var(--stage-accent);
   text-align: center;
   transform: rotate(-2deg);
 }
@@ -425,9 +538,9 @@
 .st-photo .art {
   position: relative;
   aspect-ratio: 1;
-  border: 9px solid var(--bg);
+  border: 9px solid var(--stage-bg); /* 相纸白边 = 场景底色，cinema 下自然是暗边 */
   outline: 1px solid color-mix(in srgb, var(--stage-fg) 28%, transparent);
-  background: var(--bg-raised);
+  background: var(--stage-raised);
 }
 .st-photo .art:empty::before {
   content: "";
@@ -555,7 +668,7 @@
 .st-srow.cur .no,
 .st-srow.cur time,
 .st-srow.cur .tx {
-  color: var(--accent);
+  color: var(--stage-accent);
 }
 .st-srow.cur .tx {
   font-weight: 600;
@@ -564,7 +677,7 @@
   color: var(--stage-fg);
 }
 .st-srow:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--stage-accent);
   outline-offset: -1px;
 }
 
@@ -578,11 +691,17 @@
   gap: 10px;
   width: 330px;
   padding: 14px 16px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  /*
+   * 浮层长在播放页里面，材质也得跟场景走（不读 --glass-*）：
+   * 否则切夜间时纸面播放页上会浮出一块黑卡，正是 A-10 要防的那种串味。
+   */
+  background: color-mix(in srgb, var(--stage-bg) 97%, var(--stage-fg));
+  border: 1px solid var(--stage-line);
+  box-shadow:
+    0 12px 32px color-mix(in srgb, var(--stage-fg) 18%, transparent),
+    0 1px 0 var(--stage-line-soft);
   font-size: 12px;
-  color: var(--fg-dim);
+  color: var(--stage-fg-dim);
 }
 .st-menu-row {
   display: flex;
@@ -595,22 +714,22 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.12em;
-  color: var(--fg-dim);
+  color: var(--stage-fg-dim);
 }
 .st-menu button,
 .st-menu select {
   padding: 3px 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--stage-line);
   border-radius: 0;
   background: none;
-  color: var(--fg-dim);
+  color: var(--stage-fg-dim);
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 .st-menu button.on {
-  color: var(--fg);
-  border-color: var(--accent);
+  color: var(--stage-fg);
+  border-color: var(--stage-accent);
 }
 .st-menu label {
   display: flex;

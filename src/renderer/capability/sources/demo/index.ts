@@ -1,4 +1,5 @@
 import type { LyricDoc, RemoteTrack, SearchResult, SourceProvider } from "../../../../contracts/capability.js";
+import { parseLyrics } from "../../lyrics/index.js";
 
 /**
  * 示例音源：**走正式契约的假数据**，不联网。
@@ -15,16 +16,8 @@ const TRACKS: RemoteTrack[] = [
   { sourceId: "demo-3", title: "另一首歌", artist: "另一个人", album: "别的专辑", durationMs: 240000 },
 ];
 
-const LYRIC: LyricDoc = {
-  format: "lrc",
-  plain: "第一行示例歌词\n第二行示例歌词",
-  lines: [
-    { at: 0, dur: 4000, text: "第一行示例歌词" },
-    { at: 4000, dur: 4000, text: "第二行示例歌词" },
-  ],
-  words: [],
-  translations: [],
-};
+/** 走正式解析器，不手搓 LyricDoc —— 示例源也是契约的活样例。 */
+const LYRIC_TEXT = "[00:00.00]第一行示例歌词\n[00:04.00]第二行示例歌词";
 
 export const demoProvider: SourceProvider = {
   id: "demo",
@@ -42,6 +35,7 @@ export const demoProvider: SourceProvider = {
     canListPlaylists: true,
     canGetRadio: false,
     canFavorite: false,
+    canGetToplist: false,
   },
 
   traits: {
@@ -74,7 +68,7 @@ export const demoProvider: SourceProvider = {
   async getLyric(sourceId: string): Promise<LyricDoc> {
     const found = TRACKS.some((t) => t.sourceId === sourceId);
     if (!found) throw new Error("404 not found");
-    return LYRIC;
+    return parseLyrics(LYRIC_TEXT, { trackId: sourceId, source: "local" });
   },
 
   // M9-5：demo 当"第三家源"，验证歌单页 UI 零改动（能力声明驱动，不写死任何一家）

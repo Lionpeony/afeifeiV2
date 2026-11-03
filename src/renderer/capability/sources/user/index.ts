@@ -66,6 +66,7 @@ export function createUserProvider(
       canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
+      canGetToplist: false,
     },
 
     traits: { requiresAuth: false, qualities: ["128k"] },
@@ -97,7 +98,7 @@ export function createUserProvider(
     async getLyric(songId: string): Promise<LyricDoc> {
       const text = await call("getLyric", { songId });
       if (typeof text !== "string" || !text.trim()) throw err("track-missing", "这首歌没有歌词");
-      return parseLyrics(text);
+      return parseLyrics(text, { trackId: songId, source: "local" });
     },
   };
 }

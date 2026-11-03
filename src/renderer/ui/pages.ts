@@ -6,6 +6,7 @@ import type { IconName } from "./icons.js";
 export type PageId =
   | "home"
   | "online"
+  | "charts"
   | "radio"
   | "roam"
   | "local"
@@ -27,6 +28,7 @@ export interface NavItem {
 export const NAV_MAIN: NavItem[] = [
   { id: "home", label: "首页", icon: "home" },
   { id: "online", label: "在线", icon: "online" },
+  { id: "charts", label: "榜单", icon: "charts" },
   { id: "radio", label: "电台", icon: "radio" },
   { id: "roam", label: "漫游", icon: "roam" },
   { id: "local", label: "本地", icon: "local" },
@@ -45,6 +47,7 @@ export const NAV_FOOT: NavItem[] = [{ id: "settings", label: "设置", icon: "se
 export const PAGE_LABEL: Record<PageId, string> = {
   home: "首页",
   online: "在线",
+  charts: "榜单",
   radio: "电台",
   roam: "漫游",
   local: "本地",

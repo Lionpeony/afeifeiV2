@@ -80,6 +80,20 @@ contextBridge.exposeInMainWorld("api", {
   schemePoll: (): Promise<{ action: string; id: string; source?: string } | null> =>
     ipcRenderer.invoke("scheme:poll"),
 
+  // 媒体键 / 托盘（A-24 A-25）：主进程只发命令名，播放语义在渲染层命令注册表里
+  onPlaybackCommand: (cb: (cmd: string) => void): void => {
+    ipcRenderer.on("player:command", (_e, cmd: unknown) => {
+      if (typeof cmd === "string") cb(cmd);
+    });
+  },
+  /** 托盘只显示，不判断：这一行就是它需要的全部信息 */
+  pushTrayState: (state: { playing: boolean; title: string | null }): void => {
+    ipcRenderer.send("tray:state", {
+      playing: state.playing === true,
+      title: typeof state.title === "string" && state.title ? state.title : null,
+    });
+  },
+
   // 主题包（主进程只负责文件读写，不认识 token）
   exportTheme: (json: string): Promise<boolean> => ipcRenderer.invoke("theme:export", json),
   importTheme: (): Promise<unknown> => ipcRenderer.invoke("theme:import"),

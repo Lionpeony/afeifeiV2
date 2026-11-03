@@ -579,6 +579,27 @@ html::after {
   font-size: 10px;
   letter-spacing: 0.1em;
 }
+
+/* 榜单页（A-14）：复用歌单的两栏布局，卡片里多一张 40px 封面 */
+.chart-item {
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+}
+.chart-cover {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  background: var(--bg-raised) center/cover no-repeat;
+  border: 1px solid var(--line);
+}
+.chart-tx {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
 .pl-more {
   display: block;
   margin: 8px auto;

@@ -62,6 +62,12 @@ const NETEASE_ALLOWED = new Set([
   "login_cellphone",
   "user_account",
   "logout",
+  // 榜单（A-14）与歌单下钻：provider 早就在调这三个，白名单漏登记 = 一调就抛
+  // "不允许调用网易云接口"（歌单页与榜单页都会全红，且报错与网络失败长得一样）
+  "toplist",
+  "playlist_track_all",
+  "login_status",
+  "user_playlist",
 ]);
 
 /**

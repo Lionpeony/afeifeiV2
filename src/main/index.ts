@@ -10,6 +10,8 @@ import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProto
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 import { installCrashGuard } from "./crash.js";
 import { startUpdateCheck } from "./update/checker.js";
+import { registerMediaKeys, unregisterMediaKeys, type PlaybackCommand } from "./mediaKeys.js";
+import { createTray, destroyTray } from "./tray.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
 // 分多次调用会互相覆盖（见 host/index.ts）。
@@ -23,6 +25,19 @@ app.setName("Afeifei 阿飞飞");
 
 // 崩溃兜底（M8）越早装越好：未捕获异常 / 渲染进程退出 → crash-*.log
 installCrashGuard();
+
+/** 主窗口（托盘/媒体键都要把它找回来；关窗只隐藏，不销毁）。 */
+let mainWin: BrowserWindow | null = null;
+/** 用户真的要退出（托盘「退出」/ 系统注销）：此时关窗才允许销毁。 */
+let quitting = false;
+
+app.on("before-quit", () => {
+  quitting = true;
+});
+app.on("will-quit", () => {
+  unregisterMediaKeys();
+  destroyTray();
+});
 
 // 单实例锁放 M0（51 §1.7）：M5 的 afeifei:// 依赖它，双开会抢同一份队列与日志。
 const locked = app.requestSingleInstanceLock();
@@ -78,6 +93,8 @@ if (!locked) {
   app.on("second-instance", (_e, argv) => {
     const win = BrowserWindow.getAllWindows()[0];
     if (!win) return;
+    // 收进托盘后再启动一次 = 用户想把窗口叫回来（A-25），不能只 focus 一个隐藏窗口
+    if (!win.isVisible()) win.show();
     if (win.isMinimized()) win.restore();
     win.focus();
     const url = schemeFromArgv(argv);
@@ -116,6 +133,18 @@ if (!locked) {
       },
     });
 
+    mainWin = win;
+
+    // A-25：点 × 只是收进托盘（正在播的歌不该被误停）；真正退出走托盘「退出」或系统注销
+    win.on("close", (e) => {
+      if (quitting) return;
+      e.preventDefault();
+      win.hide();
+    });
+    win.on("closed", () => {
+      if (mainWin === win) mainWin = null;
+    });
+
     win.webContents.on("render-process-gone", (_e, details) => {
       error("main", "renderer gone:", details.reason);
     });
@@ -123,6 +152,14 @@ if (!locked) {
     win.loadURL("app://afeifei/index.html");
     log("main", "window ready");
     startUpdateCheck(win.webContents); // M8：启动 30s 后查一次新版本（非静默安装，只提示）
+
+    // A-24 + A-25：媒体键与托盘共用同一条「命令名」通道，播放语义只在渲染层有一份
+    const send = (cmd: PlaybackCommand): void => {
+      if (!mainWin || mainWin.isDestroyed()) return;
+      mainWin.webContents.send("player:command", cmd);
+    };
+    registerMediaKeys(send);
+    createTray({ send, window: () => mainWin, quit: () => app.quit() });
 
     // 冷启动：argv 里带协议 URL（第二次实例走 second-instance，这里管第一次）
     const coldUrl = schemeFromArgv(process.argv);

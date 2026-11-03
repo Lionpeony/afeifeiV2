@@ -4,6 +4,7 @@ import {
   activeLine,
   compareRenderers,
   karaokeState,
+  litCount,
   minimalState,
   pressState,
   theatricalState,
@@ -18,25 +19,28 @@ import {
 } from "../dist-test/stage-presets.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
-/** 一份可控的测试 LyricDoc（毫秒，与 clock 同单位）。 */
-function doc(lines, words = []) {
-  return { format: "lrc", plain: "", lines, words, translations: [] };
+/** 一份可控的测试 LyricDoc：只有 contracts/lyric.ts 一种模型（毫秒，逐字行内相对）。 */
+function doc(lines) {
+  return {
+    trackId: "t",
+    source: "local",
+    hasWordTiming: lines.some((l) => l.words.length > 0),
+    lines,
+    segments: [],
+    offsetMs: 0,
+    quality: "exact",
+    fetchedAt: 0,
+  };
 }
-const line = (at, dur, text) => ({ at, dur, text });
+const line = (startMs, endMs, text, words = []) => ({ index: 0, startMs, endMs, text, words });
+const word = (startMs, endMs, text) => ({ startMs, endMs, text });
 
-const SAMPLE = doc(
-  [
-    line(0, 4000, "第一句"),
-    line(4000, 3000, "第二句"),
-    line(7000, 2000, "第三句"),
-    line(12000, 5000, "第四句"), // 行间留 3000ms 空档，检验"空档时停在上一行"
-  ],
-  [
-    { line: 1, at: 4000, dur: 1000, char: "第" },
-    { line: 1, at: 5000, dur: 1000, char: "二" },
-    { line: 1, at: 6000, dur: 1000, char: "句" },
-  ],
-);
+const SAMPLE = doc([
+  line(0, 4000, "第一句"),
+  line(4000, 7000, "第二句", [word(0, 1000, "第"), word(1000, 2000, "二"), word(2000, 3000, "句")]),
+  line(7000, 9000, "第三句"),
+  line(12000, 17000, "第四句"), // 行间留 3000ms 空档，检验"空档时停在上一行"
+]);
 
 /* ---- 行判定（唯一的一份） ---- */
 
@@ -86,12 +90,26 @@ test("minimal：活动行前文本为空", () => {
   assert.equal(minimalState(SAMPLE, 5000).text, "第二句");
 });
 
+test("偏移：offsetMs 必须被四个渲染器一致地算进去", () => {
+  const shifted = { ...SAMPLE, offsetMs: 500 };
+  assert.equal(pressState(shifted, 4400).active, 0, "未到偏移后的行时间，仍是上一行");
+  assert.equal(pressState(shifted, 4500).active, 1);
+  assert.equal(compareRenderers(shifted, 4500), null, "偏移后四个渲染器仍须同拍");
+  // 逐字进度也要跟着偏移走，否则字比行慢 500ms
+  assert.ok(karaokeState(shifted, 4600).chars[0].progress > 0, "偏移后逐字进度不许比行慢半拍");
+});
+
 test("karaoke：逐字进度单调推进，clamp 到 0–1", () => {
   const early = karaokeState(SAMPLE, 4100);
   assert.equal(early.chars.length, 3);
   assert.ok(early.chars[0].progress > 0 && early.chars[0].progress < 1);
-  const late = karaokeState(SAMPLE, 7000);
-  assert.ok(late.chars.every((c) => c.progress === 1), "行末所有字进度必须是 1");
+  const bound = karaokeState(SAMPLE, 6999);
+  assert.ok(bound.chars[2].progress > 0.99, "行末最后一字接近满进度");
+  assert.ok(bound.chars.every((c) => c.progress > 0 && c.progress <= 1));
+  assert.deepEqual(
+    karaokeState(SAMPLE, 5000).chars.map((c) => c.char),
+    ["第", "二", "句"],
+  );
 });
 
 test("karaoke：无逐字数据的行回落整行进度", () => {
@@ -126,9 +144,53 @@ test("每个预设声明了一个歌词渲染器，且四套各不相同", () =>
   assert.equal(new Set(renderers).size, 4);
 });
 
-test("STAGE_TOKEN_KEYS 与 tokens.css 的场景层对得上（数量一致）", () => {
-  // tokens.css 场景层：bg/fg/fg-dim/tint/wallpaper + cover×5 + lyric×2 + dur/ease = 14
-  assert.equal(STAGE_TOKEN_KEYS.length, 14);
+test("STAGE_TOKEN_KEYS 有 18 个场景层键（含 A-10 的 line/line-soft/raised/accent）", () => {
+  // 数量只是索引：真正的对账（键集合 ↔ tokens.css 声明）在 stage-theme.test.mjs 里做，
+  // 那边扫源码，改成只数数字就退化成"改一处改两处"的复读
+  assert.equal(STAGE_TOKEN_KEYS.length, 18);
+});
+
+/* ---- A-04 逐字点亮：有数据按字，没数据按渲染器降级 ---- */
+
+test("litCount：有逐字数据 → 按字点亮，唱过一个亮一个", () => {
+  const k = {
+    renderer: "karaoke",
+    active: 0,
+    text: "马林鱼",
+    progress: 0,
+    chars: [
+      { char: "马", progress: 1 },
+      { char: "林", progress: 1 },
+      { char: "鱼", progress: 0.4 },
+    ],
+  };
+  assert.equal(litCount("karaoke", k, 3), 2, "前两个字唱完，第三个还在唱");
+  assert.equal(litCount("press", k, 3), 2, "press 有逐字数据时也不许整句先落墨");
+});
+
+test("litCount：无逐字数据 + press → 整句一次落墨", () => {
+  const k = { renderer: "karaoke", active: 0, text: "马林鱼", progress: 0.2, chars: [] };
+  assert.equal(litCount("press", k, 3), 3, "press 的语义是整句，不假装逐字");
+});
+
+test("litCount：无逐字数据 + karaoke → 按行进度折算", () => {
+  const k = { renderer: "karaoke", active: 0, text: "马林鱼", progress: 0.34, chars: [] };
+  assert.equal(litCount("karaoke", k, 3), 1);
+  assert.equal(litCount("karaoke", { ...k, progress: 0.9 }, 3), 3);
+  assert.equal(litCount("karaoke", { ...k, progress: 0 }, 3), 0);
+});
+
+test("litCount：字数与格子数不一致时退回整行语义（不越界）", () => {
+  const k = {
+    renderer: "karaoke",
+    active: 0,
+    text: "ab",
+    progress: 1,
+    chars: [{ char: "a", progress: 1 }],
+  };
+  assert.equal(litCount("press", k, 5), 5);
+  assert.equal(litCount("karaoke", k, 5), 5);
+  assert.equal(litCount("press", k, 0), 0, "没有格子就是 0");
 });
 
 /* ---- store 的 stage 域 ---- */
@@ -158,6 +220,22 @@ test("sanitizeStageConfig：坏数据回落默认，cover/controls 强制 true",
   assert.equal(bad.layers.cover, true, "cover 不可关");
   assert.equal(bad.layers.controls, true, "controls 不可关");
   assert.equal(bad.layers.wallpaper, false, "可关的层尊重存档");
+});
+
+test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", () => {
+  assert.equal(sanitizeStageConfig(null).translation, true, "默认双语并排");
+  assert.equal(sanitizeStageConfig({ preset: "paper" }).translation, true, "老存档没有这个字段=当时译文常显");
+  assert.equal(sanitizeStageConfig({ translation: false }).translation, false);
+  assert.equal(sanitizeStageConfig({ translation: "no" }).translation, true, "非布尔值不当成 false");
+});
+
+test("stage/setTranslation：切换生效且幂等", () => {
+  const before = getState().stage;
+  dispatch({ type: "stage/setTranslation", on: before.translation });
+  assert.equal(getState().stage, before, "值没变不产生新状态");
+  dispatch({ type: "stage/setTranslation", on: !before.translation });
+  assert.equal(getState().stage.translation, !before.translation);
+  dispatch({ type: "stage/setTranslation", on: before.translation });
 });
 
 test("LAYER_KEYS 与契约五层一致", () => {

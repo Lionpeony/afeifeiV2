@@ -1,4 +1,4 @@
-import type { LyricFormat } from "../../../contracts/capability.js";
+import type { LyricFormat } from "../../../contracts/lyric.js";
 
 /**
  * 格式识别。**先看结构标记，再看时间轴长相** —— 只看"有没有 [mm:ss]"会把 QRC 误判成 LRC。

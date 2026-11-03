@@ -6,17 +6,18 @@
  * 由这个结构保证，`compareRenderers` 再用测试钉死（M4 判据：diff = 0）。
  *
  * 全部纯函数：LyricDoc + t → 视图状态。不碰 DOM、不起 rAF（t 来自合成器）。
+ * 模型只有 `contracts/lyric.ts` 一份（21 §二）：行用 startMs/endMs，逐字用**行内相对**。
  */
-import type { LyricDoc, LyricLine } from "../../../../contracts/capability.js";
+import type { LyricDoc, LyricLine } from "../../../../contracts/lyric.js";
 
-/** 当前活动行：最后一个 at <= t 的行；t 在第一行之前返回 -1。二分，5000 行也不怕。 */
-export function activeLine(lines: Pick<LyricLine, "at">[], t: number): number {
+/** 当前活动行：最后一个 startMs <= t 的行；t 在第一行之前返回 -1。二分，5000 行也不怕。 */
+export function activeLine(lines: Pick<LyricLine, "startMs">[], t: number): number {
   let lo = 0;
   let hi = lines.length - 1;
   let ans = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (lines[mid].at <= t) {
+    if (lines[mid].startMs <= t) {
       ans = mid;
       lo = mid + 1;
     } else {
@@ -27,6 +28,12 @@ export function activeLine(lines: Pick<LyricLine, "at">[], t: number): number {
 }
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/**
+ * 用户偏移只在这一个地方生效：四个渲染器都从这里取"歌词时刻"。
+ * 偏移为正 = 歌词整体提前（用户觉得歌词慢半拍时往右调）。
+ */
+const cue = (doc: LyricDoc, t: number): number => activeLine(doc.lines, t - doc.offsetMs);
 
 export interface PressState {
   renderer: "press";
@@ -61,32 +68,48 @@ export interface TheatricalState {
 }
 
 export function pressState(doc: LyricDoc, t: number): PressState {
-  const active = activeLine(doc.lines, t);
+  const active = cue(doc, t);
   return { renderer: "press", active, offset: Math.max(0, active) };
 }
 
 export function minimalState(doc: LyricDoc, t: number): MinimalState {
-  const active = activeLine(doc.lines, t);
+  const active = cue(doc, t);
   return { renderer: "minimal", active, text: active >= 0 ? doc.lines[active].text : "" };
 }
 
 export function karaokeState(doc: LyricDoc, t: number): KaraokeState {
-  const active = activeLine(doc.lines, t);
+  const active = cue(doc, t);
   if (active < 0) return { renderer: "karaoke", active, text: "", progress: 0, chars: [] };
   const line = doc.lines[active];
-  const end = line.at + line.dur;
-  const progress = clamp01((t - line.at) / Math.max(1, end - line.at));
-  const words = doc.words.filter((w) => w.line === active).map((w) => ({
-    char: w.char,
-    progress: clamp01((t - w.at) / Math.max(1, w.dur)),
+  const at = t - doc.offsetMs; // 逐字进度也走同一时刻，否则字会与行错开
+  const progress = clamp01((at - line.startMs) / Math.max(1, line.endMs - line.startMs));
+  const chars = line.words.map((w) => ({
+    char: w.text,
+    progress: clamp01((at - (line.startMs + w.startMs)) / Math.max(1, w.endMs - w.startMs)),
   }));
-  return { renderer: "karaoke", active, text: line.text, progress, chars: words };
+  return { renderer: "karaoke", active, text: line.text, progress, chars };
 }
 
 export function theatricalState(doc: LyricDoc, t: number): TheatricalState {
-  const active = activeLine(doc.lines, t);
+  const active = cue(doc, t);
   const distances = doc.lines.map((_, i) => (active < 0 ? 999 : Math.abs(i - active)));
   return { renderer: "theatrical", active, offset: Math.max(0, active), distances };
+}
+
+/**
+ * 田字格点亮几个字（A-04 判据「逐字着色；无逐字数据时降级为整行」）。
+ *
+ * 抽成纯函数是因为这段分支原来埋在组件的每帧回调里，测试碰不到：
+ * 只能靠肉眼判断"这屏到底是不是逐字"。现在三种输入三种输出，各有判据：
+ * ① 有逐字数据且与格子数一一对应 → 按字点亮（唱过一个亮一个）；
+ * ② 没有逐字数据 + press（田字格）→ 整句一次落墨（这是 press 的语义，不是退化成动画）；
+ * ③ 没有逐字数据 + karaoke → 按行进度折算，宁可粗也不装出逐字。
+ */
+export function litCount(renderer: "press" | "karaoke", k: KaraokeState, boxes: number): number {
+  if (boxes <= 0) return 0;
+  if (k.chars.length === boxes) return k.chars.filter((c) => c.progress >= 1).length;
+  if (renderer === "press") return boxes;
+  return Math.round(clamp01(k.progress) * boxes);
 }
 
 /**

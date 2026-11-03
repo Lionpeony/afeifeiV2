@@ -131,5 +131,33 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(OUT, `page-local-dark${suffix}.png`), (await win.webContents.capturePage()).toPNG());
   console.log(`shot → docs/assets/page-local-dark${suffix}.png`);
 
+  // 音效面板（A-06 证据）：10 段竖排滑杆 + 预设。点了「人声」才拍，曲线要跟着变
+  await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
+  await sleep(200);
+  const fxOk = await win.webContents.executeJavaScript(
+    `(() => {
+      const b = [...document.querySelectorAll(".tools button")].find((x) => x.textContent === "音效");
+      if (!b) return false;
+      b.click();
+      return true;
+    })()`,
+    true,
+  );
+  if (!fxOk) throw new Error("找不到控制台的「音效」按钮");
+  await sleep(300);
+  const presetOk = await win.webContents.executeJavaScript(
+    `(() => {
+      const b = [...document.querySelectorAll(".fx-presets button")].find((x) => x.textContent === "人声");
+      if (!b) return false;
+      b.click();
+      return true;
+    })()`,
+    true,
+  );
+  if (!presetOk) throw new Error("找不到 EQ 预设「人声」");
+  await sleep(350);
+  fs.writeFileSync(path.join(OUT, "console-eq.png"), (await win.webContents.capturePage()).toPNG());
+  console.log("shot → docs/assets/console-eq.png");
+
   app.quit();
 });

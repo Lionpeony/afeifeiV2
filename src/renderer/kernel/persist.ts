@@ -13,6 +13,8 @@ interface Snapshot {
   trackId: string | null;
   positionMs: number;
   volume: number;
+  /** 老快照没有这个字段：读的时候按 false 处理，不为此升版本 */
+  muted?: boolean;
   queue: AppState["queue"];
 }
 
@@ -33,6 +35,7 @@ export function createPersister(port: StoragePort, delayMs = 1000): Persister {
       trackId: s.player.trackId,
       positionMs: Math.round(positionOf()),
       volume: s.player.volume,
+      muted: s.player.muted,
       queue: s.queue,
     };
     return JSON.stringify(snap);

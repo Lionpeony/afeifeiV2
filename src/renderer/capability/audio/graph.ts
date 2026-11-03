@@ -4,12 +4,12 @@
  *
  * 图结构（00 §5.1，M9-3 双路化）：
  *   <audio A> → fadeA ─┐
- *                      ├─▶ preamp → eq[6] → analyser → destination
+ *                      ├─▶ preamp → eq[10] → analyser → destination
  *   <audio B> → fadeB ─┘
  * fadeA/fadeB 是 crossfade 的两条增益曲线；preamp 是前置增益（ReplayGain 手动版）；
- * eq 是 6 段 peaking 串联。
+ * eq 是 10 段 peaking 串联。
  */
-import { EQ_BANDS, dbToGain } from "./eq.js";
+import { EQ_BANDS, dbToGain, writeEqGains } from "./eq.js";
 
 export interface AudioGraph {
   ctx: AudioContext;
@@ -18,7 +18,7 @@ export interface AudioGraph {
   /** B 路（元素 1）的增益。 */
   fadeB: GainNode;
   preamp: GainNode;
-  /** 6 段 peaking，与 EQ_BANDS 对齐。 */
+  /** 10 段 peaking，与 EQ_BANDS 对齐。 */
   eq: BiquadFilterNode[];
   analyser: AnalyserNode;
 }
@@ -65,11 +65,12 @@ export function setPreamp(graph: AudioGraph, db: number): void {
   graph.preamp.gain.value = dbToGain(db);
 }
 
-/** 整组设置 6 段。段数不齐忽略——图不负责校验，校验在 eq.ts / store。 */
+/**
+ * 整组设置 10 段。段数不齐忽略——图不负责校验，校验在 eq.ts / store。
+ * 单位换算在 eq.ts 的 writeEqGains 里（滤波器 gain 是 dB，不是线性增益）。
+ */
 export function setEq(graph: AudioGraph, gains: number[]): void {
-  graph.eq.forEach((node, i) => {
-    node.gain.value = dbToGain(gains[i] ?? 0);
-  });
+  writeEqGains(graph.eq, gains);
 }
 
 /** 首次播放必须由用户手势触发，否则 AudioContext 停在 suspended。 */

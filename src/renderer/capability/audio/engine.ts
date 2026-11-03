@@ -174,6 +174,7 @@ export class AudioEngine {
     if (!outGain || !inGain) return;
 
     incoming.volume = outgoing.volume; // 音量走元素，两路必须一致
+    incoming.muted = outgoing.muted; // 静音也要带过去，否则淡入那一半会突然出声
     incoming.src = src;
     incoming.load();
 
@@ -294,6 +295,12 @@ export class AudioEngine {
     const v = Math.min(1, Math.max(0, volume));
     this.el.volume = v;
     this.elB.volume = v;
+  }
+
+  /** 静音（A-17）。走元素的 muted 而不是把 volume 置 0 —— 取消静音要能回到原音量。 */
+  setMuted(muted: boolean): void {
+    this.el.muted = muted;
+    this.elB.muted = muted;
   }
 
   /** 前置增益（dB）。图未建时暂存，建图后应用。 */

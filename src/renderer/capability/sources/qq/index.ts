@@ -5,7 +5,7 @@ import type {
   SourceProvider,
 } from "../../../../contracts/capability.js";
 import type { LocalApiPort } from "../../../../contracts/ports.js";
-import { parseLyrics } from "../../lyrics/index.js";
+import { parseLyrics, withTranslation } from "../../lyrics/index.js";
 
 /**
  * QQ 音乐音源。
@@ -81,6 +81,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
+      canGetToplist: false, // QQ 榜单接口未接（need qqClient 白名单 + fcg 解析），先不声明
     },
 
     traits: {
@@ -109,13 +110,9 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
         const qrc = await qq<{ qrc?: string; trans?: string }>("qrc", { songmid: sourceId });
         const text = (qrc?.qrc ?? "").trim();
         if (text) {
-          const doc = parseLyrics(text);
+          const doc = parseLyrics(text, { trackId: sourceId, source: "qq" });
           const trans = (qrc?.trans ?? "").trim();
-          if (trans) {
-            const zh = parseLyrics(trans);
-            return { ...doc, translations: [{ lang: "zh", lines: zh.lines }] };
-          }
-          return doc;
+          return trans ? withTranslation(doc, trans, "zh") : doc;
         }
       } catch {
         // QRC 链路失败不致命：走 LRC 兜底
@@ -124,7 +121,7 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       const body = await qq<{ response?: { lyric?: string } }>("lyric", { songmid: sourceId });
       const lrc = body?.response?.lyric?.trim();
       if (!lrc) throw err("track-missing", "这首歌没有歌词");
-      return parseLyrics(lrc);
+      return parseLyrics(lrc, { trackId: sourceId, source: "qq" });
     },
 
     async login(): Promise<void> {

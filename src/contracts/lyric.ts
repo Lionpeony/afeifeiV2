@@ -1,6 +1,9 @@
 /** 歌词数据契约（21 §2）。纯类型，main 与 renderer 共用，不许放实现。 */
 import type { TrackId } from "./index";
 
+/** 上游格式。解析用，不进 doc（doc 只关心"有没有逐字"与"质量"）。 */
+export type LyricFormat = "lrc" | "qrc" | "yrc" | "ttml" | "plain";
+
 /** 歌词数据从哪来。匹配优先级：local(内嵌) > lrclib > 在线源 > manual */
 export type LyricSourceId = "embedded" | "local" | "lrclib" | "netease" | "qq" | "manual";
 

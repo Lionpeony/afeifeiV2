@@ -35,6 +35,8 @@ export interface PlayerState {
   trackTitle: string | null;
   positionMs: number;
   volume: number;
+  /** 静音（A-17）。与 volume 分开存：取消静音要回到原来的音量。 */
+  muted: boolean;
   error: ErrorCode | null;
   /**
    * 在线曲目的音源内标识：歌词 / 封面用。本地曲目为 null。
@@ -53,6 +55,15 @@ export interface QueueState {
   mode: PlayMode;
   /** shuffle 的种子。同种子同顺序，可复现。 */
   shuffleSeed: number;
+}
+
+/**
+ * 睡眠定时（A-23）。只存"截止时刻"，不存"还剩几秒" ——
+ * 剩余时间由 UI 用同一截止时刻现算，两处各存一份必然对不上。
+ * 不持久化：定时是一次性的，重启后不该继续倒数。
+ */
+export interface SleepState {
+  endsAt: number | null;
 }
 
 /** 音频链路配置（50 §5.1）。与播放状态分开：换歌不动它，重启要恢复它。 */
@@ -80,6 +91,8 @@ export interface StageConfig {
   intensity: 0 | 1 | 2;
   layers: Record<StageLayer, boolean>;
   lyricRenderer: LyricRenderer;
+  /** 歌词译文是否并排显示（A-03）。关掉只留原文，译文数据仍在 doc 里不丢。 */
+  translation: boolean;
   /** 导入的主题包对场景层 token 的覆盖。null = 没有导入。键必须登记过。 */
   customTokens: Record<string, string> | null;
 }
@@ -111,6 +124,7 @@ export interface AppState {
   queue: QueueState;
   audio: AudioConfig;
   stage: StageConfig;
+  sleep: SleepState;
   download: { items: DownloadItem[] };
 }
 
@@ -128,6 +142,7 @@ export type Intent =
   | { type: "player/toggle" }
   | { type: "player/seek"; positionMs: number }
   | { type: "player/setVolume"; volume: number }
+  | { type: "player/setMuted"; muted: boolean }
   | { type: "player/ended" }
   | { type: "player/error"; code: ErrorCode }
   | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }
@@ -135,6 +150,15 @@ export type Intent =
   /** atPositionMs 由 UI 带上来：store 不追实时位置，但 3 秒规则要用它 */
   | { type: "queue/prev"; atPositionMs?: number }
   | { type: "queue/mode"; mode: PlayMode }
+  /** 删队列里某一格（A-20）。index 是 items 下标，不是播放序。 */
+  | { type: "queue/remove"; index: number }
+  /** 移动队列里某一格（A-20）。同样用 items 下标，播放序由 orderOf 现算。 */
+  | { type: "queue/move"; from: number; to: number }
+  /** 睡眠定时（A-23）。endsAt 是绝对时刻，由 UI 算好传进来 —— kernel 不碰 Date.now()。 */
+  | { type: "sleep/set"; endsAt: number }
+  | { type: "sleep/clear" }
+  /** 定时到点：暂停但**不退出**（A-23）。计时器在 UI，这里只做状态转移。 */
+  | { type: "sleep/expire" }
   | { type: "queue/restore"; state: QueueState }
   /** 装载但不播（恢复上次状态用）。 */
   | { type: "player/cue"; trackId: TrackId; positionMs?: number }
@@ -156,6 +180,8 @@ export type Intent =
   /** cover / controls 不可关，发了也忽略。 */
   | { type: "stage/toggleLayer"; layer: StageLayer }
   | { type: "stage/setLyricRenderer"; renderer: LyricRenderer }
+  /** 译文并排开关（A-03）。只切显示，不改 doc —— 切回来不用重新取词。 */
+  | { type: "stage/setTranslation"; on: boolean }
   /** 主题包覆盖（入口侧已 sanitize）。null = 清除主题包。 */
   | { type: "stage/setTheme"; tokens: Record<string, string> | null }
   | { type: "stage/restore"; config: StageConfig }

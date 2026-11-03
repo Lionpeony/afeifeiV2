@@ -1,6 +1,12 @@
-import type { LyricDoc, RemoteTrack, SearchResult, SourceProvider } from "../../../../contracts/capability.js";
+import type {
+  LyricDoc,
+  RemoteTrack,
+  SearchResult,
+  SourceProvider,
+  Toplist,
+} from "../../../../contracts/capability.js";
 import type { LocalApiPort } from "../../../../contracts/ports.js";
-import { parseLyrics } from "../../lyrics/index.js";
+import { parseLyrics, withTranslation } from "../../lyrics/index.js";
 
 /**
  * 网易云音源。
@@ -76,6 +82,7 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       canListPlaylists: true,
       canGetRadio: false,
       canFavorite: false,
+      canGetToplist: true, // A-14：toplist 匿名可读，榜单页不要求登录
     },
 
     traits: {
@@ -148,6 +155,26 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         .filter((p): p is NonNullable<typeof p> => p !== null);
     },
 
+    /**
+     * 榜单列表（A-14）。网易云的 toplist 匿名可读，且返回的 id 就是"榜歌单 id"，
+     * 所以下钻直接复用 getPlaylist——榜单不需要第二套取曲目的代码。
+     */
+    async listToplists(): Promise<Toplist[]> {
+      const body = await ncm<{ list?: Record<string, unknown>[] }>("toplist");
+      return (body?.list ?? [])
+        .map((t): Toplist | null => {
+          const id = t.id;
+          if (id === undefined || id === null) return null;
+          return {
+            id: String(id),
+            name: typeof t.name === "string" && t.name ? t.name : "未命名榜单",
+            count: Number(t.trackCount ?? 0),
+            coverUrl: typeof t.coverImgUrl === "string" ? t.coverImgUrl : undefined,
+          };
+        })
+        .filter((t): t is Toplist => t !== null);
+    },
+
     async getPlaylist(playlistId: string, page = 0) {
       const limit = 50;
       const body = await ncm<{ songs?: Record<string, unknown>[]; total?: number }>("playlist_track_all", {
@@ -180,11 +207,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       const source = yrc || lrc || translated;
       if (!source) throw err("track-missing", "这首歌没有歌词");
 
-      const doc = parseLyrics(source);
-      if (!translated) return doc;
-
-      const zh = parseLyrics(translated);
-      return { ...doc, translations: [{ lang: "zh", lines: zh.lines }] };
+      const doc = parseLyrics(source, { trackId: sourceId, source: "netease" });
+      return translated ? withTranslation(doc, translated, "zh") : doc;
     },
 
     async login(): Promise<void> {

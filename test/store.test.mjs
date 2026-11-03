@@ -40,3 +40,141 @@ test("未知 intent 不改状态", () => {
   dispatch({ type: "不存在的意图" });
   assert.equal(getState(), before);
 });
+
+/* ---------- A-17 静音 ---------- */
+
+test("静音是独立字段：不改 volume，取消后回到原音量", () => {
+  dispatch({ type: "player/setVolume", volume: 0.42 });
+  dispatch({ type: "player/setMuted", muted: true });
+  assert.equal(getState().player.muted, true);
+  assert.equal(getState().player.volume, 0.42, "静音不许把音量清零");
+  dispatch({ type: "player/setMuted", muted: false });
+  assert.equal(getState().player.volume, 0.42);
+});
+
+test("重复静音不发通知（同值 reducer 返回同一对象）", () => {
+  dispatch({ type: "player/setMuted", muted: true });
+  let calls = 0;
+  const off = subscribe(() => {
+    calls += 1;
+  });
+  dispatch({ type: "player/setMuted", muted: true });
+  assert.equal(calls, 0);
+  off();
+  dispatch({ type: "player/setMuted", muted: false });
+});
+
+/* ---------- A-20 队列增删排序 ---------- */
+
+/** 队列入栈并让 startAt 那首真的在播（queue/set 只装载，不播）。 */
+function reset(items = ["a", "b", "c", "d"], startAt = 1) {
+  dispatch({ type: "queue/set", items, startAt });
+  dispatch({ type: "player/play", trackId: items[startAt] });
+}
+
+test("删当前之前的：光标减一，播放曲目不变", () => {
+  reset();
+  dispatch({ type: "queue/remove", index: 0 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["b", "c", "d"]);
+  assert.equal(s.queue.cursor, 0);
+  assert.equal(s.player.trackId, "b");
+  assert.equal(s.player.status, "playing");
+});
+
+test("删当前之后的：光标不动", () => {
+  reset();
+  dispatch({ type: "queue/remove", index: 3 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["a", "b", "c"]);
+  assert.equal(s.queue.cursor, 1);
+  assert.equal(s.player.trackId, "b");
+});
+
+test("删正在播的：接到下一条并保持播放，不重播已删的", () => {
+  reset();
+  dispatch({ type: "queue/remove", index: 1 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["a", "c", "d"]);
+  assert.equal(s.player.trackId, "c");
+  assert.equal(s.queue.cursor, 1);
+  assert.equal(s.player.status, "playing", "一边播一边删，别把播放停掉");
+  assert.equal(s.player.positionMs, 0);
+});
+
+test("删正在播的且它是最后一条：队列空了就结束，不假装还有歌", () => {
+  reset(["a"], 0);
+  dispatch({ type: "queue/remove", index: 0 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, []);
+  assert.equal(s.queue.cursor, -1);
+  assert.equal(s.player.trackId, null);
+  assert.equal(s.player.status, "ended");
+});
+
+test("越界的删除/移动不产生新状态", () => {
+  reset();
+  const before = getState();
+  dispatch({ type: "queue/remove", index: 99 });
+  dispatch({ type: "queue/move", from: -1, to: 2 });
+  assert.equal(getState(), before);
+});
+
+test("移动队列：不换歌，光标跟着正在播的那首走", () => {
+  reset();
+  dispatch({ type: "queue/move", from: 3, to: 0 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["d", "a", "b", "c"]);
+  assert.equal(s.player.trackId, "b", "排序不许换歌");
+  assert.equal(s.queue.cursor, 2, "光标要跟着 b 走");
+  assert.equal(s.player.status, "playing");
+});
+
+/* ---------- A-23 睡眠定时 ---------- */
+
+test("睡眠定时：到点只暂停，不退出、不清队列", () => {
+  reset();
+  dispatch({ type: "sleep/set", endsAt: Date.now() + 1_800_000 });
+  assert.equal(typeof getState().sleep.endsAt, "number");
+
+  dispatch({ type: "sleep/expire" });
+  const s = getState();
+  assert.equal(s.sleep.endsAt, null, "到点后必须清掉定时，否则下一秒又触发一次");
+  assert.equal(s.player.status, "paused");
+  assert.equal(s.player.trackId, "b", "只暂停，不许退出或换歌");
+  assert.equal(s.queue.items.length, 4);
+  assert.equal(s.queue.cursor, 1);
+});
+
+test("睡眠定时：暂停态到点只是清定时，不改状态位", () => {
+  reset(["x", "y"], 0);
+  dispatch({ type: "player/pause" });
+  dispatch({ type: "sleep/clear" }); // 没设置时也合法（幂等）
+  dispatch({ type: "sleep/set", endsAt: 42 });
+  dispatch({ type: "sleep/expire" });
+  assert.equal(getState().sleep.endsAt, null);
+  assert.equal(getState().player.status, "paused");
+});
+
+test("睡眠定时：没设定时收到 expire 不产生新状态（迟到的计时器）", () => {
+  const before = getState();
+  dispatch({ type: "sleep/expire" });
+  assert.equal(getState(), before);
+});
+
+test("睡眠定时：非法 endsAt 被忽略", () => {
+  dispatch({ type: "sleep/clear" });
+  const before = getState();
+  dispatch({ type: "sleep/set", endsAt: Number.NaN });
+  assert.equal(getState(), before);
+});
+
+test("移动当前这一格到下一位：光标跟着，播放序不乱", () => {
+  reset();
+  dispatch({ type: "queue/move", from: 1, to: 2 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["a", "c", "b", "d"]);
+  assert.equal(s.queue.cursor, 2);
+  assert.equal(s.player.trackId, "b");
+  assert.equal(s.queue.items[s.queue.cursor], "b", "cursor 与正在播的必须指向同一项");
+});

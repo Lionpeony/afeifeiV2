@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { __resetRegistry, assertCapabilities, can, getProvider, listProviders, registerProvider } from "../dist-test/capability-registry.mjs";
 import { ERROR_INFO, errorText, isRetryable, translateError } from "../dist-test/capability-errors.mjs";
 import { demoProvider } from "../dist-test/capability-demo.mjs";
+import { createNeteaseProvider } from "../dist-test/capability-netease.mjs";
 
 /* ---------- 启动断言 ---------- */
 
@@ -37,6 +38,7 @@ test("声明为 false 的能力不要求实现（可选方法）", () => {
       canListPlaylists: false,
       canGetRadio: false,
       canFavorite: false,
+      canGetToplist: false,
     },
     traits: { requiresAuth: false, qualities: ["128k"] },
     search: async () => ({ items: [] }),
@@ -60,6 +62,47 @@ test("歌单契约（M9-5）：demo 源能列歌单并取回曲目（第三家�
   const tracks = await demoProvider.getPlaylist(lists[0].id);
   assert.equal(tracks.items.length, demoProvider.listPlaylists ? 3 : 0);
   assert.equal(tracks.items[0].sourceId, "demo-1");
+});
+
+test("声明了 canGetToplist 却没实现 listToplists → 启动即炸（A-14）", () => {
+  const broken = {
+    ...demoProvider,
+    id: "broken-top",
+    capabilities: { ...demoProvider.capabilities, canGetToplist: true },
+  };
+  assert.throws(() => assertCapabilities(broken), /canGetToplist.*listToplists/);
+});
+
+test("A-14 榜单：netease 走 toplist 接口，脏条目被丢掉、缺字段有兜底", async () => {
+  const calls = [];
+  const api = {
+    call: async (ns, method) => {
+      calls.push(`${ns}:${method}`);
+      if (method !== "toplist") return {};
+      return {
+        list: [
+          { id: 19723756, name: "云音乐飙升榜", trackCount: 100, coverImgUrl: "https://cdn/1.jpg" },
+          { id: 2 },
+          { name: "没有 id 的条目" },
+        ],
+      };
+    },
+  };
+  const p = createNeteaseProvider(api);
+  assert.equal(p.capabilities.canGetToplist, true);
+  assert.doesNotThrow(() => assertCapabilities(p), "声明 true 就必须真的有实现");
+
+  const lists = await p.listToplists();
+  assert.equal(calls[0], "netease:toplist", "请求的方法名必须与主进程白名单登记的一致");
+  assert.deepEqual(lists[0], {
+    id: "19723756",
+    name: "云音乐飙升榜",
+    count: 100,
+    coverUrl: "https://cdn/1.jpg",
+  });
+  assert.equal(lists.length, 2, "没有 id 的条目必须丢掉（否则下钻会 404）");
+  assert.equal(lists[1].name, "未命名榜单");
+  assert.equal(lists[1].count, 0);
 });
 
 test("缺 capabilities 声明 → 炸", () => {

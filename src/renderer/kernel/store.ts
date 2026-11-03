@@ -17,18 +17,24 @@ const initialState: AppState = {
     trackTitle: null,
     positionMs: 0,
     volume: 0.8,
+    muted: false,
     error: null,
     remote: null,
   },
   queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
-  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0], crossfadeSec: 0 },
+  // 10 段与 capability/audio/eq.ts 的 EQ_BANDS 对齐；kernel 不 import capability（环约束），
+  // 这条一致性由 test/audio.test.mjs 钉住 —— 上次段数从 6 改 10 就是这里漏了
+  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], crossfadeSec: 0 },
   stage: {
     preset: "paper",
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    // 有译文就并排显示（A-03 判据）；没有译文的曲目这一项不起作用
+    translation: true,
     customTokens: null,
   },
+  sleep: { endsAt: null },
   download: { items: [] },
 };
 
@@ -51,11 +57,15 @@ export function subscribe(fn: Listener): () => void {
   };
 }
 
-/** 切到队列里的某一格：回到 loading，剩下交给引擎。 */
+/**
+ * 切到队列里的某一格：回到 loading，剩下交给引擎。
+ * 除 player/queue 外一律 `...current` —— 手抄其余域会在加字段时漏（sleep 就漏过一次）。
+ */
 function switchTo(current: AppState, cursor: number): AppState {
   const { queue, player } = current;
   if (cursor < 0) {
     return {
+      ...current,
       player: {
         ...player,
         status: "ended",
@@ -65,13 +75,11 @@ function switchTo(current: AppState, cursor: number): AppState {
         remote: null,
       },
       queue: { ...queue, cursor: -1 },
-      audio: current.audio,
-      stage: current.stage,
-      download: current.download,
     };
   }
   const trackId = queue.items[cursor];
   return {
+    ...current,
     // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题与元数据
     player: {
       ...player,
@@ -83,9 +91,6 @@ function switchTo(current: AppState, cursor: number): AppState {
       remote: null,
     },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
-    audio: current.audio,
-      stage: current.stage,
-      download: current.download,
   };
 }
 
@@ -104,6 +109,7 @@ function reduce(current: AppState, intent: Intent): AppState {
       const nextQueue =
         cursor >= 0 ? { ...queue, cursor, history: pushHistory(queue.history, trackId) } : queue;
       return {
+        ...current,
         player: {
           ...player,
           status: "playing",
@@ -114,9 +120,6 @@ function reduce(current: AppState, intent: Intent): AppState {
           remote: intent.remote ?? null,
         },
         queue: nextQueue,
-        audio: current.audio,
-      stage: current.stage,
-        download: current.download,
       };
     }
 
@@ -143,6 +146,11 @@ function reduce(current: AppState, intent: Intent): AppState {
       const volume = Math.min(1, Math.max(0, intent.volume));
       if (player.volume === volume) return current;
       return { ...current, player: { ...player, volume } };
+    }
+
+    case "player/setMuted": {
+      if (player.muted === intent.muted) return current;
+      return { ...current, player: { ...player, muted: intent.muted } };
     }
 
     case "player/ended": {
@@ -189,6 +197,7 @@ function reduce(current: AppState, intent: Intent): AppState {
       const items = intent.items;
       if (items.length === 0) {
         return {
+          ...current,
           player: {
             ...player,
             status: "idle",
@@ -198,18 +207,13 @@ function reduce(current: AppState, intent: Intent): AppState {
             remote: null,
           },
           queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
-          audio: current.audio,
-      stage: current.stage,
-          download: current.download,
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
       const staged: AppState = {
+        ...current,
         player,
         queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
-        audio: current.audio,
-      stage: current.stage,
-        download: current.download,
       };
       return switchTo(staged, cursor);
     }
@@ -237,9 +241,75 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, queue: { ...queue, mode: intent.mode } };
     }
 
+    case "queue/remove": {
+      const at = intent.index;
+      if (at < 0 || at >= queue.items.length) return current;
+      const items = [...queue.items];
+      items.splice(at, 1);
+
+      // 删的是当前之后的：光标不动，后面整体前移一格
+      if (at > queue.cursor) return { ...current, queue: { ...queue, items } };
+      // 删的是当前之前的：光标记的"第几格"要减一，否则会指向下一首
+      if (at < queue.cursor) return { ...current, queue: { ...queue, items, cursor: queue.cursor - 1 } };
+
+      // 删的就是正在播这首：接到同位置的下一条；删空了就结束（不假装还有歌）
+      const nextCursor = at < items.length ? at : -1;
+      const wasPlaying = player.status === "playing";
+      const switched = switchTo({ ...current, queue: { ...queue, items, cursor: nextCursor } }, nextCursor);
+      return wasPlaying && switched.player.trackId
+        ? { ...switched, player: { ...switched.player, status: "playing" } }
+        : switched;
+    }
+
+    case "queue/move": {
+      const { from, to } = intent;
+      const len = queue.items.length;
+      if (from === to || from < 0 || to < 0 || from >= len || to >= len) return current;
+
+      const items = [...queue.items];
+      const [moved] = items.splice(from, 1);
+      items.splice(to, 0, moved);
+
+      // 光标跟"正在播那首"走，不跟下标走 —— 排序不该换歌（A-20）
+      const playingIdx = player.trackId ? items.indexOf(player.trackId) : -1;
+      let cursor = queue.cursor;
+      if (playingIdx >= 0) {
+        cursor = playingIdx;
+      } else if (from === cursor) {
+        cursor = to;
+      } else if (from < cursor && to >= cursor) {
+        cursor -= 1;
+      } else if (from > cursor && to <= cursor) {
+        cursor += 1;
+      }
+      return { ...current, queue: { ...queue, items, cursor: Math.min(Math.max(cursor, -1), items.length - 1) } };
+    }
+
     case "queue/restore": {
       const restored = intent.state;
       return { ...current, queue: { ...restored, cursor: clampCursor(restored.items, restored.cursor) } };
+    }
+
+    /* ---- 睡眠定时（A-23）：状态里只有截止时刻，倒计时与触发都在 UI ---- */
+
+    case "sleep/set": {
+      if (!Number.isFinite(intent.endsAt)) return current;
+      if (current.sleep.endsAt === intent.endsAt) return current;
+      return { ...current, sleep: { endsAt: intent.endsAt } };
+    }
+
+    case "sleep/clear": {
+      if (current.sleep.endsAt === null) return current;
+      return { ...current, sleep: { endsAt: null } };
+    }
+
+    case "sleep/expire": {
+      // 没设定时就不该有"到点"——迟到的计时器直接忽略
+      if (current.sleep.endsAt === null) return current;
+      const cleared: AppState = { ...current, sleep: { endsAt: null } };
+      // 到点只暂停：不退出、不清队列、不动播放位置（A-23 验收）
+      if (player.status !== "playing") return cleared;
+      return { ...cleared, player: { ...player, status: "paused" } };
     }
 
     case "audio/setPreamp": {
@@ -265,6 +335,18 @@ function reduce(current: AppState, intent: Intent): AppState {
 
     case "audio/restore": {
       const config = intent.config;
+      // 段数必须与当前一致：老存档/外来配置的迁移在 capability/audio/eq.ts 做，
+      // kernel 不认识频段，只能守住"长度不变"这条不变式
+      if (config.eq.length !== current.audio.eq.length) {
+        const eq = current.audio.eq.map(() => 0);
+        const preampDb = clampAudioDb(config.preampDb);
+        const crossfadeSec = config.crossfadeSec === 3 || config.crossfadeSec === 6 ? config.crossfadeSec : 0;
+        const untouched =
+          preampDb === current.audio.preampDb &&
+          crossfadeSec === current.audio.crossfadeSec &&
+          eq.every((v, i) => v === current.audio.eq[i]);
+        return untouched ? current : { ...current, audio: { preampDb, eq, crossfadeSec } };
+      }
       if (
         config.preampDb === current.audio.preampDb &&
         config.crossfadeSec === current.audio.crossfadeSec &&
@@ -293,6 +375,11 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, stage: { ...current.stage, layers } };
     }
 
+    case "stage/setTranslation": {
+      if (current.stage.translation === intent.on) return current;
+      return { ...current, stage: { ...current.stage, translation: intent.on } };
+    }
+
     case "stage/setLyricRenderer": {
       if (current.stage.lyricRenderer === intent.renderer) return current;
       return { ...current, stage: { ...current.stage, lyricRenderer: intent.renderer } };
@@ -317,6 +404,7 @@ function reduce(current: AppState, intent: Intent): AppState {
         c.preset === current.stage.preset &&
         c.intensity === current.stage.intensity &&
         c.lyricRenderer === current.stage.lyricRenderer &&
+        c.translation === current.stage.translation &&
         (Object.keys(current.stage.layers) as (keyof typeof c.layers)[]).every(
           (k) => c.layers[k] === current.stage.layers[k],
         );

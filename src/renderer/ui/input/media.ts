@@ -1,0 +1,17 @@
+/**
+ * 系统媒体键 / 托盘命令 → 命令注册表 id（A-24 A-25）。
+ *
+ * 只做**名字映射**：播放语义在 `index.tsx` 的 `registerCommand` 里只有一份，
+ * 媒体键、托盘、命令面板、Space 因此走同一条路径 —— 不会出现
+ * "面板里能暂停、媒体键暂停不了"这种两套语义。
+ */
+const MEDIA_COMMAND_IDS: Record<string, string> = {
+  toggle: "play-toggle",
+  next: "queue-next",
+  prev: "queue-prev",
+};
+
+/** 未知命令名一律返回 null（主进程发什么由我们自己定，但白名单比 if-else 链好查）。 */
+export function commandIdFor(cmd: string): string | null {
+  return Object.prototype.hasOwnProperty.call(MEDIA_COMMAND_IDS, cmd) ? MEDIA_COMMAND_IDS[cmd] : null;
+}

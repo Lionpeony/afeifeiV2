@@ -1,4 +1,5 @@
-import type { LyricDoc, LyricLine } from "../../../contracts/capability.js";
+import type { LyricDoc, LyricLine } from "../../../contracts/lyric.js";
+import { clusterSegments } from "../../domain/lyrics/segment.js";
 
 /**
  * 智能重排（50 §7.4）：把一整句长歌词切成能看的多行。
@@ -55,14 +56,15 @@ function reflowLine(line: LyricLine, maxChars: number): LyricLine[] {
   if (pieces.length <= 1) return [line];
 
   const total = pieces.reduce((sum, p) => sum + countChars(p), 0) || 1;
-  let cursor = line.at;
+  const span = Math.max(1, line.endMs - line.startMs);
+  let cursor = line.startMs;
 
   return pieces.map((text, index) => {
     const share =
       index === pieces.length - 1
-        ? Math.max(0, line.at + line.dur - cursor)
-        : Math.max(300, Math.round((line.dur * countChars(text)) / total));
-    const built: LyricLine = { at: cursor, dur: share, text };
+        ? Math.max(0, line.endMs - cursor)
+        : Math.max(300, Math.round((span * countChars(text)) / total));
+    const built: LyricLine = { index: 0, startMs: cursor, endMs: cursor + share, text, words: [] };
     cursor += share;
     return built;
   });
@@ -70,27 +72,14 @@ function reflowLine(line: LyricLine, maxChars: number): LyricLine[] {
 
 export function reflow(doc: LyricDoc, options: ReflowOptions = {}): LyricDoc {
   const maxChars = Math.max(6, options.maxChars ?? 18);
-  const wordLines = new Set(doc.words.map((w) => w.line));
 
   const lines: LyricLine[] = [];
-  const lineMap = new Map<number, number[]>(); // 原行索引 → 新行索引们
-
-  doc.lines.forEach((line, oldIndex) => {
+  for (const line of doc.lines) {
     // 逐字行不切：切了逐字时间就对不上
-    const produced = wordLines.has(oldIndex) ? [line] : reflowLine(line, maxChars);
-    const newIndices: number[] = [];
-    for (const l of produced) {
-      newIndices.push(lines.length);
-      lines.push(l);
-    }
-    lineMap.set(oldIndex, newIndices);
-  });
+    const produced = line.words.length > 0 ? [line] : reflowLine(line, maxChars);
+    for (const l of produced) lines.push({ ...l, index: lines.length });
+  }
 
-  // 逐字映射到它的新行（逐字行不切，所以是一对一）
-  const words = doc.words.map((w) => ({
-    ...w,
-    line: lineMap.get(w.line)?.[0] ?? w.line,
-  }));
-
-  return { ...doc, lines, words };
+  const segments = lines.length > 0 ? clusterSegments(lines) : [];
+  return { ...doc, lines, segments: segments.length >= 2 ? segments : [] };
 }

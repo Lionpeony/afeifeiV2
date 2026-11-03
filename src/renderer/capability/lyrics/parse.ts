@@ -1,4 +1,13 @@
-import type { LyricDoc, LyricFormat, LyricLine, LyricWord } from "../../../contracts/capability.js";
+import type {
+  LyricDoc,
+  LyricFormat,
+  LyricLine,
+  LyricQuality,
+  LyricSourceId,
+  LyricWord,
+} from "../../../contracts/lyric.js";
+import type { TrackId } from "../../../contracts/index.js";
+import { clusterSegments } from "../../domain/lyrics/segment.js";
 import { detect } from "./detect.js";
 
 /**
@@ -8,7 +17,8 @@ import { detect } from "./detect.js";
  * （主进程没有 DOMParser）。用正则解 TTML 听起来糙，但 TTML 歌词的结构就那几种标签，
  * 上 XML parser 反而是给一首歌词装一台编译器。
  *
- * 时间一律毫秒，与 clock 同单位。
+ * **产物只有一种模型**：`contracts/lyric.ts` 的 LyricDoc（21 §二）。
+ * 时间一律毫秒，与 clock 同单位；**逐字时间相对行首**，行内不再做绝对/相对换错的机会。
  */
 
 const toMs = (sec: number): number => Math.round(sec * 1000);
@@ -30,14 +40,27 @@ export function parseClock(raw: string): number {
   return toMs((Number(a) || 0) * 3600 + (Number(b) || 0) * 60 + (Number(c) || 0));
 }
 
+/** 解析中间态：时间仍是绝对毫秒，转成契约模型时一次性改成行内相对。 */
+interface RawWord {
+  at: number;
+  dur: number;
+  text: string;
+}
+
+interface RawLine {
+  at: number;
+  dur: number;
+  text: string;
+  words: RawWord[];
+}
+
 const LRC_META = /^\[(ti|ar|al|by|offset|length|re|ve|kana):/i;
 const LRC_LEAD = /^(?:\[\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?\])+/;
 const LRC_STAMP = /\[(\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?)\]/g;
 const LRC_WORD_SPLIT = /<(\d{1,3}:\d{1,2}(?:[.:]\d{1,3})?)>/;
 
-function parseLrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
-  const lines: LyricLine[] = [];
-  const words: LyricWord[] = [];
+function parseLrc(raw: string): RawLine[] {
+  const lines: RawLine[] = [];
 
   for (const rawLine of raw.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -68,29 +91,23 @@ function parseLrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
 
     // 一行多个时间标签 = 这句在歌里出现多次，展开成多行
     for (const stamp of stamps) {
-      const index = lines.length;
-      lines.push({ at: stamp, dur: 0, text });
-      for (const piece of pieces) {
-        words.push({
-          line: index,
-          at: piece.at + (stamp - stamps[0]),
-          dur: 0,
-          char: piece.text,
-        });
-      }
+      lines.push({
+        at: stamp,
+        dur: 0,
+        text,
+        words: pieces.map((p) => ({ at: p.at + (stamp - stamps[0]), dur: 0, text: p.text })),
+      });
     }
   }
 
-  lines.sort((a, b) => a.at - b.at);
-  return { lines, words };
+  return lines;
 }
 
 const QRC_LINE = /^\s*\[(\d+),(\d+)\](.*)$/;
 const QRC_WORD = /\((\d+),(\d+)\)/g;
 
-function parseQrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
-  const lines: LyricLine[] = [];
-  const words: LyricWord[] = [];
+function parseQrc(raw: string): RawLine[] {
+  const lines: RawLine[] = [];
 
   for (const rawLine of raw.split(/\r?\n/)) {
     const matched = QRC_LINE.exec(rawLine);
@@ -99,10 +116,7 @@ function parseQrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
     const start = Number(matched[1]);
     const dur = Number(matched[2]);
     const body = matched[3];
-    const index = lines.length;
-
-    // 文本 = 去掉所有 (相对,时长) 之后的拼接
-    lines.push({ at: start, dur, text: body.replace(QRC_WORD, "").trim() });
+    const words: RawWord[] = [];
 
     // QRC 的形状是 `文本(时间,时长)文本(时间,时长)` —— **文本在括号之前**。
     // 字标记的时间基准有两种（2026-11-03 实测）：QQ QRC 是**绝对毫秒**
@@ -111,23 +125,22 @@ function parseQrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
     for (const mark of body.matchAll(QRC_WORD)) {
       const segment = body.slice(pos, mark.index);
       pos = mark.index + mark[0].length;
-      if (segment) {
-        const markAt = Number(mark[1]);
-        const at = markAt >= start ? markAt : start + markAt;
-        words.push({ line: index, at, dur: Number(mark[2]), char: segment });
-      }
+      if (!segment) continue;
+      const markAt = Number(mark[1]);
+      words.push({ at: markAt >= start ? markAt : start + markAt, dur: Number(mark[2]), text: segment });
     }
+
+    lines.push({ at: start, dur, text: body.replace(QRC_WORD, "").trim(), words });
   }
 
-  return { lines, words };
+  return lines;
 }
 
 const YRC_LINE = /^\s*\[(\d+),(\d+)\](.*)$/;
 const YRC_WORD = /\((\d+),(\d+),(\d+)\)/g;
 
-function parseYrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
-  const lines: LyricLine[] = [];
-  const words: LyricWord[] = [];
+function parseYrc(raw: string): RawLine[] {
+  const lines: RawLine[] = [];
 
   for (const rawLine of raw.split(/\r?\n/)) {
     const matched = YRC_LINE.exec(rawLine);
@@ -136,25 +149,22 @@ function parseYrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
     const start = Number(matched[1]);
     const dur = Number(matched[2]);
     const body = matched[3];
-    const index = lines.length;
+    const words: RawWord[] = [];
 
     // YRC 的格式是 (绝对时间,时长,保留)字(…)字，字在括号**之后**
-    const text = body.replace(YRC_WORD, "").trim();
-    lines.push({ at: start, dur, text });
-
     const marks = [...body.matchAll(YRC_WORD)];
     for (let i = 0; i < marks.length; i += 1) {
-      const at = Number(marks[i][1]);
-      const d = Number(marks[i][2]);
-      // 字符 = 本括号之后到下一个括号之前的部分
       const from = marks[i].index + marks[i][0].length;
       const to = i + 1 < marks.length ? marks[i + 1].index : body.length;
-      const char = body.slice(from, to);
-      if (char) words.push({ line: index, at, dur: d, char });
+      const text = body.slice(from, to);
+      if (!text) continue;
+      words.push({ at: Number(marks[i][1]), dur: Number(marks[i][2]), text });
     }
+
+    lines.push({ at: start, dur, text: body.replace(YRC_WORD, "").trim(), words });
   }
 
-  return { lines, words };
+  return lines;
 }
 
 const TTML_P = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
@@ -185,43 +195,46 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, "&");
 }
 
-function parseTtml(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
-  const lines: LyricLine[] = [];
-  const words: LyricWord[] = [];
+function parseTtml(raw: string): RawLine[] {
+  const lines: RawLine[] = [];
 
   for (const p of raw.matchAll(TTML_P)) {
     const begin = parseTtmlTime(attr(p[1], "begin"));
     const end = parseTtmlTime(attr(p[1], "end"));
     const inner = p[2];
-    const index = lines.length;
-    const text = decodeEntities(inner).replace(/\s+/g, " ").trim();
-    lines.push({ at: begin, dur: Math.max(0, end - begin), text });
+    const words: RawWord[] = [];
 
     for (const span of inner.matchAll(TTML_SPAN)) {
       const at = parseTtmlTime(attr(span[1], "begin"));
       const spanEnd = parseTtmlTime(attr(span[1], "end"));
-      const char = decodeEntities(span[2]);
-      if (char) words.push({ line: index, at, dur: Math.max(0, spanEnd - at), char });
+      const text = decodeEntities(span[2]);
+      if (text) words.push({ at, dur: Math.max(0, spanEnd - at), text });
     }
+
+    lines.push({
+      at: begin,
+      dur: Math.max(0, end - begin),
+      text: decodeEntities(inner).replace(/\s+/g, " ").trim(),
+      words,
+    });
   }
 
-  return { lines, words };
+  return lines;
 }
 
-function parsePlain(raw: string, totalMs: number): { lines: LyricLine[]; words: LyricWord[] } {
+function parsePlain(raw: string, totalMs: number): RawLine[] {
   const texts = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean);
-  if (texts.length === 0) return { lines: [], words: [] };
+  if (texts.length === 0) return [];
 
-  const each = texts.length > 0 ? Math.max(1000, Math.round((totalMs || texts.length * 4000) / texts.length)) : 0;
-  const lines = texts.map((text, i) => ({ at: i * each, dur: each, text }));
-  return { lines, words: [] };
+  const each = Math.max(1000, Math.round((totalMs || texts.length * 4000) / texts.length));
+  return texts.map((text, i) => ({ at: i * each, dur: each, text, words: [] }));
 }
 
 /** 补齐缺失的 dur：本行到下一行的间隔；最后一行用整曲长度或 4 秒。 */
-function fillDurations(lines: LyricLine[], totalMs: number): void {
+function fillDurations(lines: RawLine[], totalMs: number): void {
   for (let i = 0; i < lines.length; i += 1) {
     if (lines[i].dur > 0) continue;
     const next = lines[i + 1];
@@ -231,48 +244,108 @@ function fillDurations(lines: LyricLine[], totalMs: number): void {
 }
 
 export interface ParseOptions {
+  /** 归属曲目（doc 的身份，缓存与偏移都按它索引）。 */
+  trackId: TrackId;
+  /** 歌词从哪来。默认 local。 */
+  source?: LyricSourceId;
   /** 指定格式，不传就自动识别 */
   format?: LyricFormat;
   /** 整曲时长，用来给最后一行与纯文本估算 */
   totalMs?: number;
+  /** 用户偏移（毫秒），解析时并入 doc。 */
+  offsetMs?: number;
+}
+
+/** 中间态 → 契约模型：绝对时间改成"行内相对"，段落一次算完。 */
+function toDoc(rawLines: RawLine[], options: ParseOptions): LyricDoc {
+  const sorted = [...rawLines].sort((a, b) => a.at - b.at);
+  fillDurations(sorted, options.totalMs ?? 0);
+
+  const lines: LyricLine[] = sorted.map((raw, index) => {
+    const startMs = Math.max(0, raw.at);
+    const endMs = Math.max(startMs + 1, startMs + raw.dur);
+    const span = endMs - startMs;
+
+    const words: LyricWord[] = raw.words.map((w, i) => {
+      const ws = Math.max(0, Math.min(span - 1, w.at - startMs));
+      // LRC 的逐字段没有时长：用下一段的起点，最后一段收到行尾
+      const nextAt = i + 1 < raw.words.length ? raw.words[i + 1].at - startMs : span;
+      const we = w.dur > 0 ? ws + w.dur : Math.max(ws + 1, nextAt);
+      return { startMs: ws, endMs: Math.max(ws + 1, we), text: w.text };
+    });
+
+    return { index, startMs, endMs, text: raw.text, words };
+  });
+
+  const hasWordTiming = lines.some((l) => l.words.length > 0);
+  const segments = lines.length > 0 ? clusterSegments(lines) : [];
+  const quality: LyricQuality = lines.length === 0 ? "none" : hasWordTiming ? "exact" : "estimated";
+
+  return {
+    trackId: options.trackId,
+    source: options.source ?? "local",
+    hasWordTiming,
+    lines,
+    // 只有一段 = 没有结构信息，宁可空着也不假装分了段（21 §二 决定 4）
+    segments: segments.length >= 2 ? segments : [],
+    offsetMs: options.offsetMs ?? 0,
+    quality,
+    fetchedAt: Date.now(),
+  };
 }
 
 /** 解析入口：一次拿到 `LyricDoc`，所有渲染器共用这一份。 */
-export function parseLyrics(raw: string, options: ParseOptions = {}): LyricDoc {
+export function parseLyrics(raw: string, options: ParseOptions): LyricDoc {
   const text = (raw ?? "").replace(/^\uFEFF/, "");
   const format = options.format ?? detect(text);
-  const totalMs = options.totalMs ?? 0;
 
-  let result: { lines: LyricLine[]; words: LyricWord[] };
+  let rawLines: RawLine[];
   switch (format) {
     case "lrc":
-      result = parseLrc(text);
+      rawLines = parseLrc(text);
       break;
     case "qrc":
-      result = parseQrc(text);
+      rawLines = parseQrc(text);
       break;
     case "yrc":
-      result = parseYrc(text);
+      rawLines = parseYrc(text);
       break;
     case "ttml":
-      result = parseTtml(text);
+      rawLines = parseTtml(text);
       break;
     default:
-      result = parsePlain(text, totalMs);
+      rawLines = parsePlain(text, options.totalMs ?? 0);
   }
 
   // 解析不出来就退回纯文本，别给界面一个空对象
-  if (result.lines.length === 0 && format !== "plain") {
+  if (rawLines.length === 0 && format !== "plain") {
     return parseLyrics(text, { ...options, format: "plain" });
   }
 
-  fillDurations(result.lines, totalMs);
+  return toDoc(rawLines, options);
+}
 
-  return {
-    format,
-    plain: result.lines.map((l) => l.text).join("\n"),
-    lines: result.lines,
-    words: result.words,
-    translations: [],
-  };
+/** 把一份翻译（LRC/QRC 文本）按时间对齐进主 doc 的每一行。 */
+export function withTranslation(doc: LyricDoc, raw: string, lang = "zh"): LyricDoc {
+  const text = (raw ?? "").replace(/^\uFEFF/, "");
+  if (!text.trim() || doc.lines.length === 0) return doc;
+
+  const translated = parseLyrics(text, { trackId: doc.trackId, source: doc.source }).lines;
+  if (translated.length === 0) return doc;
+
+  const lines = doc.lines.map((line) => {
+    let best = "";
+    let diff = 500; // 与主歌词同行起步；超过 500ms 不算同一句
+    for (const c of translated) {
+      if (!c.text.trim()) continue;
+      const d = Math.abs(c.startMs - line.startMs);
+      if (d < diff) {
+        diff = d;
+        best = c.text;
+      }
+    }
+    return best ? { ...line, translations: { ...(line.translations ?? {}), [lang]: best } } : line;
+  });
+
+  return { ...doc, lines };
 }

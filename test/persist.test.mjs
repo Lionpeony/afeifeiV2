@@ -97,3 +97,20 @@ test("restore：正常存档原样取回", async () => {
   assert.equal(got.trackId, "C:/a.mp3");
   assert.equal(got.queue.items.length, 2);
 });
+
+test("静音写进存档；缺字段的老存档照样能读（不升版本）", async () => {
+  const port = memoryPort();
+  const p = createPersister(port, 10);
+  const withMuted = () => {
+    const s = fakeState();
+    return { ...s, player: { ...s.player, muted: true } };
+  };
+
+  p.schedule(withMuted, () => 0);
+  await sleep(40);
+  assert.equal(JSON.parse(port.saved[0]).muted, true);
+
+  const legacy = { v: 1, trackId: "C:/a.mp3", positionMs: 0, volume: 0.5, queue: fakeState().queue };
+  const got = await createPersister(memoryPort(JSON.stringify(legacy)), 10).restore();
+  assert.equal(got.muted, undefined, "缺字段读出来是 undefined，调用方按 false 处理");
+});

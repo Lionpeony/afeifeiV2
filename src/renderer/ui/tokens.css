@@ -20,15 +20,23 @@
   --bg-raised: #ece9df; /* 纸-2：面板/表头 */
   --mask: rgba(23, 21, 15, 0.5);
 
-  /* ② 场景层（四套预设只改这里 + 布局参数） */
-  --stage-bg: var(--bg);
-  --stage-fg: var(--fg);
-  --stage-fg-dim: var(--fg-dim);
-  --stage-tint: var(--accent);
+  /* ② 场景层（四套预设只改这里 + 布局参数）。
+     **不许 var(--结构层)**：A-10 判据是"播放页样式与主题独立"，
+     写成 var(--bg) 就等于把播放页拴在明暗主题上——切夜间播放页整块翻黑。
+     这里的值是自足的纸面配色，[data-theme="dark"] 一个字都不改。 */
+  --stage-bg: #f3f1ea;
+  --stage-fg: #17150f;
+  --stage-fg-dim: #5f5a4e;
+  --stage-line: rgba(23, 21, 15, 0.28); /* 场景自己的发丝线/表格线 */
+  --stage-line-soft: rgba(23, 21, 15, 0.12); /* 场景的弱线/虚线 */
+  --stage-raised: #ece9df; /* 相纸卡里掏空的槽位（无封面时的底） */
+  --stage-accent: #d8341c; /* 场景里的朱砂（正在唱 / 场次票） */
+  --stage-tint: #d8341c;
   --stage-wallpaper: none; /* L-a：预设给背景（纹理 / 模糊图 / 纯色） */
   --stage-cover-size: 320px; /* L-c 封面尺寸 */
   --stage-cover-radius: 0px; /* 直角是默认；0 也是圆形黑胶的转轴心 */
   --stage-cover-frame: none; /* 预设给边框/内边距 */
+  --stage-cover-shadow: none; /* 预设给投影（cinema 才用） */
   --stage-cover-spin: 0s; /* 黑胶转一圈的时长，0 = 不转 */
   --stage-lyric-size: 22px;
   --stage-lyric-weight: 600;
@@ -61,7 +69,9 @@
 }
 
 /* 夜间（docs/09 B4）：同一套 token 名换值，一份 CSS 通吃，不新增选择器。
-   暗纸上砂色不是纸色的反相——墨底要留一点暖，正文对底 ≥4.5:1 才不改排版观感。 */
+   暗纸上砂色不是纸色的反相——墨底要留一点暖，正文对底 ≥4.5:1 才不改排版观感。
+   **只覆盖 ①结构层 + ③材质层**：②场景层（--stage-*）刻意不在这里出现，
+   否则播放页会跟着外壳一起翻黑，A-10「与主题独立」就破了（由 test/stage-theme 钉住）。 */
 :root[data-theme="dark"] {
   --bg: #171613;
   --fg: #ece8dd;

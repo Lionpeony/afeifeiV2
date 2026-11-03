@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { LyricDoc } from "../../../../contracts/capability.js";
+import type { LyricDoc } from "../../../../contracts/lyric.js";
 import type { AppState, StageLayer } from "../../../../contracts/index.js";
 import { getProvider } from "../../../capability/registry.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
+import { lineStartMs } from "../../../domain/lyrics/cursor.js";
 import { dispatch } from "../../../kernel/index.js";
 import { onTick } from "../../compositor.js";
-import { setLyricDoc } from "../../lyric-bridge.js";
+import { lyricState, subscribeLyric } from "../../lyric-source.js";
 import { PageHead } from "../../PageHead.js";
-import { activeLine, karaokeState } from "./lyric-state.js";
+import { activeLine, karaokeState, litCount } from "./lyric-state.js";
 import { LAYER_KEYS, PRESETS } from "./presets.js";
+import { barHeights } from "./spectrum.js";
 import { sampleCoverTint } from "./tint-client.js";
 
 const SPECTRUM_BARS = 48; // 电影感预设的频谱柱数（50 §9.2）
@@ -20,7 +22,6 @@ export interface StageViewProps {
   state: AppState;
   /** 本地曲目封面（160px dataURL，带缓存）。在线曲目走 remote.coverUrl。 */
   cover(trackId: string): Promise<string | null>;
-  lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   spectrum(bins: number): number[] | null;
   /** 导出当前场景层 token 到文件（M5 主题包）。 */
   exportTheme(): Promise<boolean>;
@@ -55,7 +56,7 @@ function fileOf(id: string): string {
  *   press 田字格整句落墨 / karaoke 田字格逐字点亮 / minimal 单行大字 / theatrical 三行提词器。
  * 每帧只写 class 与 transform；换预设仍只换场景层 token，控件不位移。
  */
-export function StageView({ state, cover, lyric, spectrum, exportTheme, importTheme }: StageViewProps) {
+export function StageView({ state, cover, spectrum, exportTheme, importTheme }: StageViewProps) {
   const { player, stage } = state;
   const preset = PRESETS.find((p) => p.id === stage.preset) ?? PRESETS[0];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -66,6 +67,8 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
   /* 电影感视差（50 §9.2：±8px、阻尼 0.12）：鼠标定目标，onTick 里插值，只写 transform */
   const parallaxTarget = useRef({ x: 0, y: 0 });
   const parallaxCurrent = useRef({ x: 0, y: 0 });
+  /* 频谱柱色：canvas 读不到 CSS 变量，换预设时把 .stage 的 color（= --stage-fg）解析成实值存这里 */
+  const spectrumColor = useRef("");
 
   const [rev, setRev] = useState(0);
   const [lineIdx, setLineIdx] = useState(-1);
@@ -115,6 +118,9 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
     for (const [key, value] of Object.entries(merged)) {
       root.style.setProperty(key, value);
     }
+    // canvas 读不到 CSS 变量，把场景墨色解析成实值存下来（每帧再读 computedStyle 就太贵了）。
+    // 取 `color` 而不是 `--stage-fg`：前者已经是解析后的 rgb()，且 .stage 的 color 就是场景墨色
+    spectrumColor.current = getComputedStyle(root).color;
   }, [preset, stage.customTokens]);
 
   /* ---- 封面：本地取缓存缩略图；在线用 remote.coverUrl ---- */
@@ -166,33 +172,20 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
     };
   }, [coverUrl]);
 
-  /* ---- 歌词：只有在线曲目拿得到（50 §7.4 解析在能力层）；本地曲目给空态 ---- */
+  /* ---- 歌词：doc 由 lyric-source 统一取（A-02），播放页只订阅，不自己发请求 ---- */
   useEffect(() => {
-    let alive = true;
-    setDoc(null);
-    setLyricDoc(null); // 桌面歌词窗同步清行（M9-1）
-    setLyricNote("");
-    lastActiveRef.current = -999;
-    lastLitRef.current = -1;
-    setLineIdx(-1);
-    if (remote) {
-      lyric(remote.sourceId, remote.songId)
-        .then((d) => {
-          if (alive) {
-            setDoc(d);
-            setLyricDoc(d);
-          }
-        })
-        .catch((err: unknown) => {
-          if (alive) setLyricNote(err instanceof Error ? err.message : "歌词拿不到");
-        });
-    } else if (player.trackId) {
-      setLyricNote("本地曲目暂无歌词");
-    }
-    return () => {
-      alive = false;
+    const read = (): void => {
+      const s = lyricState();
+      setDoc(s.doc);
+      setLyricNote(s.note);
+      // 换 doc 等于换词，行号/点亮计数必须归零，否则新词会从旧行号开始点亮
+      lastActiveRef.current = -999;
+      lastLitRef.current = -1;
+      setLineIdx(-1);
     };
-  }, [remote?.sourceId, remote?.songId, player.trackId, lyric, remote]);
+    read();
+    return subscribeLyric(read);
+  }, []);
 
   /* ---- 每帧：同一份 t 驱动歌词、活字点亮、视差与频谱；活动行没变就不碰 DOM ---- */
   useEffect(
@@ -209,14 +202,8 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
           if ((renderer === "press" || renderer === "karaoke") && boxes.length > 0) {
             const k = karaokeState(doc, t);
             const n = boxes.length;
-            // 有逐字数据（chars 与田字格一一对应）→ 一律字级点亮，press 也一样：
-            // 「整句落墨」只对没有逐字数据的歌才有意义（2026-11-03 用户实测反馈）
-            const litN =
-              k.chars.length === n
-                ? k.chars.filter((c) => c.progress >= 1).length
-                : renderer === "press"
-                  ? n
-                  : Math.round(k.progress * n);
+            // 分支收在 litCount（有逐字就字级，没有就按渲染器语义降级）
+            const litN = litCount(renderer === "karaoke" ? "karaoke" : "press", k, n);
             if (litN !== lastLitRef.current) {
               lastLitRef.current = litN;
               for (let i = 0; i < n; i += 1) {
@@ -239,22 +226,27 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
             if (img) img.style.transform = `translate(${cur.x.toFixed(2)}px, ${cur.y.toFixed(2)}px)`;
           }
         }
-        // 频谱（C1，电影感）：每帧画。analyser 没数据就留空 —— 不画假波形
-        if (stage.preset === "cinema" && stage.layers.visual) {
+        // 频谱（C1）：四套预设都能看，开关就是图层里的「频谱」（A-07 低端机可关）。
+        // 静音/暂停时 barHeights 给全 0，屏幕上真的空 —— 不画假波形
+        if (stage.layers.visual) {
           const canvas = rootRef.current?.querySelector<HTMLCanvasElement>(".st-spectrum");
-          if (canvas) {
-            const data = spectrum(SPECTRUM_BARS);
-            const ctx = canvas.getContext("2d");
-            if (data && ctx) {
-              const { width, height } = canvas;
-              ctx.clearRect(0, 0, width, height);
-              ctx.fillStyle = "rgba(232, 230, 227, 0.55)";
-              const w = width / SPECTRUM_BARS;
-              for (let i = 0; i < data.length; i += 1) {
-                const h = Math.max(2, data[i] * height * 0.9);
-                ctx.fillRect(i * w + 1, height - h, w - 2, h);
-              }
+          const ctx = canvas?.getContext("2d");
+          if (canvas && ctx) {
+            const { width, height } = canvas;
+            const bars = barHeights(spectrum(SPECTRUM_BARS), SPECTRUM_BARS, height);
+            ctx.clearRect(0, 0, width, height);
+            // 颜色还没解析出来（首帧）就不画：宁可空一帧，也不许填成 canvas 默认黑
+            const ink = spectrumColor.current;
+            if (!ink) return;
+            ctx.fillStyle = ink;
+            ctx.globalAlpha = 0.55;
+            const w = width / SPECTRUM_BARS;
+            for (let i = 0; i < bars.length; i += 1) {
+              const h = bars[i];
+              if (h <= 0) continue;
+              ctx.fillRect(i * w + 1, height - h, w - 2, h);
             }
+            ctx.globalAlpha = 1;
           }
         }
       }),
@@ -271,34 +263,21 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
   const curLine = doc && lineIdx >= 0 ? doc.lines[lineIdx] : null;
   // 有逐字数据时按 words 拆字（与 karaokeState 的 chars 一一对应，长度必须相等），
   // 没有才退回整句 text 拆字 —— 两种来源长度不同，混用会让字级点亮退化成整行折算
-  const lineWords = doc && lineIdx >= 0 ? doc.words.filter((w) => w.line === lineIdx) : [];
-  const chars = lineWords.length > 0 ? lineWords.map((w) => w.char) : curLine ? [...curLine.text] : [];
-  // 行级翻译（A-03）：取时间戳最接近活动行的中文翻译行（500ms 内才算对上，
-  // 网易云 tlyric 的时间轴与主歌词同行起步）。没有翻译就是空串，不占位。
-  const transText = (): string => {
-    const zh = doc?.translations.find((t) => t.lang === "zh");
-    if (!zh || !curLine) return "";
-    let best = "";
-    let diff = 500;
-    for (const l of zh.lines) {
-      if (!l.text.trim()) continue;
-      const d = Math.abs(l.at - curLine.at);
-      if (d < diff) {
-        diff = d;
-        best = l.text;
-      }
-    }
-    return best;
-  };
+  // 逐字直接挂在行上（21 §二：行内相对），不再按行号全局过滤 —— 少一次索引对错的机会
+  const chars = curLine ? (curLine.words.length > 0 ? curLine.words.map((w) => w.text) : [...curLine.text]) : [];
+  // 行级翻译（A-03）：解析阶段已按时间对齐进 line.translations（withTranslation）。
+  // 没有翻译就是空串，不占位、不再在 UI 里做一次时间匹配。
+  const transText = (): string => curLine?.translations?.zh ?? "";
   const kicker = doc
     ? curLine
-      ? `SCRIPT · ${pad2(lineIdx + 1)} / ${doc.lines.length} · IN ${fmt(curLine.at)}`
+      ? `SCRIPT · ${pad2(lineIdx + 1)} / ${doc.lines.length} · IN ${fmt(curLine.startMs)}`
       : `SCRIPT · 00 / ${doc.lines.length}`
     : "SCRIPT · 暂无歌词";
 
   const lyricBody = (): React.ReactNode => {
     if (!doc) return lyricNote ? <p className="st-lyric-empty">{lyricNote}</p> : null;
-    const trans = transText();
+    // 译文关掉时给空串：四个渲染器都靠 `trans ?` 决定画不画，一处收口
+    const trans = stage.translation ? transText() : "";
     if (renderer === "press" || renderer === "karaoke") {
       return (
         <div className="st-typeset">
@@ -312,7 +291,10 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
               {chars.map((ch, i) => (
                 <span
                   key={i}
-                  className={`st-kb${ch === "。" || ch === "，" ? " dot" : ""}`}
+                  /* 真实逐字数据是「词」不是「字」：英文 yrc 会给
+                     "Dancin'"、"all" 这种多字母 token，塞进固定方格必然溢出压到相邻格子。
+                     多字母的给 wide 类（宽度随内容），单字仍是田字格 */
+                  className={`st-kb${ch === "。" || ch === "，" ? " dot" : ""}${ch.trim().length > 1 ? " wide" : ""}`}
                   ref={(el) => {
                     boxRef.current[i] = el;
                   }}
@@ -367,10 +349,8 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
         <div className={`st-wallpaper ${preset.wallpaperFromCover ? "from-cover" : ""}`} />
       ) : null}
 
-      {/* C1 视觉（频谱只属于电影感；analyser 无数据就留空，不画假波形） */}
-      {stage.layers.visual && stage.preset === "cinema" ? (
-        <canvas className="st-spectrum" width={480} height={120} />
-      ) : null}
+      {/* C1 视觉：频谱（A-07）。关掉=不渲染 canvas，每帧绘制直接不跑 —— 低端机就靠这个 */}
+      {stage.layers.visual ? <canvas className="st-spectrum" width={480} height={120} /> : null}
 
       <div className="st-page">
         <PageHead
@@ -415,17 +395,51 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
             {upNext.length === 0 ? (
               <p className="st-side-empty">队列里没有下一首</p>
             ) : (
-              upNext.map((id, i) => (
-                <div className="st-nx" key={id}>
-                  <i className="no">{pad2(queue.cursor + 2 + i)}</i>
-                  <span className="art" style={queueCovers[id] ? { backgroundImage: `url("${queueCovers[id]}")` } : undefined} />
-                  <span className="tx">
-                    {tracksMap.get(id)?.title ?? fileOf(id)}
-                    <small>{tracksMap.get(id)?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small>
-                  </span>
-                  <time>{tracksMap.get(id) ? fmt(tracksMap.get(id)!.durationMs) : "--:--"}</time>
-                </div>
-              ))
+              upNext.map((id, i) => {
+                // A-20：可点（直接播）、可上移、可删。下标一律用 items 下标，不用播放序
+                const at = queue.cursor + 1 + i;
+                return (
+                  <div className="st-nx" key={id}>
+                    <button
+                      type="button"
+                      className="st-nx-main"
+                      title="播放这首"
+                      onClick={() =>
+                        dispatch({
+                          type: "player/play",
+                          trackId: id,
+                          trackTitle: tracksMap.get(id)?.title ?? null,
+                        })
+                      }
+                    >
+                      <i className="no">{pad2(at + 1)}</i>
+                      <span className="art" style={queueCovers[id] ? { backgroundImage: `url("${queueCovers[id]}")` } : undefined} />
+                      <span className="tx">
+                        {tracksMap.get(id)?.title ?? fileOf(id)}
+                        <small>{tracksMap.get(id)?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small>
+                      </span>
+                      <time>{tracksMap.get(id) ? fmt(tracksMap.get(id)!.durationMs) : "--:--"}</time>
+                    </button>
+                    <span className="st-nx-ops">
+                      <button
+                        type="button"
+                        aria-label="上移一位"
+                        disabled={at === 0}
+                        onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="从队列移除"
+                        onClick={() => dispatch({ type: "queue/remove", index: at })}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                );
+              })
             )}
 
             <div className="st-seal">
@@ -461,13 +475,17 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
               {scriptLines.map((ln, i) => (
                 <button
                   type="button"
-                  key={`${ln.at}-${scriptStart + i}`}
+                  key={`${ln.startMs}-${scriptStart + i}`}
                   className={`st-srow${scriptStart + i === lineIdx ? " cur" : ""}${scriptStart + i < lineIdx ? " past" : ""}`}
-                  onClick={() => dispatch({ type: "player/seek", positionMs: ln.at })}
+                  onClick={() => {
+                    // A-21 跳句走 lineStartMs：偏移量在这里加，别处不再各算一遍
+                    const at = lineStartMs(doc, scriptStart + i);
+                    if (at !== null) dispatch({ type: "player/seek", positionMs: at });
+                  }}
                   title="跳到这句"
                 >
                   <i className="no">{pad2(scriptStart + i + 1)}</i>
-                  <time>{fmt(ln.at)}</time>
+                  <time>{fmt(ln.startMs)}</time>
                   <span className="tx">{ln.text}</span>
                 </button>
               ))}
@@ -512,11 +530,22 @@ export function StageView({ state, cover, lyric, spectrum, exportTheme, importTh
             </select>
           </div>
           <div className="st-menu-row">
+            <span className="lbl">译文</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={stage.translation}
+                onChange={() => dispatch({ type: "stage/setTranslation", on: !stage.translation })}
+              />
+              双语并排
+            </label>
+          </div>
+          <div className="st-menu-row">
             <span className="lbl">图层</span>
             {LAYER_KEYS.filter((k) => k !== "cover" && k !== "controls").map((k) => (
               <label key={k}>
                 <input type="checkbox" checked={stage.layers[k]} onChange={() => relayer(k)} />
-                {k === "wallpaper" ? "壁纸" : k === "visual" ? "视觉" : "歌词"}
+                {k === "wallpaper" ? "壁纸" : k === "visual" ? "频谱" : "歌词"}
               </label>
             ))}
           </div>

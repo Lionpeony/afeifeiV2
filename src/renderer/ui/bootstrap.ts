@@ -10,6 +10,14 @@ import type {
 } from "../../contracts/ports.js";
 import { AudioEngine } from "../capability/audio/engine.js";
 import { sanitizeAudioConfig } from "../capability/audio/eq.js";
+import {
+  getCachedLyric,
+  lyricCacheKey,
+  parseLyricCache,
+  putCachedLyric,
+  serializeLyricCache,
+  type LyricCache,
+} from "../capability/lyrics/cache.js";
 import { PRESETS, sanitizeStageConfig, sanitizeThemeTokens } from "./views/stage/presets.js";
 import { createQqProvider } from "../capability/sources/qq/index.js";
 import {
@@ -80,6 +88,21 @@ export async function bootstrap(): Promise<Services> {
   const kv: KeyValuePort = {
     read: (key) => api.readStore(key),
     write: (key, json) => api.writeStore(key, json),
+  };
+
+  /**
+   * 歌词缓存（A-03 判据「缓存到本地」）：内存一份，命中直接返回；
+   * 写入合并 1s 落盘（连续切歌不该每首写一次盘）。
+   * 恢复放在 hydrate 里——那时才 await 完 KV；首帧不等这份 IO。
+   */
+  let lyricCache: LyricCache = {};
+  let lyricCacheTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleLyricCacheSave = (): void => {
+    if (lyricCacheTimer) clearTimeout(lyricCacheTimer);
+    lyricCacheTimer = setTimeout(() => {
+      lyricCacheTimer = null;
+      void kv.write("lyric-cache", serializeLyricCache(lyricCache));
+    }, 1000);
   };
 
   // 下载的系统调用面（M7）。进度事件：桥里单订阅，按 taskId 分发到进行中的 fetch
@@ -220,14 +243,18 @@ export async function bootstrap(): Promise<Services> {
   const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
   dispatch({ type: "audio/restore", config: savedAudio });
 
-  // 播放页配置（预设 / 层开关 / 歌词渲染器），同 audio 的模式
+  // 播放页配置（预设 / 层开关 / 歌词渲染器 / 译文开关），同 audio 的模式
   const savedStage = sanitizeStageConfig(await kv.read("stage-ui"));
   dispatch({ type: "stage/restore", config: savedStage });
+
+  // 歌词缓存：坏条目在 parseLyricCache 里逐条丢掉，不让一条烂数据清空整份
+  lyricCache = parseLyricCache(await kv.read("lyric-cache"));
 
   const snapshot = await persister.restore();
   if (snapshot) {
     dispatch({ type: "queue/restore", state: snapshot.queue });
     dispatch({ type: "player/setVolume", volume: snapshot.volume });
+    dispatch({ type: "player/setMuted", muted: snapshot.muted === true });
     if (snapshot.trackId) {
       dispatch({ type: "player/cue", trackId: snapshot.trackId, positionMs: snapshot.positionMs });
     }
@@ -256,6 +283,7 @@ export async function bootstrap(): Promise<Services> {
         canAuth: p.capabilities.canLogin,
         canDownload: p.capabilities.canGetUrl,
         canPlaylists: p.capabilities.canListPlaylists,
+        canToplists: p.capabilities.canGetToplist,
       })),
 
     async listPlaylists(sourceId) {
@@ -265,6 +293,18 @@ export async function bootstrap(): Promise<Services> {
       }
       try {
         return await provider.listPlaylists();
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    async listToplists(sourceId) {
+      const provider = getProvider(sourceId);
+      if (!provider?.capabilities.canGetToplist || !provider.listToplists) {
+        throw humanize({ code: "capability-missing" });
+      }
+      try {
+        return await provider.listToplists();
       } catch (err) {
         throw humanize(err);
       }
@@ -308,12 +348,23 @@ export async function bootstrap(): Promise<Services> {
     },
 
     async lyric(sourceId, songId) {
+      // 先看本地缓存：同一首词第二次不该再打网络（A-03）
+      const key = lyricCacheKey(sourceId, songId);
+      const hit = getCachedLyric(lyricCache, key);
+      if (hit) return hit;
+
       const provider = getProvider(sourceId);
       if (!provider || !provider.capabilities.canGetLyric || !provider.getLyric) {
         throw humanize({ code: "capability-missing" });
       }
       try {
-        return await provider.getLyric(songId);
+        const doc = await provider.getLyric(songId);
+        const next = putCachedLyric(lyricCache, key, doc, Date.now());
+        if (next !== lyricCache) {
+          lyricCache = next;
+          scheduleLyricCacheSave();
+        }
+        return doc;
       } catch (err) {
         throw humanize(err);
       }
@@ -473,6 +524,7 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
 
   if (n.trackId && n.trackId !== p.trackId) {
     if (n.volume !== p.volume) engine.setVolume(n.volume);
+    if (n.muted !== p.muted) engine.setMuted(n.muted);
     // crossfade 预判必须在 load 之前同步做：grant 是异步的，事后问就晚了。
     // 走 crossfade 时时钟继续跟出场曲，归零由切点回调 onSwitched 负责（00 §3.2 #5）。
     const keepClock = engine.willCrossfade(n.trackId);
@@ -509,6 +561,7 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   }
 
   if (n.volume !== p.volume) engine.setVolume(n.volume);
+  if (n.muted !== p.muted) engine.setMuted(n.muted);
 
   // 音频配置与播放状态分开比较：调 EQ 不该碰播放链路，反之亦然。
   // p/n 是 player 域，audio 在 AppState 顶层，从 prev/next 取。

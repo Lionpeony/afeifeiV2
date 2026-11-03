@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import type { AppState } from "../../contracts/index.js";
 import { getFiltered, searchTracks } from "../domain/library/state.js";
-import { EQ_BANDS, EQ_DEFAULT, PREAMP_DEFAULT } from "../capability/audio/eq.js";
+import { EQ_BANDS, EQ_DEFAULT, EQ_PRESETS, PREAMP_DEFAULT, sameGains } from "../capability/audio/eq.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
 import type { Services } from "./services.js";
@@ -11,9 +11,13 @@ import { onFrame } from "./compositor.js";
 import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
 import { StageView } from "./views/stage/index.js";
+import { ChartsView } from "./views/charts/index.js";
+import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
-import { registerCommand } from "./input/commands.js";
+import { clearLyric, loadLyric } from "./lyric-source.js";
+import { registerCommand, runCommand } from "./input/commands.js";
+import { commandIdFor } from "./input/media.js";
 import { currentTheme, type Theme } from "./theme.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
@@ -50,6 +54,9 @@ const today = (): string => {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} · ${wd}`;
 };
 
+/** 睡眠定时档位（A-23）。30 分钟是主档，验收就按它。 */
+const SLEEP_OPTIONS = [15, 30, 60];
+
 function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
@@ -58,6 +65,7 @@ function App() {
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
   const [volOpen, setVolOpen] = useState(false);
+  const [sleepOpen, setSleepOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [theme, setThemeState] = useState<Theme>("light");
   const [npCover, setNpCover] = useState<string | null>(null);
@@ -66,6 +74,7 @@ function App() {
   const totalEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
   const tipEl = useRef<HTMLSpanElement>(null);
+  const sleepEl = useRef<HTMLSpanElement>(null);
   const dragging = useRef(false);
 
   // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
@@ -84,6 +93,12 @@ function App() {
       // 已播比例喂给 CSS 渐变（细线 seek 的墨色填充），不触发渲染
       const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
       barEl.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+    }
+    // 睡眠定时剩余时间同样只写 DOM：1s 一个 setInterval 会违反「时间唯一」（I1），
+    // 而 deadline 是绝对的，掉帧后补算也不会累积误差。
+    if (sleepEl.current) {
+      const endsAt = getState().sleep.endsAt;
+      if (endsAt !== null) sleepEl.current.textContent = fmt(Math.max(0, endsAt - Date.now()));
     }
   };
 
@@ -132,8 +147,20 @@ function App() {
     };
   }, []);
 
-  const { status, trackId, volume, error, trackTitle, remote } = state.player;
+  const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+  const sleepEndsAt = state.sleep.endsAt;
+
+  /**
+   * 睡眠定时（A-23）：只在截止时刻挂一个 setTimeout 触发 `sleep/expire`。
+   * 不用 setInterval 刷界面（I1：时间唯一），剩余时间由合成器帧里的 syncPosition 写 DOM；
+   * 也不在 reducer 里读 Date.now() —— kernel 只做状态转移，时间在 UI 侧。
+   */
+  useEffect(() => {
+    if (sleepEndsAt === null) return;
+    const id = setTimeout(() => dispatch({ type: "sleep/expire" }), Math.max(0, sleepEndsAt - Date.now()));
+    return () => clearTimeout(id);
+  }, [sleepEndsAt]);
 
   /* console 的 56px 封面：本地曲目走文件封面，在线曲目用音源给的封面地址。 */
   useEffect(() => {
@@ -275,6 +302,44 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ---- 媒体键 / 托盘命令（A-24）：走命令注册表，不另写一套播放语义 ---- */
+  useEffect(() => {
+    window.api.onPlaybackCommand((cmd) => {
+      const id = commandIdFor(cmd);
+      if (id) runCommand(id);
+    });
+  }, []);
+
+  /**
+   * 托盘（A-25）：把「在播什么 + 是否在播」推给主进程。
+   * 用最后发送值去重 —— 音量/进度每次变化都会触发订阅，但托盘只关心这两项。
+   */
+  const traySent = useRef("");
+  useEffect(() => {
+    const title = trackId ? (trackTitle ?? baseName(trackId)) : null;
+    const key = `${playing ? "1" : "0"}|${title ?? ""}`;
+    if (key === traySent.current) return;
+    traySent.current = key;
+    window.api.pushTrayState({ playing, title });
+  }, [playing, trackId, trackTitle]);
+
+  /**
+   * 歌词（A-02）：切歌时由外壳统一取，播放页只订阅。
+   * 桌面歌词窗的判据是"与主窗同步"，不该以"用户点开过播放页"为前提——
+   * 之前 doc 由 StageView 写入，没进播放页就一直是空的。
+   */
+  const lyricKey = remote ? `${remote.sourceId}:${remote.songId}` : `local:${trackId ?? ""}`;
+  useEffect(() => {
+    if (remote) {
+      void loadLyric(remote.sourceId, remote.songId, (sourceId, songId) => {
+        const svc = services.current;
+        return svc ? svc.lyric(sourceId, songId) : Promise.reject(new Error("还没准备好，请稍后再试"));
+      });
+      return;
+    }
+    clearLyric(trackId ? "本地曲目暂无歌词" : "");
+  }, [lyricKey]);
+
   useEffect(
     () =>
       installKeyboard({
@@ -288,6 +353,22 @@ function App() {
     [],
   );
 
+  /**
+   * 在线曲目播放（在线页与榜单页共用一条链路）：
+   * 先拿地址再 player/play —— 拿不到（未登录 / 无版权）就抛，由页面显示人话。
+   */
+  const playRemote = async (sourceId: string, track: RemoteTrack): Promise<void> => {
+    const svc = services.current;
+    if (!svc) return;
+    const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+    dispatch({
+      type: "player/play",
+      trackId: url,
+      trackTitle: `${track.title} — ${track.artist}`,
+      remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
+    });
+  };
+
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
     switch (page) {
@@ -296,11 +377,6 @@ function App() {
           <StageView
             state={state}
             cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
-            lyric={(sourceId, songId) => {
-              const svc = services.current;
-              if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
-              return svc.lyric(sourceId, songId);
-            }}
             spectrum={(bins) => services.current?.spectrum(bins) ?? null}
             exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
             importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
@@ -383,6 +459,23 @@ function App() {
         ) : (
           <p className="lib-empty">还没准备好，请稍候。</p>
         );
+      case "charts":
+        return (
+          <ChartsView
+            sources={sources.filter((s) => s.canToplists)}
+            listToplists={(sourceId) => {
+              const svc = services.current;
+              return svc ? svc.listToplists(sourceId) : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            playlistTracks={(sourceId, listId, page) => {
+              const svc = services.current;
+              return svc
+                ? svc.playlistTracks(sourceId, listId, page)
+                : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            onPlay={playRemote}
+          />
+        );
       case "online":
         return (
           <OnlineView
@@ -392,20 +485,7 @@ function App() {
               if (!svc) return Promise.resolve({ items: [] });
               return svc.searchOnline(sourceId, keyword);
             }}
-            onPlay={async (sourceId, track) => {
-              const svc = services.current;
-              if (!svc) return;
-              // 拿地址失败（未登录 / 无版权）会抛错，由 OnlineView 显示人话
-              const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-              // 在线曲目的 trackId 是直链，标题必须单独带，否则播放条显示的是一串签名；
-              // remote 带音源内标识，播放页的歌词/封面从这取
-              dispatch({
-                type: "player/play",
-                trackId: url,
-                trackTitle: `${track.title} — ${track.artist}`,
-                remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
-              });
-            }}
+            onPlay={playRemote}
             loginStatus={(sourceId) =>
               services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
             }
@@ -603,8 +683,30 @@ function App() {
         </div>
 
         <div className="tools">
-          <button type="button" className={volOpen ? "on" : ""} aria-expanded={volOpen} onClick={() => setVolOpen(!volOpen)}>
-            音量
+          <button
+            type="button"
+            className={volOpen || muted ? "on" : ""}
+            aria-expanded={volOpen}
+            onClick={() => {
+              setVolOpen(!volOpen);
+              setSleepOpen(false);
+            }}
+            title={muted ? "已静音" : "音量"}
+          >
+            {muted ? "静音" : "音量"}
+          </button>
+          <button
+            type="button"
+            className={sleepOpen || sleepEndsAt ? "on" : ""}
+            aria-expanded={sleepOpen}
+            onClick={() => {
+              setSleepOpen(!sleepOpen);
+              setVolOpen(false);
+            }}
+            title="睡眠定时：到点暂停，不退出"
+          >
+            睡眠
+            {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
           </button>
           <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
             词
@@ -618,6 +720,15 @@ function App() {
         </div>
         {/* 音量条常驻 DOM、只切 visibility：滑杆语义与键盘可达性不因开合而丢 */}
         <div className="vol-pop volume" hidden={!volOpen}>
+          <button
+            type="button"
+            className={`mute${muted ? " on" : ""}`}
+            aria-pressed={muted}
+            title={muted ? "取消静音" : "静音"}
+            onClick={() => dispatch({ type: "player/setMuted", muted: !muted })}
+          >
+            {muted ? "静音中" : "静音"}
+          </button>
           <input
             type="range"
             min="0"
@@ -629,6 +740,35 @@ function App() {
           />
           <span className="vol-val">{Math.round(volume * 100)}</span>
         </div>
+        {sleepOpen && (
+          <div className="vol-pop sleep-pop" role="dialog" aria-label="睡眠定时">
+            <p className="sleep-now">{sleepEndsAt ? "定时中 · 到点自动暂停" : "到点只暂停，不退出"}</p>
+            <div className="sleep-opts">
+              {SLEEP_OPTIONS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    dispatch({ type: "sleep/set", endsAt: Date.now() + m * 60000 });
+                    setSleepOpen(false);
+                  }}
+                >
+                  {m} 分钟
+                </button>
+              ))}
+              <button
+                type="button"
+                disabled={!sleepEndsAt}
+                onClick={() => {
+                  dispatch({ type: "sleep/clear" });
+                  setSleepOpen(false);
+                }}
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        )}
         <span className="stamp">入场券 · ADMIT ONE</span>
       </footer>
       <Toaster />
@@ -675,28 +815,48 @@ function App() {
             </select>
             <span className="fx-val" />
           </label>
-          <span className="fx-label">EQ · 6 BANDS</span>
-          {state.audio.eq.map((db, i) => {
-            const hz = EQ_BANDS[i];
-            return (
-              <label className="fx-row" key={hz}>
-                <span>{hz >= 1000 ? `${hz / 1000}k` : hz}</span>
-                <input
-                  type="range"
-                  min="-12"
-                  max="12"
-                  step="1"
-                  value={Math.round(db)}
-                  onChange={(e) => {
-                    const gains = [...state.audio.eq];
-                    gains[i] = Number(e.target.value);
-                    dispatch({ type: "audio/setEq", gains });
-                  }}
-                />
-                <span className="fx-val">{Math.round(db)} dB</span>
-              </label>
-            );
-          })}
+          <span className="fx-label">EQ · 10 BANDS</span>
+          {/* 预设（A-06 判据 ≥3）：点亮条件不是"点过"，而是当前增益真的等于这一组 */}
+          <div className="fx-presets">
+            {EQ_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={sameGains(state.audio.eq, p.gains)}
+                onClick={() => dispatch({ type: "audio/setEq", gains: [...p.gains] })}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+          {/* 10 段竖排：横向一行放 10 根会挤成一堆，竖排还能看见峰谷 */}
+          <div className="fx-bands">
+            {state.audio.eq.map((db, i) => {
+              const hz = EQ_BANDS[i];
+              return (
+                <label className="fx-band" key={hz}>
+                  <b>{Math.round(db)}</b>
+                  {/* 0dB 基准线挂在轨道容器上：挂在整块上要算文字行高，必然偏几像素 */}
+                  <span className="fx-track">
+                    <input
+                      type="range"
+                      min="-12"
+                      max="12"
+                      step="1"
+                      value={Math.round(db)}
+                      aria-label={`${hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`}`}
+                      onChange={(e) => {
+                        const gains = [...state.audio.eq];
+                        gains[i] = Number(e.target.value);
+                        dispatch({ type: "audio/setEq", gains });
+                      }}
+                    />
+                  </span>
+                  <i>{hz >= 1000 ? `${hz / 1000}k` : hz}</i>
+                </label>
+              );
+            })}
+          </div>
         </div>
       )}
 

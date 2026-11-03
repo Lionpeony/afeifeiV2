@@ -1,4 +1,5 @@
 import type { ErrorCode } from "./index.js";
+import type { LyricDoc } from "./lyric.js";
 
 /**
  * 能力契约（50 §7.2）：**先声明后使用**，UI 按声明渲染，不靠 try/catch 探测。
@@ -22,6 +23,8 @@ export interface MethodCapabilities {
   canListPlaylists: boolean;
   canGetRadio: boolean;
   canFavorite: boolean;
+  /** 榜单列表（A-14）。声明 true 就要有 listToplists，下钻复用 canGetPlaylist。 */
+  canGetToplist: boolean;
 }
 
 /** 声明表里每一项 → 它要求的方法名。启动断言与实际方法一一对应。 */
@@ -37,6 +40,7 @@ export const CAPABILITY_METHODS: Record<keyof MethodCapabilities, string> = {
   canListPlaylists: "listPlaylists",
   canGetRadio: "getRadio",
   canFavorite: "favorite",
+  canGetToplist: "listToplists",
 };
 
 export interface Traits {
@@ -71,37 +75,24 @@ export interface OnlinePlaylist {
   coverUrl?: string;
 }
 
-export type LyricFormat = "lrc" | "qrc" | "yrc" | "ttml" | "plain";
-
-export interface LyricLine {
-  /** 开始（毫秒，与 clock 同一单位） */
-  at: number;
-  /** 持续（毫秒）。没有结束标记时按下一行推算 */
-  dur: number;
-  text: string;
-}
-
-export interface LyricWord {
-  /** 属于第几行（lines 的索引） */
-  line: number;
-  at: number;
-  dur: number;
-  char: string;
+/**
+ * 榜单（A-14）：只给"有什么榜"，曲目走 getPlaylist(id)。
+ *
+ * 刻意不叫 Playlist：榜单在音源侧就是一个只读歌单，但产品语义不同
+ * （榜单是编辑给的，不随账号变，也不需要登录），混用会让 UI 上的"我的歌单"多出榜。
+ */
+export interface Toplist {
+  id: string;
+  name: string;
+  count: number;
+  coverUrl?: string;
 }
 
 /**
- * 解析一次，渲染器可换（50 §7.4）。
- * **时间一律毫秒** —— 与 clock 同单位，渲染层不再做单位换算（少一次换错的机会）。
+ * 歌词模型只有一份：`contracts/lyric.ts`（21 §二）。
+ * 这里只做转出，方便音源侧一个 import 拿全契约，**不再另定义**。
  */
-export interface LyricDoc {
-  format: LyricFormat;
-  /** 纯文本（无时间轴），给"极简"渲染器和复制用 */
-  plain: string;
-  lines: LyricLine[];
-  words: LyricWord[];
-  /** 翻译层，按语言标记；没有就是空数组 */
-  translations: { lang: string; lines: LyricLine[] }[];
-}
+export type { LyricDoc } from "./lyric.js";
 
 /**
  * 一家音源必须实现的东西。
@@ -126,6 +117,8 @@ export interface SourceProvider {
   listPlaylists?(): Promise<OnlinePlaylist[]>;
   getRadio?(sourceId: string, page?: number): Promise<SearchResult>;
   favorite?(sourceId: string, liked: boolean): Promise<void>;
+  /** 榜单列表（A-14）。下钻用 getPlaylist(榜 id)。 */
+  listToplists?(): Promise<Toplist[]>;
 }
 
 /** 上游错误统一收敛到这里，UI 只认码（50 §10）。 */

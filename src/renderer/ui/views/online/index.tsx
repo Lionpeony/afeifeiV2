@@ -13,6 +13,8 @@ export interface SourceOption {
   canDownload: boolean;
   /** 能力驱动（M9-5）：canListPlaylists 才进歌单页 */
   canPlaylists: boolean;
+  /** 能力驱动（A-14）：canGetToplist 才进榜单页 */
+  canToplists: boolean;
 }
 
 export interface OnlineViewProps {
