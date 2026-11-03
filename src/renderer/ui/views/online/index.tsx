@@ -65,6 +65,8 @@ export function OnlineView({
   const [rows, setRows] = useState<RemoteTrack[]>([]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  /* QQ 搜索实测要 20–45s：5s 后把「还在搜」说出来，别让人对着空白区猜死活 */
+  const [slow, setSlow] = useState(false);
   const [nick, setNick] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -98,7 +100,9 @@ export function OnlineView({
   const run = async (): Promise<void> => {
     if (!sourceId) return;
     setBusy(true);
+    setSlow(false);
     setNote("");
+    const slowTimer = setTimeout(() => setSlow(true), 5000);
     try {
       const result = await onSearch(sourceId, keyword);
       setRows(result.items);
@@ -107,6 +111,8 @@ export function OnlineView({
       setRows([]);
       setNote(err instanceof Error ? err.message : String(err));
     } finally {
+      clearTimeout(slowTimer);
+      setSlow(false);
       setBusy(false);
     }
   };
@@ -233,6 +239,7 @@ export function OnlineView({
       ) : null}
 
       {note ? <p className="lib-note">{note}</p> : null}
+      {slow ? <p className="lib-note dim">还在搜——这个音源的上游响应比较慢，再等几秒。</p> : null}
 
       <div className="lib-list">
         <div className={`lib-thead online-thead${currentSource?.canDownload ? " with-btn" : ""}`}>
@@ -241,33 +248,48 @@ export function OnlineView({
           <span className="th-b">ALBUM</span>
           <span className="th-dur">TIME</span>
         </div>
-        {rows.map((track) => (
-          <div
-            key={track.sourceId}
-            className="lib-row online-row"
-            onClick={() => void play(track)}
-            title={`${track.title} — ${track.artist}`}
-          >
-            <span className="lib-title">{track.title}</span>
-            <span className="lib-artist">{track.artist}</span>
-            <span className="lib-artist">{track.album}</span>
-            <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
-            {currentSource?.canDownload ? (
-              <button
-                type="button"
-                className="dl-btn"
-                title="下载到本地"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void download(track);
-                }}
-              >
-                下载
-              </button>
-            ) : null}
+        {busy ? (
+          /* 骨架行：搜索期间结果区不再是空白一片（QQ 上游实测要几十秒） */
+          <div className="online-skel" aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div className="sk-row" key={i} style={{ "--i": i } as React.CSSProperties}>
+                <span className="sk-bar t" />
+                <span className="sk-bar a" />
+                <span className="sk-bar d" />
+              </div>
+            ))}
           </div>
-        ))}
-        {rows.length === 0 && !note ? <p className="lib-empty">选一个音源，输入关键词搜索。</p> : null}
+        ) : (
+          <>
+            {rows.map((track) => (
+              <div
+                key={track.sourceId}
+                className="lib-row online-row"
+                onClick={() => void play(track)}
+                title={`${track.title} — ${track.artist}`}
+              >
+                <span className="lib-title">{track.title}</span>
+                <span className="lib-artist">{track.artist}</span>
+                <span className="lib-artist">{track.album}</span>
+                <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
+                {currentSource?.canDownload ? (
+                  <button
+                    type="button"
+                    className="dl-btn"
+                    title="下载到本地"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void download(track);
+                    }}
+                  >
+                    下载
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {rows.length === 0 && !note ? <p className="lib-empty">选一个音源，输入关键词搜索。</p> : null}
+          </>
+        )}
       </div>
     </section>
   );

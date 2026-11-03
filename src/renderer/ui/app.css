@@ -593,6 +593,43 @@ html::after {
   background: var(--bg-raised) center/cover no-repeat;
   border: 1px solid var(--line);
 }
+
+/* 搜索骨架行（QQ 上游实测 20–45s）：纸面风格 = 虚线行 + 灰条，不闪不跳 */
+.online-skel {
+  padding: 2px 0;
+}
+.online-skel .sk-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 37px;
+  padding: 0 4px;
+  border-bottom: 1px dotted var(--line-soft);
+}
+.online-skel .sk-bar {
+  height: 10px;
+  background: var(--line-soft);
+  animation: sk-pulse 1.4s ease-in-out calc(var(--i) * 0.12s) infinite;
+}
+.online-skel .sk-bar.t {
+  flex: 0 1 220px;
+}
+.online-skel .sk-bar.a {
+  flex: 0 1 140px;
+}
+.online-skel .sk-bar.d {
+  flex: 0 0 40px;
+  margin-left: auto;
+}
+@keyframes sk-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
 .chart-tx {
   display: flex;
   flex: 1 1 auto;

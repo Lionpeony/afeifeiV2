@@ -1,14 +1,19 @@
 /**
  * 播放页截图（stage-v10 a2 重排的验收证据）。
  *
+ * **分工**（2026-11-03 定）：本脚本是 **fixture**（离线、快、可供 CI）——
+ * 布局截图 + 只能靠 mock 做的判据（A-03 缓存要数歌词接口调用次数，真机数不了）。
+ * 权威判据在 `scripts/real-shots.mjs`（真登录 / 真音频 / 真歌词）——
+ * 这里的 fixture 判据绿了不算数，只当回归烟测。
+ *
  * 跑法：先 node scripts/build.mjs，再 npx electron scripts/stage-shots.mjs
  * 产物：docs/assets/page-stage.png（纸面剧场主图）、stage-<preset>.png ×4、stage-menu.png（视图浮层）
  *
  * 与 page-shots 同一套 fixture 纪律：自开窗口 + 最小 IPC + 临时 userData，
  * 绝不动真实索引。**少一条 IPC 就等于没数据**（bootstrap 整体 reject → 空壳）。
  *
- * 截图里的曲库是 C:\Windows\Media 的真实 wav：点第一行真的会播，
- * 队列因此有 8 条真数据；本地曲目没有歌词，左侧活字区显示空态文案（不造假歌词）。
+ * 曲库优先读真实索引（%APPDATA% 只读拷贝，过滤 missing），空了才退到系统 wav 并告警——
+ * 假数据验出来的"能播"不算数（2026-11-03 教训：fixture 缺 appmedia 时音频从来没响过）。
  */
 import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import fs from "node:fs";

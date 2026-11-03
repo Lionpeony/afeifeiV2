@@ -395,6 +395,50 @@ try {
   lyricPage.close();
 
   /*
+   * A-03 译文（真机）：真实网易云歌词自带 tlyric —— 并排可见 → 关掉消失 → 落盘。
+   * 关掉后立刻恢复：这份 profile 是复制品，动设置无害，但下一轮跑图还要译文。
+   */
+  const hadTrans = await page.evaluate(
+    `[...document.querySelectorAll(".st-trans")].some((p) => p.textContent.trim().length > 0)`,
+  );
+  if (!hadTrans) throw new Error("在线歌词没有渲染出译文行：A-03 双语并排未生效（这首真歌没译文？换一首有译文的）");
+  const toggleTrans = async () => {
+    // A-10 的探针走的时候浮层是开着的：按 aria-expanded 归一，别盲点一下把它关上
+    const openMenu = async () => {
+      const expanded = await page.evaluate(
+        `document.querySelector('.st-viewbtn')?.getAttribute('aria-expanded') === 'true'`,
+      );
+      if (!expanded) {
+        await page.evaluate(`document.querySelector('.st-viewbtn')?.click()`);
+        await sleep(250);
+      }
+    };
+    await openMenu();
+    const clicked = await page.evaluate(`(() => {
+      const row = [...document.querySelectorAll('.st-menu-row')].find((r) => r.textContent.includes('译文'));
+      const box = row?.querySelector('input[type=checkbox]');
+      if (!box) return false;
+      box.click();
+      return true;
+    })()`);
+    await sleep(300);
+    await page.evaluate(`document.querySelector('.st-viewbtn')?.click()`);
+    await sleep(250);
+    return clicked;
+  };
+  if (!(await toggleTrans())) throw new Error("视图浮层里找不到「译文」开关");
+  const transGone = await page.evaluate(`document.querySelector('.st-trans') === null`);
+  if (!transGone) throw new Error("关掉译文后 .st-trans 仍在");
+  if (!(await toggleTrans())) throw new Error("重新打开「译文」开关失败");
+  await sleep(700); // stage-ui 的 500ms 合并写盘
+  // 真主进程的 KV 是一个 key 一个文件：<userData>/stage-ui.json（fixture 才有 store- 前缀）
+  const stageJson = JSON.parse(fs.readFileSync(path.join(profileDir, "stage-ui.json"), "utf8"));
+  if (stageJson.translation !== true) {
+    throw new Error(`译文开关没落盘：${JSON.stringify(stageJson)}`);
+  }
+  console.log("A-03 真机：译文并排可见 · 关掉后消失 · translation=true 已落盘");
+
+  /*
    * A-14 榜单：真登录下 toplist 匿名可读。
    * 判据：卡片 > 0 → 点第一张 → 曲目行出现 → 点第一首 → 起播（同一套"真在放"判据）。
    */
@@ -451,6 +495,17 @@ try {
   await page.evaluate(
     `[...document.querySelectorAll('button')].find(x => x.textContent.trim() === '搜索')?.click()`,
   );
+  // QQ 上游时快时慢（实测 6s～45s）：骨架行只在搜索期间存在，fcg 快时截图截不到，
+  // 直接断言「点击后立即有骨架行」（60ms 后读，等 React 提交）
+  await sleep(60);
+  const skel = await page.evaluate(`(() => ({
+    skel: document.querySelectorAll(".online-skel .sk-row").length,
+    btn: [...document.querySelectorAll("button")].some((b) => b.textContent.trim() === "搜索中…"),
+  }))()`);
+  if (skel.skel < 5 || !skel.btn) {
+    throw new Error(`搜索中没有骨架反馈（skel 行=${skel.skel}，按钮态=${skel.btn}）：用户要对着空白区猜 20–45s`);
+  }
+  console.log(`搜索反馈真机：骨架 ${skel.skel} 行 + 按钮「搜索中…」`);
   const qqRows = await until(page, `document.querySelectorAll('.online-row').length > 0`, 45000, "QQ 搜索结果");
   if (!qqRows) {
     const dump = await page.evaluate(`(() => ({
