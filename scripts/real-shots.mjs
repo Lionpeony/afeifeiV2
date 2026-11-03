@@ -504,6 +504,45 @@ try {
   console.log(`A-14 真机（QQ）：${qqCardN} 张榜 → 下钻 ${qqRowN} 首 → 第一首起播`);
 
   /*
+   * 私人 FM（A-14 最后一块）：开机条要有"接下来三首 + 为什么"（B-04），
+   * 点开始收听必须真的起播（本地真实音频）。
+   */
+  await page.evaluate(
+    `[...document.querySelectorAll('.rail button')].find((x) => x.textContent.includes('电台'))?.click()`,
+  );
+  await sleep(600);
+  const fmRows = await page.evaluate(`document.querySelectorAll('.fmbar .fmrow').length`);
+  if (fmRows < 3) throw new Error(`私人 FM 开机条只有 ${fmRows} 行预告（应有 3 行，每行带一句理由）`);
+  const fmTitleBefore = await page.evaluate(`(document.querySelector(".np-tx b")?.textContent || "").trim()`);
+  await page.evaluate(
+    `[...document.querySelectorAll('.fmbar button')].find((b) => b.textContent.includes('开始收听'))?.click()`,
+  );
+  const fmPlaying = await until(
+    page,
+    `(() => {
+      const label = document.querySelector("button.tb.main")?.getAttribute("aria-label");
+      const clock = (document.querySelector(".seek .tm")?.textContent || "").trim();
+      const title = (document.querySelector(".np-tx b")?.textContent || "").trim();
+      return label === "暂停" && clock !== "" && clock !== "0:00" && title !== ${JSON.stringify(fmTitleBefore)} && title !== "";
+    })()`,
+    15000,
+    "私人 FM 起播",
+  );
+  if (!fmPlaying) {
+    const dump = await page.evaluate(`(() => ({
+      title: document.querySelector(".np-tx b")?.textContent || "",
+      label: document.querySelector("button.tb.main")?.getAttribute("aria-label"),
+      clock: document.querySelector(".seek .tm")?.textContent || "",
+      status: document.querySelector(".tbar .status")?.textContent || "",
+      fmButtons: [...document.querySelectorAll(".fmbar button")].map((b) => b.textContent.trim() + (b.disabled ? "[disabled]" : "")),
+    }))()`);
+    throw new Error(`私人 FM 没起播：${JSON.stringify(dump)}`);
+  }
+  const fmNow = await page.evaluate(`(document.querySelector(".np-tx b")?.textContent || "").trim()`);
+  console.log(`私人 FM 真机：${fmRows} 行预告 · 开始收听 → 《${fmNow}》`);
+  await page.shot("real-fm.png");
+
+  /*
    * QQ 真机：登录态在 qq-session-token.json（复制 profile 时一起带过来）。
    * 换源 → 搜索 → 起播。判据里"标题变了"不可省：只看计时在走，
    * 上一首（网易云）还在放也能糊弄过去。

@@ -72,7 +72,9 @@ export function startMiniBridge(services: Services): void {
       })();
       return;
     }
+    // queue/set 只落 loading —— 协议唤起同样要补一脚 play 才会出声
     dispatch({ type: "queue/set", items: [intent.id], startAt: 0 });
+    dispatch({ type: "player/play" });
   };
   api.onSchemeUrl(handleScheme);
   // 冷启动兜底：主进程 send 可能早于这里的订阅，就绪后主动拉一次 pending

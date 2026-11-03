@@ -188,12 +188,16 @@ function App() {
     if (rows.length === 0) return;
     // 队列 = 当前筛选结果，从点击那首开始 —— 搜完直接播不会把整个库冲掉
     dispatch({ type: "queue/set", items: rows.map((r) => r.path), startAt: index });
+    // queue/set 只落 loading，不会自己起播 —— 补一脚 play（已在播时幂等）
+    dispatch({ type: "player/play" });
   };
 
   // 分组视图（M10-1）：队列 = 该专辑/歌手的曲目，比跳进全库筛选更符合直觉
   const onPlayGroup = (tracks: Track[], startAt: number): void => {
     if (tracks.length === 0) return;
     dispatch({ type: "queue/set", items: tracks.map((r) => r.path), startAt });
+    // 同上：set 完起播，私人 FM / 电台 / 专辑「开始收听」都走这里
+    dispatch({ type: "player/play" });
   };
 
   const onScan = async (): Promise<void> => {
@@ -869,7 +873,10 @@ function App() {
               id: `song:${t.id}`,
               label: `${t.title} — ${t.artist}`,
               hint: "本地",
-              run: () => dispatch({ type: "queue/set", items: [t.path], startAt: 0 }),
+              run: () => {
+                dispatch({ type: "queue/set", items: [t.path], startAt: 0 });
+                dispatch({ type: "player/play" });
+              },
             }))
           }
         />

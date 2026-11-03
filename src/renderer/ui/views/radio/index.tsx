@@ -3,7 +3,7 @@ import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { getLikes, subscribe as subscribeLikes } from "../../../domain/likes/index.js";
 import { getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
-import { dailyPicks, dailySeed, recentAdds, shuffledBy } from "../../../domain/recommend/index.js";
+import { dailyPicks, dailySeed, reasonOf, recentAdds, shuffledBy } from "../../../domain/recommend/index.js";
 import { PageHead } from "../../PageHead.js";
 
 export interface RadioViewProps {
@@ -31,6 +31,8 @@ const freqOf = (i: number): string => (88 + i * 1.7).toFixed(1);
 export function RadioView({ onPlayGroup, now }: RadioViewProps) {
   const [, setRev] = useState(0);
   const bump = (): void => setRev((r) => r + 1);
+  /* 私人 FM 的换流种子：FM 是一条流不是一批数据，换流不持久（换一批那种才要记住） */
+  const [fmSalt, setFmSalt] = useState(0);
 
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeLikes(bump), []);
@@ -100,6 +102,19 @@ export function RadioView({ onPlayGroup, now }: RadioViewProps) {
 
   const playStation = (station: Station): void => onPlayGroup(station.tracks, 0);
 
+  /*
+   * 私人 FM（A-14 最后一块）：算法流直接进播放器。
+   * 和「今日推荐台」的区别不在算法（同一个 dailyPicks），在**交互形态**：
+   * 台是"点一下播一整个列表"，FM 是"告诉你要来什么、为什么，一键开始、随时换流"。
+   * 每首前面那句 reasonOf 就是 B-04 的"为什么"——推荐不说理由就不算推荐。
+   */
+  const fmTracks = dailyPicks({ tracks, liked, recent, seed: dailySeed() + fmSalt });
+  const fmReasons = fmTracks.slice(0, 3).map((t) => ({
+    track: t,
+    why: reasonOf(t, tracks, liked, recent),
+  }));
+  const startFm = (): void => onPlayGroup(fmTracks, 0);
+
   return (
     <section className="radio">
       <PageHead
@@ -107,6 +122,33 @@ export function RadioView({ onPlayGroup, now }: RadioViewProps) {
         desc="没有主播、没有广告，只有按规则串起来的本地曲库——十二个频段，随点随播。"
         meta={`STATIONS · ${wall.length}`}
       />
+
+      {/* 私人 FM：横向开机条。左=接下来三首和理由，右=操作。不挤侧栏，也不占频段墙 */}
+      <div className="fmbar">
+        <div className="fm-why">
+          <h3>
+            私人 FM<span>AUTO · 每天换流</span>
+          </h3>
+          <div className="rows">
+            {fmReasons.map(({ track, why }, i) => (
+              <div className="fmrow" key={track.id}>
+                <span className="n">{String(i + 1).padStart(2, "0")}</span>
+                <b>{track.title}</b>
+                <span className="why">{why || track.artist}</span>
+              </div>
+            ))}
+            {fmReasons.length === 0 ? <p className="lib-empty">曲库还是空的，FM 没法开机。</p> : null}
+          </div>
+        </div>
+        <div className="fm-ops">
+          <button type="button" className="btn" onClick={startFm} disabled={fmTracks.length === 0}>
+            开始收听（{fmTracks.length} 首）
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setFmSalt((s) => s + 1)}>
+            换一批
+          </button>
+        </div>
+      </div>
 
       <div className="radio-body">
         <div className="rwall">

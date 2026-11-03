@@ -299,6 +299,69 @@
   gap: 26px;
 }
 
+/* 私人 FM（A-14）：横向开机条。左「接下来三首 + 为什么」，右操作。
+   理由是 B-04 的"为什么"——推荐不说理由就不算推荐 */
+.fmbar {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+}
+.fmbar .fm-why {
+  flex: 1;
+  min-width: 0;
+}
+.fmbar h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.fmbar h3 span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--fg-dim);
+}
+.fmbar .fmrow {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 180px) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12.5px;
+}
+.fmbar .fmrow .n {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-dim);
+}
+.fmbar .fmrow b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.fmbar .fmrow .why {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--fg-dim);
+  font-size: 11.5px;
+}
+.fmbar .fm-ops {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .rwall {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
