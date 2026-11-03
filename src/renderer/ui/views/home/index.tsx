@@ -11,6 +11,7 @@ import {
   recentAdds,
   recentPlayed,
 } from "../../../domain/recommend/index.js";
+import { bumpSalt, getSalt, subscribe as subscribeSalt } from "../../../domain/recommend/salt.js";
 import { onTick } from "../../compositor.js";
 import type { PageId } from "../../pages.js";
 import { PageHead } from "../../PageHead.js";
@@ -87,7 +88,6 @@ function Tile({
  * 算法在 domain/recommend（纯函数、当天可复现）。
  */
 export function HomeView({ onPlayGroup, cover, onGo }: HomeViewProps) {
-  const [salt, setSalt] = useState(0);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   // 曲库/红心/历史都是外部状态，任一变化就整体重算（三个信号本来就被同一份推荐吃掉）
   const [, setRev] = useState(0);
@@ -98,10 +98,11 @@ export function HomeView({ onPlayGroup, cover, onGo }: HomeViewProps) {
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeLikes(bump), []);
   useEffect(() => subscribeHistory(bump), []);
+  useEffect(() => subscribeSalt(bump), []);
 
   const tracks = getTracks();
   const recent = getHistory().map((e) => e.trackId);
-  const seed = dailySeed() + salt;
+  const seed = dailySeed() + getSalt();
   const picks = dailyPicks({ tracks, liked: getLikes(), recent, seed });
   const opening = picks[0];
   const adds = recentAdds(tracks, 3);
@@ -197,7 +198,7 @@ export function HomeView({ onPlayGroup, cover, onGo }: HomeViewProps) {
             </i>
             播放今日
           </button>
-          <button type="button" className="btn swap" onClick={() => setSalt((s) => s + 1)}>
+          <button type="button" className="btn swap" onClick={() => bumpSalt()}>
             换一批
           </button>
           <p className="note">

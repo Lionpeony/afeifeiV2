@@ -43,6 +43,7 @@ if (TEST) {
       "audio-eq-response": "src/renderer/capability/audio/eq-response.ts",
       "library-group": "src/renderer/domain/library/group.ts",
       recommend: "src/renderer/domain/recommend/index.ts",
+      "recommend-salt": "src/renderer/domain/recommend/salt.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
       "stage-tint": "src/renderer/ui/views/stage/tint.ts",
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",

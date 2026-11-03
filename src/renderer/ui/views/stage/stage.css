@@ -362,6 +362,16 @@
   min-height: 0;
   padding-top: 4px;
 }
+/* 内容区才滚：overflow-y:auto 会连带 overflow-x 可滚，任何横向探出
+   （表头缝合线 52px、SIDE A 章 9px）都会撑出横向滚动条 —— 横向直接禁掉 */
+.st-side-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 .st-side-h {
   position: relative;
   display: flex;
@@ -532,13 +542,24 @@
 .st-photo {
   position: relative;
   margin-top: auto;
+  /* SIDE A 章向下探 9px，给滚动区留出余量，别为它出纵向滚动条 */
+  margin-bottom: 10px;
   width: min(214px, 100%);
   align-self: flex-end;
   transform: rotate(-2deg);
+  /* 矮窗时允许整块被压缩（art 一起缩），说明行收在白边里不会溢出到台词本 */
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0;
 }
 .st-photo .art {
   position: relative;
   aspect-ratio: 1;
+  /* 白边下端加厚 46px 当说明区（拍立得写白边），图片内容只占上方 */
+  padding-bottom: 46px;
+  flex: 0 1 auto;
+  min-height: 130px;
   border: 9px solid var(--stage-bg); /* 相纸白边 = 场景底色，cinema 下自然是暗边 */
   outline: 1px solid color-mix(in srgb, var(--stage-fg) 28%, transparent);
   background: var(--stage-raised);
@@ -569,10 +590,14 @@
   will-change: transform;
 }
 .st-photo .cap {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 24px;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 9px 2px 0;
+  gap: 8px;
 }
 .st-photo .cap b {
   font-size: 13.5px;
@@ -590,7 +615,10 @@
   font-variant-numeric: tabular-nums;
 }
 .st-photo .cap2 {
-  padding: 4px 2px 0;
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  bottom: 5px;
   font-family: var(--font-mono);
   font-size: 10.5px;
   line-height: 1.5;

@@ -271,6 +271,41 @@ try {
   if (grid.bad.length > 0) throw new Error(`田字格格子互相压（${grid.count} 格）：${grid.bad.slice(0, 3).join(" | ")}`);
   console.log(`A-04 真机：${grid.count} 个格子不重叠不溢出（真实逐字 yrc）`);
 
+  // 相纸说明不许压到台词本头：底边距必须是样式表里的值（跑在播放页上才有 .st-photo）
+  const photoGap = await page.evaluate(`(() => {
+    const photo = document.querySelector(".st-photo");
+    if (!photo) return "MISSING";
+    const cap = photo.querySelector(".cap2");
+    const scriptHead = document.querySelector(".st-script .sh");
+    const side = document.querySelector(".st-side");
+    const body = document.querySelector(".st-body");
+    const r = (el) => {
+      if (!el) return null;
+      const b = el.getBoundingClientRect();
+      return { top: Math.round(b.top), bottom: Math.round(b.bottom) };
+    };
+    const art = photo.querySelector(".art");
+    return {
+      mb: getComputedStyle(photo).marginBottom,
+      sideOverflow: getComputedStyle(side).overflowY,
+      innerH: innerHeight,
+      photoWidth: getComputedStyle(photo).width,
+      art: r(art),
+      side: r(side),
+      body: r(body),
+      photo: r(photo),
+      cap2: r(cap),
+      scriptHead: r(scriptHead),
+      script: r(document.querySelector(".st-script")),
+    };
+  })()`);
+  if (photoGap === "MISSING") throw new Error("播放页上找不到 .st-photo");
+  console.log(`相纸布局：${JSON.stringify(photoGap)}`);
+  const gap = photoGap.scriptHead && photoGap.cap2
+    ? photoGap.scriptHead.top - photoGap.cap2.bottom
+    : -1;
+  if (gap < 4) throw new Error(`相纸说明与台词本只隔 ${gap}px（叠字）`);
+
   await page.shot("real-stage.png");
 
   const lit = await page.evaluate(`(() => {

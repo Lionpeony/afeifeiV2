@@ -4,6 +4,7 @@ import { getTracks, subscribe as subscribeLibrary } from "../../../domain/librar
 import { getLikes, subscribe as subscribeLikes } from "../../../domain/likes/index.js";
 import { getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
 import { dailyPicks, dailySeed, reasonOf, shuffledBy } from "../../../domain/recommend/index.js";
+import { bumpSalt, getSalt, subscribe as subscribeSalt } from "../../../domain/recommend/salt.js";
 import { PageHead } from "../../PageHead.js";
 import { fmtDuration } from "../library/rows.js";
 
@@ -26,7 +27,6 @@ interface Draw {
  */
 export function RoamView({ onPlayGroup, cover }: RoamViewProps) {
   const [, setRev] = useState(0);
-  const [salt, setSalt] = useState(0);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const coverFn = useRef(cover);
@@ -36,11 +36,12 @@ export function RoamView({ onPlayGroup, cover }: RoamViewProps) {
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeLikes(bump), []);
   useEffect(() => subscribeHistory(bump), []);
+  useEffect(() => subscribeSalt(bump), []);
 
   const tracks = getTracks();
   const liked = getLikes();
   const recent = getHistory().map((e) => e.trackId);
-  const seed = dailySeed() + salt;
+  const seed = dailySeed() + getSalt();
 
   // 一副牌：每日推荐优先，切牌时按新种子重洗；抽完一轮再洗
   const deck = dailyPicks({ tracks, liked, recent, seed, count: 30 });
@@ -134,7 +135,7 @@ export function RoamView({ onPlayGroup, cover }: RoamViewProps) {
                   type="button"
                   className="btn ghost"
                   onClick={() => {
-                    setSalt((s) => s + 1);
+                    bumpSalt();
                     setDraws([]);
                   }}
                 >

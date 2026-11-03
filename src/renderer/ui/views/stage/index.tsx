@@ -386,12 +386,14 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
             )}
           </section>
 
-          {/* 右栏：队列 + 票据 + 相纸封面（封面不可关） */}
+          {/* 右栏：队列 + 票据 + 相纸封面（封面不可关）。
+              表头留在滚动区外（缝合线向左探出 52px，进滚动区会撑出横向滚动条） */}
           <aside className="st-side">
             <div className="st-side-h">
               <b>接下来</b>
               <span>QUEUE · {upNext.length}</span>
             </div>
+            <div className="st-side-scroll">
             {upNext.length === 0 ? (
               <p className="st-side-empty">队列里没有下一首</p>
             ) : (
@@ -448,16 +450,20 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
             </div>
 
             <div className="st-photo">
+              {/* 说明收进相纸白边（拍立得本来就是写在白边上的）：
+                  挂在外面时整块比右栏高 40px，说明行会压到台词本头上（真机实测 gap=-22px）。
+                  收进来之后相纸可以整体被 flex 压缩，矮窗不再溢出 */}
               <div className="art" data-side={nowTrack ? `SIDE A · ${pad2(queue.cursor + 1)}` : "SIDE A"}>
                 {coverUrl ? <img ref={coverRef} className="st-cover-img" src={coverUrl} alt="" /> : null}
+                <div className="cap">
+                  <b>{nowTitle}</b>
+                  <span>{nowDur > 0 ? fmt(nowDur) : "--:--"}</span>
+                </div>
+                <div className="cap2">
+                  {[nowArtist, nowAlbum].filter(Boolean).join(" · ") || "尚未播放"}
+                </div>
               </div>
-              <div className="cap">
-                <b>{nowTitle}</b>
-                <span>{nowDur > 0 ? fmt(nowDur) : "--:--"}</span>
-              </div>
-              <div className="cap2">
-                {[nowArtist, nowAlbum].filter(Boolean).join(" · ") || "尚未播放"}
-              </div>
+            </div>
             </div>
           </aside>
         </div>

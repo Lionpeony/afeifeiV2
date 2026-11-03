@@ -39,6 +39,7 @@ import { startDownloadRunner } from "../domain/download/runner.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
 import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/likes/index.js";
 import { loadPlaylists, savePlaylists, subscribe as subscribePlaylists } from "../domain/playlists/index.js";
+import { loadSalt } from "../domain/recommend/salt.js";
 import { clock } from "../kernel/clock.js";
 import { dispatch, getState, subscribe } from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
@@ -183,6 +184,9 @@ export async function bootstrap(): Promise<Services> {
   subscribePlaylists(() => {
     void savePlaylists(kv);
   });
+
+  // 「换一批」的 salt：启动时恢复今天的批次偏移（跨天自动作废，见 domain/recommend/salt）
+  void loadSalt(kv);
 
   const persistNow = (): void => {
     persister.schedule(getState, () => clock.t(performance.now()));

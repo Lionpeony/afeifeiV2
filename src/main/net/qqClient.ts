@@ -96,10 +96,28 @@ export async function callQq(method: string, params: Record<string, unknown> = {
 
 /* ---------- 搜索 ---------- */
 
+/*
+ * fcg 搜索实测要 20–45s（真机数据），同一关键词反复打太遭罪。
+ * 进程内缓存 5 分钟：相同 (keyword,page) 直接回上次结果。
+ * 只缓存"成功"的响应 —— 失败不缓存，下次还得真打。
+ */
+const SEARCH_TTL_MS = 5 * 60 * 1000;
+const searchCache = new Map<string, { at: number; body: unknown }>();
+
 async function qqSearch(params: Record<string, unknown>): Promise<unknown> {
   const page = Math.max(0, Number(params.page ?? 0) || 0);
   const keyword = String(params.keyword ?? "").slice(0, 100);
-  return callApi(`/search?keyword=${encodeURIComponent(keyword)}&page=${page + 1}&limit=30`);
+  const key = `${keyword}\n${page}`;
+  const hit = searchCache.get(key);
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return hit.body;
+  const body = await callApi(`/search?keyword=${encodeURIComponent(keyword)}&page=${page + 1}&limit=30`);
+  searchCache.set(key, { at: Date.now(), body });
+  if (searchCache.size > 50) {
+    // 简单防涨：清掉最旧的一半。搜索缓存不值得 LRU 的精确性
+    const keys = [...searchCache.keys()].slice(0, 25);
+    for (const k of keys) searchCache.delete(k);
+  }
+  return body;
 }
 
 /* ---------- 歌词 ---------- */
