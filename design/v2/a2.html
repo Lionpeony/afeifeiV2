@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>普通播放页 · 活字帖 r4</title>
+<link rel="stylesheet" href="core.css">
+<style>
+  /* ============ r4 ·「活字帖」自查清单 ============
+     ① 新画面：当前句装进田字格（书法界格）——未唱淡墨 / 已唱浓墨 / 正在唱红，
+        播放推进逐字点亮 = 纸面卡拉OK，普通播放器没有的第二种歌词渲染
+     ② 换句即换版：旧句上浮淡出 0.24s → 新句逐字落版（stagger 45ms/字）
+     ③ 活稿：JS 播放引擎（真实时间码 ×5 演示加速，页脚标注）——
+        kicker/幽灵页码/台词本红标/进度条/控制台全部随播放流转
+     ④ 真交互：空格或控制台暂停；台词本点行跳句
+     ⑤ 保留 r3 资产：红缝合线 / 贴版照片 / 对位十字 / 入场落版
+     ⑥ 纪律：无渐变（界格是 1px 硬线）、无阴影、无圆角；数据真值
+     ==================================== */
+  .stage { position: absolute; left: var(--rail); right: 0; top: var(--bar); bottom: var(--console); overflow: hidden; }
+  .main { padding: 22px 36px 0 42px; height: 100%; display: flex; flex-direction: column; overflow-y: auto; min-width: 880px; }
+
+  /* ---------- 入场：落版序列 ---------- */
+  @keyframes rise  { from { opacity: 0; transform: translateY(14px); filter: blur(5px); }
+                     to   { opacity: 1; transform: none;             filter: blur(0); } }
+  @keyframes fade  { from { opacity: 0; } }
+  @keyframes draw  { from { transform: scaleX(0); } }
+  @keyframes stamp { from { opacity: 0; transform: rotate(-2deg) scale(1.26); }
+                     to   { opacity: .62; transform: rotate(-2deg) scale(1); } }
+  @keyframes settle{ from { opacity: 0; transform: rotate(3.5deg) translateY(12px); }
+                     to   { opacity: 1;  transform: rotate(-2deg)  translateY(0); } }
+  .rz1 { animation: rise .6s cubic-bezier(.22,1,.36,1) both; }
+  .rz2 { animation: rise .6s cubic-bezier(.22,1,.36,1) .1s both; }
+  .rz3 { animation: rise .6s cubic-bezier(.22,1,.36,1) .2s both; }
+  .rz4 { animation: rise .6s cubic-bezier(.22,1,.36,1) .3s both; }
+  .rz5 { animation: rise .6s cubic-bezier(.22,1,.36,1) .4s both; }
+
+  /* ---------- 报头 ---------- */
+  .head { display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--ink); }
+  .head h1 { font: 600 40px/1 var(--serif); letter-spacing: .01em;
+    max-width:560px; word-break:break-word; text-wrap:balance; line-height:1.14; }
+  .head h1 em { font-style: normal; color: var(--red); }
+  .head .r { text-align: right; font: 400 11px/1.75 var(--mono); color: var(--ink3); letter-spacing: .14em; }
+
+  /* ---------- 版心 ---------- */
+  .body { flex: 1; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 292px; gap: 0 44px; min-height: 0; }
+
+  .lyr { display: flex; flex-direction: column; justify-content: center; padding-bottom: 2px; position: relative; }
+  .disc { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .disc i { width: 26px; height: 2px; background: var(--red); }
+  .disc span { font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+  .prev { font: 400 19px/1.4 var(--serif); color: var(--ink3); height: 26px; }
+  .next { font: 400 20px/1.4 var(--serif); color: var(--ink2); height: 27px; }
+
+  /* 活字帖：田字格巨字（.typeset 与台词本 .srow.cur 类名区分，避免撞车）
+     长曲名会排到 3 行，这里限高 + 底部渐隐，不让它顶到台词本 */
+  .typeset { margin: 10px 0 10px; position: relative; z-index: 1; min-height: 205px;
+    /* 限两排（216px）：24 字长句若排三排，会把下面的"下一句"顶到台词本上 */
+    max-height: 220px; overflow: hidden;
+    -webkit-mask: linear-gradient(180deg, #000 0 82%, transparent 100%);
+            mask: linear-gradient(180deg, #000 0 82%, transparent 100%);
+    transition: opacity .24s ease-out, transform .24s ease-out; }
+  .typeset.out { opacity: 0; transform: translateY(-10px); }
+  .typeset .ln { display: flex; flex-wrap: wrap; gap: 6px; }
+  .typeset .ln + .ln { margin-top: 9px; }
+  .kbox { flex: 0 0 auto; width: 100px; height: 100px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--hair2);
+    font: 600 74px/1 var(--serif); color: rgba(23, 21, 15, .30);
+    transition: color .18s ease-out, border-color .18s ease-out;
+    animation: wordIn .34s cubic-bezier(.22,1,.36,1) both; animation-delay: calc(var(--i) * .045s); }
+  /* 田字界格：横竖两条中线 */
+  .kbox::before { content: ""; position: absolute; left: 4px; right: 4px; top: 50%; height: 1px; background: rgba(23, 21, 15, .06); }
+  .kbox::after  { content: ""; position: absolute; top: 4px; bottom: 4px; left: 50%; width: 1px; background: rgba(23, 21, 15, .06); }
+  @keyframes wordIn { from { opacity: 0; transform: translateY(9px); filter: blur(3px); }
+                      to   { opacity: 1; transform: none;           filter: blur(0); } }
+  .kbox.lit { color: var(--ink); }
+  .kbox.now { color: var(--red); border-color: rgba(168, 38, 26, .55); }
+  .kbox.now::before, .kbox.now::after { background: rgba(168, 38, 26, .16); }
+  .kbox.dot { font-size: 58px; padding-bottom: 10px; }
+
+  /* 幽灵页码 + 对位十字 */
+  .folio { position: absolute; right: -14px; top: 50%; transform: translateY(-56%); z-index: 0;
+    font: 600 220px/1 var(--serif); color: rgba(23, 21, 15, .05); user-select: none; }
+  .folio::after { content: "+"; position: absolute; right: 8px; bottom: -6px;
+    font: 400 30px/1 var(--mono); color: rgba(168, 38, 26, .34); }
+  .folio.bump { animation: bump .45s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes bump { 0% { opacity: 0; transform: translateY(-56%) scale(.96); } 100% { opacity: 1; transform: translateY(-56%) scale(1); } }
+
+  /* ---------- 右栏 ---------- */
+  .side { display: flex; flex-direction: column; padding-top: 4px; min-height: 0; }
+  .side .h { position: relative; display: flex; align-items: baseline; justify-content: space-between;
+    padding: 10px 0 9px; border-top: 2px solid var(--red); }
+  .side .h::before { content: ""; position: absolute; left: -210px; top: -2px; width: 208px; height: 2px;
+    background: var(--red); transform-origin: right center; animation: draw .55s cubic-bezier(.22,1,.36,1) .5s both; }
+  .side .h b { font: 600 13px/1 var(--sans); letter-spacing: .04em; }
+  .side .h span { font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .12em; }
+  .nx { display: flex; align-items: center; gap: 10px; height: 42px; border-bottom: 1px dotted var(--hair); }
+  .nx img { flex: 0 0 30px; width: 30px; height: 30px; object-fit: cover; border: 1px solid var(--hair);
+    outline: 1px solid rgba(23, 21, 15, .1); outline-offset: -1px; }
+  .nx i { flex: 0 0 20px; font: 400 11px/1 var(--mono); color: var(--ink3); font-style: normal; font-variant-numeric: tabular-nums; }
+  .nx .t { flex: 1 1 auto; min-width: 0; font: 500 13.5px/1.2 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nx .t small { margin-left: 7px; font: 400 11.5px/1 var(--sans); color: var(--ink3); }
+  .nx time { flex: 0 0 auto; font: 400 11.5px/1 var(--mono); color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .nx:hover .t { color: var(--red); }
+  .side .seal { margin: 14px 0 0 2px; align-self: flex-start; animation: stamp .5s cubic-bezier(.34,1.4,.44,1) 1.05s both; }
+  /* 相纸卡：缩到 148px 并砍掉第二行说明，避免压到下方台词本 */
+  /* 相纸卡：绝对定位在版心右侧空白（压住幽灵页码，那是背景层，可压） */
+  .photo { position: absolute; right: -10px; top: 168px; width: 152px; z-index: 2;
+    transform: rotate(-2deg); animation: settle .7s cubic-bezier(.22,1,.36,1) .85s both; }
+  .photo .cap2 { display: none; }
+
+  /* 右栏底部三行统计：填掉 queue 与票根之间的空 */
+  .pstat { margin-top: auto; display: grid; gap: 7px; padding-top: 20px; }
+  .pstat div { display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .16em; color: var(--ink3); text-transform: uppercase; }
+  .pstat b { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--ink); font-weight: 400; }
+  .photo .tape { position: absolute; left: 50%; top: -12px; width: 96px; height: 24px; z-index: 2;
+    margin-left: -50px; background: rgba(233, 229, 217, .92); border: 1px solid var(--hair2);
+    transform: rotate(-4deg);
+    clip-path: polygon(2% 8%, 30% 0, 68% 6%, 98% 2%, 100% 92%, 70% 100%, 32% 94%, 0 96%); }
+  .photo .art { width: 100%; aspect-ratio: 1; border: 9px solid #fbfaf6; outline: 1px solid var(--hair);
+    background: var(--paper2) center/cover no-repeat; position: relative; }
+  .photo .art::after {
+    content: "SIDE A · 01"; position: absolute; left: -9px; bottom: -9px;
+    background: var(--ink); color: var(--paper); padding: 5px 9px;
+    font: 400 10px/1 var(--mono); letter-spacing: .12em; }
+  .photo .cap { display: flex; align-items: baseline; justify-content: space-between; padding: 9px 2px 0; }
+  .photo .cap b { font: 600 13.5px/1.3 var(--sans); }
+  .photo .cap span { font: 400 11px/1 var(--mono); color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .photo .cap2 { padding: 4px 2px 0; font: 400 10.5px/1.5 var(--mono); color: var(--ink3); letter-spacing: .02em; }
+
+  /* ---------- 台词本（可点跳句） ---------- */
+  .script { padding-top: 12px; border-top: 1px solid var(--ink); }
+  .script .sh { display: flex; justify-content: space-between; padding-bottom: 6px; }
+  .script .sh b { font: 600 12px/1 var(--sans); letter-spacing: .04em; }
+  .script .sh span { font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .12em; }
+  .rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 34px; overflow: hidden; }
+  .srow { display: flex; align-items: baseline; gap: 11px; height: 31px; border-bottom: 1px dotted var(--hair2); cursor: pointer; }
+  .srow .no { flex: 0 0 18px; font: 400 11px/1 var(--mono); color: var(--ink3); font-style: normal; font-variant-numeric: tabular-nums; }
+  .srow time { flex: 0 0 42px; font: 400 11.5px/1 var(--mono); color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .srow .tx { flex: 1 1 auto; min-width: 0; font: 400 13px/1 var(--sans); color: var(--ink2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .srow.cur .no, .srow.cur time, .srow.cur .tx { color: var(--red); }
+  .srow.cur .tx { font-weight: 600; }
+  .srow:hover .tx { color: var(--ink); }
+  /* 已唱过的行比未唱更深（否则整片台词本糊成一层灰） */
+  .srow.past .tx { color: var(--ink2); }
+  .srow.past .no, .srow.past time { color: var(--ink3); }
+
+  /* ---------- 走带图形 ---------- */
+  .tbtn { width: 30px; height: 30px; border: 1px solid var(--hair); display: flex; align-items: center;
+    justify-content: center; gap: 3px; color: var(--ink); cursor: pointer; background: none;
+    transition: transform .15s ease-out; }
+  .tbtn:active { transform: scale(.96); }
+  .tbtn i { display: block; width: 0; height: 0; border-style: solid; border-color: transparent; }
+  .tbtn.prev i { border-width: 5px 7px 5px 0; border-right-color: currentColor; }
+  .tbtn.prev i + i { margin-left: -6px; }
+  .tbtn.prev { padding-right: 2px; }
+  .tbtn.next i { border-width: 5px 0 5px 7px; border-left-color: currentColor; }
+  .tbtn.next i + i { margin-left: -6px; }
+  .tbtn.next { padding-left: 2px; }
+  .tbtn.play { width: 40px; height: 40px; background: var(--red); border: 0; color: #fff; }
+  .tbtn.play .bars { display: flex; gap: 3px; }
+  .tbtn.play .bars i { width: 3px; height: 15px; border: none; background: currentColor; }
+  .tbtn.play .tri { display: none; width: 0; height: 0; border-style: solid;
+    border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; margin-left: 2px; }
+  .paused .tbtn.play .bars { display: none; }
+  .paused .tbtn.play .tri { display: block; }
+  /* 数据开关：dev-only，中性灰，不属于设计本身 */
+  .datatoggle{
+    position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 200;
+    display: flex; gap: 2px; padding: 3px; border-radius: 3px;
+    background: rgba(60,60,60,.55);
+    font-family: system-ui, sans-serif;
+  }
+  .datatoggle button{
+    padding: 5px 13px; border: 0; border-radius: 2px; background: none; cursor: pointer;
+    font-size: 11px; color: rgba(255,255,255,.68);
+  }
+  .datatoggle button.on{ background:#fff; color:#111; font-weight:600; }
+  /* 空状态：队列空时的唯一一句话 */
+  .nxempty { padding: 22px 0; font: 400 11px/1.6 var(--mono); letter-spacing: .1em; color: var(--ink3); }
+
+</style>
+</head>
+<body>
+
+<div class="datatoggle" id="dt">
+  <button class="on" data-d="demo">Demo 数据</button>
+  <button data-d="worst">最差数据</button>
+  <button data-d="empty">空状态</button>
+</div>
+
+
+
+<div class="bar">
+  <div class="brand"><i></i><b>AFEIFEI</b><span>阿飞飞 · 会听的播放器</span></div>
+  <div class="win"><span>—</span><span>□</span><span>✕</span></div>
+</div>
+
+<nav class="rail">
+  <div class="mk"><b>AFEIFEI</b></div>
+  <div class="it">首页</div>
+  <div class="it">在线</div>
+  <div class="it">收藏</div>
+  <div class="it">本地</div>
+  <div class="it on">播放</div>
+  <div class="it">专辑</div>
+  <div class="it">歌手</div>
+  <div class="sp"></div>
+  <div class="it">设置</div>
+</nav>
+
+<main class="stage">
+  <div class="main">
+    <div class="head">
+      <h1 class="rz1">正在播放<em>。</em></h1>
+      <div class="r rz2">SIDE A · 2026.11.01 · 网易云音乐<br>ONE RECORD · ONE ROOM</div>
+    </div>
+
+    <div class="body">
+      <section class="lyr">
+        <span class="folio rz3" id="folio">03</span>
+        <div class="disc rz2"><i></i><span id="kicker">SCRIPT · 03 / 34 · IN 03:12</span></div>
+        <div class="prev rz3" id="prev">汽笛在梦的第三段靠岸</div>
+        <div class="typeset rz4" id="cur"></div>
+        <div class="next rz5" id="next">马林鱼把小船拖进深蓝</div>
+
+        <!-- 相纸卡移到版心右侧的空白区（原来挤在右栏底部，会压台词本） -->
+        <div class="photo">
+          <span class="tape"></span>
+          <div class="art" style="background-image:url('online-covers/cover1.jpg')"></div>
+          <div class="cap"><b id="phTitle">老人と海</b><span id="phDur">5:21</span></div>
+          <div class="cap2">ヨルシカ · 老人と海 · FLAC 1411kbps</div>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="h"><b>接下来</b><span>QUEUE · 3</span></div>
+        <div class="nx rz3"><i>02</i><img src="online-covers/cover3.jpg" alt=""><span class="t">打上花火<small>Daoko / 米津玄師</small></span><time>4:28</time></div>
+        <div class="nx rz4"><i>03</i><img src="online-covers/cover2.jpg" alt=""><span class="t">Daisy<small>Aimer</small></span><time>4:44</time></div>
+        <div class="nx rz5"><i>04</i><img src="online-covers/cover7.jpg" alt=""><span class="t">Lay Down<small>Caravan Palace</small></span><time>3:27</time></div>
+
+        <div class="seal"><b>第 030 场</b><small>ADMIT ONE</small></div>
+
+        <!-- 右栏底部补两行真数据：原来 queue 与票根之间空 40px -->
+        <div class="pstat">
+          <div><span>已播</span><b data-pct>32%</b></div>
+          <div><span>剩余</span><b data-left>03:36</b></div>
+          <div><span>句</span><b data-lineno>第 3 句</b></div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="script">
+      <div class="sh"><b>台词本 · 整段</b><span>共 34 句 · 点击跳句</span></div>
+      <div class="rows" id="rows"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="console">
+  <div class="stub"><b>入场券</b><span>ADMISSION</span></div>
+  <div class="np">
+    <div class="c" style="background-image:url('online-covers/cover1.jpg')"></div>
+    <div><b id="npTitle">老人と海</b><span id="npBy">ヨルシカ · 老人と海</span></div>
+  </div>
+  <div class="ctl">
+    <div class="tbtn prev"><i></i><i></i></div>
+    <div class="tbtn play" id="play"><span class="bars"><i></i><i></i></span><span class="tri"></span></div>
+    <div class="tbtn next"><i></i><i></i></div>
+  </div>
+  <div class="pg"><time id="tcur">03:12</time><div class="line"><i id="fill" style="width:61%"></i><b id="head" style="left:61%"></b></div><time id="tdur">05:21</time></div>
+  <div class="ctl"><div class="tbtn" style="font:400 12px/1 var(--sans);letter-spacing:.06em">歌词</div><div class="tbtn" style="font:400 12px/1 var(--sans);letter-spacing:.06em">队列</div></div>
+</footer>
+
+<!-- 真数据注入（file:// 下 fetch 本地 JSON 会被 CORS 拦，走 script 标签） -->
+<script src="lyrics-sample.js"></script>
+
+<script>
+/* ---------- 活字帖播放引擎：真实时间码 ×5 演示加速 ---------- */
+function hms(t) { const m = t.split(":"); return (+m[0]) * 60 + (+m[1]); }
+function fmt(s) { s = Math.max(0, Math.round(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
+
+/* ---------- 唯一真相源：真实 LyricDoc ----------
+   由 scripts/fetch-lyrics.ts 从 LRCLIB 真抓（不是编的），落在 lyrics-sample.json。
+   原来写死的 12 句演示数据已下线 —— 界面读的就是产品里同一份 LyricDoc。 */
+let DOC = null;
+let SENT = [];
+let SEGMENTS = [];
+let TOTAL = 0;
+let DUR = 321, T0 = 0;
+const SPEED = 5;
+
+function boot() {
+  buildRows();
+  buildCur(0);
+  render(true);
+  requestAnimationFrame(tick);
+}
+if (window.__LYRIC_DOC) {
+  /* 延后一帧再启动：下面还有 let demoT / lastFrame / shown 的声明，
+     同步调用会踩 TDZ（Cannot access before initialization）。 */
+  setTimeout(function () { setupDoc(window.__LYRIC_DOC); }, 0);
+} else {
+  fetch("lyrics-sample.json").then(function (r) { return r.json(); }).then(setupDoc).catch(function () { setTimeout(boot, 0); });
+}
+
+function setupDoc(doc) {
+  DOC = doc;
+  /* 曲目元信息（真数据）也接到界面上：歌词是英文的，曲名不能还写着「老人と海」 */
+  const meta = window.__LYRIC_META;
+  if (meta) {
+    const t = document.getElementById("npTitle");
+    const by = document.getElementById("npBy");
+    if (t) t.textContent = meta.title;
+    if (by) by.textContent = meta.artist + " · " + meta.title;
+    const dur = document.getElementById("tdur");
+    if (dur) dur.textContent = fmt(meta.durationMs / 1000);
+    const phT = document.getElementById("phTitle");
+    const phD = document.getElementById("phDur");
+    if (phT) phT.textContent = meta.title;
+    if (phD) phD.textContent = fmt(meta.durationMs / 1000);
+    const side = document.querySelector(".side .h span");
+    if (side) side.textContent = "QUEUE · 3";
+  }
+  SENT = doc.lines.map(function (l) {
+    return { start: l.startMs / 1000, rows: [l.text], words: l.words || [] };
+  });
+  SEGMENTS = doc.segments || [];
+  TOTAL = SENT.length;
+  DUR = doc.lines.length ? doc.lines[doc.lines.length - 1].endMs / 1000 : 321;
+  T0 = SENT.length ? SENT[0].start : 0;
+  boot();
+}
+const $ = (id) => document.getElementById(id);
+
+let demoT = 0, paused = false, lastFrame = performance.now(), shown = -1;
+
+/* 台词本（真数据：SENT 来自 LyricDoc），点行跳句。
+   **窗口化**：只渲染当前句附近的 12 行 —— 48 句全铺会撑爆版面（真数据实测过）。 */
+let winStart = 0;
+function buildRows() {
+  const box = $("rows");
+  box.innerHTML = "";
+  const win = 12;
+  const total = SENT.length;
+  if (total <= win) {
+    winStart = 0;
+  } else {
+    const focus = shown >= 0 ? shown : 0;
+    winStart = Math.max(0, Math.min(total - win, focus - Math.floor(win / 2)));
+  }
+  for (let i = winStart; i < winStart + win && i < total; i++) {
+    const s = SENT[i];
+    const r = document.createElement("div");
+    r.className = "srow"; r.dataset.i = i;
+    r.innerHTML = '<i class="no">' + String(i + 1).padStart(2, "0") + '</i><time>' + fmt(s.start) +
+      '</time><span class="tx">' + s.rows.join("") + '</span>';
+    r.addEventListener("click", function () { seekTo(s.start); });
+    box.appendChild(r);
+  }
+  const head = document.querySelector(".script .sh span");
+  if (head) head.textContent = "第 " + (winStart + 1) + "–" + Math.min(total, winStart + win) + " 句 / 共 " + total + " 句 · 点击跳句";
+}
+
+/* 活字格重建：句 → 田字格序列（字级 stagger 落版） */
+let a2kind = "demo";
+let a2qBackup = null;
+function applyA2Data(kind) {
+  a2kind = kind;
+  shown = -1;
+  const side = document.querySelector(".side");
+  if (kind === "empty") {
+    /* 队列空 + 没有歌词：右栏换成一句人话，而不是三条空气 */
+    if (!a2qBackup) a2qBackup = side.innerHTML;
+    side.innerHTML = '<div class="h"><b>接下来</b><span>QUEUE · 0</span></div>' +
+      '<div class="nxempty">队列已空 · 这是最后一首</div>';
+    const now = document.querySelector(".lyr .now");
+    const next = document.querySelector(".lyr .next");
+    if (now) now.textContent = "纯音乐 · 这首歌没有歌词";
+    if (next) next.textContent = "";
+    return;
+  }
+  if (a2qBackup) { side.innerHTML = a2qBackup; a2qBackup = null; }
+  /* 最差数据要跳到第 3 句（那条 24 字长句），否则时间会自己走掉 */
+  if (kind === "worst") seekTo(hms("03:12"));
+  render(true);
+}
+document.querySelectorAll("#dt button").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    document.querySelectorAll("#dt button").forEach(function (b) { b.classList.toggle("on", b === btn); });
+    applyA2Data(btn.dataset.d);
+  });
+});
+function buildCur(idx) {
+  const s = SENT[idx];
+  const cur = $("cur");
+  cur.innerHTML = "";
+  let k = 0;
+  /* 最差数据：当前句换成 24 字长句（真实副歌长度），田字格会排 3 排 */
+  const rows = (a2kind === "worst" && idx === 2)
+    ? ["他说他会在天亮之前把所有没说完的话都说完"]
+    : s.rows;
+  rows.forEach(function (line) {
+    const ln = document.createElement("div"); ln.className = "ln";
+    for (const ch of line) {
+      const b = document.createElement("span");
+      b.className = "kbox" + (ch === "。" ? " dot" : "");
+      b.style.setProperty("--i", k++);
+      b.textContent = ch;
+      ln.appendChild(b);
+    }
+    cur.appendChild(ln);
+  });
+  cur.style.opacity = 1; cur.style.transform = "none";
+}
+
+function seekTo(realT) {
+  demoT = Math.max(0, (realT - T0) / SPEED);
+  shown = -1;
+  render(true);
+}
+
+function render(force) {
+  const realT = Math.min(T0 + demoT * SPEED, DUR);
+  let idx = 0;
+  for (let i = 0; i < TOTAL; i++) if (realT >= SENT[i].start) idx = i;
+  const s = SENT[idx];
+  const dur = (idx + 1 < TOTAL ? SENT[idx + 1].start : DUR) - s.start;
+  const prog = Math.min(1, (realT - s.start) / dur);
+
+  /* 右栏底部三行统计（每帧更新，不只是换句）*/
+  const pctEl = document.querySelector("[data-pct]");
+  const leftEl = document.querySelector("[data-left]");
+  const lineEl = document.querySelector("[data-lineno]");
+  if (pctEl) pctEl.textContent = Math.round((realT / DUR) * 100) + "%";
+  if (leftEl) leftEl.textContent = fmt(Math.max(0, DUR - realT));
+  /* 只报"第几句"，不报总数 —— kicker 已经写了 / 34，两处都写总数会出现 34 与 12 打架 */
+  if (lineEl) lineEl.textContent = "第 " + (idx + 1) + " 句";
+
+  if (idx !== shown || force) {
+    const changed = idx !== shown;
+    shown = idx;
+    if (changed) {
+      const cur = $("cur");
+      cur.classList.add("out");
+      setTimeout(function () { buildCur(idx); }, 240);
+      if (a2kind === "empty") {
+        /* 空状态：没有歌词就别假装有 */
+        $("prev").textContent = "纯音乐 · 这首歌没有歌词";
+        $("next").textContent = "";
+      } else {
+        $("prev").textContent = idx > 0 ? SENT[idx - 1].rows.join("") : "—";
+        $("next").textContent = idx + 1 < TOTAL ? SENT[idx + 1].rows.join("") : "（本段终）";
+      }
+      $("kicker").textContent = "SCRIPT · " + String(idx + 1).padStart(2, "0") + " / " + TOTAL + " · IN " + fmt(s.start);
+      const fo = $("folio");
+      /* 幽灵页码 = 段落号（真数据：来自 LyricDoc.segments） */
+      let segIdx = -1;
+      for (let i = 0; i < SEGMENTS.length; i++) {
+        if (s.start * 1000 >= SEGMENTS[i].startMs && s.start * 1000 < SEGMENTS[i].endMs) { segIdx = i; break; }
+      }
+      fo.textContent = String(segIdx >= 0 ? segIdx + 1 : idx + 1).padStart(2, "0");
+      buildRows();   /* 台词本窗口跟着当前句滚动（剧本翻页） */
+      fo.classList.remove("bump"); void fo.offsetWidth; fo.classList.add("bump");
+      document.querySelectorAll(".srow").forEach(function (r) {
+        const i = +r.dataset.i;
+        r.classList.toggle("cur", i === idx);
+        r.classList.toggle("past", i < idx);
+      });
+    }
+  }
+  /* 字级点亮：未唱淡墨 / 已唱浓墨 / 当前红 */
+  const boxes = $("cur").querySelectorAll(".kbox");
+  const litN = Math.round(prog * boxes.length);
+  boxes.forEach(function (b, i) {
+    b.classList.toggle("lit", i < litN);
+    b.classList.toggle("now", i === litN - 1 && !paused && realT < DUR);
+  });
+  /* 进度 */
+  const pct = (realT / DUR * 100).toFixed(2) + "%";
+  $("fill").style.width = pct; $("head").style.left = pct;
+  $("tcur").textContent = fmt(realT);
+  document.body.classList.toggle("paused", paused || realT >= DUR);
+}
+
+$("play").addEventListener("click", function () { paused = !paused; lastFrame = performance.now(); render(true); });
+window.addEventListener("keydown", function (e) {
+  if (e.code === "Space") { e.preventDefault(); paused = !paused; lastFrame = performance.now(); render(true); }
+});
+
+/* 播放循环：启动交给 boot()（等 LyricDoc 到位） */
+function tick(now) {
+  if (!paused) demoT += (now - lastFrame) / 1000;
+  lastFrame = now;
+  render(false);
+  requestAnimationFrame(tick);
+}
+</script>
+
+</body>
+</html>

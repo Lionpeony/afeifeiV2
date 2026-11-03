@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ⚠️ 已废弃（2026-11-03）：这一版只是把"纸墨/票根/节目单"那套语言搬到了暗底上，
+     用户判定"一眼看过去还是之前的设计"。**替代版是 mockup-14-fluid.html**（流体玻璃）。 -->
+<title>阿飞飞 · 暗房 · 底片光（已废弃 · 见 mockup-14）</title>
+<style>
+/* ============================================================
+   docs/13-全站重设计蓝图 · 可交互效果图
+   单文件、零依赖、双击即可看。数据为示意（曲名/时长是真实样张）。
+   与 13 的 1 处有意偏差：播放页不再单独给 HUD，seek 只在浮动 console 里
+   （避免同一屏两条进度条）。
+   ============================================================ */
+
+:root{
+  --bg:#0a0b0d;
+  --surf:#121316;
+  --surf2:#191b1f;
+  --fg:#f3f1ea;
+  --dim:rgba(243,241,234,.55);
+  --mute:rgba(243,241,234,.35);
+  --accent:#e0492f;
+  --accent-ink:#0a0b0d;
+  --brass:#c9a35c;
+  --line:rgba(243,241,234,.22);
+  --soft:rgba(243,241,234,.10);
+
+  /* 环境光：运行时由封面主色写入（这里是默认样张的暖橙） */
+  --g1:rgba(212,119,47,.40);
+  --g2:rgba(43,111,125,.20);
+
+  --rail:72px;
+  --head:44px;
+  --console:88px;
+
+  --serif:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif;
+  --sans:"Microsoft YaHei UI","PingFang SC","Segoe UI",sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,monospace;
+
+  --ease:cubic-bezier(.22,1,.36,1);
+
+  /* 六张"封面"（纯渐变，零资源；真实版本是解码后的封面） */
+  --art1:radial-gradient(120% 120% at 22% 14%, #e0902f 0%, #a4402a 34%, #4a1f1c 62%, #120d0c 100%);
+  --art2:radial-gradient(110% 110% at 72% 20%, #3f8fa3 0%, #1f4d5c 40%, #10222b 70%, #080d11 100%);
+  --art3:radial-gradient(110% 110% at 32% 78%, #7a52a8 0%, #3b2a55 44%, #191325 72%, #0b0910 100%);
+  --art4:radial-gradient(120% 120% at 62% 28%, #6d7c3c 0%, #3a4522 42%, #1a1f12 72%, #080a07 100%);
+  --art5:radial-gradient(120% 120% at 40% 30%, #8d4a2c 0%, #4a2618 45%, #1d100c 75%, #0a0706 100%);
+  --art6:radial-gradient(120% 120% at 30% 70%, #2f6f78 0%, #1b3a40 46%, #0e1b1e 74%, #070b0c 100%);
+}
+
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.7;           /* 暗底 +10% */
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 光层：两张超大径向渐变，随封面换色 ---------- */
+.glow{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(90% 70% at 18% 8%, var(--g1), transparent 62%),
+    radial-gradient(70% 60% at 88% 92%, var(--g2), transparent 58%);
+  transition:background 600ms ease;
+}
+.grain{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  opacity:.025; mix-blend-mode:soft-light;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- 换幕：切页时纸色遮罩一闪 ---------- */
+.curtain{
+  position:fixed; inset:0; z-index:80; pointer-events:none;
+  background:var(--fg); opacity:0;
+}
+.curtain.flash{ animation:curtain 120ms ease-out; }
+@keyframes curtain{ 0%{opacity:0} 45%{opacity:.10} 100%{opacity:0} }
+
+/* ---------- 外壳 ---------- */
+.app{
+  position:relative; z-index:2;
+  display:grid;
+  grid-template-rows:var(--head) minmax(0,1fr);
+  grid-template-columns:var(--rail) minmax(0,1fr);
+  height:100%;
+}
+
+/* 票根头 */
+.head{
+  grid-column:1/-1;
+  display:flex; align-items:center; gap:16px;
+  padding:0 18px 0 22px;
+  border-bottom:1px solid var(--soft);
+  -webkit-app-region:drag;
+}
+.brand{display:flex; align-items:center; gap:9px; font-family:var(--mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase;}
+.brand i{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px rgba(224,73,47,.9);}
+.head .now{font-size:13px; color:var(--dim); letter-spacing:.04em;}
+.head .sp{flex:1;}
+.head .stat{font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; color:var(--mute); text-transform:uppercase;}
+.win{display:flex; gap:2px; -webkit-app-region:no-drag;}
+.win span{
+  width:34px; height:26px; display:grid; place-items:center;
+  font-family:var(--mono); font-size:11px; color:var(--mute);
+  border:1px solid transparent; cursor:default;
+}
+.win span:hover{color:var(--fg); border-color:var(--soft);}
+
+/* 左导航 72px */
+.rail{
+  display:flex; flex-direction:column; align-items:center;
+  gap:4px; padding:14px 0 10px;
+  border-right:1px solid var(--soft);
+}
+.rail button{
+  position:relative;
+  width:48px; height:48px; display:grid; place-items:center;
+  border:0; background:none; color:var(--mute); cursor:pointer;
+  transition:color 180ms var(--ease);
+}
+.rail button:hover{color:var(--fg);}
+.rail button.on{color:var(--fg);}
+.rail button.on::before{
+  content:""; position:absolute; left:-12px; top:12px; bottom:12px;
+  width:2px; background:var(--accent);
+  box-shadow:0 0 10px rgba(224,73,47,.8);
+}
+.rail svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.4;}
+.rail .sp{flex:1;}
+.rail .gap{width:26px;height:1px;background:var(--soft);margin:8px 0;}
+
+/* 内容区 */
+.view{position:relative; overflow:hidden;}
+.page{
+  position:absolute; inset:0;
+  padding:30px 40px 118px;   /* 底部给浮动 console 留位 */
+  overflow-y:auto;
+  opacity:0; visibility:hidden;
+  transform:translateY(10px);
+  filter:blur(4px);
+  transition:opacity 240ms var(--ease), transform 240ms var(--ease), filter 240ms var(--ease);
+}
+.page.on{opacity:1; visibility:visible; transform:none; filter:none;}
+.page::-webkit-scrollbar{width:8px;}
+.page::-webkit-scrollbar-thumb{background:var(--soft);}
+
+/* ---------- 通用件 ---------- */
+h1.big{
+  margin:0;
+  font-family:var(--serif);
+  font-size:72px; line-height:1.04; letter-spacing:-.01em; font-weight:500;
+}
+h1.big em{font-style:normal; color:var(--accent);}
+.sub{
+  display:flex; align-items:baseline; gap:14px; margin-top:12px;
+  font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--mute); text-transform:uppercase;
+}
+.rule{height:1px;background:var(--line); margin:18px 0;}
+.mono{font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--mute);}
+.accent{color:var(--accent);}
+
+/* ---------- 1. 播放页 ---------- */
+.pg-stage{padding:26px 40px 118px; display:flex; flex-direction:column;}
+.scene-no{align-self:flex-end; font-family:var(--mono); font-size:10.5px; letter-spacing:.2em; color:var(--mute);}
+.stage-body{
+  flex:1; min-height:0;
+  display:grid; grid-template-columns:minmax(0,1fr) 280px; gap:0 48px;
+  align-content:center;
+}
+.song-title{
+  margin:0 0 10px;
+  font-family:var(--serif); font-weight:500;
+  font-size:96px; line-height:1.02; letter-spacing:-.02em;
+}
+.song-title em{font-style:normal; color:var(--accent);}
+.song-meta{display:flex; gap:14px; flex-wrap:wrap; font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--mute); text-transform:uppercase;}
+.kicker{display:flex; align-items:center; gap:10px; margin:34px 0 18px;}
+.kicker i{width:26px;height:2px;background:var(--accent);}
+.kicker span{font-family:var(--mono); font-size:11px; letter-spacing:.18em; color:var(--dim);}
+
+.lyric{font-family:var(--serif); font-size:46px; line-height:1.42; letter-spacing:.01em;}
+.lyric .prev,.lyric .next{font-size:22px; color:var(--mute); margin-bottom:8px;}
+.lyric .next{margin-top:8px;}
+.lw{display:flex; flex-wrap:wrap;}
+.lw span{color:var(--mute); transition:color 140ms linear;}
+.lw span.lit{color:var(--fg);}
+.lw span.now{color:var(--accent); text-shadow:0 0 24px rgba(224,73,47,.45);}
+
+/* 右栏：相纸封面 + 队列 */
+.side{display:flex; flex-direction:column; gap:22px;}
+.photo{
+  position:relative; width:100%; max-width:280px; align-self:flex-end;
+  transform:rotate(-2deg);
+  filter:drop-shadow(0 24px 48px rgba(0,0,0,.6));
+}
+.photo .art{
+  position:relative; aspect-ratio:1;
+  border:9px solid #e8e6dd;
+  outline:1px solid var(--line);
+  background-size:cover; background-position:center;
+}
+.photo .art::after{
+  content:attr(data-side);
+  position:absolute; left:-9px; bottom:-9px;
+  padding:5px 9px; background:var(--fg); color:var(--bg);
+  font-family:var(--mono); font-size:10px; letter-spacing:.12em;
+}
+.photo .cap{display:flex; justify-content:space-between; align-items:baseline; padding-top:10px;}
+.photo .cap b{font-size:13.5px; font-weight:600;}
+.photo .cap span{font-family:var(--mono); font-size:11px; color:var(--mute);}
+.photo .cap2{padding-top:3px; font-family:var(--mono); font-size:10.5px; color:var(--mute);}
+
+.q-head{display:flex; justify-content:space-between; align-items:baseline; padding:10px 0 8px; border-top:2px solid var(--accent);}
+.q-head b{font-size:13px; font-weight:600;}
+.q-head span{font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; color:var(--mute);}
+.q-row{display:flex; align-items:center; gap:10px; height:42px; border-bottom:1px dotted var(--soft); cursor:default;}
+.q-row:hover .t{color:var(--accent);}
+.q-row .no{width:18px; font-family:var(--mono); font-size:10.5px; color:var(--mute); font-style:normal;}
+.q-row .mini{width:28px;height:28px;background-size:cover;background-position:center;border:1px solid var(--soft);}
+.q-row .t{flex:1; min-width:0; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color 140ms;}
+.q-row .t small{color:var(--mute); font-size:11px; margin-left:7px;}
+.q-row time{font-family:var(--mono); font-size:11px; color:var(--mute);}
+
+/* 票根 */
+.ticket{
+  align-self:flex-start; margin-top:6px; padding:7px 12px 8px;
+  border:1px dashed var(--brass); color:var(--brass);
+  text-align:center; transform:rotate(-2deg);
+  background:rgba(201,163,92,.06);
+}
+.ticket b{display:block; font-size:12px; font-weight:600; letter-spacing:.04em;}
+.ticket small{display:block; margin-top:2px; font-family:var(--mono); font-size:9px; letter-spacing:.2em;}
+
+/* ---------- 2. 首页 ---------- */
+.pg-home{display:flex; flex-direction:column;}
+.home-body{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:44px; margin-top:26px; flex:1; min-height:0;}
+.hero{
+  position:relative; border:1px solid var(--line);
+  background-size:cover; background-position:center;
+  min-height:420px;
+  box-shadow:0 40px 80px -20px rgba(0,0,0,.8);
+}
+.hero::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(180deg, transparent 40%, rgba(10,11,13,.9));
+}
+.hero .cap{position:absolute; left:24px; bottom:22px; z-index:2;}
+.hero .cap b{display:block; font-family:var(--serif); font-size:34px; font-weight:500; line-height:1.15;}
+.hero .cap span{display:block; margin-top:6px; font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--dim);}
+.hero .play{
+  position:absolute; right:22px; bottom:22px; z-index:2;
+  display:flex; align-items:center; gap:8px;
+  padding:10px 16px; border:0; background:var(--accent); color:var(--accent-ink);
+  font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.04em; cursor:pointer;
+}
+.hero .play:hover{filter:brightness(1.08);}
+
+.list{display:flex; flex-direction:column; min-height:0;}
+.list .row{
+  display:grid; grid-template-columns:26px minmax(0,1fr) 120px 46px;
+  align-items:center; gap:12px;
+  height:46px; border-bottom:1px solid var(--soft); cursor:default;
+}
+.list .row:hover{background:rgba(243,241,234,.04);}
+.list .row .no{font-family:var(--mono); font-size:10.5px; color:var(--mute);}
+.list .row .t{min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.list .row .a{font-size:12.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.list .row time{font-family:var(--mono); font-size:11px; color:var(--mute); text-align:right;}
+.list .row.playing .t{color:var(--accent);}
+.list .row.playing{box-shadow:inset 2px 0 0 var(--accent);}
+.foot-stat{
+  display:flex; gap:26px; align-items:baseline;
+  margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
+  font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; color:var(--mute); text-transform:uppercase;
+}
+.foot-stat b{color:var(--fg); font-family:var(--sans); font-size:22px; font-weight:600; letter-spacing:0; margin-right:6px;}
+
+/* ---------- 3. 本地 ---------- */
+.bar{display:flex; align-items:center; gap:14px; margin-top:22px;}
+.search{
+  flex:1; display:flex; align-items:center; gap:10px;
+  height:40px; padding:0 14px; border:1px solid var(--line);
+  color:var(--mute); font-size:13px;
+}
+.search::before{content:"⌕"; font-size:16px; color:var(--mute);}
+.seg{display:flex; border:1px solid var(--line);}
+.seg span{padding:9px 14px; font-size:12.5px; color:var(--dim); cursor:default;}
+.seg span.on{background:var(--fg); color:var(--bg); font-weight:600;}
+.btn{height:40px; padding:0 16px; display:flex; align-items:center; border:1px solid var(--line); background:none; color:var(--fg); font-family:inherit; font-size:13px; cursor:pointer;}
+.btn:hover{border-color:var(--fg);}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink); font-weight:600;}
+
+.tbl{margin-top:14px;}
+.thead{display:grid; grid-template-columns:40px minmax(0,1fr) 180px 180px 60px 40px; gap:12px; padding:0 8px 8px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:10px; letter-spacing:.16em; color:var(--mute); text-transform:uppercase;}
+.trow{
+  display:grid; grid-template-columns:40px minmax(0,1fr) 180px 180px 60px 40px;
+  align-items:center; gap:12px; height:46px; padding:0 8px;
+  border-bottom:1px solid var(--soft); cursor:default; position:relative;
+}
+.trow:hover{background:rgba(243,241,234,.04);}
+.trow .cv{width:30px;height:30px;background-size:cover;background-position:center;border:1px solid var(--soft);}
+.trow .t{font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.trow .a,.trow .al{font-size:12.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.trow time{font-family:var(--mono); font-size:11px; color:var(--mute); text-align:right;}
+.trow .h{color:var(--mute); text-align:right; font-size:13px;}
+.trow.playing{box-shadow:inset 2px 0 0 var(--accent);}
+.trow.playing .t{color:var(--accent);}
+.trow.playing .cv{outline:1px solid rgba(224,73,47,.5); outline-offset:2px;}
+
+/* ---------- 4. 设置 ---------- */
+.block{margin-top:26px;}
+.block h3{margin:0 0 10px; display:flex; align-items:baseline; gap:10px; font-size:13px; font-weight:600;}
+.block h3 span{font-family:var(--mono); font-size:10px; letter-spacing:.2em; color:var(--mute); font-weight:400;}
+.srow{display:flex; align-items:center; justify-content:space-between; gap:20px; height:54px; border-bottom:1px solid var(--soft);}
+.srow .k b{display:block; font-size:13.5px; font-weight:500;}
+.srow .k span{display:block; font-size:12px; color:var(--dim);}
+.switch{width:42px;height:22px;border:1px solid var(--line);position:relative;cursor:pointer;}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;background:var(--mute);transition:all 180ms var(--ease);}
+.switch.on{border-color:var(--accent);}
+.switch.on::after{left:23px;background:var(--accent);}
+
+/* ---------- 沉浸态 ---------- */
+.immersive{
+  position:fixed; inset:0; z-index:60; background:var(--bg);
+  display:none; grid-template-columns:minmax(0,1fr) 420px;
+  padding:60px 0 0 0;
+}
+body.immersive .immersive{display:grid;}
+body.immersive .app{visibility:hidden;}
+.im-left{position:relative; display:grid; place-items:center;}
+.im-title{position:absolute; left:64px; top:20px;}
+.im-title h1{margin:0; font-family:var(--serif); font-size:72px; font-weight:400; line-height:1;}
+.im-title .m{margin-top:12px; font-family:var(--mono); font-size:11px; letter-spacing:.16em; color:var(--mute);}
+.disc{
+  position:relative; width:440px; height:440px; border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, #191b1f 0 16%, #0c0d0f 17% 100%);
+  box-shadow:0 40px 90px rgba(0,0,0,.7), inset 0 0 0 1px rgba(243,241,234,.08);
+  display:grid; place-items:center;
+  animation:spin 8s linear infinite;
+}
+.disc::before{
+  content:""; position:absolute; inset:26px; border-radius:50%;
+  background:repeating-radial-gradient(circle at 50% 50%, rgba(243,241,234,.055) 0 1px, transparent 1px 7px);
+}
+.disc .label{
+  width:150px;height:150px;border-radius:50%;
+  background:var(--surf2); border:1px solid var(--line);
+  display:grid; place-items:center; text-align:center;
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.16em; color:var(--dim);
+  animation:spin 8s linear infinite reverse;
+}
+.disc .label b{display:block; color:var(--fg); font-family:var(--sans); font-size:12px; letter-spacing:.04em;}
+@keyframes spin{to{transform:rotate(360deg)}}
+body.immersive .disc{animation-duration:6s;}
+.heat{
+  position:absolute; width:440px; height:440px; border-radius:50%;
+  background:conic-gradient(from -90deg, var(--accent) 0deg, rgba(224,73,47,.12) 200deg, transparent 201deg);
+  opacity:.10; pointer-events:none;
+}
+.im-right{padding:120px 64px 40px 0; display:flex; flex-direction:column; gap:8px;}
+.im-right .before{font-family:var(--serif); font-size:18px; color:var(--mute);}
+.im-right .now{font-family:var(--serif); font-size:42px; line-height:1.35; margin:8px 0;}
+.im-right .after{font-family:var(--serif); font-size:18px; color:var(--mute);}
+.im-queue{margin-top:auto; border-top:1px solid var(--line); padding-top:6px;}
+.im-queue div{display:flex; gap:10px; height:40px; align-items:center; border-bottom:1px dotted var(--soft); font-size:12.5px; color:var(--dim);}
+.im-queue i{width:16px; font-family:var(--mono); font-size:10.5px; color:var(--mute); font-style:normal;}
+.im-hint{position:fixed; left:64px; bottom:30px; font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; color:var(--mute);}
+.im-esc{position:fixed; right:40px; top:24px; font-family:var(--mono); font-size:10.5px; letter-spacing:.16em; color:var(--mute); cursor:pointer;}
+.im-esc:hover{color:var(--fg);}
+
+/* ---------- 浮动 console ---------- */
+.console{
+  position:fixed; left:var(--rail); right:0; bottom:0; z-index:40;
+  height:var(--console);
+  display:grid; grid-template-columns:96px minmax(220px,.9fr) minmax(300px,1.4fr) auto;
+  align-items:center; gap:22px; padding:0 24px;
+  background:rgba(10,11,13,.92);
+  border-top:1px solid var(--soft);
+  backdrop-filter:blur(2px);
+}
+body.immersive .console{left:0;}
+.c-stub{
+  width:96px; height:62px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  border:1px dashed var(--brass); color:var(--brass);
+  font-family:var(--mono); font-size:9px; letter-spacing:.2em;
+}
+.c-stub b{font-family:var(--sans); font-size:12px; letter-spacing:.06em;}
+.c-np{display:flex; align-items:center; gap:12px; min-width:0;}
+.c-np .art{width:48px;height:48px;background-size:cover;background-position:center;border:1px solid var(--soft); flex:none;}
+.c-np .tx{min-width:0;}
+.c-np .tx b{display:block; font-size:13.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.c-np .tx span{display:block; font-size:11.5px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.c-mid{display:flex; align-items:center; gap:18px;}
+.transport{display:flex; align-items:center; gap:6px; flex:none;}
+.tb{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--soft); background:none; color:var(--dim); cursor:pointer;}
+.tb:hover{color:var(--fg); border-color:var(--line);}
+.tb.main{width:40px;height:40px; background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+.tb i{display:block;}
+.ic-prev,.ic-next{width:0;height:0;border-style:solid;border-color:transparent;}
+.ic-prev{border-width:5px 8px 5px 0;border-right-color:currentColor;}
+.ic-next{border-width:5px 0 5px 8px;border-left-color:currentColor;}
+.ic-play{width:0;height:0;border-style:solid;border-width:6px 0 6px 10px;border-color:transparent transparent transparent currentColor;margin-left:2px;}
+.ic-pause{display:flex;gap:3px;}
+.ic-pause i{width:3px;height:12px;background:currentColor;}
+
+.seek{display:flex; align-items:center; gap:12px; flex:1; min-width:0;}
+.seek time{font-family:var(--mono); font-size:11px; color:var(--mute); font-variant-numeric:tabular-nums;}
+.track{position:relative; flex:1; height:1px; background:var(--soft); cursor:pointer;}
+.track .fill{position:absolute; left:0; top:0; height:1px; background:var(--accent); width:37%;}
+.track .knob{position:absolute; top:-2px; width:5px; height:5px; border-radius:50%; background:var(--accent); left:37%; box-shadow:0 0 10px rgba(224,73,47,.9);}
+.c-tools{display:flex; gap:6px; align-items:center;}
+.c-tools button{border:0;background:none;color:var(--mute);font-family:inherit;font-size:12px;padding:6px 8px;cursor:pointer;}
+.c-tools button:hover{color:var(--fg);}
+
+/* 预览角标 */
+.hint{
+  position:fixed; right:18px; bottom:104px; z-index:50;
+  padding:8px 12px; border:1px solid var(--soft); background:rgba(18,19,22,.9);
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--mute); text-transform:uppercase;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<div class="glow" id="glow"></div>
+<div class="grain"></div>
+<div class="curtain" id="curtain"></div>
+
+<div class="app">
+  <header class="head">
+    <span class="brand"><i></i>afeifei</span>
+    <span class="now" id="headNow">正在播放</span>
+    <span class="sp"></span>
+    <span class="stat">3 首 · 网易云</span>
+    <span class="win"><span>—</span><span>□</span><span>✕</span></span>
+  </header>
+
+  <nav class="rail" id="rail">
+    <button class="on" data-go="stage" title="播放"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg></button>
+    <button data-go="home" title="首页"><svg viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9H4z"/></svg></button>
+    <button data-go="local" title="本地"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <span class="gap"></span>
+    <button data-go="fav" title="喜欢的音乐"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9z"/></svg></button>
+    <button data-go="recent" title="最近播放"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg></button>
+    <span class="sp"></span>
+    <button data-go="settings" title="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></button>
+  </nav>
+
+  <main class="view">
+
+    <!-- ============ 播放页（主场） ============ -->
+    <section class="page on pg-stage" data-page="stage">
+      <span class="scene-no">第 004 场 / 12</span>
+      <div class="stage-body">
+        <div>
+          <h1 class="song-title">老人と海<em>。</em></h1>
+          <div class="song-meta"><span>ヨルシカ</span><span>老人と海</span><span>网易云音乐</span></div>
+          <div class="kicker"><i></i><span>SCRIPT · 12 / 34 · IN 01:44</span></div>
+
+          <div class="lyric">
+            <div class="prev">八十五天的清晨没有鱼</div>
+            <div class="lw" id="lw"></div>
+            <div class="next">马林鱼把小船拖进深蓝</div>
+          </div>
+        </div>
+
+        <aside class="side">
+          <div class="photo">
+            <div class="art" data-side="SIDE A · 04" style="background-image:var(--art1)"></div>
+            <div class="cap"><b>老人と海</b><span>5:21</span></div>
+            <div class="cap2">ヨルシカ · 老人と海</div>
+          </div>
+          <div>
+            <div class="q-head"><b>接下来</b><span>QUEUE · 3</span></div>
+            <div class="q-row"><i class="no">02</i><span class="mini" style="background-image:var(--art2)"></span><span class="t">打上花火<small>Daoko</small></span><time>4:28</time></div>
+            <div class="q-row"><i class="no">03</i><span class="mini" style="background-image:var(--art3)"></span><span class="t">Daisy<small>Aimer</small></span><time>4:44</time></div>
+            <div class="q-row"><i class="no">04</i><span class="mini" style="background-image:var(--art4)"></span><span class="t">Lay Down<small>Caravan</small></span><time>3:27</time></div>
+          </div>
+          <div class="ticket"><b>第 004 场</b><small>ADMIT ONE</small></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============ 首页 ============ -->
+    <section class="page pg-home" data-page="home">
+      <h1 class="big">今日节目单<em>。</em></h1>
+      <div class="sub"><span>VOL. 12 · 11.03</span><span>30 首 · 74 分钟</span><span>红心 12 · 新入 3</span></div>
+      <div class="home-body">
+        <div class="hero" style="background-image:var(--art1)">
+          <div class="cap"><b>老人と海</b><span>ヨルシカ · 网易云音乐 · FLAC</span></div>
+          <button class="play">▶ 播放今日</button>
+        </div>
+        <div class="list">
+          <div class="row playing"><span class="no">01</span><span class="t">老人と海</span><span class="a">ヨルシカ</span><time>5:21</time></div>
+          <div class="row"><span class="no">02</span><span class="t">打上花火</span><span class="a">Daoko / 米津玄師</span><time>4:28</time></div>
+          <div class="row"><span class="no">03</span><span class="t">Daisy</span><span class="a">Aimer</span><time>4:44</time></div>
+          <div class="row"><span class="no">04</span><span class="t">Lay Down</span><span class="a">Caravan Palace</span><time>3:27</time></div>
+          <div class="row"><span class="no">05</span><span class="t">夜的第七章</span><span class="a">周杰伦</span><time>4:57</time></div>
+          <div class="row"><span class="no">06</span><span class="t">青花瓷</span><span class="a">周杰伦</span><time>3:59</time></div>
+          <div class="row"><span class="no">07</span><span class="t">富士山下</span><span class="a">陈奕迅</span><time>4:18</time></div>
+          <div class="row"><span class="no">08</span><span class="t">浮夸</span><span class="a">陈奕迅</span><time>4:45</time></div>
+          <div class="row"><span class="no">09</span><span class="t">东风破</span><span class="a">周杰伦</span><time>5:15</time></div>
+          <div class="row"><span class="no">10</span><span class="t">她说</span><span class="a">林俊杰</span><time>5:22</time></div>
+          <div class="foot-stat"><span><b>74</b>分钟</span><span><b>12</b>首红心</span><span><b>3</b>首新入</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 本地 ============ -->
+    <section class="page" data-page="local">
+      <h1 class="big">本地<em>。</em></h1>
+      <div class="sub"><span>1,284 首</span><span>96 专辑</span><span>索引存在本机</span></div>
+      <div class="bar">
+        <div class="search">搜索曲名、艺人、专辑</div>
+        <div class="seg"><span class="on">曲目</span><span>唱片墙</span><span>歌手</span></div>
+        <button class="btn">扫描目录</button>
+      </div>
+      <div class="tbl">
+        <div class="thead"><span>封面</span><span>曲目</span><span>艺人</span><span>专辑</span><span>时长</span><span></span></div>
+        <div class="trow playing"><span class="cv" style="background-image:var(--art1)"></span><span class="t">老人と海</span><span class="a">ヨルシカ</span><span class="al">老人と海</span><time>5:21</time><span class="h">♥</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art2)"></span><span class="t">打上花火</span><span class="a">Daoko</span><span class="al">打上花火</span><time>4:28</time><span class="h">♥</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art3)"></span><span class="t">Daisy</span><span class="a">Aimer</span><span class="al">Daisy</span><time>4:44</time><span class="h">♡</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art4)"></span><span class="t">Lay Down</span><span class="a">Caravan Palace</span><span class="al">Lay Down</span><time>3:27</time><span class="h">♡</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art5)"></span><span class="t">夜的第七章</span><span class="a">周杰伦</span><span class="al">依然范特西</span><time>4:57</time><span class="h">♥</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art6)"></span><span class="t">青花瓷</span><span class="a">周杰伦</span><span class="al">我很忙</span><time>3:59</time><span class="h">♥</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art2)"></span><span class="t">富士山下</span><span class="a">陈奕迅</span><span class="al">What's Going On…?</span><time>4:18</time><span class="h">♡</span></div>
+        <div class="trow"><span class="cv" style="background-image:var(--art4)"></span><span class="t">浮夸</span><span class="a">陈奕迅</span><span class="al">U87</span><time>4:45</time><span class="h">♥</span></div>
+      </div>
+    </section>
+
+    <!-- ============ 设置 ============ -->
+    <section class="page" data-page="settings">
+      <h1 class="big">设置<em>。</em></h1>
+      <div class="sub"><span>LOCAL ONLY</span><span>所有开关都在本机生效</span></div>
+
+      <div class="block">
+        <h3>外观<span>APPEARANCE</span></h3>
+        <div class="srow">
+          <div class="k"><b>主题</b><span>暗房是默认；亮纸留给白天的桌面</span></div>
+          <div class="seg"><span class="on">暗房</span><span>亮纸</span><span>跟随系统</span></div>
+        </div>
+        <div class="srow">
+          <div class="k"><b>纸纹</b><span>底片上的一层细颗粒</span></div>
+          <div class="seg"><span class="on">淡</span><span>关</span><span>浓</span></div>
+        </div>
+      </div>
+
+      <div class="block">
+        <h3>播放<span>PLAYBACK</span></h3>
+        <div class="srow"><div class="k"><b>音效</b><span>6 段均衡器、前置增益、交叉淡化</span></div><button class="btn">打开面板</button></div>
+        <div class="srow"><div class="k"><b>桌面歌词</b><span>独立窗口，可穿透 / 解锁</span></div><button class="btn">打开</button></div>
+      </div>
+
+      <div class="block">
+        <h3>系统<span>SYSTEM</span></h3>
+        <div class="srow"><div class="k"><b>托盘常驻</b><span>关窗后缩到托盘，媒体键继续生效</span></div><span class="switch on"></span></div>
+        <div class="srow"><div class="k"><b>全局快捷键</b><span>Ctrl+Alt+Space 播放 / ←→ 切歌（只读展示）</span></div><span class="mono">3 组已注册</span></div>
+      </div>
+
+      <div class="block">
+        <h3>数据<span>DATA</span></h3>
+        <div class="srow"><div class="k"><b>曲库</b><span>1,284 首，索引与其他数据都在本机</span></div><button class="btn">备份</button></div>
+        <div class="srow"><div class="k"><b>听歌记录</b><span>从 11 月 3 日开始记，不上传</span></div><button class="btn">清空</button></div>
+      </div>
+    </section>
+
+    <!-- 占位页（红心/最近） -->
+    <section class="page" data-page="fav">
+      <h1 class="big">喜欢的音乐<em>。</em></h1>
+      <div class="sub"><span>86 首</span><span>24 位艺人</span><span>5 小时 12 分</span></div>
+      <div class="rule"></div>
+      <p style="color:var(--dim);max-width:56ch">这一页在真实版本里是「艺人分布 + 列表」两栏；本效果图只展开四个页面，验证的是设计系统与首页动线，不验证逐页细节。</p>
+    </section>
+
+    <section class="page" data-page="recent">
+      <h1 class="big">最近播放<em>。</em></h1>
+      <div class="sub"><span>今天</span><span>本周 42 首</span></div>
+      <div class="rule"></div>
+      <p style="color:var(--dim);max-width:56ch">时间轴：左侧 1px 竖线 + 圆点，每天一组，日期用 11px 等宽。同样留到逐页施工时展开。</p>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ 沉浸态 ============ -->
+<div class="immersive" id="immersive">
+  <div class="im-title">
+    <h1>老人と海<em style="font-style:normal;color:var(--accent)">。</em></h1>
+    <div class="m">ヨルシカ · 老人と海 · 网易云音乐</div>
+  </div>
+  <div class="im-left">
+    <div class="heat"></div>
+    <div class="disc">
+      <div class="label"><span>SIDE A · 04</span><b>ヨルシカ</b><span>33⅓ RPM</span></div>
+    </div>
+  </div>
+  <div class="im-right">
+    <div class="before">八十五天的清晨没有鱼</div>
+    <div class="now" id="imNow">他梦见狮子回到沙滩上。</div>
+    <div class="after">马林鱼把小船拖进深蓝</div>
+    <div class="im-queue">
+      <div><i>02</i>打上花火 · Daoko</div>
+      <div><i>03</i>Daisy · Aimer</div>
+      <div><i>04</i>Lay Down · Caravan</div>
+    </div>
+  </div>
+  <span class="im-esc" id="esc">按 Esc 退出</span>
+  <span class="im-hint">空格 暂停 · ← → 换歌 · 这不是真播放器，是效果图</span>
+</div>
+
+<!-- ============ 浮动 console ============ -->
+<footer class="console">
+  <div class="c-stub"><b>入场券</b><span>ADMIT ONE</span></div>
+  <div class="c-np">
+    <span class="art" style="background-image:var(--art1)"></span>
+    <div class="tx"><b>老人と海</b><span>ヨルシカ · 老人と海</span></div>
+  </div>
+  <div class="c-mid">
+    <div class="transport">
+      <button class="tb"><i class="ic-prev"></i></button>
+      <button class="tb main" id="playBtn"><i class="ic-pause"><i></i><i></i></i></button>
+      <button class="tb"><i class="ic-next"></i></button>
+    </div>
+    <div class="seek">
+      <time id="tcur">01:44</time>
+      <div class="track" id="track"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+      <time>05:21</time>
+    </div>
+  </div>
+  <div class="c-tools">
+    <button>歌词</button>
+    <button>队列</button>
+    <button>音效</button>
+  </div>
+</footer>
+
+<div class="hint">设计预览 · docs/13 · 数据为示意</div>
+
+<script>
+/* ---------- 六张"封面"：纯 CSS 渐变，零资源 ---------- */
+const root = document.documentElement.style;
+const arts = {
+  "--art1": "radial-gradient(120% 120% at 22% 14%, #e0902f 0%, #a4402a 34%, #4a1f1c 62%, #120d0c 100%)",
+  "--art2": "radial-gradient(110% 110% at 72% 20%, #3f8fa3 0%, #1f4d5c 40%, #10222b 70%, #080d11 100%)",
+  "--art3": "radial-gradient(110% 110% at 32% 78%, #7a52a8 0%, #3b2a55 44%, #191325 72%, #0b0910 100%)",
+  "--art4": "radial-gradient(120% 120% at 62% 28%, #6d7c3c 0%, #3a4522 42%, #1a1f12 72%, #080a07 100%)",
+  "--art5": "radial-gradient(120% 120% at 40% 30%, #8d4a2c 0%, #4a2618 45%, #1d100c 75%, #0a0706 100%)",
+  "--art6": "radial-gradient(120% 120% at 30% 70%, #2f6f78 0%, #1b3a40 46%, #0e1b1e 74%, #070b0c 100%)"
+};
+for (const [k, v] of Object.entries(arts)) root.setProperty(k, v);
+
+/* 每页/每曲一组环境光（40% 主色 + 20% 次色） */
+const glows = {
+  stage:  ["rgba(224,144,47,.42)", "rgba(63,143,163,.20)"],
+  home:   ["rgba(224,144,47,.38)", "rgba(122,82,168,.18)"],
+  local:  ["rgba(63,143,163,.30)", "rgba(224,144,47,.14)"],
+  settings:["rgba(122,82,168,.26)", "rgba(63,143,163,.14)"],
+  fav:    ["rgba(224,73,47,.26)", "rgba(122,82,168,.16)"],
+  recent: ["rgba(63,143,163,.26)", "rgba(224,144,47,.14)"]
+};
+
+/* ---------- 切页（含换幕） ---------- */
+const pages = [...document.querySelectorAll(".page")];
+const railBtns = [...document.querySelectorAll("#rail button")];
+const curtain = document.getElementById("curtain");
+const headNow = document.getElementById("headNow");
+const labels = {stage:"正在播放",home:"首页",local:"本地",settings:"设置",fav:"喜欢的音乐",recent:"最近播放"};
+
+function go(id){
+  curtain.classList.remove("flash");
+  void curtain.offsetWidth;      /* 强制重排，让动画能重播 */
+  curtain.classList.add("flash");
+
+  setTimeout(()=>{
+    pages.forEach(p=>p.classList.toggle("on", p.dataset.page===id));
+    railBtns.forEach(b=>b.classList.toggle("on", b.dataset.go===id));
+    headNow.textContent = labels[id] || "正在播放";
+    const g = glows[id] || glows.stage;
+    root.setProperty("--g1", g[0]);
+    root.setProperty("--g2", g[1]);
+  }, 90);
+}
+railBtns.forEach(b=>b.addEventListener("click", ()=>go(b.dataset.go)));
+
+/* ---------- 播放页：逐字点亮（模拟播放推进） ---------- */
+const line = "他梦见狮子回到沙滩上。";
+const lw = document.getElementById("lw");
+lw.innerHTML = [...line].map(ch=>`<span>${ch}</span>`).join("");
+const chars = [...lw.children];
+let lit = 0;
+setInterval(()=>{
+  lit = (lit + 1) % (chars.length + 9);   /* 点亮完再空一拍重来 */
+  chars.forEach((c,i)=>{
+    c.classList.toggle("lit", i < lit);
+    c.classList.toggle("now", i === lit - 1);
+  });
+}, 260);
+
+/* ---------- console 进度 ---------- */
+let pos = 104;                             /* 01:44 */
+const total = 321;                         /* 05:21 */
+const fill = document.getElementById("fill");
+const knob = document.getElementById("knob");
+const tcur = document.getElementById("tcur");
+let playing = true;
+
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+function paint(){
+  const pct = (pos/total*100).toFixed(2)+"%";
+  fill.style.width = pct;
+  knob.style.left = pct;
+  tcur.textContent = fmt(pos);
+}
+paint();
+
+setInterval(()=>{ if(playing){ pos = Math.min(total, pos + .5); paint(); } }, 500);
+
+document.getElementById("playBtn").addEventListener("click", ()=>{
+  playing = !playing;
+  document.querySelector("#playBtn i").className = playing ? "ic-pause" : "ic-play";
+  document.querySelector("#playBtn").innerHTML = playing
+    ? '<i class="ic-pause"><i></i><i></i></i>'
+    : '<i class="ic-play"></i>';
+});
+
+/* 点进度条跳转 */
+document.getElementById("track").addEventListener("click", e=>{
+  const r = e.currentTarget.getBoundingClientRect();
+  pos = Math.max(0, Math.min(total, (e.clientX - r.left) / r.width * total));
+  paint();
+});
+
+/* ---------- 沉浸态 ---------- */
+const body = document.body;
+document.querySelector(".photo").addEventListener("click", ()=> body.classList.add("immersive"));
+document.getElementById("esc").addEventListener("click", ()=> body.classList.remove("immersive"));
+document.querySelector(".hero").addEventListener("dblclick", ()=> body.classList.add("immersive"));
+window.addEventListener("keydown", e=>{
+  if (e.key === "Escape") body.classList.remove("immersive");
+});
+
+/* 沉浸态里的词也走一遍，证明"同一份时间源" */
+const imLines = ["他梦见狮子回到沙滩上。","马林鱼把小船拖进深蓝","群鲨来的那晚星星很低"];
+const imNow = document.getElementById("imNow");
+let imIdx = 0;
+setInterval(()=>{ imIdx = (imIdx+1) % imLines.length; imNow.textContent = imLines[imIdx]; }, 4200);
+</script>
+</body>
+</html>

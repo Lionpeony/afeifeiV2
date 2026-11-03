@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C1 蓝图 · 唱片工程图</title>
+<style>
+/* ============================================================
+   C1 BLUEPRINT · 唱片工程图
+   概念：把这张唱片当成一张**工程图纸**来读。
+     俯视图 + 十字准星 + 尺寸标注 = 视觉主体
+     进度 = 切割头的位置（橙色半径线，角度随播放）
+     段落 = 底部刻度尺（6 段，宽度=真实时长）
+     歌词 = 图上的注释（SECTION 03 · CHORUS）
+
+   六层：图纸头 / 曲目 / 注释 / 时间+尺 / 圆盘 / 队列+参数
+   纪律：方格纸 14px 网格 / 线只用 0.5 与 1px / 一个橙 #ffb03a / 零圆角零阴影
+   ============================================================ */
+
+:root{
+  --paper:#071726;
+  --grid:rgba(120,180,255,.075);
+  --grid-hi:rgba(120,180,255,.16);
+  --line:rgba(150,200,255,.38);
+  --line-hi:rgba(190,225,255,.72);
+  --fg:#e8f2ff;
+  --dim:rgba(232,242,255,.58);
+  --mute:rgba(232,242,255,.34);
+  --hot:#ffb03a;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--paper);color:var(--fg);overflow:hidden;
+  font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid-hi) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-hi) 1px,transparent 1px);
+  background-size:14px 14px,14px 14px,112px 112px,112px 112px;
+}
+
+/* ---------- 图纸头 ---------- */
+.sheet{
+  height:40px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 40px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:8px;letter-spacing:.22em;color:var(--mute);
+  text-transform:uppercase;
+}
+.sheet b{color:var(--dim);font-weight:400}
+.sheet .r{display:flex;gap:20px;align-items:center}
+.hot{color:var(--hot)}
+
+/* ---------- 主网格：左注释 / 右图纸 ---------- */
+.desk{
+  height:calc(100% - 40px);
+  display:grid;grid-template-columns:minmax(0,44%) minmax(0,56%);
+  padding:0 40px;
+}
+
+/* ---------- 左：注释栏 ---------- */
+.notes{display:flex;flex-direction:column;justify-content:center;padding-right:32px}
+
+.fig{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:8px;letter-spacing:.2em;color:var(--mute)}
+.fig i{width:16px;height:1px;background:var(--line)}
+
+/* 长曲名保护：限宽 + 均衡换行，17 字时折行而不是压到右侧图纸上 */
+h1{margin:32px 0 0;font-size:clamp(46px,5.2vw,78px);line-height:1;font-weight:200;letter-spacing:.012em;
+  max-width:620px;word-break:break-word;text-wrap:balance;line-height:1.04}
+.meta{margin-top:16px;font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+
+/* 注释：引线 + 当前句 */
+.note{margin-top:40px;position:relative;padding-left:16px}
+.note::before{content:"";position:absolute;left:0;top:.42em;width:8px;height:1px;background:var(--hot)}
+.note .tag{font-family:var(--mono);font-size:8px;letter-spacing:.2em;color:var(--hot)}
+.note .now{margin-top:8px;font-size:clamp(20px,2.1vw,28px);line-height:1.4}
+.note .nx{margin-top:8px;font-size:14px;color:var(--mute)}
+/* 下一段预告：只给真实算得出的信息，不编 */
+.nextseg{margin-top:16px;font-family:var(--mono);font-size:7.5px;letter-spacing:.18em;color:var(--mute)}
+.nextseg b{color:var(--dim);font-weight:400}
+
+/* 时间 */
+.cut{display:flex;align-items:flex-end;gap:10px;margin-top:40px;font-family:var(--mono)}
+.cut b{font-size:clamp(32px,3.4vw,46px);line-height:1;font-weight:400;letter-spacing:-.01em}
+.cut span{font-size:9px;color:var(--mute);padding-bottom:5px;letter-spacing:.12em}
+
+/* 段落尺：6 段，宽度 = 真实时长，带刻度 */
+/* 段落尺：段名在线上方，高亮块在线下方 —— 两者不打架 */
+.ruler{position:relative;margin-top:16px;height:40px;cursor:pointer}
+.ruler .base{position:absolute;left:0;right:0;top:24px;height:1px;background:var(--line)}
+.ruler .seg{position:absolute;top:0;height:40px;border-left:1px solid var(--line)}
+.ruler .seg:last-child{border-right:1px solid var(--line)}
+.ruler .seg span{
+  position:absolute;left:0;bottom:20px;
+  font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;color:var(--dim);white-space:nowrap;
+}
+.ruler .seg.done span{color:var(--dim)}
+.ruler .seg.now span{color:var(--hot)}
+.ruler .seg.now{border-left-color:var(--hot)}
+/* 高亮块贴在线的下方，不再压住段名 */
+.ruler .seg.now::after{content:"";position:absolute;left:0;top:25px;width:100%;height:4px;background:var(--hot)}
+.ruler .head{position:absolute;top:16px;width:1px;height:16px;background:var(--hot)}
+
+/* 走带 */
+.transport{display:flex;gap:8px;margin-top:32px}
+.tb{
+  height:34px;min-width:34px;padding:0 12px;background:none;border:1px solid var(--line);
+  color:var(--fg);font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  transition:border-color .18s var(--ease),background .18s var(--ease),color .18s var(--ease);
+}
+.tb:hover{border-color:var(--line-hi)}
+.tb.on{background:var(--hot);border-color:var(--hot);color:#071726;font-weight:600}
+
+/* ---------- 右：图纸 ---------- */
+.blueprint{position:relative;display:grid;place-items:center}
+
+/* 试过图钉（压住 R152 标注）和胶带（悬在盘外不粘任何东西），
+   两种"物理证据"在这张满版图纸上都无处落脚，全部撤掉。
+   C1 的"纸感"只能靠方格与线宽，不再硬加道具。 */
+.plate{position:relative;width:min(38vw,440px);aspect-ratio:1;margin:0 auto}
+.plate svg{width:100%;height:100%;display:block;overflow:visible}
+/* 圆盘在右栏正中：用一个等宽的外框把它压回中心 */
+.blueprint{display:flex;align-items:center;justify-content:center}
+
+/* 图形元素 */
+.ring-dim{fill:none;stroke:var(--line);stroke-width:.5}
+.ring-main{fill:none;stroke:var(--line-hi);stroke-width:1}
+.cross{stroke:var(--line);stroke-width:.5;stroke-dasharray:2 3}
+.dim-line{stroke:var(--line);stroke-width:.5}
+.dim-text{fill:var(--mute);font-family:var(--mono);font-size:4.2px;letter-spacing:.06em}
+.dim-text.hot{fill:var(--hot)}
+/* 已切割区：淡橙扇形 */
+/* 已切割区用冷白，不用橙 —— 橙全屏只留给"正在发生"的四处：
+   切割头 / 当前段 / SECTION 标签 / 播放键 */
+.cut-area{fill:rgba(200,225,255,.13)}
+/* 切割头：圆心向外的橙线 + 端点 */
+.cut-head{stroke:var(--hot);stroke-width:1.2}
+.cut-dot{fill:var(--hot)}
+/* 中心 */
+.hub{fill:none;stroke:var(--line-hi);stroke-width:1}
+.hub-dot{fill:var(--line-hi)}
+
+/* 引线标注（HTML 覆盖，保证文字清晰） */
+.callout{position:absolute;font-family:var(--mono);font-size:7.5px;letter-spacing:.16em;color:var(--mute);white-space:nowrap}
+.callout::before{content:"";position:absolute;background:var(--line);width:1px}
+.c1{right:2%;top:6%}
+.c1::before{height:34px;right:50%;top:14px}
+.c2{left:0;bottom:12%}
+.c2::before{height:30px;left:50%;bottom:14px}
+.c3{right:0;bottom:34%;text-align:right}
+.c3::before{height:1px;width:40px;right:100%;top:50%}
+
+/* 图纸右下角标题栏（工程图惯例） */
+/* 标题栏：固定在屏幕右下角（工程图惯例），完全离开盘面 */
+.titleblock{
+  position:fixed;right:40px;bottom:64px;width:208px;z-index:5;
+  border:1px solid var(--line);background:rgba(7,23,38,.96);
+  font-family:var(--mono);font-size:7px;letter-spacing:.14em;color:var(--mute);
+}
+.titleblock div{display:flex;justify-content:space-between;padding:4px 6px;border-bottom:1px solid var(--line)}
+.titleblock div:last-child{border-bottom:0}
+.titleblock b{color:var(--dim);font-weight:400}
+
+/* ---------- 底：队列清单 ---------- */
+.bom{
+  position:fixed;left:0;right:0;bottom:0;height:52px;
+  display:flex;align-items:center;gap:0;padding:0 40px;
+  border-top:1px solid var(--line);background:rgba(7,23,38,.9);
+  font-family:var(--mono);font-size:8px;letter-spacing:.16em;color:var(--mute);
+}
+.bom .h{color:var(--dim);margin-right:16px}
+.bom .item{display:flex;align-items:center;gap:8px;padding:0 16px;border-left:1px solid var(--line)}
+.bom .item i{font-style:normal;color:var(--mute)}
+.bom .item b{color:var(--fg);font-weight:400;letter-spacing:.04em;font-family:var(--sans);font-size:11px}
+.bom .item time{color:var(--mute)}
+.bom .item:hover b{color:var(--hot)}
+.bom .sp{flex:1}
+.bom .spec{display:flex;gap:14px}
+.bom .spec span{color:var(--mute)}
+
+@media (max-width:1120px){
+  .sheet,.desk,.bom{padding-left:24px;padding-right:24px}
+  .desk{grid-template-columns:1fr}
+  .blueprint{display:none}
+  .bom .item:nth-child(n+3){display:none}
+}
+/* 数据开关：dev-only，中性灰，不属于设计本身 */
+.datatoggle{
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:200;
+  display:flex;gap:2px;padding:3px;border-radius:3px;background:rgba(90,110,140,.55);
+  font-family:system-ui,sans-serif;
+}
+.datatoggle button{padding:5px 13px;border:0;border-radius:2px;background:none;cursor:pointer;font-size:11px;color:rgba(255,255,255,.7)}
+.datatoggle button.on{background:#e8f2ff;color:#08182b;font-weight:600}
+/* 200% 系统缩放：视口高度只剩一半，内容必须能滚，否则各块互相重叠 */
+.desk{overflow-y:auto}
+</style>
+</head>
+<body>
+
+<div class="datatoggle" id="dt">
+  <button class="on" data-d="demo">Demo 数据</button>
+  <button data-d="worst">最差数据</button>
+  <button data-d="empty">空状态</button>
+</div>
+
+<header class="sheet">
+  <span><b>AFEIFEI</b> · FIG.04　BLUEPRINT</span>
+  <span class="r"><span class="hot">● CUTTING</span><span>SHEET 04 / 12</span><span>SCALE 1:1</span></span>
+</header>
+
+<main class="desk">
+  <div class="notes">
+    <div class="fig"><i></i><span>FIG.1　GROOVE PITCH 0.12mm</span></div>
+
+    <h1><span data-field="title">老人と海</span></h1>
+    <div class="meta">ヨルシカ · 老人と海 · 2020 · FLAC 1411</div>
+
+    <div class="note">
+      <div class="tag">SECTION 03 · CHORUS</div>
+      <div class="now" data-field="line1">他梦见狮子回到沙滩上。</div>
+      <div class="nx" data-field="line2">马林鱼把小船拖进深蓝</div>
+      <div class="nextseg" id="nextSeg">NEXT　VERSE B　02:20</div>
+    </div>
+
+    <div class="cut"><b data-cur>01:44</b><span>CUT / 05:21</span></div>
+    <div class="ruler" id="ruler"><div class="base"></div></div>
+
+    <div class="transport">
+      <button class="tb">◀◀<span style="opacity:.5">←</span></button>
+      <button class="tb on" id="play">暂停<span style="opacity:.6">SPACE</span></button>
+      <button class="tb">▶▶<span style="opacity:.5">→</span></button>
+      <button class="tb">BOM 3</button>
+    </div>
+  </div>
+
+  <div class="blueprint">
+    <div class="plate">
+      <svg viewBox="0 0 200 200" id="svg">
+        <!-- 同心圆（沟槽） -->
+        <circle class="ring-main" cx="100" cy="100" r="86"></circle>
+        <circle class="ring-dim" cx="100" cy="100" r="74"></circle>
+        <circle class="ring-dim" cx="100" cy="100" r="62"></circle>
+        <circle class="ring-dim" cx="100" cy="100" r="50"></circle>
+        <circle class="ring-dim" cx="100" cy="100" r="38"></circle>
+        <circle class="ring-main" cx="100" cy="100" r="26"></circle>
+
+        <!-- 已切割扇形 -->
+        <path id="cutArea" class="cut-area" d=""></path>
+
+        <!-- 十字准星 -->
+        <line class="cross" x1="4" y1="100" x2="196" y2="100"></line>
+        <line class="cross" x1="100" y1="4" x2="100" y2="196"></line>
+
+        <!-- 尺寸标注线 -->
+        <line class="dim-line" x1="100" y1="100" x2="164" y2="36"></line>
+        <line class="dim-line" x1="86" y1="100" x2="86" y2="14"></line>
+        <text class="dim-text" x="88" y="11">R 152mm</text>
+        <text class="dim-text" x="118" y="30">33⅓ RPM</text>
+
+        <!-- 切割头 -->
+        <line class="cut-head" id="headLine" x1="100" y1="100" x2="100" y2="14"></line>
+        <circle class="cut-dot" id="headDot" cx="100" cy="14" r="1.8"></circle>
+
+        <!-- 中心 -->
+        <circle class="hub" cx="100" cy="100" r="4"></circle>
+        <circle class="hub-dot" cx="100" cy="100" r="1"></circle>
+
+      </svg>
+
+      <div class="callout c1">OUTER EDGE<br>R 152.0</div>
+      <div class="callout c2">GROOVE 0.12 / 1 REV</div>
+      <div class="callout c3">PITCH<br>1.8mm</div>
+
+      <div class="titleblock">
+        <div><span>DWG NO.</span><b>AF-04</b></div>
+        <div><span>TITLE</span><b>老人と海</b></div>
+        <div><span>DRAWN</span><b>2020-08</b></div>
+        <div><span>CUT</span><b class="hot" data-cur>01:44</b></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="bom">
+  <span class="h">QUEUE</span>
+  <div data-queue>
+  <div class="item"><i>02</i><b>打上花火</b><time>4:28</time></div>
+  <div class="item"><i>03</i><b>Daisy</b><time>4:44</time></div>
+  <div class="item"><i>04</i><b>Lay Down</b><time>3:27</time></div>
+  </div>
+  <span class="sp"></span>
+  <span class="spec"><span>R152</span><span>33⅓RPM</span><span>44.1k/24BIT</span><span id="pct">32%</span></span>
+</footer>
+
+<script>
+const TOTAL = 321;
+let pos = 104, playing = true;
+
+const SEGS = [
+  {name:'INTRO', s:0,   e:22},
+  {name:'VERSE A', s:22, e:78},
+  {name:'CHORUS', s:78, e:140},
+  {name:'VERSE B', s:140, e:196},
+  {name:'BRIDGE', s:196, e:246},
+  {name:'OUTRO', s:246, e:321}
+];
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+/* ---------- 段落尺 ---------- */
+const ruler = document.getElementById('ruler');
+const segEls = [];
+SEGS.forEach((sg, i) => {
+  const el = document.createElement('div');
+  el.className = 'seg';
+  el.style.left = (sg.s / TOTAL * 100) + '%';
+  el.style.width = ((sg.e - sg.s) / TOTAL * 100) + '%';
+  el.innerHTML = `<span>${sg.name}</span>`;
+  el.dataset.i = i;
+  el.addEventListener('click', () => { pos = sg.s + .4; paint(); });
+  ruler.appendChild(el);
+  segEls.push(el);
+});
+const head = document.createElement('div');
+head.className = 'head';
+ruler.appendChild(head);
+ruler.addEventListener('click', (e) => {
+  if (e.target.classList.contains('seg')) return;
+  const r = ruler.getBoundingClientRect();
+  pos = Math.max(0, Math.min(TOTAL, (e.clientX - r.left) / r.width * TOTAL));
+  paint();
+});
+
+/* ---------- 图纸 ---------- */
+const cutArea = document.getElementById('cutArea');
+const headLine = document.getElementById('headLine');
+const headDot = document.getElementById('headDot');
+const cutLabel = document.getElementById('cutLabel');
+const pct = document.getElementById('pct');
+
+function arcPath(p) {
+  /* 从 12 点方向顺时针画到 p，半径 86（外圈）→ 26（内圈）合成扇形 */
+  const a0 = -Math.PI / 2;
+  const a1 = a0 + p * Math.PI * 2;
+  const R = 86, r = 26;
+  const large = p > 0.5 ? 1 : 0;
+  const x1 = 100 + Math.cos(a0) * R, y1 = 100 + Math.sin(a0) * R;
+  const x2 = 100 + Math.cos(a1) * R, y2 = 100 + Math.sin(a1) * R;
+  const x3 = 100 + Math.cos(a1) * r, y3 = 100 + Math.sin(a1) * r;
+  const x4 = 100 + Math.cos(a0) * r, y4 = 100 + Math.sin(a0) * r;
+  if (p <= 0.001) return '';
+  if (p >= 0.999) {
+    return `M ${x1} ${y1} A ${R} ${R} 0 1 1 ${100 - (x1 - 100)} ${y1} A ${R} ${R} 0 1 1 ${x1} ${y1} Z M ${x4} ${y4} A ${r} ${r} 0 1 0 ${100 - (x4 - 100)} ${y4} A ${r} ${r} 0 1 0 ${x4} ${y4} Z`;
+  }
+  return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${r} ${r} 0 ${large} 0 ${x4} ${y4} Z`;
+}
+
+function paint() {
+  const p = pos / TOTAL;
+  document.querySelectorAll('[data-cur]').forEach((el) => { el.textContent = fmt(pos); });
+  pct.textContent = Math.round(p * 100) + '%';
+
+  /* 切割头角度 */
+  const a = -Math.PI / 2 + p * Math.PI * 2;
+  const hx = 100 + Math.cos(a) * 86, hy = 100 + Math.sin(a) * 86;
+  headLine.setAttribute('x2', hx.toFixed(2));
+  headLine.setAttribute('y2', hy.toFixed(2));
+  headDot.setAttribute('cx', hx.toFixed(2));
+  headDot.setAttribute('cy', hy.toFixed(2));
+  cutArea.setAttribute('d', arcPath(p));
+
+  /* 段落 */
+  let idx = SEGS.findIndex((s) => pos >= s.s && pos < s.e);
+  if (idx < 0) idx = SEGS.length - 1;
+  segEls.forEach((el, i) => {
+    el.classList.toggle('done', i < idx);
+    el.classList.toggle('now', i === idx);
+  });
+  head.style.left = (p * 100).toFixed(2) + '%';
+  document.querySelector('.note .tag').textContent =
+    `SECTION ${String(idx + 1).padStart(2, '0')} · ${SEGS[idx].name}`;
+
+  /* 下一段预告（结尾时显示 END） */
+  const nxt = SEGS[idx + 1];
+  document.getElementById('nextSeg').innerHTML = nxt
+    ? `NEXT　<b>${nxt.name}</b>　${fmt(nxt.s)}`
+    : `END　<b>LAST SECTION</b>　${fmt(TOTAL)}`;
+}
+paint();
+setInterval(() => { if (playing) { pos = Math.min(TOTAL, pos + .5); paint(); } }, 500);
+
+document.getElementById('play').addEventListener('click', (e) => {
+  playing = !playing;
+  const b = e.currentTarget;
+  b.textContent = playing ? '暂停' : '播放';
+  const k = document.createElement('span');
+  k.style.opacity = '.6';
+  k.textContent = 'SPACE';
+  b.appendChild(k);
+  b.classList.toggle('on', playing);
+});
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); document.getElementById('play').click(); }
+  if (e.key === 'ArrowRight') { pos = Math.min(TOTAL, pos + 5); paint(); }
+  if (e.key === 'ArrowLeft') { pos = Math.max(0, pos - 5); paint(); }
+});
+/* ---------- 数据开关（dev-only）：Demo / 最差 / 空 ---------- */
+const C1_DATA = {
+  demo: { title: '老人と海', line1: '他梦见狮子回到沙滩上。', line2: '马林鱼把小船拖进深蓝' },
+  worst: {
+    title: '我不能在夜晚的尽头等你到天明',
+    line1: '他说他会在天亮之前把所有没说完的话都说完',
+    line2: '而那些话里有三句是重复的所以他删掉了两句'
+  }
+};
+const qBackup1 = new Map();
+function applyC1(kind) {
+  if (kind === 'empty') {
+    document.querySelectorAll('[data-queue]').forEach((el) => {
+      if (!qBackup1.has(el)) qBackup1.set(el, el.innerHTML);
+      el.innerHTML = '<div class="item" style="border:0;color:rgba(232,242,255,.42)">队列已空 · 这是最后一首</div>';
+    });
+    document.querySelectorAll('[data-field="line1"]').forEach((el) => { el.textContent = '纯音乐 · 这首歌没有歌词'; });
+    document.querySelectorAll('[data-field="line2"]').forEach((el) => { el.textContent = ''; });
+    return;
+  }
+  qBackup1.forEach((h, el) => { el.innerHTML = h; });
+  const d = C1_DATA[kind];
+  document.querySelectorAll('[data-field]').forEach((el) => {
+    const k = el.dataset.field;
+    if (d[k] != null) el.textContent = d[k];
+  });
+}
+document.querySelectorAll('#dt button').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#dt button').forEach((x) => x.classList.toggle('on', x === b));
+    applyC1(b.dataset.d);
+  });
+});
+</script>
+</body>
+</html>

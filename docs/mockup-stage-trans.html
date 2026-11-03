@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../dist/renderer/app.css" />
+<style>
+  :root { --bg: #f5f2ec; --fg: #1a1813; --fg-dim: rgba(26,24,19,.55); --line: rgba(26,24,19,.28); --line-soft: rgba(26,24,19,.14); --accent: #a03e2d; --font-sans: system-ui, sans-serif; }
+  body { margin: 0; background: var(--bg); }
+  .half { display: grid; grid-template-columns: 1fr 1fr; }
+</style>
+</head>
+<body>
+  <div class="half">
+    <!-- press/karaoke：田字格 + 逐字点亮（前 4 字已唱）+ 翻译行 -->
+    <section class="stage preset-paper" style="--stage-bg:#f5f2ec;--stage-fg:#1a1813;--stage-fg-dim:rgba(26,24,19,.55);--stage-tint:transparent;--stage-lyric-size:22px;--stage-lyric-weight:600;--accent:#a03e2d">
+      <div class="st-page">
+        <div class="st-body">
+          <section class="st-lyr">
+            <div class="st-kicker"><i></i><span>SCRIPT · 04 / 34 · IN 0:14</span></div>
+            <div class="st-typeset">
+              <div class="st-krow">
+                <span class="st-kb lit">陽</span><span class="st-kb lit">光</span><span class="st-kb lit">下</span><span class="st-kb lit">的</span>
+                <span class="st-kb now">泡</span><span class="st-kb">沫</span><span class="st-kb">是</span><span class="st-kb">彩</span><span class="st-kb">色</span><span class="st-kb">的</span>
+              </div>
+              <p class="st-trans">阳光下的泡沫是彩色的</p>
+            </div>
+          </section>
+          <aside class="st-side"></aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- theatrical：三行提词器 + 翻译行夹在活动行下 -->
+    <section class="stage preset-cinema" style="--stage-bg:#17150f;--stage-fg:#f3f1ea;--stage-fg-dim:rgba(243,241,234,.6);--stage-tint:transparent;--stage-lyric-size:20px;--stage-lyric-weight:500;--accent:#a03e2d">
+      <div class="st-page">
+        <div class="st-body">
+          <section class="st-lyr">
+            <div class="st-theatrical">
+              <p class="st-prev">陽光下的泡沫 是彩色的</p>
+              <p class="st-min">就像被騙的我 是幸福的</p>
+              <p class="st-trans">就像被骗的我 是幸福的</p>
+              <p class="st-next">美麗的泡沫 雖然一剎花火</p>
+            </div>
+          </section>
+          <aside class="st-side"></aside>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

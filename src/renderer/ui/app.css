@@ -385,14 +385,31 @@ html::after {
   text-align: right;
   margin-right: 24px;
 }
-.online-thead .th-a {
-  width: 140px;
+/* 在线/歌单页（2026-11-03）：行与表头都是 4 列网格（标题/歌手/专辑/时长）。
+   之前蹭本地页的 6 列模板（26px 序号打头），标题被塞进序号列只剩「泡…」。 */
+.online-thead {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+  gap: 10px;
+  padding: 0 4px 6px;
 }
-.online-thead .th-b {
-  width: 180px;
+.online-thead > * {
+  width: auto;
+  margin: 0;
+}
+.online-thead.with-btn {
+  /* 行尾多一个「下载」按钮（约 52px） */
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 52px;
 }
 .online-thead .th-dur {
-  margin-right: 0;
+  text-align: right;
+}
+/* 行：与表头同模板。有下载按钮的行 :has 自动扩列 */
+.online-row {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+}
+.online-row:has(.dl-btn) {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 52px;
 }
 
 /* 行尾动作 hover 显形（ref/20 §4）：默认静默，hover/键盘聚焦浮现 */
@@ -405,9 +422,6 @@ html::after {
   opacity: 1;
 }
 
-.online-row .lib-artist:nth-last-of-type(2) {
-  width: 140px;
-}
 
 /* ---------- 扫码登录弹层 ---------- */
 
@@ -940,14 +954,24 @@ html::after {
   margin-left: 0;
 }
 
-/* 音源可下载时行尾多一个「下载」按钮（约 52px），表头 TIME 得让位才与行同列 */
-.online-thead.with-btn .th-dur {
-  margin-right: 56px;
+/* 下载页：表头与行同模板（任务/状态/动作），错误信息并入状态列 */
+.lib-thead.dl-thead {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.2fr) 150px;
+  gap: 10px;
+  padding: 0 4px 6px;
 }
-
-/* 下载页表头：末列对齐 150px 动作区 */
-.dl-thead .th-actions {
-  width: 150px;
+.lib-thead.dl-thead > * {
+  width: auto;
+  margin: 0;
+}
+.lib-thead.dl-thead .th-actions {
+  text-align: right;
+}
+.dl-row {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.2fr) 150px;
+}
+.dl-row .lib-actions {
   text-align: right;
 }
 

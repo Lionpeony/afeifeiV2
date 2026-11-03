@@ -103,6 +103,23 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     },
 
     async getLyric(sourceId: string): Promise<LyricDoc> {
+      // QRC 逐字优先（main 直连 GetPlayLyricInfo + 3DES 解密，匿名可读）；
+      // 上游 24001 = 无 QRC 权限，回落 yakult 包的 LRC 路由
+      try {
+        const qrc = await qq<{ qrc?: string; trans?: string }>("qrc", { songmid: sourceId });
+        const text = (qrc?.qrc ?? "").trim();
+        if (text) {
+          const doc = parseLyrics(text);
+          const trans = (qrc?.trans ?? "").trim();
+          if (trans) {
+            const zh = parseLyrics(trans);
+            return { ...doc, translations: [{ lang: "zh", lines: zh.lines }] };
+          }
+          return doc;
+        }
+      } catch {
+        // QRC 链路失败不致命：走 LRC 兜底
+      }
       // yakult 包实测：{ response: { lyric: LRC 文本 } }（旧包是 { code: 0, lrc }）
       const body = await qq<{ response?: { lyric?: string } }>("lyric", { songmid: sourceId });
       const lrc = body?.response?.lyric?.trim();

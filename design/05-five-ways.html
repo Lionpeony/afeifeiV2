@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>五种播放页 · 五个不同的机制</title>
+<style>
+/* ============================================================
+   五个设计 = 五个**不同的机制**，不是五种皮肤。
+   01 活字剧场 TYPE   排版机：字被压进纸面，正在唱的那枚凹下去
+   02 声纹地形 TERRAIN 地形剖面：进度是一条海拔线扫过波峰
+   03 刻纹钟 DIAL      三环仪：刻度=时间 / 弧=段落 / 点=歌词
+   04 胶片带 FILM      胶片：一句一帧，齿孔在上下
+   05 星图 CHART       星图：34 句=34 颗星，段落=星座
+
+   共用纪律：零圆角 / 零阴影 / 1px 线 / 单强调色 #ff5a2e / 等宽数字 / 细体大字
+   ============================================================ */
+
+:root{
+  --ink:#07080a;
+  --fg:#f4f3f0;
+  --dim:rgba(244,243,240,.66);
+  --mute:rgba(244,243,240,.44);
+  --trace:rgba(244,243,240,.17);
+  --sig:#ff5a2e;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  --serif:"Songti SC","STSong","SimSun","Noto Serif CJK SC",serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ink);color:var(--fg);overflow:hidden;font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+
+/* ---------- 切换器 ---------- */
+.switch{
+  position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99;
+  display:flex;align-items:center;gap:2px;padding:4px;
+  background:rgba(10,11,13,.92);border:1px solid var(--trace);
+}
+.switch button{
+  min-width:40px;height:26px;padding:0 8px;background:none;border:0;cursor:pointer;
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--mute);
+  transition:color .18s var(--ease),background .18s var(--ease);
+}
+.switch button:hover{color:var(--fg)}
+.switch button.on{background:var(--sig);color:#fff;font-weight:700}
+.switch .nm{padding:0 10px;font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase;white-space:nowrap}
+
+.stage{position:relative;height:100%;overflow:hidden}
+.view{position:absolute;inset:0;opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .26s var(--ease),transform .26s var(--ease),visibility .26s}
+.view.on{opacity:1;visibility:visible;transform:none}
+
+/* 顶部状态条（共用） */
+.bar{
+  height:44px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 46px;font-family:var(--mono);font-size:8.5px;letter-spacing:.24em;
+  color:var(--mute);text-transform:uppercase;
+}
+.bar b{color:var(--dim);font-weight:400}
+.bar .r{display:flex;gap:16px;align-items:center}
+.live{color:var(--sig)}
+
+/* 走带按钮（共用） */
+.tb{
+  height:36px;min-width:36px;padding:0 12px;background:none;border:1px solid var(--trace);
+  color:var(--fg);font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  transition:border-color .18s var(--ease),background .18s var(--ease),color .18s var(--ease);
+}
+.tb:hover{border-color:var(--fg)}
+.tb.on{background:var(--sig);border-color:var(--sig);color:#fff;font-weight:600}
+.transport{display:flex;gap:6px}
+
+/* ============================================================
+   01 活字剧场 · TYPE
+   机制：一句话 = 一排铅字。正在唱的那枚被"压进纸面"（凹陷 + 橙红），
+        已唱变浓墨，未唱是淡墨。点任意字跳到那句。
+   ============================================================ */
+.t{display:flex;flex-direction:column;height:100%}
+.t .body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 46px;min-width:0}
+.t .head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;padding-bottom:14px}
+.t .head .tt{font-size:clamp(30px,3.4vw,46px);font-weight:200;line-height:1;letter-spacing:.005em}
+.t .head .tt em{font-style:normal;color:var(--sig)}
+.t .head .m{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+
+/* 铅字盘：98px 方格，字 74px */
+.t .case{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
+.kbox{
+  position:relative;flex:0 0 auto;width:98px;height:98px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--trace);
+  font-family:var(--serif);font-size:64px;line-height:1;font-weight:600;
+  color:rgba(244,243,240,.20);
+  transition:color .16s linear,border-color .16s linear,transform .16s var(--ease);
+}
+/* 田字界格 */
+.kbox::before{content:"";position:absolute;left:5px;right:5px;top:50%;height:1px;background:rgba(244,243,240,.055)}
+.kbox::after{content:"";position:absolute;top:5px;bottom:5px;left:50%;width:1px;background:rgba(244,243,240,.055)}
+.kbox.lit{color:rgba(244,243,240,.88)}
+.kbox.now{
+  color:var(--sig);border-color:rgba(255,90,46,.6);
+  transform:translateY(2px);              /* 被压进纸面 */
+  box-shadow:inset 0 2px 0 rgba(0,0,0,.5);
+}
+.kbox.now::before,.kbox.now::after{background:rgba(255,90,46,.14)}
+
+.t .ctx{margin-top:26px;display:flex;gap:16px;align-items:baseline;font-size:19px;line-height:1.5}
+.t .ctx .prev{color:var(--mute)}
+.t .ctx .sp{flex:1}
+.t .ctx .next{color:var(--mute)}
+
+.t .foot{display:flex;align-items:center;gap:18px;padding:16px 46px 22px;border-top:1px solid var(--trace)}
+.t .clock{display:flex;align-items:flex-end;gap:8px;font-family:var(--mono)}
+.t .clock b{font-size:clamp(30px,3.2vw,44px);line-height:1;font-weight:300;letter-spacing:-.02em}
+.t .clock span{font-size:10px;color:var(--mute);padding-bottom:5px}
+.t .tr{position:relative;flex:1;height:1px;background:var(--trace);cursor:pointer;max-width:520px}
+.t .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.t .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+.t .sp{flex:1}
+
+/* ============================================================
+   02 声纹地形 · TERRAIN
+   机制：5 分钟的声纹铺成一条地形剖面，进度是一条海拔线扫过；
+        波峰=副歌。已播实心，未播只剩轮廓线。
+   ============================================================ */
+.r{display:flex;flex-direction:column;height:100%}
+.r .body{flex:1;display:flex;flex-direction:column;padding:0 46px;min-height:0}
+.r .head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:2px 0 0}
+.r .head .tt{font-size:clamp(28px,3.2vw,44px);font-weight:200;line-height:1;letter-spacing:.005em}
+.r .head .tt em{font-style:normal;color:var(--sig)}
+.r .head .m{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+
+/* 地形：上下对称的柱，中间一条地平线 */
+.r .terrain{position:relative;flex:1;min-height:0;margin-top:16px;display:grid;grid-template-columns:repeat(300,1fr);gap:1px;cursor:crosshair}
+.r .col{position:relative;height:100%}
+.r .col i{position:absolute;left:0;width:100%;background:rgba(244,243,240,.16)}
+.r .col i.up{top:0;transform-origin:bottom}
+.r .col i.dn{bottom:0;transform-origin:top}
+/* 已播：实心；未播：只剩顶边一条 1px 轮廓（更像地形线） */
+.r .col.on i{background:rgba(244,243,240,.9)}
+.r .col.on i.dn{background:rgba(244,243,240,.45)}
+.r .col.hd i{background:var(--sig)}
+.r .horizon{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(244,243,240,.14)}
+.r .peak{position:absolute;top:0;bottom:0;width:1px;background:rgba(244,243,240,.06)}
+
+.r .lyric{display:flex;align-items:baseline;gap:14px;padding:10px 0;border-top:1px solid var(--trace)}
+.r .lyric .now{font-size:clamp(18px,2vw,28px);line-height:1.4;display:flex;gap:13px;align-items:baseline}
+.r .lyric .now::before{content:"";flex:none;width:2px;height:.9em;background:var(--sig)}
+.r .lyric .nx{font-size:14px;color:var(--mute)}
+.r .lyric .sp{flex:1}
+.r .lyric .no{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;color:rgba(244,243,240,.24)}
+
+.r .foot{display:flex;align-items:flex-end;gap:28px;padding:12px 46px 22px;border-top:1px solid var(--trace)}
+.r .clock{display:flex;align-items:flex-end;gap:8px;font-family:var(--mono)}
+.r .clock b{font-size:clamp(32px,3.6vw,50px);line-height:.9;font-weight:300;letter-spacing:-.02em}
+.r .clock span{font-size:10px;color:var(--mute);padding-bottom:6px}
+.r .sp{flex:1}
+
+/* ============================================================
+   03 刻纹钟 · DIAL
+   机制：三环仪。外环刻度=时间，中环弧=段落，内环点=歌词，指针读谱。
+   ============================================================ */
+.d{display:flex;flex-direction:column;height:100%}
+.d .body{flex:1;display:grid;grid-template-columns:minmax(0,44%) minmax(0,56%);padding:0 46px;min-height:0;align-items:center}
+.d .left{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.d .kick{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:8.5px;letter-spacing:.22em;color:var(--mute)}
+.d .kick i{width:20px;height:1px;background:var(--trace)}
+.d h1{margin:22px 0 0;font-size:clamp(40px,4.8vw,76px);line-height:.94;font-weight:200;letter-spacing:.005em}
+.d h1 em{font-style:normal;color:var(--sig)}
+.d .meta{margin-top:12px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.d .lyric{margin-top:34px}
+.d .lyric .now{display:flex;gap:12px;font-size:clamp(20px,2.2vw,30px);line-height:1.4}
+.d .lyric .now::before{content:"";flex:none;width:2px;height:1em;margin-top:.15em;background:var(--sig)}
+.d .lyric .nx{margin-top:9px;padding-left:14px;font-size:15px;color:var(--mute)}
+.d .clock{display:flex;align-items:flex-end;gap:9px;margin-top:32px;font-family:var(--mono)}
+.d .clock b{font-size:clamp(28px,3vw,40px);line-height:1;font-weight:300;letter-spacing:-.02em}
+.d .clock span{font-size:10px;color:var(--mute);padding-bottom:5px}
+.d .struct{display:flex;gap:2px;margin-top:12px;height:6px;cursor:pointer}
+.d .struct span{display:block;flex:0 0 auto;background:rgba(244,243,240,.14)}
+.d .struct span.done{background:rgba(244,243,240,.55)}
+.d .struct span.now{background:var(--sig)}
+.d .right{position:relative;display:grid;place-items:center;height:100%}
+.disc{position:relative;width:min(38vw,430px);aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle at 50% 50%,#0f1012 0 1px,#0a0b0c 1px 4px);
+  box-shadow:inset 0 0 0 1px rgba(244,243,240,.09)}
+.disc::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 198deg,transparent 0 24%,rgba(244,243,240,.055) 32%,transparent 40%,transparent 72%,rgba(244,243,240,.03) 82%,transparent 90%)}
+.label{position:absolute;left:50%;top:50%;width:28%;height:28%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--art) center/cover;border:1px solid rgba(244,243,240,.18);
+  filter:saturate(.94) brightness(.9);animation:spin 18s linear infinite}
+.hole{position:absolute;left:50%;top:50%;width:2.4%;height:2.4%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--ink);border:1px solid rgba(244,243,240,.24);z-index:3}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rings{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.rings .ticks{stroke:rgba(244,243,240,.40);stroke-width:.6}
+.rings .ticks.on{stroke:rgba(244,243,240,.92)}
+.rings .seg-arc{fill:none;stroke-width:3.2}
+.rings .seg-arc.past{stroke:rgba(244,243,240,.55)}
+.rings .seg-arc.now{stroke:var(--sig)}
+.rings .seg-arc.future{stroke:rgba(244,243,240,.18)}
+.rings .dot{fill:rgba(244,243,240,.45)}
+.rings .dot.on{fill:rgba(244,243,240,.92)}
+.rings .dot.cur{fill:var(--sig)}
+.rings .needle{stroke:rgba(244,243,240,.52);stroke-width:1.1}
+.rings .tip{fill:var(--sig)}
+.rings .tip-label{fill:var(--sig);font-family:var(--mono);font-size:4px;letter-spacing:.06em}
+.d .foot{display:flex;align-items:center;gap:16px;padding:14px 46px 22px}
+
+/* ============================================================
+   04 胶片带 · FILM
+   机制：一句一帧，35mm 齿孔在上下；当前帧被"放映"（亮），其余暗。
+   ============================================================ */
+.f{display:flex;flex-direction:column;height:100%}
+.f .body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 0;min-height:0}
+.f .head{display:flex;align-items:flex-end;justify-content:space-between;padding:0 46px 14px}
+.f .head .tt{font-size:clamp(26px,3vw,40px);font-weight:200;line-height:1;letter-spacing:.005em}
+.f .head .tt em{font-style:normal;color:var(--sig)}
+.f .head .m{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+
+/* 胶带：上下齿孔 + 中间帧 */
+.f .strip{position:relative;height:250px;background:#0b0c0e;border-top:1px solid rgba(244,243,240,.08);border-bottom:1px solid rgba(244,243,240,.08)}
+.f .holes{position:absolute;left:0;right:0;height:16px;display:flex;gap:14px;padding:0 8px;pointer-events:none}
+.f .holes.top{top:5px}
+.f .holes.bot{bottom:5px}
+.f .holes i{flex:0 0 12px;height:9px;background:rgba(244,243,240,.22)}
+.f .strip{overflow:hidden}
+.f .frames{position:absolute;left:0;top:26px;bottom:26px;display:flex;align-items:stretch;width:max-content;transition:transform .45s var(--ease)}
+.f .frame{
+  flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  padding:0 26px;border-right:1px solid rgba(244,243,240,.08);
+  font-size:22px;line-height:1.35;color:rgba(244,243,240,.22);
+  white-space:nowrap;transition:color .2s var(--ease);
+}
+.f .frame.on{color:rgba(244,243,240,.5)}
+.f .frame.cur{color:var(--fg);font-size:30px;font-weight:300}
+.f .frame.cur::before{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--sig)}
+.f .frame{position:relative}
+/* 放映窗：一条竖向亮带，跟着当前帧 */
+.f .gate{position:absolute;top:26px;bottom:26px;width:0;border-left:1px solid rgba(255,90,46,.5);border-right:1px solid rgba(255,90,46,.5);
+  box-shadow:inset 0 0 40px rgba(255,90,46,.06);pointer-events:none;transition:left .35s var(--ease),width .35s var(--ease)}
+.f .foot{display:flex;align-items:center;gap:18px;padding:16px 46px 22px;border-top:1px solid var(--trace)}
+.f .clock{display:flex;align-items:flex-end;gap:8px;font-family:var(--mono)}
+.f .clock b{font-size:clamp(28px,3vw,40px);line-height:1;font-weight:300;letter-spacing:-.02em}
+.f .clock span{font-size:10px;color:var(--mute);padding-bottom:5px}
+.f .tr{position:relative;flex:1;height:1px;background:var(--trace);cursor:pointer;max-width:520px}
+.f .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.f .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+.f .sp{flex:1}
+
+/* ============================================================
+   05 星图 · CHART
+   机制：34 句 = 34 颗星；段落 = 星座（细线相连）；当前星有准星。
+   ============================================================ */
+.c{display:flex;flex-direction:column;height:100%}
+.c .body{flex:1;position:relative;min-height:0}
+.c .sky{position:absolute;inset:0}
+.c .stars{position:absolute;inset:0}
+.c .star{position:absolute;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;
+  background:rgba(244,243,240,.35);transition:background .2s linear,transform .2s var(--ease)}
+.c .star.on{background:rgba(244,243,240,.95)}
+.c .star.cur{background:var(--sig);transform:scale(1.9)}
+.c .star .lab{position:absolute;left:10px;top:-3px;font-family:var(--mono);font-size:7.5px;
+  letter-spacing:.14em;color:var(--mute);white-space:nowrap;opacity:0;transition:opacity .2s}
+.c .star.cur .lab{opacity:1;color:var(--sig)}
+.c .const{position:absolute;inset:0;pointer-events:none}
+.c .const line{stroke:rgba(244,243,240,.12);stroke-width:.8}
+.c .const line.now{stroke:rgba(255,90,46,.45)}
+.c .cross{position:absolute;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;transition:left .35s var(--ease),top .35s var(--ease)}
+.c .cross::before,.c .cross::after{content:"";position:absolute;background:rgba(255,90,46,.6)}
+.c .cross::before{left:50%;top:0;bottom:0;width:1px}
+.c .cross::after{top:50%;left:0;right:0;height:1px}
+.c .title{position:absolute;left:46px;top:22px;z-index:2}
+.c .title h1{font-size:clamp(30px,3.4vw,46px);font-weight:200;line-height:1;letter-spacing:.005em}
+.c .title h1 em{font-style:normal;color:var(--sig)}
+.c .title .m{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.c .lyric{position:absolute;left:46px;bottom:8px;z-index:2}
+.c .lyric .now{font-size:clamp(20px,2.2vw,30px);line-height:1.4;display:flex;gap:12px}
+.c .lyric .now::before{content:"";flex:none;width:2px;height:1em;margin-top:.15em;background:var(--sig)}
+.c .lyric .nx{margin-top:8px;padding-left:14px;font-size:14px;color:var(--mute)}
+.c .foot{display:flex;align-items:center;gap:18px;padding:14px 46px 22px;border-top:1px solid var(--trace)}
+.c .clock{font-family:var(--mono);font-size:24px;letter-spacing:-.01em}
+.c .clock span{font-size:10px;color:var(--mute);margin-left:6px}
+.c .sp{flex:1}
+
+@media (max-width:1120px){
+  .bar,.t .body,.r .body,.d .body,.f .head,.c .foot{padding-left:26px;padding-right:26px}
+  .d .body{grid-template-columns:1fr}
+  .d .right{display:none}
+  .t .case .kbox{width:76px;height:76px;font-size:50px}
+}
+</style>
+</head>
+<body>
+
+<div class="switch" id="switch">
+  <button class="on" data-v="t">01</button>
+  <button data-v="r">02</button>
+  <button data-v="d">03</button>
+  <button data-v="f">04</button>
+  <button data-v="c">05</button>
+  <span class="nm" id="vname">TYPE · 活字剧场</span>
+</div>
+
+<div class="stage">
+
+  <!-- ============ 01 活字剧场 ============ -->
+  <section class="view on t" data-view="t">
+    <div class="bar"><span><b>AFEIFEI</b> · 活字剧场</span><span class="r"><span class="live">● 正在播放</span><span>04 / 12</span></span></div>
+    <div class="body">
+      <div class="head">
+        <div class="tt">老人と海<em>.</em></div>
+        <div class="m">ヨルシカ · 老人と海 · 2020</div>
+      </div>
+      <div class="case" id="case"></div>
+      <div class="ctx">
+        <span class="prev">八十五天的清晨没有鱼</span>
+        <span class="sp"></span>
+        <span class="next">马林鱼把小船拖进深蓝</span>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="clock"><b data-cur>01:44</b><span>/ 05:21</span></div>
+      <div class="tr" data-seek><div class="f"></div><div class="h"></div></div>
+      <span class="sp"></span>
+      <div class="transport">
+        <button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button><button class="tb">队列 3</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 声纹地形 ============ -->
+  <section class="view r" data-view="r">
+    <div class="bar"><span><b>AFEIFEI</b> · 声纹地形</span><span class="r"><span class="live">● 正在播放</span><span>FLAC 1411</span></span></div>
+    <div class="body">
+      <div class="head">
+        <div><div class="tt">老人と海<em>.</em></div><div class="m">ヨルシカ · 2020 · 已播 32%</div></div>
+        <div class="m">地形 = 这首歌的响度剖面</div>
+      </div>
+      <div class="terrain" id="terrain"><div class="horizon"></div></div>
+      <div class="lyric"><div class="now">他梦见狮子回到沙滩上。</div><div class="nx">马林鱼把小船拖进深蓝</div><span class="sp"></span><span class="no">第 12 / 34 行</span></div>
+    </div>
+    <div class="foot">
+      <div class="clock"><b data-cur>01:44</b><span>/ 05:21</span></div>
+      <span class="sp"></span>
+      <div class="transport">
+        <button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button><button class="tb">队列 3</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 03 刻纹钟 ============ -->
+  <section class="view d" data-view="d">
+    <div class="bar"><span><b>AFEIFEI</b> · 刻纹钟</span><span class="r"><span class="live">● 正在播放</span><span>44.1 / 24</span></span></div>
+    <div class="body">
+      <div class="left">
+        <div class="kick"><i></i><span>第 04 首 / 共 12</span></div>
+        <h1>老人と海<em>.</em></h1>
+        <div class="meta">ヨルシカ · 老人と海 · 2020</div>
+        <div class="lyric"><div class="now">他梦见狮子回到沙滩上。</div><div class="nx">马林鱼把小船拖进深蓝</div></div>
+        <div class="clock"><b data-cur>01:44</b><span>/ 05:21</span></div>
+        <div class="struct" id="struct"></div>
+      </div>
+      <div class="right">
+        <div class="disc">
+          <div class="label"></div>
+          <svg class="rings" viewBox="0 0 200 200" id="rings">
+            <g id="ticks"></g><g id="arcs"></g><g id="dots"></g>
+            <line class="needle" id="needle" x1="168" y1="14" x2="100" y2="40"></line>
+            <circle class="tip" id="ntip" cx="100" cy="40" r="2"></circle>
+            <text class="tip-label" id="ntext" x="100" y="40">03:36</text>
+          </svg>
+          <div class="hole"></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="transport"><button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button></div>
+      <span class="sp" style="flex:1"></span>
+      <span style="font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--mute)">刻度·时间　弧·段落　点·歌词</span>
+    </div>
+  </section>
+
+  <!-- ============ 04 胶片带 ============ -->
+  <section class="view f" data-view="f">
+    <div class="bar"><span><b>AFEIFEI</b> · 胶片</span><span class="r"><span class="live">● 正在播放</span><span>35mm · 24fps</span></span></div>
+    <div class="body">
+      <div class="head">
+        <div class="tt">老人と海<em>.</em></div>
+        <div class="m">ヨルシカ · 2020 · 第 12 帧 / 共 34</div>
+      </div>
+      <div class="strip">
+        <div class="holes top" id="holesT"></div>
+        <div class="frames" id="frames"></div>
+        <div class="gate" id="gate"></div>
+        <div class="holes bot" id="holesB"></div>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="clock"><b data-cur>01:44</b><span>/ 05:21</span></div>
+      <div class="tr" data-seek><div class="f"></div><div class="h"></div></div>
+      <span class="sp"></span>
+      <div class="transport"><button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button></div>
+    </div>
+  </section>
+
+  <!-- ============ 05 星图 ============ -->
+  <section class="view c" data-view="c">
+    <div class="bar"><span><b>AFEIFEI</b> · 星图</span><span class="r"><span class="live">● 正在播放</span><span>34 句 · 6 星座</span></span></div>
+    <div class="body">
+      <svg class="const" id="const"></svg>
+      <div class="stars" id="stars"></div>
+      <div class="cross" id="cross"></div>
+      <div class="title"><h1>老人と海<em>.</em></h1><div class="m">ヨルシカ · 2020 · 第 12 / 34 句</div></div>
+      <div class="lyric"><div class="now">他梦见狮子回到沙滩上。</div><div class="nx">马林鱼把小船拖进深蓝</div></div>
+    </div>
+    <div class="foot">
+      <div class="clock"><span data-cur>01:44</span></div>
+      <span class="sp"></span>
+      <div class="transport"><button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------- 数据 ---------- */
+document.documentElement.style.setProperty('--art',
+  'url("file:///C:/Windows/Web/Wallpaper/Windows/img0.jpg")');
+
+const TOTAL = 321;
+let pos = 104, playing = true;
+
+const SEGS = [
+  {name:'前奏',   s:0,   e:22},
+  {name:'主歌 A', s:22,  e:78},
+  {name:'副歌',   s:78,  e:140},
+  {name:'主歌 B', s:140, e:196},
+  {name:'桥段',   s:196, e:246},
+  {name:'尾奏',   s:246, e:321}
+];
+const LINES = [
+  [6,'汽笛在梦的第三段靠岸'],[12,'八十五天的清晨没有鱼'],[18,'而帆在盐粒里慢慢变旧'],
+  [24,'老人把星辰缝进补丁'],[31,'海流把名字冲成传说'],[38,'灯塔数着回港的次数'],
+  [45,'浪把誓言写在沙上又收走'],[52,'他与海交换一生的沉默'],[59,'天亮时渔线还在手中'],
+  [66,'港口的孩子喊他的名字'],[73,'报纸说他又空手而归'],[80,'他梦见狮子回到沙滩上'],
+  [86,'马林鱼把小船拖进深蓝'],[92,'群鲨来的那晚星星很低'],[98,'他把桨举过头顶'],
+  [104,'海把天空按进水里'],[110,'他数着自己的呼吸'],[116,'浪一层一层地退'],
+  [122,'月亮碎在舷边'],[128,'他不肯松手'],[134,'线在掌心发烫'],
+  [140,'天亮之前他不是一个人'],[148,'如果这就是最后一段航程'],[156,'请把灯留给我'],
+  [164,'如果这就是最后一句话'],[172,'让我说完再走'],[180,'海不回答'],
+  [190,'海只把船推得更远'],[200,'他笑起来'],[212,'（器乐）'],
+  [226,'弦乐铺底'],[240,'鼓点渐远'],[258,'海声'],[290,'归于安静']
+];
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+/* ---------- 01 活字剧场 ---------- */
+const caseBox = document.getElementById('case');
+const CASE_LINE = '他梦见狮子回到沙滩上。';
+const charEls = [];
+[...CASE_LINE].forEach((ch, i) => {
+  const el = document.createElement('div');
+  el.className = 'kbox';
+  el.textContent = ch;
+  el.style.setProperty('--i', i);
+  el.dataset.i = i;
+  el.addEventListener('click', () => {
+    /* 点字：跳到这一句所属的时间（按句内字序近似） */
+    const line = LINES.find(([t]) => t >= pos - 20 && t <= pos + 20) || LINES[11];
+    pos = line[0] + i * 0.18;
+    paint();
+  });
+  caseBox.appendChild(el);
+  charEls.push(el);
+});
+
+/* ---------- 02 声纹地形 ---------- */
+const terrain = document.getElementById('terrain');
+const COLS = 300;
+const tCols = [];
+function env(x){
+  const intro = Math.min(1, Math.max(0,(x-.02)/.16));
+  const body = .5 + .5*Math.sin(x*Math.PI*1.15);
+  const build = (x>.24 && x<.46) ? 1.15 : 1;
+  const outro = x>.82 ? Math.max(.2, 1-(x-.82)/.2) : 1;
+  return Math.max(.04, intro*body*build*outro);
+}
+for (let i=0;i<COLS;i++){
+  const x=i/(COLS-1);
+  const h=Math.min(50, env(x)*(.7+Math.random()*.6)*50);
+  const col=document.createElement('div');
+  col.className='col';
+  col.innerHTML=`<i class="up" style="height:${h.toFixed(1)}%"></i><i class="dn" style="height:${h.toFixed(1)}%"></i>`;
+  terrain.appendChild(col);
+  tCols.push(col);
+}
+/* 段落分隔（每 30 秒一条细线） */
+SEGS.slice(1).forEach(sg=>{
+  const d=document.createElement('div');
+  d.className='peak';
+  d.style.left=(sg.s/TOTAL*100)+'%';
+  terrain.appendChild(d);
+});
+terrain.addEventListener('click', e=>{
+  const r=terrain.getBoundingClientRect();
+  pos=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));
+  paint();
+});
+
+/* ---------- 03 刻纹钟 ---------- */
+const gTicks=document.getElementById('ticks');
+const gArcs=document.getElementById('arcs');
+const gDots=document.getElementById('dots');
+const CX=100, CY=100, R_DOT=66;
+const tickEls=[], arcEls=[], dotEls=[];
+const TICK_N=60;
+for(let i=0;i<TICK_N;i++){
+  const a=(i/TICK_N)*Math.PI*2-Math.PI/2;
+  const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+  l.setAttribute('x1',(CX+Math.cos(a)*94).toFixed(2));
+  l.setAttribute('y1',(CY+Math.sin(a)*94).toFixed(2));
+  l.setAttribute('x2',(CX+Math.cos(a)*88.5).toFixed(2));
+  l.setAttribute('y2',(CY+Math.sin(a)*88.5).toFixed(2));
+  l.setAttribute('class','ticks');
+  gTicks.appendChild(l); tickEls.push(l);
+}
+const R_ARC=80, CIRC=2*Math.PI*R_ARC;
+SEGS.forEach(sg=>{
+  const len=((sg.e-sg.s)/TOTAL)*CIRC;
+  const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c.setAttribute('cx',CX); c.setAttribute('cy',CY); c.setAttribute('r',R_ARC);
+  c.setAttribute('class','seg-arc future');
+  c.setAttribute('stroke-dasharray',`${len.toFixed(2)} ${(CIRC-len).toFixed(2)}`);
+  c.setAttribute('transform',`rotate(${((sg.s/TOTAL)*360-90).toFixed(2)} ${CX} ${CY})`);
+  gArcs.appendChild(c); arcEls.push(c);
+});
+LINES.forEach(([t])=>{
+  const a=(t/TOTAL)*Math.PI*2-Math.PI/2;
+  const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c.setAttribute('cx',(CX+Math.cos(a)*R_DOT).toFixed(2));
+  c.setAttribute('cy',(CY+Math.sin(a)*R_DOT).toFixed(2));
+  c.setAttribute('r',1.5); c.setAttribute('class','dot');
+  gDots.appendChild(c); dotEls.push(c);
+});
+const struct=document.getElementById('struct');
+SEGS.forEach((sg,i)=>{
+  const el=document.createElement('span');
+  el.style.width=((sg.e-sg.s)/TOTAL*100)+'%';
+  el.dataset.i=i;
+  struct.appendChild(el);
+});
+struct.addEventListener('click',e=>{
+  const r=struct.getBoundingClientRect();
+  pos=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));
+  paint();
+});
+
+/* ---------- 04 胶片 ---------- */
+const frames=document.getElementById('frames');
+const frameEls=[];
+LINES.forEach(([t,tx],i)=>{
+  const el=document.createElement('div');
+  el.className='frame';
+  el.textContent=tx;
+  el.dataset.i=i;
+  el.addEventListener('click',()=>{ pos=t; paint(); });
+  frames.appendChild(el); frameEls.push(el);
+});
+['holesT','holesB'].forEach(id=>{
+  const box=document.getElementById(id);
+  for(let i=0;i<60;i++) box.appendChild(document.createElement('i'));
+});
+const gate=document.getElementById('gate');
+
+/* ---------- 05 星图 ---------- */
+const stars=document.getElementById('stars');
+const constSvg=document.getElementById('const');
+const starEls=[];
+/* 星级坐标：按时间绕一个椭圆分布，半径带抖动，避免像钟表 */
+const W=1, H=1;
+LINES.forEach(([t,tx],i)=>{
+  const a=(t/TOTAL)*Math.PI*2 - Math.PI/2;
+  const r=0.26 + (i%5)*0.035 + Math.sin(i*1.7)*0.03;
+  const x=0.62 + Math.cos(a)*r*1.35;
+  const y=0.5 + Math.sin(a)*r;
+  const el=document.createElement('div');
+  el.className='star';
+  el.style.left=(x*100)+'%';
+  el.style.top=(y*100)+'%';
+  el.dataset.i=i;
+  el.innerHTML=`<span class="lab">${fmt(t)}</span>`;
+  el.addEventListener('click',()=>{ pos=t; paint(); });
+  stars.appendChild(el);
+  starEls.push({el,x,y,t});
+});
+/* 星座连线：同一段落内的句点相连 */
+SEGS.forEach((sg)=>{
+  const idx=LINES.map(([t],i)=>({t,i})).filter(({t})=>t>=sg.s&&t<sg.e).map(({i})=>i);
+  for(let k=0;k<idx.length-1;k++){
+    const A=starEls[idx[k]], B=starEls[idx[k+1]];
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',(A.x*100).toFixed(2)); l.setAttribute('y1',(A.y*100).toFixed(2));
+    l.setAttribute('x2',(B.x*100).toFixed(2)); l.setAttribute('y2',(B.y*100).toFixed(2));
+    /* viewBox 被拉伸，线宽必须 non-scaling，否则 0.8 会变成 9px 的粗折线 */
+    l.setAttribute('vector-effect','non-scaling-stroke');
+    l.setAttribute('stroke-width','1');
+    l.dataset.seg=SEGS.indexOf(sg);
+    constSvg.appendChild(l);
+  }
+});
+constSvg.setAttribute('viewBox','0 0 100 100');
+constSvg.setAttribute('preserveAspectRatio','none');
+const cross=document.getElementById('cross');
+
+/* ---------- 一份时间源 ---------- */
+const needle=document.getElementById('needle');
+const ntip=document.getElementById('ntip');
+const ntext=document.getElementById('ntext');
+
+function paint(){
+  const p=pos/TOTAL;
+  document.querySelectorAll('[data-cur]').forEach(el=>{ el.textContent=fmt(pos); });
+
+  /* 01 当前字：按句内进度点亮 */
+  const litChars=Math.round(p*charEls.length);
+  charEls.forEach((el,i)=>{
+    el.classList.toggle('lit', i<litChars-1);
+    el.classList.toggle('now', i===litChars-1);
+  });
+
+  /* 02 地形 */
+  const litT=Math.round(p*COLS);
+  tCols.forEach((el,i)=>{
+    el.classList.toggle('on', i<litT);
+    el.classList.toggle('hd', i===litT);
+  });
+
+  /* 03 三环 */
+  const litTicks=Math.round(p*TICK_N);
+  tickEls.forEach((el,i)=>el.classList.toggle('on', i<litTicks));
+  let segIdx=SEGS.findIndex(s=>pos>=s.s&&pos<s.e);
+  if(segIdx<0) segIdx=SEGS.length-1;
+  arcEls.forEach((el,i)=>{
+    el.classList.toggle('past', i<segIdx);
+    el.classList.toggle('now', i===segIdx);
+    el.classList.toggle('future', i>segIdx);
+  });
+  const litDots=LINES.filter(([t])=>t<=pos).length;
+  dotEls.forEach((el,i)=>{
+    el.classList.toggle('on', i<litDots-1);
+    el.classList.toggle('cur', i===litDots-1);
+  });
+  const ang=p*Math.PI*2-Math.PI/2;
+  const tx=CX+Math.cos(ang)*R_DOT, ty=CY+Math.sin(ang)*R_DOT;
+  const px=CX+Math.cos(ang)*112, py=CY+Math.sin(ang)*112;
+  needle.setAttribute('x1',px.toFixed(2)); needle.setAttribute('y1',py.toFixed(2));
+  needle.setAttribute('x2',tx.toFixed(2)); needle.setAttribute('y2',ty.toFixed(2));
+  ntip.setAttribute('cx',tx.toFixed(2)); ntip.setAttribute('cy',ty.toFixed(2));
+  ntext.setAttribute('x',(tx+CX*0.06).toFixed(2)); ntext.setAttribute('y',(ty+1.2).toFixed(2));
+  ntext.textContent=fmt(TOTAL-pos);
+  [...struct.children].forEach((el,i)=>{
+    el.classList.toggle('done', i<segIdx);
+    el.classList.toggle('now', i===segIdx);
+  });
+
+  /* 04 胶片：当前帧滚动到中间，放映窗跟随 */
+  const curF=litDots-1;
+  frameEls.forEach((el,i)=>el.classList.toggle('cur', i===curF));
+  if(frameEls[curF]){
+    const el=frameEls[curF];
+    /* 让当前帧的中心落在屏幕中心：offset = 帧中心 - 半屏 */
+    const offset=el.offsetLeft + el.offsetWidth/2 - window.innerWidth/2;
+    frames.style.transform=`translateX(${-offset}px)`;
+    gate.style.left=(window.innerWidth/2 - el.offsetWidth/2)+'px';
+    gate.style.width=el.offsetWidth+'px';
+  }
+
+  /* 05 星图 */
+  starEls.forEach((s,i)=>{
+    s.el.classList.toggle('on', i<curF);
+    s.el.classList.toggle('cur', i===curF);
+  });
+  const cur=starEls[Math.max(0,curF)];
+  if(cur){
+    cross.style.left=(cur.x*100)+'%';
+    cross.style.top=(cur.y*100)+'%';
+  }
+  constSvg.querySelectorAll('line').forEach(l=>{
+    l.classList.toggle('now', +l.dataset.seg===segIdx);
+  });
+}
+paint();
+setInterval(()=>{ if(playing){ pos=Math.min(TOTAL,pos+.5); paint(); } },500);
+
+/* ---------- 交互 ---------- */
+document.querySelectorAll('[data-seek]').forEach(box=>{
+  box.addEventListener('click',e=>{
+    const r=box.getBoundingClientRect();
+    pos=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));
+    paint();
+  });
+});
+document.querySelectorAll('[data-play]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    playing=!playing;
+    document.querySelectorAll('[data-play]').forEach(b=>{
+      b.textContent=playing?'暂停':'播放';
+      b.classList.toggle('on',playing);
+    });
+  });
+});
+addEventListener('keydown',e=>{
+  if(e.code==='Space'){ e.preventDefault(); document.querySelector('[data-play]').click(); }
+  if(e.key==='ArrowRight'){ pos=Math.min(TOTAL,pos+5); paint(); }
+  if(e.key==='ArrowLeft'){ pos=Math.max(0,pos-5); paint(); }
+  const m={'1':'t','2':'r','3':'d','4':'f','5':'c'};
+  if(m[e.key]) go(m[e.key]);
+});
+
+/* ---------- 切换 ---------- */
+const NAMES={t:'TYPE · 活字剧场', r:'TERRAIN · 声纹地形', d:'DIAL · 刻纹钟', f:'FILM · 胶片', c:'CHART · 星图'};
+const btns=[...document.querySelectorAll('#switch button')];
+const views=[...document.querySelectorAll('.view')];
+function go(id){
+  views.forEach(v=>v.classList.toggle('on', v.dataset.view===id));
+  btns.forEach(b=>b.classList.toggle('on', b.dataset.v===id));
+  document.getElementById('vname').textContent=NAMES[id];
+  paint();
+}
+btns.forEach(b=>b.addEventListener('click',()=>go(b.dataset.v)));
+</script>
+</body>
+</html>

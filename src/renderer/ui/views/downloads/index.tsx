@@ -72,15 +72,15 @@ export function DownloadsView({
           <span className="th-actions">ACTION</span>
         </div>
         {rows.map((r) => (
-          <div key={r.id} className="lib-row online-row" title={r.destPath}>
+          <div key={r.id} className="lib-row dl-row" title={r.destPath}>
             <span className="lib-title">{r.title}</span>
             <span className="lib-artist">
               {STATE_TEXT[r.state]}
               {r.pct !== null ? ` ${r.pct}%` : ""} · {fmtBytes(r.received)}
               {r.total > 0 ? ` / ${fmtBytes(r.total)}` : ""}
               {fmtSpeed(r.speed) ? ` · ${fmtSpeed(r.speed)}` : ""}
+              {r.state === "error" && r.error ? ` · ${r.error}` : ""}
             </span>
-            {r.state === "error" && r.error ? <span className="lib-artist">{r.error}</span> : null}
             <span className="lib-actions">
               {r.state === "active" ? (
                 <button

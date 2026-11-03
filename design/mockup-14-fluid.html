@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿飞飞 · 流体玻璃（第二版设计预览）</title>
+<style>
+/* ============================================================
+   第二版：不是"把旧设计变暗"，而是换一整套语言。
+   去掉：票根 / 场次 / 节目单 / 印章 / 等宽小字堆叠 / 1px 细线表格 / 直角 / 相纸
+   换成：流动光斑 / 玻璃面 / 超大紧字距 / 圆角 / 荧光强调 / 卡片浮起
+   单文件零依赖，双击即开。封面是 CSS 渐变占位。
+   ============================================================ */
+
+:root{
+  --bg:#050507;
+  --fg:#ffffff;
+  --dim:rgba(255,255,255,.62);
+  --mute:rgba(255,255,255,.38);
+  --faint:rgba(255,255,255,.14);
+  --accent:#7bf1c8;
+  --glass:rgba(255,255,255,.055);
+  --glass-2:rgba(255,255,255,.09);
+  --line:rgba(255,255,255,.10);
+  --line-2:rgba(255,255,255,.18);
+  --r-s:14px;
+  --r-m:22px;
+  --r-l:32px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --sans:"Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:var(--sans); font-size:15px; line-height:1.65;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+
+/* ---------- 背景：三团缓慢漂移的光 ---------- */
+.bg{position:fixed;inset:-10%;z-index:0;pointer-events:none;overflow:hidden}
+.bg i{position:absolute;border-radius:50%;filter:blur(90px);transition:background 1.4s ease}
+.b1{width:72vw;height:72vw;left:-14vw;top:-22vh;background:radial-gradient(circle,#c96a2a 0%,rgba(201,106,42,0) 68%);opacity:.62;animation:drift1 34s ease-in-out infinite alternate}
+.b2{width:62vw;height:62vw;right:-12vw;bottom:-16vh;background:radial-gradient(circle,#1f6b7d 0%,rgba(31,107,125,0) 70%);opacity:.55;animation:drift2 42s ease-in-out infinite alternate}
+.b3{width:34vw;height:34vw;left:38vw;top:26vh;background:radial-gradient(circle,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 70%);opacity:.10;animation:drift3 28s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate3d(6vw,5vh,0) scale(1.12)}}
+@keyframes drift2{to{transform:translate3d(-5vw,-4vh,0) scale(1.08)}}
+@keyframes drift3{to{transform:translate3d(-4vw,6vh,0) scale(.9)}}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(120% 90% at 50% 45%,transparent 40%,rgba(5,5,7,.72) 100%)}
+
+/* ---------- 外壳 ---------- */
+.app{position:relative;z-index:2;display:grid;grid-template-columns:88px minmax(0,1fr);height:100%}
+
+.nav{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:20px 0 18px;
+}
+.nav button{
+  width:44px;height:44px;border:0;border-radius:50%;background:none;
+  color:var(--mute);display:grid;place-items:center;cursor:pointer;
+  transition:color .2s var(--ease),background .2s var(--ease),transform .2s var(--ease);
+}
+.nav button:hover{color:var(--fg);background:var(--glass);transform:translateY(-1px)}
+.nav button.on{color:var(--bg);background:var(--accent);box-shadow:0 6px 24px rgba(123,241,200,.28)}
+.nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round}
+.nav .sp{flex:1}
+.nav .me{width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#e0902f,#1f6b7d)}
+
+/* ---------- 页面容器 ---------- */
+main{position:relative;overflow:hidden;padding:0 40px 0 8px}
+.page{
+  position:absolute;inset:0;padding:34px 32px 120px 8px;
+  overflow-y:auto;opacity:0;visibility:hidden;
+  transform:translateY(14px) scale(.995);
+  transition:opacity .32s var(--ease),transform .32s var(--ease),visibility .32s;
+}
+.page.on{opacity:1;visibility:visible;transform:none}
+.page::-webkit-scrollbar{width:8px}
+.page::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:8px}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.wordmark{font-size:13px;letter-spacing:.34em;text-transform:uppercase;color:var(--dim)}
+.pill{
+  display:inline-flex;align-items:center;gap:8px;
+  height:32px;padding:0 14px;border-radius:999px;
+  background:var(--glass);border:1px solid var(--line);
+  font-size:12px;color:var(--dim);
+}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+
+/* ---------- 播放页 ---------- */
+.pg-stage{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:56px;align-content:center;padding-top:24px}
+
+.cover-wrap{position:relative;display:grid;place-items:center}
+.cover{
+  position:relative;width:min(46vw,440px);aspect-ratio:1;border-radius:50%;
+  background:var(--art1);background-size:cover;background-position:center;
+  box-shadow:0 40px 120px -20px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.10);
+  cursor:pointer;
+  animation:spin 26s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cover::after{
+  content:"";position:absolute;left:50%;top:50%;width:14%;height:14%;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle,#050507 0 42%,rgba(5,5,7,.5) 44%,transparent 70%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);
+}
+.halo{
+  position:absolute;width:min(52vw,500px);aspect-ratio:1;border-radius:50%;
+  background:var(--art1);filter:blur(70px);opacity:.55;z-index:-1;
+}
+
+.info{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.eyebrow{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--mute);margin-bottom:18px}
+.eyebrow i{width:22px;height:1px;background:var(--accent)}
+
+h1.title{
+  font-size:clamp(46px,5.6vw,84px);line-height:1.02;font-weight:700;
+  letter-spacing:-.035em;
+}
+h1.title em{font-style:normal;color:var(--accent)}
+.artist{margin-top:14px;font-size:15px;color:var(--dim);letter-spacing:.02em}
+
+.lyric{margin-top:40px;min-height:112px}
+.lyric .now{font-size:30px;line-height:1.4;font-weight:600;letter-spacing:-.01em}
+.lyric .next{margin-top:8px;font-size:18px;color:var(--mute)}
+
+.progress{margin-top:40px}
+.bar{position:relative;height:6px;border-radius:999px;background:rgba(255,255,255,.12);cursor:pointer}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--accent);width:33%;box-shadow:0 0 18px rgba(123,241,200,.5)}
+.bar .knob{position:absolute;top:50%;left:33%;width:14px;height:14px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 2px 10px rgba(0,0,0,.6)}
+.times{display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+
+/* 玻璃队列卡 */
+.queue{
+  margin-top:36px;padding:18px;border-radius:var(--r-m);
+  background:var(--glass);border:1px solid var(--line);
+  backdrop-filter:blur(18px);
+}
+.queue h4{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;margin-bottom:6px}
+.queue h4 span{font-size:11px;color:var(--mute);letter-spacing:.12em}
+.qrow{
+  display:flex;align-items:center;gap:12px;height:52px;padding:0 10px;margin:2px -10px;
+  border-radius:12px;cursor:default;transition:background .18s var(--ease),transform .18s var(--ease);
+}
+.qrow:hover{background:rgba(255,255,255,.06);transform:translateX(2px)}
+.qrow .mini{width:34px;height:34px;border-radius:8px;background-size:cover;background-position:center;flex:none}
+.qrow .tx{flex:1;min-width:0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qrow .tx small{display:block;font-size:11.5px;color:var(--mute);margin-top:1px}
+.qrow time{font-size:11.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+
+/* ---------- 首页 ---------- */
+.pg-home{padding-top:34px}
+h2.big{font-size:clamp(38px,4.4vw,66px);line-height:1.04;font-weight:700;letter-spacing:-.035em}
+h2.big em{font-style:normal;color:var(--accent)}
+.sub{margin-top:12px;color:var(--dim);font-size:14px}
+
+.cards{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:18px;margin-top:34px}
+.card{
+  position:relative;min-height:260px;border-radius:var(--r-l);overflow:hidden;
+  border:1px solid var(--line);cursor:pointer;
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease);
+  background:var(--glass);
+}
+.card:hover{transform:translateY(-6px);box-shadow:0 30px 60px -20px rgba(0,0,0,.9)}
+.card .pic{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.9}
+.card .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,5,7,.1) 30%,rgba(5,5,7,.88))}
+.card .txt{position:absolute;left:22px;right:22px;bottom:20px}
+.card .txt b{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.card .txt span{display:block;margin-top:4px;font-size:12.5px;color:var(--dim)}
+.card .go{
+  position:absolute;right:18px;top:18px;width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);
+  display:grid;place-items:center;backdrop-filter:blur(8px);
+}
+.card .go i{width:0;height:0;border-style:solid;border-width:7px 0 7px 11px;border-color:transparent transparent transparent #fff;margin-left:2px}
+
+.strip{margin-top:44px}
+.strip .hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px}
+.strip .hd b{font-size:16px;font-weight:600}
+.strip .hd span{font-size:12px;color:var(--mute)}
+.rail-cards{display:flex;gap:16px;overflow-x:auto;padding-bottom:8px}
+.mini-card{flex:none;width:172px}
+.mini-card .pic{width:172px;height:172px;border-radius:var(--r-m);background-size:cover;background-position:center;border:1px solid var(--line)}
+.mini-card b{display:block;margin-top:10px;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-card span{display:block;font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- 本地 ---------- */
+.tools{display:flex;gap:12px;align-items:center;margin-top:26px}
+.search{
+  flex:1;height:46px;display:flex;align-items:center;gap:10px;padding:0 18px;
+  border-radius:999px;background:var(--glass);border:1px solid var(--line);
+  color:var(--mute);font-size:14px;
+}
+.search::before{content:"⌕";font-size:17px}
+.chips{display:flex;gap:8px}
+.chip{
+  height:46px;padding:0 20px;border-radius:999px;background:var(--glass);
+  border:1px solid var(--line);color:var(--dim);font-size:13px;
+  display:flex;align-items:center;cursor:pointer;transition:all .2s var(--ease);
+}
+.chip:hover{color:var(--fg);border-color:var(--line-2)}
+.chip.on{background:var(--fg);color:var(--bg);border-color:var(--fg);font-weight:600}
+
+.rows{margin-top:26px}
+.row{
+  display:grid;grid-template-columns:56px minmax(0,1fr) minmax(0,.7fr) 64px 44px;
+  align-items:center;gap:18px;height:64px;padding:0 16px;border-radius:16px;
+  cursor:default;transition:background .18s var(--ease);
+}
+.row:hover{background:rgba(255,255,255,.055)}
+.row .pic{width:44px;height:44px;border-radius:10px;background-size:cover;background-position:center;border:1px solid var(--line)}
+.row .t{font-size:14.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t small{display:block;font-size:12px;color:var(--mute);font-weight:400;margin-top:1px}
+.row .a{font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row time{font-size:12px;color:var(--mute);text-align:right;font-variant-numeric:tabular-nums}
+.row .h{font-size:15px;color:var(--faint);text-align:right}
+.row.on .t{color:var(--accent)}
+.row.on .pic{box-shadow:0 0 0 2px var(--accent),0 8px 24px rgba(123,241,200,.25)}
+.bars{display:flex;gap:2px;align-items:flex-end;height:14px;justify-content:flex-end}
+.bars i{width:3px;background:var(--accent);border-radius:2px;animation:eq .9s ease-in-out infinite alternate}
+.bars i:nth-child(1){height:40%;animation-delay:.0s}
+.bars i:nth-child(2){height:90%;animation-delay:.15s}
+.bars i:nth-child(3){height:60%;animation-delay:.3s}
+@keyframes eq{to{height:18%}}
+
+/* ---------- 设置 ---------- */
+.groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:30px}
+.group{padding:22px 24px;border-radius:var(--r-m);background:var(--glass);border:1px solid var(--line)}
+.group h3{font-size:13px;font-weight:600;letter-spacing:.04em;margin-bottom:4px}
+.group p{font-size:12px;color:var(--mute);margin-bottom:16px}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line)}
+.srow:first-of-type{border-top:0}
+.srow b{display:block;font-size:13.5px;font-weight:500}
+.srow span.d{display:block;font-size:12px;color:var(--mute);margin-top:2px}
+.sw{width:46px;height:26px;border-radius:999px;background:rgba(255,255,255,.14);position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .22s var(--ease)}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:23px}
+.seg{display:flex;background:rgba(255,255,255,.08);border-radius:999px;padding:3px}
+.seg span{padding:6px 14px;border-radius:999px;font-size:12.5px;color:var(--dim);cursor:pointer}
+.seg span.on{background:var(--fg);color:var(--bg);font-weight:600}
+
+/* ---------- 底部胶囊 dock ---------- */
+.dock{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+  z-index:30;display:flex;align-items:center;gap:14px;
+  padding:10px 16px 10px 12px;border-radius:999px;
+  background:rgba(20,20,24,.62);border:1px solid var(--line-2);
+  backdrop-filter:blur(24px);
+  box-shadow:0 20px 60px -12px rgba(0,0,0,.9);
+  min-width:520px;
+}
+.dock .art{width:44px;height:44px;border-radius:50%;background:var(--art1);background-size:cover;flex:none;animation:spin 26s linear infinite}
+.dock .tx{min-width:0;flex:1}
+.dock .tx b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock .tx span{display:block;font-size:11.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dock .btns{display:flex;align-items:center;gap:6px}
+.dock button{
+  width:38px;height:38px;border-radius:50%;border:0;background:none;color:var(--dim);
+  display:grid;place-items:center;cursor:pointer;transition:all .18s var(--ease);
+}
+.dock button:hover{color:var(--fg);background:rgba(255,255,255,.1)}
+.dock button.main{width:44px;height:44px;background:var(--accent);color:var(--bg)}
+.dock button.main:hover{transform:scale(1.06);background:var(--accent)}
+.ic-play{width:0;height:0;border-style:solid;border-width:7px 0 7px 11px;border-color:transparent transparent transparent currentColor;margin-left:2px}
+.ic-pause{display:flex;gap:3px}
+.ic-pause i{width:3px;height:13px;background:currentColor;border-radius:1px}
+.ic-prev,.ic-next{width:0;height:0;border-style:solid;border-color:transparent}
+.ic-prev{border-width:6px 9px 6px 0;border-right-color:currentColor}
+.ic-next{border-width:6px 0 6px 9px;border-left-color:currentColor}
+
+/* ---------- 沉浸态 ---------- */
+.immersive{
+  position:fixed;inset:0;z-index:60;display:none;
+  background:radial-gradient(120% 100% at 50% 30%,rgba(201,106,42,.28),transparent 60%),#050507;
+}
+body.immersive .immersive{display:grid;grid-template-columns:1fr 460px;align-items:center;padding:0 80px}
+body.immersive .app,body.immersive .dock{visibility:hidden}
+.im-cover{position:relative;display:grid;place-items:center}
+.im-cover .big{
+  width:min(52vw,520px);aspect-ratio:1;border-radius:12px;
+  background:var(--art1);background-size:cover;background-position:center;
+  box-shadow:0 60px 140px -30px rgba(0,0,0,1);
+}
+.im-cover .refl{
+  position:absolute;left:50%;top:100%;transform:translate(-50%,-8%);
+  width:min(52vw,520px);height:120px;border-radius:12px;
+  background:var(--art1);background-size:cover;opacity:.16;filter:blur(18px);
+}
+.im-txt{text-align:left}
+.im-txt h1{font-size:clamp(40px,4.6vw,72px);line-height:1.04;font-weight:700;letter-spacing:-.035em}
+.im-txt .m{margin-top:12px;color:var(--dim);font-size:14px}
+.im-txt .now{margin-top:56px;font-size:26px;line-height:1.4;font-weight:600}
+.im-txt .after{margin-top:10px;font-size:18px;color:var(--mute)}
+.im-close{position:fixed;right:34px;top:28px;z-index:70;width:40px;height:40px;border-radius:50%;border:1px solid var(--line-2);background:rgba(255,255,255,.06);color:#fff;display:none;place-items:center;cursor:pointer}
+body.immersive .im-close{display:grid}
+
+/* 提示 */
+.hint{
+  position:fixed;right:26px;bottom:96px;z-index:40;
+  font-size:11px;letter-spacing:.1em;color:rgba(255,255,255,.3);
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<div class="bg"><i class="b1"></i><i class="b2"></i><i class="b3"></i></div>
+<div class="vignette"></div>
+
+<div class="app">
+  <nav class="nav">
+    <button class="on" data-go="stage" title="播放"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/></svg></button>
+    <button data-go="home" title="首页"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5V20H4z"/></svg></button>
+    <button data-go="local" title="本地"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h11"/></svg></button>
+    <button data-go="recent" title="最近"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v5l3 2"/></svg></button>
+    <span class="sp"></span>
+    <button data-go="settings" title="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.6M12 17.9v2.6M3.5 12h2.6M17.9 12h2.6"/></svg></button>
+    <span class="me"></span>
+  </nav>
+
+  <main>
+    <!-- 播放页 -->
+    <section class="page on pg-stage" data-page="stage">
+      <div class="cover-wrap">
+        <div class="halo"></div>
+        <div class="cover" id="cover"></div>
+      </div>
+
+      <div class="info">
+        <div class="eyebrow"><i></i><span>正在播放 · 网易云音乐</span></div>
+        <h1 class="title">老人と海<em>。</em></h1>
+        <div class="artist">ヨルシカ · 老人と海 · FLAC 无损</div>
+
+        <div class="lyric">
+          <div class="now">他梦见狮子回到沙滩上。</div>
+          <div class="next">马林鱼把小船拖进深蓝</div>
+        </div>
+
+        <div class="progress">
+          <div class="bar" id="bar"><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+          <div class="times"><span id="tcur">01:44</span><span>05:21</span></div>
+        </div>
+
+        <div class="queue">
+          <h4>接下来<span>QUEUE · 3</span></h4>
+          <div class="qrow"><span class="mini" style="background-image:var(--art2)"></span><span class="tx">打上花火<small>Daoko / 米津玄師</small></span><time>4:28</time></div>
+          <div class="qrow"><span class="mini" style="background-image:var(--art3)"></span><span class="tx">Daisy<small>Aimer</small></span><time>4:44</time></div>
+          <div class="qrow"><span class="mini" style="background-image:var(--art4)"></span><span class="tx">Lay Down<small>Caravan Palace</small></span><time>3:27</time></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 首页 -->
+    <section class="page pg-home" data-page="home">
+      <div class="topbar">
+        <span class="wordmark">afeifei</span>
+        <span class="pill"><i class="dot"></i>3 首在线 · 网易云</span>
+      </div>
+      <h2 class="big">今天听什么<em>。</em></h2>
+      <div class="sub">11 月 3 日 · 周一 · 为你排了 30 首</div>
+
+      <div class="cards">
+        <div class="card">
+          <div class="pic" style="background-image:var(--art1)"></div>
+          <div class="veil"></div>
+          <div class="go"><i></i></div>
+          <div class="txt"><b>老人と海</b><span>ヨルシカ · 继续上次没听完的 03:26</span></div>
+        </div>
+        <div class="card">
+          <div class="pic" style="background-image:var(--art2)"></div>
+          <div class="veil"></div>
+          <div class="go"><i></i></div>
+          <div class="txt"><b>夜航</b><span>今日推荐 · 24 首</span></div>
+        </div>
+        <div class="card">
+          <div class="pic" style="background-image:var(--art3)"></div>
+          <div class="veil"></div>
+          <div class="go"><i></i></div>
+          <div class="txt"><b>红心回放</b><span>12 首 · 很久没听</span></div>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="hd"><b>最近添加</b><span>3 张专辑</span></div>
+        <div class="rail-cards">
+          <div class="mini-card"><div class="pic" style="background-image:var(--art4)"></div><b>Lay Down</b><span>Caravan Palace</span></div>
+          <div class="mini-card"><div class="pic" style="background-image:var(--art5)"></div><b>依然范特西</b><span>周杰伦</span></div>
+          <div class="mini-card"><div class="pic" style="background-image:var(--art6)"></div><b>U87</b><span>陈奕迅</span></div>
+          <div class="mini-card"><div class="pic" style="background-image:var(--art2)"></div><b>打上花火</b><span>Daoko</span></div>
+          <div class="mini-card"><div class="pic" style="background-image:var(--art3)"></div><b>Daisy</b><span>Aimer</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 本地 -->
+    <section class="page" data-page="local">
+      <div class="topbar">
+        <span class="wordmark">afeifei</span>
+        <span class="pill">1,284 首 · 96 专辑</span>
+      </div>
+      <h2 class="big">本地<em>。</em></h2>
+
+      <div class="tools">
+        <div class="search">搜索曲名、艺人、专辑</div>
+        <div class="chips">
+          <span class="chip on">曲目</span>
+          <span class="chip">唱片墙</span>
+          <span class="chip">歌手</span>
+        </div>
+      </div>
+
+      <div class="rows">
+        <div class="row on">
+          <span class="pic" style="background-image:var(--art1)"></span>
+          <span class="t">老人と海<small>ヨルシカ</small></span>
+          <span class="a">老人と海</span>
+          <time>5:21</time>
+          <span class="bars"><i></i><i></i><i></i></span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art2)"></span>
+          <span class="t">打上花火<small>Daoko</small></span>
+          <span class="a">打上花火</span>
+          <time>4:28</time>
+          <span class="h">♡</span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art3)"></span>
+          <span class="t">Daisy<small>Aimer</small></span>
+          <span class="a">Daisy</span>
+          <time>4:44</time>
+          <span class="h">♡</span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art4)"></span>
+          <span class="t">Lay Down<small>Caravan Palace</small></span>
+          <span class="a">Lay Down</span>
+          <time>3:27</time>
+          <span class="h">♡</span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art5)"></span>
+          <span class="t">夜的第七章<small>周杰伦</small></span>
+          <span class="a">依然范特西</span>
+          <time>4:57</time>
+          <span class="h">♥</span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art6)"></span>
+          <span class="t">青花瓷<small>周杰伦</small></span>
+          <span class="a">我很忙</span>
+          <time>3:59</time>
+          <span class="h">♥</span>
+        </div>
+        <div class="row">
+          <span class="pic" style="background-image:var(--art2)"></span>
+          <span class="t">富士山下<small>陈奕迅</small></span>
+          <span class="a">What's Going On…?</span>
+          <time>4:18</time>
+          <span class="h">♡</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 最近 -->
+    <section class="page" data-page="recent">
+      <div class="topbar"><span class="wordmark">afeifei</span><span class="pill">本周 42 首</span></div>
+      <h2 class="big">最近<em>。</em></h2>
+      <div class="sub">今天 · 8 首 · 26 分钟</div>
+      <div class="rows">
+        <div class="row"><span class="pic" style="background-image:var(--art1)"></span><span class="t">老人と海<small>ヨルシカ · 14:02</small></span><span class="a">老人と海</span><time>5:21</time><span class="h">♥</span></div>
+        <div class="row"><span class="pic" style="background-image:var(--art5)"></span><span class="t">夜的第七章<small>周杰伦 · 13:04</small></span><span class="a">依然范特西</span><time>4:57</time><span class="h">♥</span></div>
+        <div class="row"><span class="pic" style="background-image:var(--art2)"></span><span class="t">打上花火<small>Daoko · 12:31</small></span><span class="a">打上花火</span><time>4:28</time><span class="h">♡</span></div>
+      </div>
+    </section>
+
+    <!-- 设置 -->
+    <section class="page" data-page="settings">
+      <div class="topbar"><span class="wordmark">afeifei</span><span class="pill">LOCAL ONLY</span></div>
+      <h2 class="big">设置<em>。</em></h2>
+
+      <div class="groups">
+        <div class="group">
+          <h3>外观</h3><p>底色与光都来自当前封面</p>
+          <div class="srow">
+            <span><b>主题</b><span class="d">流体 / 极简 / 跟随系统</span></span>
+            <div class="seg"><span class="on">流体</span><span>极简</span><span>系统</span></div>
+          </div>
+          <div class="srow">
+            <span><b>光斑强度</b><span class="d">背景光晕的浓度</span></span>
+            <div class="seg"><span>低</span><span class="on">中</span><span>高</span></div>
+          </div>
+        </div>
+
+        <div class="group">
+          <h3>播放</h3><p>声音怎么出来</p>
+          <div class="srow"><span><b>音效</b><span class="d">6 段均衡器 · 前置增益 · 交叉淡化</span></span><span class="chip">打开面板</span></div>
+          <div class="srow"><span><b>桌面歌词</b><span class="d">独立窗口，可穿透 / 解锁</span></span><span class="chip">打开</span></div>
+        </div>
+
+        <div class="group">
+          <h3>系统</h3><p>窗口与快捷键</p>
+          <div class="srow"><span><b>托盘常驻</b><span class="d">关窗后缩到托盘，媒体键继续生效</span></span><span class="sw on"></span></div>
+          <div class="srow"><span><b>全局快捷键</b><span class="d">Ctrl+Alt+Space 播放 · ←→ 切歌</span></span><span class="d">3 组已注册</span></div>
+        </div>
+
+        <div class="group">
+          <h3>数据</h3><p>都在本机，不上传</p>
+          <div class="srow"><span><b>备份</b><span class="d">曲库 · 歌单 · 红心 · 听歌记录</span></span><span class="chip">导出</span></div>
+          <div class="srow"><span><b>听歌记录</b><span class="d">从 11 月 3 日开始记</span></span><span class="chip">清空</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 底部胶囊 -->
+<div class="dock">
+  <span class="art"></span>
+  <div class="tx"><b>老人と海</b><span>ヨルシカ · 老人と海</span></div>
+  <div class="btns">
+    <button><i class="ic-prev"></i></button>
+    <button class="main" id="playBtn"><i class="ic-pause"><i></i><i></i></i></button>
+    <button><i class="ic-next"></i></button>
+  </div>
+</div>
+
+<!-- 沉浸态 -->
+<div class="immersive" id="immersive">
+  <div class="im-cover">
+    <div class="big"></div>
+    <div class="refl"></div>
+  </div>
+  <div class="im-txt">
+    <h1>老人と海<em style="font-style:normal;color:var(--accent)">。</em></h1>
+    <div class="m">ヨルシカ · 老人と海 · FLAC 无损</div>
+    <div class="now">他梦见狮子回到沙滩上。</div>
+    <div class="after">马林鱼把小船拖进深蓝</div>
+  </div>
+</div>
+<button class="im-close" id="imClose">✕</button>
+
+<div class="hint">第二版设计预览 · 与上一版是两套语言</div>
+
+<script>
+/* 六张占位封面 */
+const rs = document.documentElement.style;
+const A = {
+  "--art1":"radial-gradient(120% 120% at 26% 18%, #f0a63c 0%, #b8492a 32%, #5c231d 62%, #150e0c 100%)",
+  "--art2":"radial-gradient(110% 110% at 74% 22%, #4fa8bd 0%, #1f5a6b 42%, #0f2630 72%, #060d11 100%)",
+  "--art3":"radial-gradient(110% 110% at 30% 80%, #8a5fc4 0%, #432c63 44%, #1a1428 74%, #08060e 100%)",
+  "--art4":"radial-gradient(120% 120% at 66% 26%, #8a9c4a 0%, #44522a 42%, #1c2214 72%, #070906 100%)",
+  "--art5":"radial-gradient(120% 120% at 38% 32%, #b35a33 0%, #5c2c1a 46%, #22120d 76%, #0a0705 100%)",
+  "--art6":"radial-gradient(120% 120% at 28% 72%, #3d8b95 0%, #1f454d 46%, #101f22 74%, #060b0c 100%)"
+};
+for (const [k,v] of Object.entries(A)) rs.setProperty(k,v);
+
+/* 切页 */
+const pages=[...document.querySelectorAll(".page")];
+const btns=[...document.querySelectorAll(".nav button")];
+btns.forEach(b=>b.addEventListener("click",()=>{
+  pages.forEach(p=>p.classList.toggle("on",p.dataset.page===b.dataset.go));
+  btns.forEach(x=>x.classList.toggle("on",x===b));
+}));
+
+/* 进度 */
+let pos=104, total=321, playing=true;
+const fill=document.getElementById("fill"), knob=document.getElementById("knob"), tcur=document.getElementById("tcur");
+const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+function paint(){
+  const p=(pos/total*100).toFixed(2)+"%";
+  fill.style.width=p; knob.style.left=p; tcur.textContent=fmt(pos);
+  /* 沉浸态的进度不用重复，只有一处数据源 */
+}
+paint();
+setInterval(()=>{ if(playing){ pos=Math.min(total,pos+.6); paint(); } },600);
+document.getElementById("bar").addEventListener("click",e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  pos=Math.max(0,Math.min(total,(e.clientX-r.left)/r.width*total)); paint();
+});
+document.getElementById("playBtn").addEventListener("click",e=>{
+  playing=!playing;
+  e.currentTarget.innerHTML = playing?'<i class="ic-pause"><i></i><i></i></i>':'<i class="ic-play"></i>';
+});
+
+/* 沉浸态 */
+document.getElementById("cover").addEventListener("click",()=>document.body.classList.add("immersive"));
+document.querySelector(".card").addEventListener("click",()=>document.body.classList.add("immersive"));
+document.getElementById("imClose").addEventListener("click",()=>document.body.classList.remove("immersive"));
+addEventListener("keydown",e=>{ if(e.key==="Escape") document.body.classList.remove("immersive"); });
+</script>
+</body>
+</html>

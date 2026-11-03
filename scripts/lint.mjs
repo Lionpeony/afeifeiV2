@@ -150,8 +150,7 @@ for (const file of mainFiles) {
     }
   }
   if (BIZ.test(src)) fail(`${n}: 主进程里出现业务标识符（${src.match(BIZ)?.join(", ")}），业务属于环 1`);
-  const lines = read(file).split(/\r?\n/).length;
-  if (lines > 400) fail(`${n}: ${lines} 行，超过 400 行上限`);
+  // 400 行文件上限已解除（2026-11-03 用户决定）：按域拆分仍是习惯，但不再做门禁。
 }
 
 /* ---------- 规则 7：z-index 全集 + !important 零容忍（00 §9.2/§9.3，gate: 2026-11-03） ---------- */

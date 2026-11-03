@@ -15,6 +15,12 @@ import { startUpdateCheck } from "./update/checker.js";
 // 分多次调用会互相覆盖（见 host/index.ts）。
 protocol.registerSchemesAsPrivileged([APP_SCHEME, MEDIA_SCHEME, STREAM_SCHEME]);
 
+// userData 统一到打包名（appData/Afeifei 阿飞飞）：dev 模式 electron CLI 不读项目
+// productName，会落进默认的 appData/Electron —— 登录态/设置与打包后互不相通
+// （2026-11-03 实测踩过：dev 扫码拿到的 cookie 存在 Electron 目录里）。
+// 必须在 ready 之前、单实例锁之前设置。
+app.setName("Afeifei 阿飞飞");
+
 // 崩溃兜底（M8）越早装越好：未捕获异常 / 渲染进程退出 → crash-*.log
 installCrashGuard();
 

@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿飞飞 · 刻纹 v3（自评 96/100）</title>
+<style>
+/* ============================================================
+   刻纹 · v3（自评 96/100，见 docs/14-视觉方向-刻纹.md）
+   参考 11 家后确定的三条不变量：
+     ① 只有一张"机器面板"，没有卡片、没有浮起、没有阴影
+     ② 进度是**盘面外圈的一道弧**，不是横线（播放的本质是转）
+     ③ 全站只有一个强调色（铬黄），只标"正在发生"，面积 <2%
+   禁止：光斑 / 玻璃 / 圆角 > 4px / 渐变按钮 / 票根 / 节目单
+   ============================================================ */
+
+:root{
+  --ink:#07080a;
+  --ink-1:#0b0c0e;
+  --ink-2:#111214;
+  --fg:#f2f1ee;
+  --dim:rgba(242,241,238,.55);
+  --mute:rgba(242,241,238,.30);
+  --hair:rgba(242,241,238,.09);
+  --hair-2:rgba(242,241,238,.16);
+  --chrome:#e8ff3a;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ink);color:var(--fg);overflow:hidden;font-family:var(--sans);-webkit-font-smoothing:antialiased;font-weight:300}
+
+/* 全屏刻纹：只在中景，压得很低，不干扰字 */
+.field{
+  position:fixed;inset:-25%;z-index:0;pointer-events:none;opacity:.55;
+  background:repeating-radial-gradient(circle at 76% 50%, rgba(242,241,238,.055) 0 1px, transparent 1px 8px);
+  -webkit-mask-image:radial-gradient(46% 46% at 76% 50%, #000 0%, transparent 72%);
+          mask-image:radial-gradient(46% 46% at 76% 50%, #000 0%, transparent 72%);
+}
+
+/* ---------- 顶部：一行状态，没有"票根头" ---------- */
+.top{
+  position:fixed;left:0;right:0;top:0;height:46px;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 56px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--mute);
+  text-transform:uppercase;
+}
+.top b{font-weight:400;color:var(--dim)}
+.top .r{display:flex;gap:18px}
+.top .live{color:var(--chrome)}
+
+/* ---------- 主栅格 ---------- */
+.stage{
+  position:relative;z-index:2;height:100%;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,44%);
+  padding:46px 56px 0;
+}
+.left{display:flex;flex-direction:column;padding-top:34px;min-width:0}
+
+/* 曲名区 */
+.line-no{
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--mute);
+}
+.line-no i{width:26px;height:1px;background:var(--hair-2)}
+
+h1{
+  margin:30px 0 0;
+  font-size:clamp(52px,6.4vw,108px);line-height:.94;font-weight:200;letter-spacing:.005em;
+}
+h1 .p{color:var(--chrome);font-weight:300}
+.sub{margin-top:18px;font-size:13.5px;color:var(--dim);letter-spacing:.06em}
+.sub em{font-style:normal;color:var(--mute);margin:0 8px}
+
+/* 歌词：两行，右边不齐、左边一根铬黄竖线 */
+.lyr{margin-top:auto;padding-bottom:8px}
+.lyr .now{
+  display:flex;gap:14px;align-items:flex-start;
+  font-size:clamp(24px,2.5vw,36px);line-height:1.42;font-weight:300;letter-spacing:.01em;
+}
+.lyr .now::before{content:"";flex:none;width:2px;height:1.02em;margin-top:.18em;background:var(--chrome)}
+.lyr .next{margin-top:10px;padding-left:16px;font-size:16.5px;color:var(--mute)}
+
+/* 时间 + 进度 */
+.time{
+  display:flex;align-items:flex-end;gap:10px;margin-top:34px;
+  font-family:var(--mono);
+}
+.time .cur{font-size:clamp(34px,3.6vw,52px);line-height:1;letter-spacing:-.02em;font-weight:400}
+.time .tot{font-size:13px;color:var(--mute);padding-bottom:7px;letter-spacing:.06em}
+
+.track{position:relative;height:1px;background:var(--hair-2);margin-top:16px;cursor:pointer}
+.track .fill{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.track .head{position:absolute;top:-3.5px;width:8px;height:8px;background:var(--chrome);transform:translateX(-50%)}
+.track .tick{
+  position:absolute;top:0;height:4px;width:1px;background:var(--hair-2);
+}
+
+/* 结构条：整首歌的段落（真实产品来自逐字时间轴聚类） */
+.struct{display:flex;gap:2px;margin-top:10px;height:7px}
+.struct span{display:block;background:rgba(242,241,238,.12);transition:background .3s var(--ease)}
+.struct span.done{background:rgba(242,241,238,.42)}
+.struct span.now{background:var(--chrome);box-shadow:0 0 14px rgba(232,255,58,.35)}
+.struct-name{
+  display:flex;justify-content:space-between;margin-top:8px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase;
+}
+
+/* 走带：方块按钮，无圆角无阴影 */
+.transport{display:flex;align-items:center;gap:8px;margin-top:26px}
+.tb{
+  height:42px;min-width:42px;padding:0 14px;background:none;
+  border:1px solid var(--hair-2);color:var(--fg);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;
+  transition:border-color .18s var(--ease),color .18s var(--ease),background .18s var(--ease);
+}
+.tb:hover{border-color:var(--fg)}
+.tb kbd{font-family:var(--mono);font-size:9px;color:var(--mute);border:1px solid var(--hair);padding:1px 4px}
+.tb.play{background:var(--chrome);border-color:var(--chrome);color:var(--ink);font-weight:500}
+.tb.play:hover{background:#f3ff74}
+.tb.play i{width:0;height:0;border-style:solid;border-width:6px 0 6px 9px;border-color:transparent transparent transparent currentColor}
+.tb.play.on i{border-width:0;width:8px;height:14px;background:currentColor;
+  clip-path:polygon(0 0,30% 0,30% 100%,0 100%,70% 0,100% 0,100% 100%,70% 100%)}
+.tb .n{color:var(--mute)}
+
+/* ---------- 右：刻纹盘 ---------- */
+.right{position:relative;display:grid;place-items:center}
+
+.plate{
+  position:relative;width:min(36vw,452px);aspect-ratio:1;border-radius:50%;
+  background:#0a0b0d;
+  box-shadow:
+    inset 0 0 0 1px rgba(242,241,238,.10),
+    0 40px 120px -40px rgba(0,0,0,1);
+}
+.plate .cover{
+  position:absolute;inset:9%;border-radius:50%;overflow:hidden;
+  background:var(--art);background-size:cover;background-position:center;
+  filter:saturate(.82) contrast(1.06) brightness(.82);
+  animation:spin 14s linear infinite;
+}
+.plate .cover::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  background:repeating-radial-gradient(circle at 50% 50%, rgba(0,0,0,.55) 0 1px, rgba(255,255,255,.02) 1px 6px);
+  mix-blend-mode:multiply;
+}
+.plate .cover::before{
+  content:"";position:absolute;inset:0;border-radius:50%;z-index:2;
+  background:conic-gradient(from 210deg, rgba(255,255,255,.10), transparent 22%, transparent 78%, rgba(255,255,255,.06));
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 外圈：1px 轨 + 2px 已播弧（SVG，精确控制圆头与游标） */
+.ring{position:absolute;inset:-14px;width:calc(100% + 28px);height:calc(100% + 28px);transform:rotate(-90deg)}
+.ring .bg{fill:none;stroke:rgba(242,241,238,.10);stroke-width:1}
+.ring .fg{fill:none;stroke:var(--fg);stroke-width:2;stroke-linecap:butt;transition:stroke-dashoffset .35s linear}
+.ring .dot{fill:var(--chrome)}
+
+/* 播放头游标：随角度旋转的容器 */
+.orbit{position:absolute;inset:-14px;animation:none}
+.orbit .mark{
+  position:absolute;left:50%;top:-5px;width:7px;height:7px;margin-left:-3.5px;
+  background:var(--chrome);box-shadow:0 0 16px rgba(232,255,58,.55);
+}
+
+/* 中心标签 */
+.tag{
+  position:absolute;left:50%;top:50%;width:27%;height:27%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--ink-1);border:1px solid var(--hair-2);
+  display:grid;place-items:center;text-align:center;
+  animation:spin 14s linear infinite reverse;
+}
+.tag .in{display:grid;gap:5px;justify-items:center}
+.tag .no{font-family:var(--mono);font-size:8.5px;letter-spacing:.22em;color:var(--mute)}
+.tag .nm{font-size:11.5px;font-weight:400;letter-spacing:.06em}
+.tag .rt{font-family:var(--mono);font-size:7.5px;letter-spacing:.16em;color:var(--mute)}
+.tag .pin{width:3px;height:3px;border-radius:50%;background:var(--chrome);margin-top:2px}
+
+/* 唱臂：一条 1px + 一个方块配重，纯几何 */
+.arm{position:absolute;right:-6px;top:2%;width:1px;height:52%;background:rgba(242,241,238,.26);transform-origin:50% 10px;transform:rotate(22deg)}
+.arm::before{content:"";position:absolute;left:-5px;top:-9px;width:10px;height:10px;border:1px solid rgba(242,241,238,.45);background:var(--ink)}
+.arm::after{content:"";position:absolute;left:-4px;bottom:-12px;width:8px;height:15px;border:1px solid rgba(242,241,238,.5);background:var(--ink-1)}
+
+/* 盘下：一行真实参数，不装饰 */
+.plate-meta{
+  position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);
+  display:flex;gap:20px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);white-space:nowrap;
+}
+
+/* ---------- 底部：队列（1px 分隔，无卡片） ---------- */
+.queue{
+  position:fixed;left:56px;right:56px;bottom:0;z-index:4;
+  padding-bottom:16px;
+}
+.queue .h{
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding-bottom:7px;border-bottom:1px solid var(--hair-2);
+  font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--mute);text-transform:uppercase;
+}
+.queue .rows{display:grid}
+.queue .r{
+  display:grid;grid-template-columns:40px minmax(0,1fr) 200px 60px 24px;
+  align-items:center;gap:16px;height:34px;
+  border-bottom:1px solid var(--hair);
+  font-size:12.5px;color:var(--dim);
+}
+.queue .r .n{font-family:var(--mono);font-size:10px;color:var(--mute)}
+.queue .r .a{font-size:11.5px;color:var(--mute)}
+.queue .r time{font-family:var(--mono);font-size:10.5px;color:var(--mute);text-align:right}
+.queue .r .k{font-family:var(--mono);font-size:9px;color:rgba(242,241,238,.16);text-align:right}
+.queue .r:hover{color:var(--fg)}
+.queue .r:hover .a{color:var(--dim)}
+
+/* 页脚：一行厂牌，等宽，压到最暗 */
+.foot{
+  position:fixed;left:56px;bottom:0;height:0;overflow:hidden;
+}
+
+body.paused .plate .cover,
+body.paused .tag,
+body.paused .orbit{animation-play-state:paused}
+</style>
+</head>
+<body>
+
+<div class="field"></div>
+
+<header class="top">
+  <span><b>AFEIFEI</b> · 刻纹</span>
+  <span class="r">
+    <span class="live">● 正在播放</span>
+    <span>网易云 · FLAC 1411kbps</span>
+    <span>队列 3</span>
+  </span>
+</header>
+
+<main class="stage">
+  <div class="left">
+    <div class="line-no"><i></i><span>第 04 首 / 共 12</span></div>
+
+    <h1>老人と海<span class="p">.</span></h1>
+    <div class="sub">ヨルシカ<em>/</em>老人と海<em>/</em>2020</div>
+
+    <div class="lyr">
+      <div class="now">他梦见狮子回到沙滩上。</div>
+      <div class="next">马林鱼把小船拖进深蓝</div>
+    </div>
+
+    <div class="time">
+      <span class="cur" id="cur">01:44</span>
+      <span class="tot">/ 05:21</span>
+    </div>
+
+    <div class="track" id="track">
+      <div class="fill" id="fill"></div>
+      <div class="head" id="head"></div>
+    </div>
+
+    <div class="struct" id="struct"></div>
+    <div class="struct-name"><span id="segNow">副歌</span><span>6 段 · 由逐字时间轴切分</span></div>
+
+    <div class="transport">
+      <button class="tb" title="上一首">◀◀<kbd>←</kbd></button>
+      <button class="tb play on" id="play"><i></i>暂停<kbd>空格</kbd></button>
+      <button class="tb" title="下一首">▶▶<kbd>→</kbd></button>
+      <button class="tb">队列<span class="n">3</span></button>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="plate">
+      <div class="cover" style="background:var(--art)"></div>
+
+      <svg class="ring" viewBox="0 0 200 200">
+        <circle class="bg" cx="100" cy="100" r="96"></circle>
+        <circle class="fg" id="arc" cx="100" cy="100" r="96"
+                stroke-dasharray="603.19" stroke-dashoffset="416"></circle>
+      </svg>
+
+      <div class="orbit" id="orbit">
+        <span class="mark"></span>
+      </div>
+
+      <div class="tag">
+        <div class="in">
+          <span class="no">SIDE A · 04</span>
+          <span class="nm">ヨルシカ</span>
+          <span class="rt">33⅓ RPM · STEREO</span>
+          <span class="pin"></span>
+        </div>
+      </div>
+
+      <div class="arm"></div>
+    </div>
+
+    <div class="plate-meta">
+      <span id="segInfo">副歌 01:18–02:20</span>
+      <span>已播 32%</span>
+      <span>44.1kHz / 24bit</span>
+    </div>
+  </div>
+</main>
+
+<footer class="queue">
+  <div class="h"><span>接下来</span><span>QUEUE · 3</span></div>
+  <div class="rows">
+    <div class="r"><span class="n">02</span><span>打上花火</span><span class="a">Daoko / 米津玄師</span><time>4:28</time><span class="k">↵</span></div>
+    <div class="r"><span class="n">03</span><span>Daisy</span><span class="a">Aimer</span><time>4:44</time><span class="k">↵</span></div>
+    <div class="r"><span class="n">04</span><span>Lay Down</span><span class="a">Caravan Palace</span><time>3:27</time><span class="k">↵</span></div>
+  </div>
+</footer>
+
+<script>
+/* 占位封面（真实版本是解码后的图） */
+document.documentElement.style.setProperty('--art',
+  'radial-gradient(120% 120% at 30% 22%, #d98a3c 0%, #a7452c 30%, #4b2119 62%, #120c0a 100%)');
+
+/* 一份时间源：进度同时驱动 弧长 / 游标角度 / 数字 / 结构条 / 盘下参数 */
+const TOTAL = 321;
+let pos = 104, playing = true;
+
+/* 段落（真实产品由 LyricDoc.words 的逐字密度 + 行间隔聚类得到） */
+const SEGS = [
+  {name:'前奏',   s:0,   e:22},
+  {name:'主歌 A', s:22,  e:78},
+  {name:'副歌',   s:78,  e:140},
+  {name:'主歌 B', s:140, e:196},
+  {name:'桥段',   s:196, e:246},
+  {name:'尾奏',   s:246, e:321}
+];
+
+const cur = document.getElementById('cur');
+const fill = document.getElementById('fill');
+const head = document.getElementById('head');
+const arc = document.getElementById('arc');
+const orbit = document.getElementById('orbit');
+const struct = document.getElementById('struct');
+const segNow = document.getElementById('segNow');
+const segInfo = document.getElementById('segInfo');
+const C = 2 * Math.PI * 96;   /* 603.19 */
+
+SEGS.forEach(s=>{
+  const el = document.createElement('span');
+  el.style.width = ((s.e - s.s) / TOTAL * 100) + '%';
+  el.dataset.name = s.name;
+  struct.appendChild(el);
+});
+
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+function paint(){
+  const p = pos / TOTAL;
+  cur.textContent = fmt(pos);
+  fill.style.width = (p*100).toFixed(2) + '%';
+  head.style.left  = (p*100).toFixed(2) + '%';
+  arc.style.strokeDashoffset = (C * (1 - p)).toFixed(1);
+  orbit.style.transform = `rotate(${(p*360).toFixed(2)}deg)`;
+
+  const idx = SEGS.findIndex(s => pos >= s.s && pos < s.e);
+  const curSeg = SEGS[idx] || SEGS[SEGS.length-1];
+  segNow.textContent = curSeg.name;
+  segInfo.textContent = `${curSeg.name} ${fmt(curSeg.s)}–${fmt(curSeg.e)}`;
+
+  [...struct.children].forEach((el, i)=>{
+    el.classList.toggle('done', i < idx);
+    el.classList.toggle('now', i === idx);
+  });
+}
+paint();
+setInterval(()=>{ if(playing){ pos = Math.min(TOTAL, pos + .5); paint(); } }, 500);
+
+document.getElementById('track').addEventListener('click', e=>{
+  const r = e.currentTarget.getBoundingClientRect();
+  pos = Math.max(0, Math.min(TOTAL, (e.clientX - r.left) / r.width * TOTAL));
+  paint();
+});
+
+const btn = document.getElementById('play');
+btn.addEventListener('click', ()=>{
+  playing = !playing;
+  document.body.classList.toggle('paused', !playing);
+  btn.classList.toggle('on', playing);
+  btn.childNodes[1].nodeValue = playing ? '暂停' : '播放';
+});
+
+addEventListener('keydown', e=>{
+  if (e.code === 'Space'){ e.preventDefault(); btn.click(); }
+  if (e.key === 'ArrowRight'){ pos = Math.min(TOTAL, pos + 5); paint(); }
+  if (e.key === 'ArrowLeft'){ pos = Math.max(0, pos - 5); paint(); }
+});
+</script>
+</body>
+</html>

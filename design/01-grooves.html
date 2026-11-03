@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 碟 · GROOVES（A+ 版）</title>
+<style>
+/* ============================================================
+   01 碟 · GROOVES —— 完全重做
+   核心：**一张盘 = 这首歌的全部信息**，唱针是"读谱的针"。
+     外环 60 刻   = 每 5 秒一个刻度，已播变亮
+     中环 6 段弧  = 前奏/主歌A/副歌/主歌B/桥段/尾奏（弧长 = 真实时长）
+     内环 34 点   = 每一句歌词一个点，已播变亮，当前点橙红
+     唱针针尖     = 始终压在内环上、指向当前歌词点
+   这不是装饰：把时间、结构、歌词压进同一张盘，别家没有。
+
+   纪律：零圆角（圆只属于唱片）/ 零阴影 / 1px 线 / 单强调色 #ff5a2e
+   ============================================================ */
+
+:root{
+  --ink:#07080a;
+  --fg:#f4f3f0;
+  --dim:rgba(244,243,240,.66);
+  --mute:rgba(244,243,240,.46);
+  --trace:rgba(244,243,240,.16);
+  --sig:#ff5a2e;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--ink);color:var(--fg);overflow:hidden;
+  font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased;
+}
+
+/* 顶部状态条 */
+.top{
+  height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 52px;font-family:var(--mono);font-size:9px;letter-spacing:.24em;
+  color:var(--mute);text-transform:uppercase;
+}
+.top b{color:var(--dim);font-weight:400}
+.top .r{display:flex;gap:18px;align-items:center}
+.live{color:var(--sig)}
+
+/* 主栅格：左 46% 文字 / 右 54% 盘 */
+.stage{
+  height:calc(100% - 46px);
+  display:grid;grid-template-columns:minmax(0,46%) minmax(0,54%);
+  align-items:center;
+}
+
+/* ---------- 左：三段式 ---------- */
+.left{padding:0 0 0 52px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+
+.kicker{display:flex;align-items:center;gap:11px;font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--mute)}
+.kicker i{width:22px;height:1px;background:var(--trace)}
+
+h1{
+  margin:26px 0 0;
+  font-size:clamp(56px,6.6vw,104px);line-height:.92;font-weight:200;letter-spacing:.005em;
+}
+h1 .dot{color:var(--sig)}
+
+.meta{
+  margin-top:16px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  color:var(--mute);text-transform:uppercase;
+}
+
+/* 第二视觉：当前歌词 40px（不是小字） */
+.lyric{margin-top:clamp(30px,4.4vh,54px)}
+.lyric .now{
+  display:flex;gap:15px;
+  font-size:clamp(26px,2.9vw,40px);line-height:1.34;font-weight:200;
+}
+.lyric .now::before{
+  content:"";flex:none;width:3px;height:1.02em;margin-top:.14em;background:var(--sig);
+}
+.lyric .next{
+  margin-top:11px;padding-left:18px;
+  font-size:16px;line-height:1.5;color:var(--mute);
+}
+
+/* 走带区 */
+.deck{margin-top:clamp(24px,3.4vh,42px)}
+.clock{display:flex;align-items:flex-end;gap:10px;font-family:var(--mono)}
+.clock b{font-size:clamp(34px,3.4vw,48px);line-height:1;font-weight:300;letter-spacing:-.02em}
+.clock span{font-size:11px;color:var(--mute);padding-bottom:5px;letter-spacing:.08em}
+
+/* 结构条：6 段，宽度=时长，点击跳转 */
+.struct{
+  display:flex;gap:2px;margin-top:16px;height:8px;cursor:pointer;
+}
+.struct span{
+  display:block;flex:0 0 auto;background:rgba(244,243,240,.14);
+  transition:background .2s var(--ease);
+}
+.struct:hover span{background:rgba(244,243,240,.26)}
+.struct span.done{background:rgba(244,243,240,.55)}
+.struct span.now{background:var(--sig)}
+
+.sname{
+  display:flex;justify-content:space-between;margin-top:9px;
+  font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);
+  text-transform:uppercase;
+}
+.sname b{color:var(--dim);font-weight:400}
+
+.transport{display:flex;gap:7px;margin-top:clamp(18px,2.6vh,30px)}
+.tb{
+  height:40px;min-width:40px;padding:0 13px;background:none;
+  border:1px solid var(--trace);color:var(--fg);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
+  transition:border-color .18s var(--ease),background .18s var(--ease),color .18s var(--ease);
+}
+.tb:hover{border-color:var(--fg)}
+.tb.on{background:var(--sig);border-color:var(--sig);color:#fff;font-weight:600}
+.tb kbd{
+  font-family:var(--mono);font-size:8px;color:var(--mute);
+  border:1px solid rgba(244,243,240,.18);padding:1px 3px;
+}
+.tb.on kbd{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.32)}
+
+/* ---------- 右：盘 ---------- */
+.right{position:relative;display:grid;place-items:center;height:100%}
+
+.disc{
+  position:relative;width:min(42vw,480px);aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle at 50% 50%,#0f1012 0 1px,#0a0b0c 1px 4px);
+  box-shadow:inset 0 0 0 1px rgba(244,243,240,.09);
+}
+/* 黑胶斜光：只在左上一道 */
+.disc::after{
+  content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 198deg,transparent 0 24%,rgba(244,243,240,.055) 32%,transparent 40%,transparent 72%,rgba(244,243,240,.03) 82%,transparent 90%);
+}
+/* 封面标签 */
+.label{
+  position:absolute;left:50%;top:50%;width:28%;height:28%;transform:translate(-50%,-50%);
+  border-radius:50%;background-image:var(--art);background-size:cover;background-position:center;
+  border:1px solid rgba(244,243,240,.18);
+  filter:saturate(.94) brightness(.9);
+  animation:spin 18s linear infinite;
+}
+.hole{
+  position:absolute;left:50%;top:50%;width:2.4%;height:2.4%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--ink);border:1px solid rgba(244,243,240,.24);
+  z-index:3;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 三环 SVG 盖在盘上 */
+.rings{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.rings .ticks{stroke:rgba(244,243,240,.40);stroke-width:.6}
+.rings .ticks.on{stroke:rgba(244,243,240,.92)}
+.rings .seg-arc{fill:none;stroke-width:3.4;stroke-linecap:butt}
+.rings .seg-arc.past{stroke:rgba(244,243,240,.55)}
+.rings .seg-arc.now{stroke:var(--sig)}
+.rings .seg-arc.future{stroke:rgba(244,243,240,.18)}
+.rings .lyric-dot{fill:rgba(244,243,240,.45)}
+.rings .lyric-dot.on{fill:rgba(244,243,240,.92)}
+.rings .lyric-dot.cur{fill:var(--sig)}
+/* 唱针：针尖坐标由脚本算，始终保持在内环上 */
+.rings .needle{stroke:rgba(244,243,240,.55);stroke-width:1.2}
+.rings .needle-head{fill:#0c0d0f;stroke:rgba(244,243,240,.6);stroke-width:.8}
+.rings .needle-tip{fill:var(--sig)}
+/* 针尖外侧的剩余时间（第三层信息，整张盘上只出现这一处字） */
+.rings .tip-label{fill:var(--sig);font-family:var(--mono);font-size:3.6px;letter-spacing:.06em}
+
+/* 盘下技术行（第三层信息） */
+.tech{
+  position:absolute;bottom:2px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;
+  color:rgba(244,243,240,.30);white-space:nowrap;
+}
+
+/* 窄窗：盘缩、左栏挤 */
+@media (max-width:1120px){
+  .top{padding:0 28px}
+  .left{padding-left:28px}
+  .disc{width:min(46vw,380px)}
+  h1{font-size:clamp(44px,6vw,76px)}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span><b>AFEIFEI</b> · 碟</span>
+  <span class="r">
+    <span class="live">● 正在播放</span>
+    <span>网易云 · FLAC 1411</span>
+    <span>04 / 12</span>
+  </span>
+</header>
+
+<main class="stage">
+  <div class="left">
+    <div class="kicker"><i></i><span>第 04 首 / 共 12</span></div>
+
+    <h1>老人と海<span class="dot">.</span></h1>
+    <div class="meta">ヨルシカ · 老人と海 · 2020</div>
+
+    <div class="lyric">
+      <div class="now">他梦见狮子回到沙滩上。</div>
+      <div class="next">马林鱼把小船拖进深蓝</div>
+    </div>
+
+    <div class="deck">
+      <div class="clock"><b data-cur>01:44</b><span>/ 05:21</span></div>
+      <div class="struct" id="struct"></div>
+      <div class="sname">
+        <span><b id="segName">副歌</b> · <span id="segRange">01:18–02:20</span></span>
+        <span>点击跳段</span>
+      </div>
+      <div class="transport">
+        <button class="tb">◀◀<kbd>←</kbd></button>
+        <button class="tb on" id="play">暂停<kbd>空格</kbd></button>
+        <button class="tb">▶▶<kbd>→</kbd></button>
+        <button class="tb">队列 3</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="disc">
+      <div class="label"></div>
+      <svg class="rings" viewBox="0 0 200 200" id="rings">
+        <g id="ticks"></g>
+        <g id="arcs"></g>
+        <g id="dots"></g>
+        <line class="needle" id="needle" x1="168" y1="14" x2="100" y2="40"></line>
+        <circle class="needle-head" id="nhead" cx="168" cy="14" r="2.6"></circle>
+        <circle class="needle-tip" id="ntip" cx="100" cy="40" r="2"></circle>
+        <text class="tip-label" id="ntext" x="100" y="40">03:36</text>
+      </svg>
+      <div class="hole"></div>
+    </div>
+    <div class="tech">33⅓ RPM · SIDE A · 44.1kHz / 24bit · 已播 32%</div>
+  </div>
+</main>
+
+<script>
+/* ---------- 数据 ---------- */
+document.documentElement.style.setProperty('--art',
+  'url("file:///C:/Windows/Web/Wallpaper/Windows/img0.jpg")');
+
+const TOTAL = 321;
+let pos = 104, playing = true;
+
+const SEGS = [
+  {name:'前奏',   s:0,   e:22},
+  {name:'主歌 A', s:22,  e:78},
+  {name:'副歌',   s:78,  e:140},
+  {name:'主歌 B', s:140, e:196},
+  {name:'桥段',   s:196, e:246},
+  {name:'尾奏',   s:246, e:321}
+];
+/* 34 句歌词的时间点（真实产品来自 LyricDoc；这里按密度铺开） */
+const LINES = [6,12,18,24,31,38,45,52,59,66,73,80,86,92,98,104,110,116,122,128,134,140,148,156,164,172,180,190,200,212,226,240,258,290];
+
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+const CX = 100, CY = 100;
+
+/* ---------- 三环 ---------- */
+const gTicks = document.getElementById('ticks');
+const gArcs  = document.getElementById('arcs');
+const gDots  = document.getElementById('dots');
+
+/* 外环：60 刻（每 5 秒一个，5:21 = 321s ≈ 64 刻，取 60） */
+const TICK_N = 60;
+const tickEls = [];
+for (let i = 0; i < TICK_N; i++) {
+  const a = (i / TICK_N) * Math.PI * 2 - Math.PI / 2;
+  const r1 = 94, r2 = 88.5;
+  const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  l.setAttribute('x1', (CX + Math.cos(a) * r1).toFixed(2));
+  l.setAttribute('y1', (CY + Math.sin(a) * r1).toFixed(2));
+  l.setAttribute('x2', (CX + Math.cos(a) * r2).toFixed(2));
+  l.setAttribute('y2', (CY + Math.sin(a) * r2).toFixed(2));
+  l.setAttribute('class', 'ticks');
+  gTicks.appendChild(l);
+  tickEls.push(l);
+}
+
+/* 中环：6 段弧，弧长 = 时长占比（r = 80） */
+const R_ARC = 80;
+const CIRC = 2 * Math.PI * R_ARC;
+const arcEls = [];
+SEGS.forEach((sg) => {
+  const len = ((sg.e - sg.s) / TOTAL) * CIRC;
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('cx', CX); c.setAttribute('cy', CY); c.setAttribute('r', R_ARC);
+  c.setAttribute('class', 'seg-arc future');
+  c.setAttribute('stroke-dasharray', `${len.toFixed(2)} ${(CIRC - len).toFixed(2)}`);
+  /* 起点：从 -90° 开始，累计旋转 */
+  const startAngle = (sg.s / TOTAL) * 360 - 90;
+  c.setAttribute('transform', `rotate(${startAngle} ${CX} ${CY})`);
+  gArcs.appendChild(c);
+  arcEls.push(c);
+});
+
+/* 内环：34 个歌词点（r = 66） */
+const R_DOT = 66;
+const dotEls = [];
+LINES.forEach((t) => {
+  const a = (t / TOTAL) * Math.PI * 2 - Math.PI / 2;
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('cx', (CX + Math.cos(a) * R_DOT).toFixed(2));
+  c.setAttribute('cy', (CY + Math.sin(a) * R_DOT).toFixed(2));
+  c.setAttribute('r', 1.5);
+  c.setAttribute('class', 'lyric-dot');
+  gDots.appendChild(c);
+  dotEls.push(c);
+});
+
+/* ---------- 结构条 ---------- */
+const struct = document.getElementById('struct');
+SEGS.forEach((sg, i) => {
+  const el = document.createElement('span');
+  el.style.width = ((sg.e - sg.s) / TOTAL * 100) + '%';
+  el.dataset.i = i;
+  struct.appendChild(el);
+});
+struct.addEventListener('click', (e) => {
+  const r = struct.getBoundingClientRect();
+  pos = Math.max(0, Math.min(TOTAL, (e.clientX - r.left) / r.width * TOTAL));
+  paint();
+});
+
+/* ---------- 一份时间源 ---------- */
+const needle = document.getElementById('needle');
+const nhead  = document.getElementById('nhead');
+const ntip   = document.getElementById('ntip');
+const curEls = () => document.querySelectorAll('[data-cur]');
+const segName = document.getElementById('segName');
+const segRange = document.getElementById('segRange');
+
+function paint() {
+  const p = pos / TOTAL;
+  curEls().forEach((el) => { el.textContent = fmt(pos); });
+
+  /* 刻度：已播变亮 */
+  const litTicks = Math.round(p * TICK_N);
+  tickEls.forEach((el, i) => el.classList.toggle('on', i < litTicks));
+
+  /* 段落弧：过去/当前/未来 */
+  let idx = SEGS.findIndex((s) => pos >= s.s && pos < s.e);
+  if (idx < 0) idx = SEGS.length - 1;
+  arcEls.forEach((el, i) => {
+    el.classList.toggle('past', i < idx);
+    el.classList.toggle('now', i === idx);
+    el.classList.toggle('future', i > idx);
+  });
+
+  /* 歌词点 */
+  const litDots = LINES.filter((t) => t <= pos).length;
+  dotEls.forEach((el, i) => {
+    el.classList.toggle('on', i < litDots - 1);
+    el.classList.toggle('cur', i === litDots - 1);
+  });
+
+  /* 指针：从盘外指向当前进度（内环上的歌词点）。
+     不做"刚体唱臂"是因为唱臂只在半径方向移动 20° 左右，指示性太弱；
+     这里要的是"一眼看出读到哪句"，形态上是针，语义上是指示。 */
+  const seg = SEGS[idx];
+  const ang = p * Math.PI * 2 - Math.PI / 2;
+  const tx = CX + Math.cos(ang) * R_DOT;
+  const ty = CY + Math.sin(ang) * R_DOT;
+  const px = CX + Math.cos(ang) * 112;
+  const py = CY + Math.sin(ang) * 112;
+  needle.setAttribute('x1', px.toFixed(2));
+  needle.setAttribute('y1', py.toFixed(2));
+  needle.setAttribute('x2', tx.toFixed(2));
+  needle.setAttribute('y2', ty.toFixed(2));
+  ntip.setAttribute('cx', tx.toFixed(2));
+  ntip.setAttribute('cy', ty.toFixed(2));
+  nhead.setAttribute('cx', px.toFixed(2));
+  nhead.setAttribute('cy', py.toFixed(2));
+  /* 针尖外侧的剩余时间：沿"支点→针尖"方向再延长 9 单位 */
+  const dx = tx - px, dy = ty - py;
+  const len = Math.hypot(dx, dy) || 1;
+  const ntext = document.getElementById('ntext');
+  ntext.setAttribute('x', (tx + dx / len * 9).toFixed(2));
+  ntext.setAttribute('y', (ty + dy / len * 9 + 1.4).toFixed(2));
+  ntext.textContent = fmt(TOTAL - pos);
+
+  /* 结构条与段名 */
+  [...struct.children].forEach((el, i) => {
+    el.classList.toggle('done', i < idx);
+    el.classList.toggle('now', i === idx);
+  });
+  segName.textContent = seg.name;
+  segRange.textContent = `${fmt(seg.s)}–${fmt(seg.e)}`;
+}
+paint();
+setInterval(() => { if (playing) { pos = Math.min(TOTAL, pos + 0.5); paint(); } }, 500);
+
+/* ---------- 交互 ---------- */
+document.getElementById('play').addEventListener('click', (e) => {
+  playing = !playing;
+  const b = e.currentTarget;
+  b.textContent = playing ? '暂停' : '播放';
+  const k = document.createElement('kbd');
+  k.textContent = '空格';
+  b.appendChild(k);
+  b.classList.toggle('on', playing);
+  document.querySelector('.label').style.animationPlayState = playing ? 'running' : 'paused';
+});
+
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); document.getElementById('play').click(); }
+  if (e.key === 'ArrowRight') { pos = Math.min(TOTAL, pos + 5); paint(); }
+  if (e.key === 'ArrowLeft') { pos = Math.max(0, pos - 5); paint(); }
+});
+</script>
+</body>
+</html>

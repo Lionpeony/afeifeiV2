@@ -10,6 +10,7 @@
  */
 import { fetchJson } from "./fetchJson.js";
 import { qqApiUrl } from "./qqBackend.js";
+import { readKey, writeKey } from "../fs/kv.js";
 
 interface QqBody {
   code?: number;
@@ -18,8 +19,47 @@ interface QqBody {
   response?: unknown;
 }
 
+/* ---------- 会话 token（照抄 Folia 的模式） ----------
+ * 包的登录路由按 `?cookie=` / header 里的 token 找会话，**不带 token 永远匿名**。
+ * 扫码 803 时包会把 `qqmusic_session=<token>` 写进 Set-Cookie，存住、之后每次带上。
+ * token 只是不透明的会话 id，不是 QQ 凭证本身；持久化到 KV，重启后登录态还在。 */
+const TOKEN_KEY = "qq-session-token";
+const SESSION_COOKIE_RE = /qqmusic_session=([^;]+)/;
+
+let qqToken = "";
+let tokenLoaded = false;
+
+function loadToken(): string {
+  if (!tokenLoaded) {
+    tokenLoaded = true;
+    const raw = readKey(TOKEN_KEY) as unknown;
+    qqToken = typeof raw === "string" && raw ? raw : "";
+  }
+  return qqToken;
+}
+
+function saveToken(token: string): void {
+  qqToken = token;
+  void writeKey(TOKEN_KEY, token).catch(() => undefined); // 存不上只影响下次启动，不阻塞
+}
+
+/** 从 Set-Cookie 行数组或整串 cookie 里提取 token，有就存。 */
+function harvestToken(sources: (string | undefined)[]): void {
+  for (const s of sources) {
+    if (!s) continue;
+    const m = SESSION_COOKIE_RE.exec(s);
+    if (m?.[1]) {
+      saveToken(m[1]);
+      return;
+    }
+  }
+}
+
 async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
-  const { json } = await fetchJson(`${qqApiUrl()}${pathAndQuery}`);
+  const token = loadToken();
+  const sep = pathAndQuery.includes("?") ? "&" : "?";
+  const session = token ? `${sep}cookie=${encodeURIComponent(`qqmusic_session=${token}`)}` : "";
+  const { json } = await fetchJson(`${qqApiUrl()}${pathAndQuery}${session}`);
   return json as T;
 }
 
@@ -42,6 +82,7 @@ export async function callQq(method: string, params: Record<string, unknown> = {
     case "status":
       return qqStatus();
     case "logout":
+      saveToken(""); // 会话作废，本地 token 一并清掉
       return callApi("/logout");
     default:
       throw new Error(`QQ 接口未实现：${method}`);
@@ -109,7 +150,12 @@ async function qqQrPoll(params: Record<string, unknown>): Promise<unknown> {
   // key 是扫码会话的标识，check 必须带着——丢了永远 801（Waiting for QR scan）
   const key = String(params.key ?? "");
   if (!key) throw new Error("缺少扫码会话 key");
-  return callApi(`/login/qr/check?key=${encodeURIComponent(key)}`);
+  // 原生 fetch：803 时包把 `qqmusic_session=<token>` 写进 Set-Cookie，fetchJson 不透出头
+  const r = await fetch(`${qqApiUrl()}/login/qr/check?key=${encodeURIComponent(key)}`);
+  const body = (await r.json()) as { code?: number; cookie?: string };
+  const setCookies = r.headers.getSetCookie?.() ?? [];
+  harvestToken([...setCookies, body?.cookie]);
+  return body;
 }
 
 /* ---------- 登录态 ---------- */

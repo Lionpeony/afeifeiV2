@@ -162,21 +162,22 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     },
 
     async getLyric(sourceId: string): Promise<LyricDoc> {
+      // lyric_new（eapi /api/song/lyric/v1）才有 yrc 逐字；老 lyric 接口的 klyric 已实测全空
+      // 实测（2026-11-03）：花海/孤勇者/泡沫有 yrc；晴天/大鱼/漠河舞厅没有——按歌降级到行级
       const body = await ncm<{
         lrc?: { lyric?: string };
         tlyric?: { lyric?: string };
         yrc?: { lyric?: string };
-        klyric?: { lyric?: string };
-      }>("lyric", { id: sourceId });
+        ytlrc?: { lyric?: string };
+      }>("lyric_new", { id: sourceId, cp: false, tv: 1, lv: 1, rv: 1, kv: 0, yv: 1, ytv: 1, yrv: 0 });
 
       const pick = (node?: { lyric?: string }): string => (node?.lyric ?? "").trim();
 
       const yrc = pick(body?.yrc);
-      const qrc = pick(body?.klyric);
       const lrc = pick(body?.lrc);
       const translated = pick(body?.tlyric);
 
-      const source = yrc || qrc || lrc || translated;
+      const source = yrc || lrc || translated;
       if (!source) throw err("track-missing", "这首歌没有歌词");
 
       const doc = parseLyrics(source);

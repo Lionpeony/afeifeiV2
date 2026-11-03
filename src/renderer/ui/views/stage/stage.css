@@ -1,21 +1,23 @@
-/* 播放页（M4）。五层按 z 收口（50 §9.2）：0 壁纸 / 1 视觉 / 2 封面 / 3 歌词 / 4 控件。
-   颜色只走场景层 token（--stage-*）；切预设只换变量值，任何元素不许位移。 */
+/* 播放页（stage-v10 a2「活字帖」重排）。
+   五层不变量不变（50 §9.2）：0 壁纸 / 1 频谱 / 2 封面 / 3 歌词 / 4 控件（控件收进「视图」浮层）。
+   颜色只走场景层 token（--stage-*）：纸面化换装后 cinema 是深底纸字，
+   所以本文件一律用 --stage-fg / --stage-fg-dim / --accent 派生，不写结构层 --line / --fg。 */
 
 .stage {
+  --st-box: clamp(64px, 6.6vw, 88px); /* 田字格边长：窄窗按 6.6vw 收，1180 以上封顶 88 */
+  --st-side: 316px;
   position: relative;
-  display: grid;
-  grid-template-rows: 1fr auto auto;
-  justify-items: center;
-  gap: 20px;
-  min-height: 100%;
-  padding: 32px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
   background: var(--stage-bg);
   color: var(--stage-fg);
   overflow: hidden;
   transition: background var(--stage-dur) var(--stage-ease);
 }
 
-/* ---- L-a 壁纸（z 0） ---- */
+/* ---- C0 壁纸（z 0） ---- */
 .st-wallpaper {
   position: absolute;
   inset: 0;
@@ -31,7 +33,7 @@
   filter: blur(48px) brightness(0.82) saturate(1.1);
   transform: scale(1.15); /* 模糊边缘外扩，不露黑边 */
 }
-/* 封面取色的可见落点（M9-2，00 §9.3）：--stage-tint 只进 L-a/L-b，不碰结构层。
+/* 封面取色的可见落点（M9-2，00 §9.3）：--stage-tint 只进 C0/C1，不碰结构层。
    18% 低混比 + 透明渐隐，封面一换背景色跟着变，UI 骨架不动。 */
 .st-wallpaper::after {
   content: "";
@@ -44,149 +46,611 @@
   );
 }
 
-/* ---- L-b 视觉（z 1） ---- */
+/* ---- C1 视觉（z 1）：浮在台词本上方，不吃内容 ---- */
 .st-spectrum {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 150px;
   z-index: 1;
   width: 100%;
   height: 120px;
   pointer-events: none;
+  opacity: 0.55;
 }
 
-/* ---- L-c 封面（z 2，不可关） ---- */
-.st-cover-wrap {
+/* ---- 版心：页头 + 左右两栏 + 台词本 ---- */
+.st-page {
   position: relative;
   z-index: 2;
-  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
-.st-cover {
-  display: block;
-  width: var(--stage-cover-size);
-  height: var(--stage-cover-size);
-  object-fit: cover;
-  border-radius: var(--stage-cover-radius);
-  border: var(--stage-cover-frame, none);
-  box-shadow: var(--stage-cover-shadow, none);
-  transition:
-    width var(--stage-dur) var(--stage-ease),
-    height var(--stage-dur) var(--stage-ease),
-    border-radius var(--stage-dur) var(--stage-ease);
-  background: var(--bg-raised);
-}
-.fx-1 .st-cover, .fx-2 .st-cover { animation: st-spin var(--stage-cover-spin) linear infinite; }
-.fx-0 .st-cover { animation: none; } /* 动效关：黑胶也不转 —— intensity=0 必须好看 */
-@keyframes st-spin {
-  to { transform: rotate(360deg); }
-}
-.st-cover-empty { background: var(--bg-raised); border: 1px dashed var(--line); }
 
-/* ---- L-d 歌词（z 3） ---- */
-.st-lyric {
-  position: relative;
-  z-index: 3;
-  width: min(680px, 92vw);
-  height: 132px; /* 3 行 + 余量，行高 36px */
-  overflow: hidden;
-  text-align: center;
+/* 页头沿用 PageHead 三件套，只把标题放大到稿子的 40px */
+.st-page .page-head h1 {
+  font-size: 40px;
 }
-.st-lines {
-  will-change: transform;
-  transition: transform var(--stage-dur) var(--stage-ease);
+.st-page .page-head {
+  margin-bottom: 10px;
 }
-.st-line {
-  height: 36px;
-  line-height: 36px;
-  margin: 0;
-  font-size: var(--stage-lyric-size);
-  font-weight: var(--stage-lyric-weight);
+.st-src {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  line-height: 1.2;
   color: var(--stage-fg-dim);
+  text-align: right;
+}
+.st-src b {
+  font-weight: 400;
+  color: var(--stage-fg-dim);
+}
+.st-viewbtn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--stage-fg-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+.st-viewbtn:hover,
+.st-viewbtn[aria-expanded="true"] {
+  color: var(--accent);
+}
+
+.st-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--st-side);
+  gap: 0 52px;
+}
+
+/* ---- C3 歌词：活字帖 ---- */
+.st-lyr {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* 幽灵页码：5% 墨，纯装饰，永不接收事件 */
+.st-folio {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 0;
+  font-family: var(--font-disp);
+  font-size: 200px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: color-mix(in srgb, var(--stage-fg) 5%, transparent);
+  user-select: none;
+  pointer-events: none;
+}
+
+.st-kicker {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.st-kicker i {
+  width: 26px;
+  height: 2px;
+  background: var(--accent);
+}
+.st-kicker span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--stage-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.st-prev,
+.st-next {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  height: 27px;
+  font-size: 19px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--stage-fg) 45%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color var(--stage-dur) var(--stage-ease);
 }
-.st-line.on { color: var(--stage-fg); }
-
-/* 单行 / 逐字：只显示活动行 */
-.r-minimal .st-line, .r-karaoke .st-line { display: none; }
-.r-minimal .st-line.on, .r-karaoke .st-line.on { display: block; }
-
-/* 逐字：字级渐变推进。--p 由合成器每帧写入（0–1） */
-.st-k {
-  background: linear-gradient(90deg, var(--stage-tint) calc(var(--p, 0) * 100%), var(--stage-fg-dim) 0);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.st-next {
+  font-size: 20px;
+  color: var(--stage-fg-dim);
 }
-/* 无逐字数据的行：整行进度 --lp */
-.r-karaoke .st-line.on { background: linear-gradient(90deg, var(--stage-tint) calc(var(--lp, 0) * 100%), transparent 0); }
-.r-karaoke .st-line.on .st-k { background: none; -webkit-text-fill-color: currentColor; color: inherit; }
+
+/* 田字格：未唱淡墨 / 已唱浓墨 / 正在唱朱砂（稿子的"活字帖"） */
+.st-typeset {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column; /* 翻译行在字格内部流式跟随，不再悬空（2026-11-03 丑评返工） */
+  align-items: flex-start;
+  justify-content: center;
+  min-height: calc(var(--st-box) * 2 + 9px); /* 两行位：换句不跳动 */
+  margin: 10px 0;
+}
+.st-krow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.st-kb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--st-box);
+  height: var(--st-box);
+  border: 1px solid color-mix(in srgb, var(--stage-fg) 12%, transparent);
+  font-family: var(--font-sans);
+  font-size: calc(var(--st-box) * 0.7);
+  font-weight: 600;
+  line-height: 1;
+  color: color-mix(in srgb, var(--stage-fg) 30%, transparent);
+  transition:
+    color 0.18s ease-out,
+    border-color 0.18s ease-out;
+}
+/* 界格：横竖两条中线 */
+.st-kb::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 1px;
+  background: color-mix(in srgb, var(--stage-fg) 6%, transparent);
+}
+.st-kb::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 1px;
+  background: color-mix(in srgb, var(--stage-fg) 6%, transparent);
+}
+.st-kb.dot {
+  font-size: calc(var(--st-box) * 0.55);
+  padding-bottom: 8px;
+}
+.st-kb.lit {
+  color: var(--stage-fg);
+}
+.st-kb.now {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.st-kb.now::before,
+.st-kb.now::after {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* 单行 / 剧场：大字当行 */
+.st-min {
+  position: relative;
+  z-index: 1;
+  margin: 10px 0;
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--stage-fg);
+}
+
+/* 行级翻译（A-03）：像一条「注」——accent 短竖线做锚，贴在当前句正下方 */
+.st-trans {
+  position: relative;
+  z-index: 1;
+  margin: 10px 0 0;
+  padding-left: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--stage-fg) 58%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-trans::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 12px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.st-theatrical .st-trans {
+  margin: 2px 0 8px;
+  font-size: 12.5px;
+}
+.st-theatrical .st-trans::before {
+  height: 9px;
+}
+.st-theatrical .st-prev,
+.st-theatrical .st-next {
+  font-size: 17px;
+  height: 24px;
+}
 
 .st-lyric-empty {
-  margin: 48px 0 0;
+  margin: 24px 0 0;
   color: var(--stage-fg-dim);
   font-size: 14px;
 }
 
-/* ---- L-e 控件（z 4，不可关）：切预设时这里一个像素都不许动 ---- */
-.st-controls {
+/* ---- 右栏：队列 / 票据 / 相纸封面 ---- */
+.st-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 4px;
+}
+.st-side-h {
   position: relative;
-  z-index: 4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 0 9px;
+  border-top: 2px solid var(--accent);
+}
+/* 缝合线：只补过 gap 那 52px，不压到歌词区 */
+.st-side-h::before {
+  content: "";
+  position: absolute;
+  left: -52px;
+  top: -2px;
+  width: 52px;
+  height: 2px;
+  background: var(--accent);
+}
+.st-side-h b {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.st-side-h span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--stage-fg-dim);
+}
+
+.st-nx {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 10px;
+  height: 42px;
+  border-bottom: 1px dotted color-mix(in srgb, var(--stage-fg) 18%, transparent);
 }
-.st-presets { display: flex; gap: 4px; }
-.st-presets button, .st-tools button, .st-tools select {
-  background: none;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  color: var(--fg-dim);
-  cursor: pointer;
-  padding: 3px 10px;
+.st-nx .no {
+  flex: 0 0 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--stage-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.st-nx .art {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  background: var(--bg-raised) center/cover no-repeat;
+  border: 1px solid color-mix(in srgb, var(--stage-fg) 22%, transparent);
+}
+.st-nx .tx {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-nx .tx small {
+  margin-left: 7px;
+  font-size: 11.5px;
+  color: var(--stage-fg-dim);
+}
+.st-nx time {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--stage-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.st-side-empty {
+  margin: 14px 0 0;
   font-size: 12px;
+  color: var(--stage-fg-dim);
 }
-.st-presets button.on {
-  color: var(--fg);
-  border-color: var(--accent);
-}
-.st-tools { display: flex; gap: 8px; align-items: center; }
 
-/* 图层开关浮层：材质层 token */
+/* 票据：第 004 场 / TOTAL 12（场次与总数都是真数据，不是稿子的装饰编号） */
+.st-seal {
+  align-self: flex-start;
+  margin: 14px 0 0 2px;
+  padding: 5px 10px 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+  text-align: center;
+  transform: rotate(-2deg);
+}
+.st-seal b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.st-seal small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+/* C2 封面：相纸卡（白边 + 黑条 SIDE A · NN），不可关 */
+.st-photo {
+  position: relative;
+  margin-top: auto;
+  width: min(214px, 100%);
+  align-self: flex-end;
+  transform: rotate(-2deg);
+}
+.st-photo .art {
+  position: relative;
+  aspect-ratio: 1;
+  border: 9px solid var(--bg);
+  outline: 1px solid color-mix(in srgb, var(--stage-fg) 28%, transparent);
+  background: var(--bg-raised);
+}
+.st-photo .art:empty::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px dashed color-mix(in srgb, var(--stage-fg) 22%, transparent);
+}
+.st-photo .art::after {
+  content: attr(data-side);
+  position: absolute;
+  left: -9px;
+  bottom: -9px;
+  padding: 5px 9px;
+  background: var(--stage-fg);
+  color: var(--stage-bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.st-cover-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  will-change: transform;
+}
+.st-photo .cap {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 2px 0;
+}
+.st-photo .cap b {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-photo .cap span {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--stage-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+.st-photo .cap2 {
+  padding: 4px 2px 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--stage-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- 台词本：3 列 × 4 排，点行跳句 ---- */
+.st-script {
+  flex: none;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--stage-fg) 55%, transparent);
+}
+.st-script .sh {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 6px;
+}
+.st-script .sh b {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.st-script .sh span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--stage-fg-dim);
+}
+.st-script .rows {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 34px;
+}
+.st-srow {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  width: 100%;
+  height: 31px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dotted color-mix(in srgb, var(--stage-fg) 18%, transparent);
+  background: none;
+  color: var(--stage-fg-dim);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.st-srow .no {
+  flex: 0 0 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+  color: color-mix(in srgb, var(--stage-fg) 45%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.st-srow time {
+  flex: 0 0 42px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.st-srow .tx {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--stage-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-srow.cur .no,
+.st-srow.cur time,
+.st-srow.cur .tx {
+  color: var(--accent);
+}
+.st-srow.cur .tx {
+  font-weight: 600;
+}
+.st-srow:hover .tx {
+  color: var(--stage-fg);
+}
+.st-srow:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ---- C4 控件浮层（材质层 token，跟封面无关） ---- */
 .st-menu {
   position: absolute;
-  right: 16px;
-  bottom: 64px;
+  right: 32px;
+  top: 62px;
   z-index: 40;
   display: grid;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  width: 330px;
+  padding: 14px 16px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  border-radius: 0;
   box-shadow: var(--glass-shadow);
   font-size: 12px;
   color: var(--fg-dim);
 }
-.st-menu label { display: flex; align-items: center; gap: 6px; }
-
-.st-meta {
-  margin: 0;
+.st-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.st-menu .lbl {
+  flex: 0 0 44px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
   color: var(--fg-dim);
+}
+.st-menu button,
+.st-menu select {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font-family: inherit;
   font-size: 12px;
-  z-index: 4;
+  cursor: pointer;
+}
+.st-menu button.on {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.st-menu label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.st-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-/* 动效档位 0 = 全关。同一元素只命中一个 fx-N 类，直接覆盖即可，不用 !important。 */
-.fx-0 .st-lines,
-.fx-0 .st-cover,
+/* 动效档位 0 = 全关（intensity=0 必须好看）。同一元素只命中一个 fx-N 类，直接覆盖即可。 */
+.fx-0 .st-kb,
 .fx-0 .st-wallpaper,
-.fx-0 .st-line {
+.fx-0 .st-photo,
+.fx-0 .st-srow {
   transition: none;
   animation: none;
+}
+
+/* 窄窗：右栏收到 250px，田字格跟着缩，台词本从 3 列降到 2 列 */
+@media (max-width: 1180px) {
+  .stage {
+    --st-side: 250px;
+  }
+  .st-body {
+    gap: 0 32px;
+  }
+  .st-side-h::before {
+    left: -32px;
+    width: 32px;
+  }
+  .st-script .rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .st-folio {
+    font-size: 150px;
+  }
+  .st-min {
+    font-size: 36px;
+  }
 }

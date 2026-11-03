@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>沉浸播放页 · 刻纹现场 r4</title>
+<link rel="stylesheet" href="core.css">
+<style>
+  /* ============ r4 ·「刻纹现场」自查清单 ============
+     ① 新效果：盘面「已播沟槽热度」扇形——conic 硬边界淡红扇形随进度实时长大，
+        唱片越听越热，盘面本身成为第二进度显示（进度环之外的仪表冗余是刻意的）
+     ② 唱臂循纹微摆：armDrop 落针后接 armSway 26°↔26.8° 无限交替——唱机的呼吸感
+     ③ 活稿：JS 引擎与 a2 同源（真实时间码 ×5 演示加速）——进度环/词轴红点/
+        时间码/热度扇形全部随播放流转；换句时唱词逐字落版（与 a2「活字」同语言）
+     ④ HUD 加分钟刻度；空格暂停；r3 资产全保留（抽盘入场/词轴/水印/相纸封套）
+     ⑤ 纪律：无渐变（热度扇形是硬边界色块，与进度弧同性质）、无阴影、无圆角
+     ==================================== */
+  .bar { background: transparent; border-bottom: 0; }
+  .stage { position: absolute; left: 0; right: 0; top: var(--bar); bottom: 0; overflow: hidden; }
+
+  /* ---------- 入场序列 ---------- */
+  @keyframes rise    { from { opacity: 0; transform: translateY(14px); filter: blur(5px); }
+                       to   { opacity: 1; transform: none;             filter: blur(0); } }
+  @keyframes fade    { from { opacity: 0; } }
+  @keyframes settle  { from { opacity: 0; transform: rotate(1deg) translateY(12px); }
+                       to   { opacity: 1;  transform: rotate(-2deg) translateY(0); } }
+  @keyframes pull    { from { transform: translateX(-186px); } to { transform: translateX(0); } }
+  @keyframes armDrop { from { transform: rotate(52deg); } to { transform: rotate(26deg); } }
+  @keyframes armSway { from { transform: rotate(26deg); } to { transform: rotate(26.8deg); } }
+  @keyframes stamp   { from { opacity: 0; transform: rotate(-2deg) scale(1.26); }
+                       to   { opacity: .45; transform: rotate(-2deg) scale(1); } }
+  @keyframes grow    { from { transform: scaleY(0); } }
+  @keyframes wordIn  { from { opacity: 0; transform: translateY(9px); filter: blur(3px); }
+                       to   { opacity: 1; transform: none;           filter: blur(0); } }
+  .rz { animation: rise .6s cubic-bezier(.22,1,.36,1) both; }
+
+  /* 印刷水印：存目编号 030，轮廓字 */
+  .wm { position: absolute; right: -26px; bottom: 96px; z-index: 1; user-select: none;
+    font: 600 350px/1 var(--serif); letter-spacing: -.02em; color: transparent;
+    -webkit-text-stroke: 1px rgba(23, 21, 15, .07); }
+
+  .title { position: absolute; left: 150px; top: 52px; z-index: 4; }
+  /* 长曲名保护：限宽 + 均衡换行 + 按字数缩字号（16 字 96px 会排 3 行压住黑盘） */
+  .title h1 { font: 400 calc(96px * var(--tfit,1))/1.04 var(--serif); letter-spacing: .02em;
+    max-width:520px; word-break:break-word; text-wrap:balance; }
+  /* 艺人串过长时截断，不换行去压黑盘 */
+  .title .meta { max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .csign { position: absolute; right: 150px; top: 64px; z-index: 4;
+    animation: stamp .5s cubic-bezier(.34,1.4,.44,1) 1.7s both; }
+  .title h1 em { font-style: normal; color: var(--red); }
+  .title .meta { display: flex; gap: 14px; margin-top: 14px; font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .16em; }
+
+  /* 抽盘组 */
+  .deck { position: absolute; left: 344px; top: 240px; width: 470px; height: 470px; z-index: 2; }
+  .slide { position: absolute; inset: 0; animation: pull 1.15s cubic-bezier(.22,1,.36,1) .12s both; }
+  .disc {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: #14120e;
+    /* 极淡的下沉投影：让盘从纸面"离开"一层，否则纸底与黑盘糊在一起 */
+    box-shadow: 0 34px 90px -34px rgba(20,18,14,.42);
+    animation: spin 1.8s linear infinite;   /* 真值：33⅓ RPM */
+  }
+  .disc svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .scuff {
+    position: absolute; left: 50%; top: 10px; width: 1px; height: 26px;
+    background: rgba(238, 233, 221, .55); transform: translateX(-50%) rotate(9deg);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 已播沟槽热度：硬边界扇形，随进度长大 */
+  .heat { position: absolute; inset: 0; border-radius: 50%; z-index: 1; pointer-events: none;
+    background: conic-gradient(from 0deg, rgba(168, 38, 26, .085) 0 var(--a, 0deg), transparent var(--a, 0deg) 360deg);
+    transition: background .4s linear; }
+
+  .label {
+    position: absolute; left: 50%; top: 50%; width: 168px; height: 168px; margin: -84px 0 0 -84px; z-index: 2;
+    border-radius: 50%; background: var(--paper2); border: 1px solid var(--hair);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center;
+    animation: fade .5s ease .95s both;
+  }
+  .label .k { font: 400 10.5px/1 var(--mono); color: var(--ink3); letter-spacing: .18em; }
+  .label b { font: 600 13px/1.2 var(--sans); letter-spacing: .04em; }
+  .label .n { font: 400 16px/1.2 var(--serif); }
+  .label .r { font: 400 10.5px/1 var(--mono); color: var(--ink3); letter-spacing: .12em; }
+  .label .hole { width: 6px; height: 6px; border-radius: 50%; background: var(--red); margin-top: 2px; }
+
+  /* 进度环：真数据实时推进 */
+  .ring { position: absolute; left: 50%; top: 50%; width: 200px; height: 200px; margin: -100px 0 0 -100px; z-index: 3;
+    animation: fade .5s ease 1.05s both; }
+  .ring circle { fill: none; }
+  .ring .bg { stroke: rgba(238, 233, 221, .38); stroke-width: 1; }
+  .ring .fg { stroke: #d8503a; stroke-width: 2; transform: rotate(-90deg); transform-origin: 50% 50%; }
+
+  /* 唱臂：落针后循纹微摆 */
+  .arm { position: absolute; left: 442px; top: 22px; width: 2px; height: 200px; background: var(--ink);
+    transform-origin: 50% 7px; z-index: 3;
+    animation: armDrop .85s cubic-bezier(.3,1.35,.42,1) 1.2s both,
+               armSway 2.4s ease-in-out 2.2s infinite alternate; }
+  .arm::before {
+    content: ""; position: absolute; left: -10px; top: -10px; width: 22px; height: 22px;
+    border-radius: 50%; border: 1px solid var(--ink); background: var(--paper); z-index: 2;
+  }
+  .arm::after {
+    content: ""; position: absolute; left: -7px; bottom: -12px; width: 16px; height: 24px;
+    border: 1px solid var(--ink); background: var(--paper2); transform: rotate(-14deg);
+  }
+  /* 暂停：循纹微摆停（真实唱机暂停 = 臂停在沟里），盘停转 */
+  .paused .arm { animation-play-state: paused; }
+  .paused .disc { animation-play-state: paused; }
+
+  /* 封套 */
+  /* 封套：236px，左移让出与黑盘的重叠（原来压 55px，两件都是主体，压一起就糊） */
+  .sleeve { position: absolute; left: 108px; top: 332px; width: 236px; z-index: 4;
+    transform: rotate(-2deg); animation: settle .7s cubic-bezier(.22,1,.36,1) both; }
+  .sleeve .tape { position: absolute; left: 50%; top: -12px; width: 96px; height: 24px; z-index: 2;
+    margin-left: -52px; background: rgba(233, 229, 217, .92); border: 1px solid var(--hair2);
+    transform: rotate(-4deg);
+    clip-path: polygon(2% 8%, 30% 0, 68% 6%, 98% 2%, 100% 92%, 70% 100%, 32% 94%, 0 96%); }
+  .sleeve .art {
+    width: 100%; aspect-ratio: 1; border: 9px solid #fbfaf6; outline: 1px solid var(--ink);
+    background: var(--paper2) center/cover no-repeat; position: relative;
+  }
+  /* 标签压在照片右下角内侧，不再溢出到下面的说明文字上 */
+  .sleeve .art::after {
+    content: "SIDE A · 01"; position: absolute; left: -9px; bottom: -9px;
+    background: var(--ink); color: var(--paper); padding: 5px 9px;
+    font: 400 10px/1 var(--mono); letter-spacing: .12em;
+  }
+  .sleeve .cap { padding: 18px 2px 0; }
+  .sleeve .cap b { display: block; font: 600 12.5px/1.3 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sleeve .cap span { display: block; margin-top: 3px; font: 400 11px/1.5 var(--mono); color: var(--ink3); letter-spacing: .04em; }
+
+  .spine { position: absolute; right: 56px; top: 180px; bottom: 130px; z-index: 3;
+    writing-mode: vertical-rl; font: 400 10.5px/1 var(--mono); letter-spacing: .34em; color: var(--ink3);
+    animation: fade .6s ease 1.5s both; }
+
+  /* ---------- 右栏：词轴 + 三句提词器（活稿） ---------- */
+  .cue { position: absolute; left: 852px; top: 224px; width: 424px; z-index: 3; }
+  .cue .frame { display: flex; gap: 24px; }
+  .axis { flex: 0 0 16px; position: relative; align-self: stretch; }
+  .axis .track { position: absolute; left: 7px; top: 8px; bottom: 8px; width: 1px; background: var(--hair2);
+    transform-origin: top; animation: grow .7s cubic-bezier(.22,1,.36,1) 1.35s both; }
+  .axis .ticks { position: absolute; left: 4px; top: 8px; bottom: 8px; width: 7px;
+    background: repeating-linear-gradient(to bottom, var(--hair2) 0 1px, transparent 1px 6px);
+    transform-origin: top; animation: grow .7s cubic-bezier(.22,1,.36,1) 1.35s both; }
+  .axis .dot { position: absolute; left: 1px; top: 17px; width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid var(--red); background: var(--paper);
+    transition: top .5s cubic-bezier(.22,1,.36,1); }
+  .axis .no { position: absolute; left: 24px; top: 12px; font: 400 11px/1 var(--mono); color: var(--red);
+    letter-spacing: .14em; white-space: nowrap; }
+
+  .meter { flex: 1 1 auto; min-width: 0; }
+  .meter .inner { transition: opacity .22s ease-out, transform .22s ease-out; }
+  .meter .inner.out { opacity: 0; transform: translateY(-8px); }
+  .cue .idx { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+  .cue .idx i { width: 22px; height: 1px; background: var(--red); }
+  .cue .idx span { font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .18em; font-variant-numeric: tabular-nums; }
+  .cue .before { font: 400 16px/1.5 var(--serif); color: var(--ink3); min-height: 24px; }
+  /* 当前句：左侧 2px 朱红竖线，全屏唯一"正在唱"的标记（与 a2 同语言） */
+  .cue .now {
+    font: 400 46px/1.3 var(--serif); margin: 10px 0; min-height: 118px;
+    padding-left: 16px; border-left: 2px solid var(--red);
+    /* 长句限 3 行并渐隐，24 字时不会把下面的"下一句"顶走 */
+    max-height: 184px; overflow: hidden;
+    -webkit-mask: linear-gradient(180deg, #000 0 78%, transparent 100%);
+            mask: linear-gradient(180deg, #000 0 78%, transparent 100%);
+  }
+  .cue .now .w { display: inline-block; animation: wordIn .34s cubic-bezier(.22,1,.36,1) both;
+    animation-delay: calc(var(--i) * .05s); }
+  .cue .after { font: 400 16px/1.5 var(--serif); color: var(--ink3); min-height: 24px; }
+
+  .cue .up { margin-top: 26px; border-top: 1px dotted var(--hair); padding-top: 4px; }
+  .cue .up div { display: flex; align-items: center; gap: 10px; height: 40px; }
+  .cue .up div + div { border-top: 1px dotted var(--hair2); }
+  .cue .up img { flex: 0 0 24px; width: 24px; height: 24px; object-fit: cover; border: 1px solid var(--hair);
+    outline: 1px solid rgba(23, 21, 15, .1); outline-offset: -1px; }
+  .cue .up i { flex: 0 0 16px; font: 400 10.5px/1 var(--mono); color: var(--ink3); font-style: normal;
+    font-variant-numeric: tabular-nums; }
+  .cue .up span { flex: 1 1 auto; min-width: 0; font: 400 12px/1 var(--sans); color: var(--ink3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .04em; }
+  .cue .up time { flex: 0 0 auto; font: 400 11px/1 var(--mono); color: var(--ink3); font-variant-numeric: tabular-nums; }
+  .cue .up div:hover span { color: var(--ink); }
+
+  /* HUD：分钟刻度 + 一条线 + 两个时间 + 出口
+     半透明纸底 + 最高层级 —— 否则它会被黑盘压住，线断在盘里 */
+  .hud { position: absolute; left: 0; right: 0; bottom: 0; z-index: 9;
+    padding: 18px 150px 26px;
+    background: linear-gradient(180deg, rgba(243,241,234,0) 0%, rgba(243,241,234,.94) 34%, var(--paper) 100%);
+    animation: fade .6s ease 1.8s both; }
+  .hud .ticks { height: 5px; margin-bottom: 1px;
+    background: repeating-linear-gradient(90deg, var(--hair2) 0 1px, transparent 1px calc(100% / 10.7)); }
+  .hud .line { position: relative; height: 1px; background: var(--hair); }
+  .hud .line i { position: absolute; left: 0; top: 0; height: 1px; background: var(--red); }
+  .hud .line b { position: absolute; top: -4px; width: 1px; height: 9px; background: var(--red); }
+  .hud .row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .hud time { font: 400 12.5px/1 var(--mono); color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .hud .tip { font: 400 11px/1 var(--mono); color: var(--ink3); letter-spacing: .16em; }
+  .hud .tip b { color: var(--ink); font-weight: 400; border-bottom: 1px solid var(--hair); padding-bottom: 1px; }
+
+  /* 纯 CSS 走带图形 */
+  .tbtn { display: flex; align-items: center; justify-content: center; gap: 3px; color: var(--ink2); cursor: pointer;
+    transition: transform .15s ease-out; }
+  .tbtn:active { transform: scale(.96); }
+  .tbtn i { display: block; width: 0; height: 0; border-style: solid; border-color: transparent; }
+  .tbtn.prev i { border-width: 4px 6px 4px 0; border-right-color: currentColor; }
+  .tbtn.prev i + i { margin-left: -5px; }
+  .tbtn.prev { padding-right: 2px; }
+  .tbtn.next i { border-width: 4px 0 4px 6px; border-left-color: currentColor; }
+  .tbtn.next i + i { margin-left: -5px; }
+  .tbtn.next { padding-left: 2px; }
+  .tbtn.play.real { width: 36px; height: 36px; background: var(--red); color: #fff; justify-content: center; }
+  .tbtn.play.real .bars { display: flex; gap: 3px; }
+  .tbtn.play.real .bars i { width: 3px; height: 14px; border: none; background: currentColor; }
+  .tbtn.play.real .tri { display: none; width: 0; height: 0; border-style: solid;
+    border-width: 7px 0 7px 11px; border-color: transparent transparent transparent currentColor; margin-left: 2px; }
+  .paused .tbtn.play.real .bars { display: none; }
+  .paused .tbtn.play.real .tri { display: block; }
+  .hud .ctl { display: flex; align-items: center; gap: 18px; }
+  .hud .ctl .tbtn:hover { color: var(--ink); }
+  /* 数据开关：dev-only，中性灰，不属于设计本身 */
+  .datatoggle{
+    position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 200;
+    display: flex; gap: 2px; padding: 3px; border-radius: 3px;
+    background: rgba(60,60,60,.55);
+    font-family: system-ui, sans-serif;
+  }
+  .datatoggle button{
+    padding: 5px 13px; border: 0; border-radius: 2px; background: none; cursor: pointer;
+    font-size: 11px; color: rgba(255,255,255,.68);
+  }
+  .datatoggle button.on{ background:#fff; color:#111; font-weight:600; }
+  /* 空状态：队列空时的唯一一句话 */
+  .upempty { padding: 16px 0; font: 400 11px/1.6 var(--mono); letter-spacing: .08em; color: var(--ink3); }
+
+  /* 200% 系统缩放：视口高度只剩一半，内容必须能滚 */
+  .rig{overflow-y:auto}
+  /* 沉浸态是绝对定位布局，窄视口下元素会互相压（票根压曲名）。
+     给一个最小宽度：窄于此就横向滚动，位置关系保持不变。 */
+  /* 沉浸态是绝对定位布局，窄视口下元素会互相压（票根压曲名、黑盘出画）。
+     试过给 .rig 加 position:relative 让绝对定位改相对它 —— 结果**把 1334 的正常布局也带崩了**
+     （票根直接压到曲名上）。绝对定位基准不能动，改用最小宽度兜底。 */
+  .rig{min-width:920px}
+  /* 沉浸态是绝对定位 + 固定像素：视口窄于 900px 时元素必然互相压
+     （票根压曲名、黑盘出画）。这是设计前提，不是可以"修"的排版问题，
+     所以直接不提供沉浸态，给一句人话。 */
+  @media (max-width:900px){
+    .rig{min-width:0}
+    /* 注意：这些元素是 .rig 的"兄弟"（body 级），不是 .rig 的子元素，
+       所以要用类选择器逐个隐藏，`.rig > *` 一个都选不中。 */
+    .title,.deck,.sleeve,.spine,.cue,.hud,.wm,.csign{display:none !important}
+    body::after{
+      content: "沉浸播放需要更宽的窗口（≥ 900px）　按 Esc 退回普通播放页";
+      position: fixed; inset: 0; display: grid; place-items: center;
+      font: 400 12px/1.8 var(--mono); letter-spacing: .12em; color: var(--ink3);
+      text-align: center; padding: 0 40px; z-index: 60;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="datatoggle" id="dt">
+  <button class="on" data-d="demo">Demo 数据</button>
+  <button data-d="worst">最差数据</button>
+  <button data-d="empty">空状态</button>
+</div>
+
+
+
+<div class="bar">
+  <div class="brand"><i></i><b>AFEIFEI</b><span>沉浸播放 · 按 Esc 退出</span></div>
+  <div class="win"><span>—</span><span>□</span><span>✕</span></div>
+</div>
+
+<main class="stage">
+
+  <span class="wm">030</span>
+
+  <div class="csign"><div class="seal"><b>第 030 场</b><small>ADMIT ONE</small></div></div>
+
+  <div class="title rz">
+    <h1>老人と海<em>。</em></h1>
+    <div class="meta"><span>ヨルシカ</span><span>老人と海</span><span>FLAC 1411kbps</span><span>网易云音乐</span></div>
+  </div>
+
+  <!-- 唱片：抽盘入场；热度扇形 = 已播沟槽；环实时推进 -->
+  <div class="deck">
+    <div class="slide">
+      <div class="disc">
+        <svg viewBox="0 0 470 470">
+          <circle cx="235" cy="235" r="234" fill="none" stroke="rgba(238,233,221,.20)"/>
+          <g fill="none" stroke="rgba(238,233,221,.13)" stroke-width="1">
+            <circle cx="235" cy="235" r="224"/><circle cx="235" cy="235" r="213"/>
+            <circle cx="235" cy="235" r="202"/><circle cx="235" cy="235" r="191"/>
+            <circle cx="235" cy="235" r="180"/><circle cx="235" cy="235" r="169"/>
+            <circle cx="235" cy="235" r="158"/><circle cx="235" cy="235" r="147"/>
+            <circle cx="235" cy="235" r="136"/><circle cx="235" cy="235" r="125"/>
+            <circle cx="235" cy="235" r="114"/><circle cx="235" cy="235" r="103"/>
+          </g>
+          <circle cx="235" cy="235" r="95" fill="none" stroke="rgba(238,233,221,.18)"/>
+        </svg>
+        <span class="scuff"></span>
+      </div>
+      <div class="heat" id="heat"></div>
+      <div class="label">
+        <span class="k">SIDE A · 01</span>
+        <b>ヨルシカ</b>
+        <span class="n">老人と海</span>
+        <span class="r">33⅓ RPM · STEREO</span>
+        <span class="hole"></span>
+      </div>
+      <svg class="ring" viewBox="0 0 200 200">
+        <circle class="bg" cx="100" cy="100" r="96"></circle>
+        <circle class="fg" id="ringfg" cx="100" cy="100" r="96" stroke-dasharray="603.2" stroke-dashoffset="235.2"></circle>
+      </svg>
+    </div>
+    <div class="arm"></div>
+  </div>
+
+  <!-- 封套 -->
+  <div class="sleeve">
+    <span class="tape"></span>
+    <div class="art" style="background-image:url('online-covers/cover1.jpg')"></div>
+    <div class="cap"><b>老人と海</b><span>ヨルシカ · 5:21</span></div>
+  </div>
+
+  <div class="spine">ONE RECORD · ONE ROOM · NO.030</div>
+
+  <div class="cue">
+    <div class="frame">
+      <div class="axis" id="axis">
+        <span class="track"></span>
+        <span class="ticks"></span>
+        <span class="dot" id="axdot"></span>
+        <span class="no" id="axno">03 / 34</span>
+      </div>
+      <div class="meter">
+        <div class="inner" id="meter">
+          <div class="idx"><i></i><span id="idx">SCRIPT · IN 03:12</span></div>
+          <div class="before" id="before">八十五天的清晨没有鱼</div>
+          <div class="now" id="now"></div>
+          <div class="after" id="after">马林鱼把小船拖进深蓝</div>
+        </div>
+      </div>
+    </div>
+    <div class="up">
+      <div class="rz" style="animation-delay:1.5s"><i>02</i><img src="online-covers/cover3.jpg" alt=""><span>打上花火 · Daoko / 米津玄師</span><time>4:28</time></div>
+      <div class="rz" style="animation-delay:1.6s"><i>03</i><img src="online-covers/cover2.jpg" alt=""><span>Daisy · Aimer</span><time>4:44</time></div>
+      <div class="rz" style="animation-delay:1.7s"><i>04</i><img src="online-covers/cover7.jpg" alt=""><span>Lay Down · Caravan Palace</span><time>3:27</time></div>
+    </div>
+  </div>
+
+  <div class="hud">
+    <div class="ticks"></div>
+    <div class="line"><i id="fill" style="width:61%"></i><b id="headmk" style="left:61%"></b></div>
+    <div class="row">
+      <div class="ctl">
+        <time id="tcur">03:12</time>
+        <span class="tbtn prev"><i></i><i></i></span>
+        <span class="tbtn play real" id="play"><span class="bars"><i></i><i></i></span><span class="tri"></span></span>
+        <span class="tbtn next"><i></i><i></i></span>
+      </div>
+      <span class="tip">已播 <b id="tpct">62</b>% · 剩余 <b id="tleft">02:02</b> · 按 Esc 退回</span>
+      <time id="tdur">05:21</time>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ---------- 刻纹现场播放引擎（与 a2 同源：真实时间码 ×5 演示加速） ---------- */
+function hms(t) { const m = t.split(":"); return (+m[0]) * 60 + (+m[1]); }
+function fmt(s) { s = Math.max(0, Math.round(s)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); }
+
+const SENT = [
+  ["02:14", "汽笛在梦的第三段靠岸"],
+  ["02:44", "八十五天的清晨没有鱼"],
+  ["03:12", "他梦见狮子回到沙滩上。"],
+  ["03:26", "马林鱼把小船拖进深蓝"],
+  ["03:40", "群鲨来的那晚星星很低"],
+  ["03:54", "而帆在盐粒里慢慢变旧"],
+  ["04:08", "老人把星辰缝进补丁"],
+  ["04:22", "海流把名字冲成传说"],
+  ["04:36", "灯塔数着回港的次数"],
+  ["04:50", "浪把誓言写在沙上又收走"],
+  ["05:04", "他与海交换一生的沉默"],
+  ["05:18", "天亮时渔线还在手中。"]
+].map(function (s) { return { start: hms(s[0]), txt: s[1] }; });
+const TOTAL = SENT.length;
+const DUR = hms("05:21"), T0 = hms("03:12"), SPEED = 5, CIRC = 603.2;
+const $ = (id) => document.getElementById(id);
+
+let demoT = 0, paused = false, lastFrame = performance.now(), shown = -1, axisH = 0;
+
+/* ---------- 数据开关（dev-only）：Demo / 最差 ---------- */
+const B2_DATA = {
+  demo: {
+    title: '老人と海',
+    meta: 'ヨルシカ · 老人と海 · FLAC 1411kbps · 网易云音乐',
+    before: '八十五天的清晨没有鱼',
+    after: '马林鱼把小船拖进深蓝'
+  },
+  worst: {
+    /* 16 字曲名 + 超长艺人串 + 24 字长句，都是真实会出现的长度 */
+    title: '我不能在夜晚的尽头等你到天明',
+    meta: 'ヨルシカ / 米津玄師 / Daoko / Aimer feat. 宇多田ヒカル · FLAC 1411kbps · 网易云音乐',
+    before: '他说他会在天亮之前把所有没说完的话都说完',
+    after: '而那些话里有三句是重复的所以他删掉了两句'
+  }
+};
+let b2kind = 'demo';
+let b2qBackup = null;
+function applyB2Data(kind) {
+  b2kind = kind;
+  const up = document.querySelector('.cue .up');
+  if (kind === 'empty') {
+    /* 队列空 + 没有歌词 */
+    if (!b2qBackup) b2qBackup = up.innerHTML;
+    up.innerHTML = '<div class="upempty">队列已空 · 这是最后一首</div>';
+    $("before").textContent = '纯音乐 · 这首歌没有歌词';
+    $("after").textContent = '';
+    shown = -1;
+    render(true);
+    return;
+  }
+  if (b2qBackup) { up.innerHTML = b2qBackup; b2qBackup = null; }
+  const d = B2_DATA[kind];
+  document.querySelectorAll('.title h1').forEach((el) => {
+    el.innerHTML = d.title + '<em>。</em>';
+  });
+  document.querySelectorAll('.title .meta').forEach((el) => { el.textContent = d.meta; });
+  /* 曲名按字数分级：≤6 字 96px，≤12 字 72px，更长 56px（两行内） */
+  const n = [...d.title].length;
+  document.documentElement.style.setProperty('--tfit', n <= 6 ? 1 : n <= 12 ? 0.75 : 0.58);
+  $("before").textContent = d.before;
+  $("after").textContent = d.after;
+  shown = -1;
+  render(true);
+}
+document.querySelectorAll('#dt button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#dt button').forEach((b) => b.classList.toggle('on', b === btn));
+    applyB2Data(btn.dataset.d);
+  });
+});
+
+function buildNow(idx) {
+  const now = $("now");
+  now.innerHTML = "";
+  let k = 0;
+  /* 最差数据下把当前句换成 24 字长句（真实副歌长度） */
+  const chars = b2kind === 'worst'
+    ? [...'他说他会在天亮之前把所有没说完的话都说完']
+    : b2kind === 'empty'
+    ? [...'纯音乐 · 这首歌没有歌词']
+    : SENT[idx].txt;
+  for (const ch of chars) {
+    const w = document.createElement("span");
+    w.className = "w"; w.style.setProperty("--i", k++);
+    w.textContent = ch;
+    now.appendChild(w);
+  }
+  $("before").textContent = idx > 0 ? SENT[idx - 1].txt : "—";
+  $("after").textContent = idx + 1 < TOTAL ? SENT[idx + 1].txt : "（本段终）";
+  $("idx").textContent = "SCRIPT · IN " + fmt(SENT[idx].start);
+}
+
+function render(force) {
+  const realT = Math.min(T0 + demoT * SPEED, DUR);
+  let idx = 0;
+  for (let i = 0; i < TOTAL; i++) if (realT >= SENT[i].start) idx = i;
+  const s = SENT[idx];
+  const dur = (idx + 1 < TOTAL ? SENT[idx + 1].start : DUR) - s.start;
+  const prog = Math.min(1, (realT - s.start) / dur);
+
+  if (idx !== shown || force) {
+    const changed = idx !== shown;
+    shown = idx;
+    if (changed) {
+      const inner = $("meter");
+      inner.classList.add("out");
+      setTimeout(function () { buildNow(idx); inner.classList.remove("out"); }, 220);
+    }
+    $("axno").textContent = String(idx + 1).padStart(2, "0") + " / 34";
+  }
+  /* 词轴红点落格 */
+  if (!axisH) axisH = $("axis").clientHeight || 300;
+  $("axdot").style.top = (8 + (idx + 0.5) / 34 * (axisH - 16)) + "px";
+  /* 盘面：热度扇形 + 进度环 */
+  const songProg = realT / DUR;
+  $("heat").style.setProperty("--a", (songProg * 360).toFixed(2) + "deg");
+  $("ringfg").style.strokeDashoffset = (CIRC * (1 - songProg)).toFixed(1);
+  /* HUD */
+  const pct = (songProg * 100).toFixed(2) + "%";
+  $("fill").style.width = pct; $("headmk").style.left = pct;
+  $("tcur").textContent = fmt(realT);
+  /* HUD 中间那行：已播 / 剩余（原来只是一句快捷键提示，浪费了最中间的位置）*/
+  const tp = $("tpct"), tl = $("tleft");
+  if (tp) tp.textContent = Math.round(songProg * 100);
+  if (tl) tl.textContent = fmt(Math.max(0, DUR - realT));
+  document.body.classList.toggle("paused", paused || realT >= DUR);
+}
+
+$("play").addEventListener("click", function () { paused = !paused; lastFrame = performance.now(); render(true); });
+window.addEventListener("keydown", function (e) {
+  if (e.code === "Space") { e.preventDefault(); paused = !paused; lastFrame = performance.now(); render(true); }
+});
+
+buildNow(2); render(true);
+requestAnimationFrame(function tick(now) {
+  if (!paused) demoT += (now - lastFrame) / 1000;
+  lastFrame = now;
+  render(false);
+  requestAnimationFrame(tick);
+});
+</script>
+
+</body>
+</html>

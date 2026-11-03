@@ -104,14 +104,17 @@ function parseQrc(raw: string): { lines: LyricLine[]; words: LyricWord[] } {
     // 文本 = 去掉所有 (相对,时长) 之后的拼接
     lines.push({ at: start, dur, text: body.replace(QRC_WORD, "").trim() });
 
-    // QRC 的形状是 `文本(相对,时长)文本(相对,时长)` —— **文本在括号之前**，
-    // 括号里是这段文本的起始（相对行首）与时长。
+    // QRC 的形状是 `文本(时间,时长)文本(时间,时长)` —— **文本在括号之前**。
+    // 字标记的时间基准有两种（2026-11-03 实测）：QQ QRC 是**绝对毫秒**
+    // （第二行起 ≥ 行 start，lx 同样做此判断）；行内相对（< start）则加上行 start。
     let pos = 0;
     for (const mark of body.matchAll(QRC_WORD)) {
       const segment = body.slice(pos, mark.index);
       pos = mark.index + mark[0].length;
       if (segment) {
-        words.push({ line: index, at: start + Number(mark[1]), dur: Number(mark[2]), char: segment });
+        const markAt = Number(mark[1]);
+        const at = markAt >= start ? markAt : start + markAt;
+        words.push({ line: index, at, dur: Number(mark[2]), char: segment });
       }
     }
   }

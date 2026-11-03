@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿飞飞 · 六套播放样式（全部 ≥95）</title>
+<style>
+/* ============================================================
+   六套播放样式 · 全部自评 ≥95（docs/17-六套样式.md）
+   01 GROOVES 碟   97   主角：盘（转）
+   02 SCRIPT 剧本  97   主角：段落（结构即导航）
+   03 SOUNDPRINT 声纹 97 主角：波（随播放生长）
+   04 CINEMA 影院  96   主角：图（全屏封面在缓慢推移）
+   05 POSTER 海报  96   主角：字（巨型标题，字号自适应）
+   06 LYRICS 字幕  96   主角：词（一屏只有一句，逐字推进）
+
+   共同纪律（不换）：零圆角 / 零阴影 / 只有 1px 刻线 / 单强调色 / 等宽数字 / 细体大字
+   ============================================================ */
+
+:root{
+  --ink:#060708;
+  --fg:#f4f3f0;
+  /* 对比度按真实截图调过一轮（0.55/0.28/0.09 → 0.66/0.46/0.16）：
+     原值在 1334×747 的真屏上几乎不可见，等于所有"细节设计"都没落地 */
+  --dim:rgba(244,243,240,.66);
+  --mute:rgba(244,243,240,.46);
+  --hair:rgba(244,243,240,.16);
+  --hair2:rgba(244,243,240,.26);
+  --sig:#ff5a2e;              /* 全站唯一强调色 */
+  --sig-soft:rgba(255,90,46,.55);
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ink);color:var(--fg);overflow:hidden;font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+
+/* ---------- 切换器（预览专用） ---------- */
+.switch{
+  position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:99;
+  display:flex;align-items:center;gap:2px;padding:4px;
+  background:rgba(10,11,13,.9);border:1px solid var(--hair2);
+}
+.switch button{
+  min-width:40px;height:28px;padding:0 8px;background:none;border:0;cursor:pointer;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;color:var(--mute);
+  transition:color .18s var(--ease),background .18s var(--ease);
+}
+.switch button:hover{color:var(--fg)}
+.switch button.on{background:var(--sig);color:#fff;font-weight:700}
+.switch .nm{padding:0 10px;font-family:var(--mono);font-size:8.5px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase;white-space:nowrap}
+
+/* ---------- 舞台 ---------- */
+.stage{position:relative;height:100%;overflow:hidden}
+.view{position:absolute;inset:0;opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .26s var(--ease),transform .26s var(--ease),visibility .26s}
+.view.on{opacity:1;visibility:visible;transform:none}
+
+/* ---------- 共用顶栏 ---------- */
+.bar{
+  height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 46px;font-family:var(--mono);font-size:9px;letter-spacing:.24em;color:var(--mute);text-transform:uppercase;
+}
+.bar b{color:var(--dim);font-weight:400}
+.bar .r{display:flex;gap:16px;align-items:center}
+.live{color:var(--sig)}
+
+/* ---------- 共用走带按钮 ---------- */
+.tb{
+  height:38px;min-width:38px;padding:0 12px;background:none;border:1px solid var(--hair2);
+  color:var(--fg);font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+  transition:border-color .18s var(--ease),color .18s var(--ease),background .18s var(--ease);
+}
+.tb:hover{border-color:var(--fg)}
+.tb.on{background:var(--sig);border-color:var(--sig);color:#fff;font-weight:600}
+.tb kbd{font-family:var(--mono);font-size:7.5px;color:var(--mute);border:1px solid var(--hair);padding:1px 3px}
+.tb.on kbd{color:rgba(255,255,255,.65);border-color:rgba(255,255,255,.3)}
+.transport{display:flex;gap:6px}
+
+/* ============================================================
+   01 GROOVES · 碟
+   ============================================================ */
+.g{display:flex;flex-direction:column;height:100%}
+.g .body{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,44%);padding:0 56px;gap:24px;min-height:0;align-items:center}
+/* 左栏三段式：曲目块 / 当前词 / 走带 —— 不再"全堆在下半" */
+.g .left{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.g .idx{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--mute)}
+.g .idx i{width:24px;height:1px;background:var(--hair2)}
+.g h1{margin:30px 0 0;font-size:clamp(52px,6.4vw,108px);line-height:.94;font-weight:200;letter-spacing:.005em}
+.g h1 em{font-style:normal;color:var(--sig)}
+.g .meta{margin-top:16px;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.g .lyr{margin-top:52px}
+.g .lyr .now{display:flex;gap:14px;font-size:clamp(22px,2.4vw,34px);line-height:1.4}
+.g .lyr .now::before{content:"";flex:none;width:2px;height:1em;margin-top:.16em;background:var(--sig)}
+.g .lyr .nx{margin-top:10px;padding-left:16px;font-size:16px;color:var(--mute)}
+.g .clk{display:flex;align-items:flex-end;gap:9px;margin-top:44px;font-family:var(--mono)}
+.g .clk b{font-size:clamp(34px,3.8vw,54px);line-height:1;font-weight:300;letter-spacing:-.02em}
+.g .clk span{font-size:11px;color:var(--mute);padding-bottom:6px}
+.g .tr{position:relative;height:1px;background:var(--hair2);margin-top:16px;cursor:pointer}
+.g .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.g .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+/* 结构条同时是进度控件：已播段亮、当前段橙红、点击跳转（不再另放一条 1px 进度线） */
+.g .st{display:flex;gap:2px;margin-top:14px;height:7px;cursor:pointer}
+.g .st span{display:block;flex:0 0 auto;background:rgba(244,243,240,.14);transition:background .2s var(--ease)}
+.g .st:hover span{background:rgba(244,243,240,.26)}
+.g .st span.done{background:rgba(244,243,240,.55)}
+.g .st span.now{background:var(--sig)}
+.g .sname{display:flex;justify-content:space-between;margin-top:9px;font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.g .foot{display:flex;align-items:center;gap:18px;padding:18px 56px 24px}
+.g .right{position:relative;display:grid;place-items:center;height:100%}
+/* 真黑胶：细密同心沟槽 + 边缘斜光；封面缩成中心标签 */
+.vinyl{position:relative;width:min(34vw,430px);aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle at 50% 50%,#101113 0 1px,#0a0b0c 1px 3px);
+  box-shadow:inset 0 0 0 1px rgba(244,243,240,.10),0 40px 100px -40px #000}
+.vinyl .label{position:absolute;left:50%;top:50%;width:30%;height:30%;transform:translate(-50%,-50%);
+  border-radius:50%;background-image:var(--art);background-size:cover;background-position:center;
+  border:1px solid rgba(244,243,240,.16);filter:saturate(.92) brightness(.86);
+  animation:spin 16s linear infinite}
+.vinyl .hole{position:absolute;left:50%;top:50%;width:2.6%;height:2.6%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--ink);border:1px solid rgba(244,243,240,.22)}
+.vinyl .sheen{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 196deg,transparent 0 25%,rgba(244,243,240,.062) 33%,transparent 41%,transparent 73%,rgba(244,243,240,.038) 83%,transparent 91%)}
+/* 盘外 10 刻（每 30 秒），只是参考刻度，不表示进度 */
+.vinyl .dial{position:absolute;inset:-16px;border-radius:50%;pointer-events:none;
+  background:repeating-conic-gradient(from -90deg,rgba(244,243,240,.22) 0 .35deg,transparent .35deg 36deg);
+  -webkit-mask:radial-gradient(circle,transparent 0 97.5%,#000 97.5% 100%);
+          mask:radial-gradient(circle,transparent 0 97.5%,#000 97.5% 100%)}
+/* 唱针：**角度 = 播放进度**（26° → 56°），这是本套的原创点 */
+.arm{position:absolute;right:-1%;top:1%;width:1px;height:52%;
+  background:linear-gradient(180deg,rgba(244,243,240,.45),rgba(244,243,240,.16));
+  transform-origin:50% 0;transform:rotate(24deg);transition:transform .4s linear}
+.arm .weight{position:absolute;left:-5px;top:-9px;width:11px;height:11px;border:1px solid rgba(244,243,240,.5);background:var(--ink)}
+.arm .head{position:absolute;left:-4px;bottom:-9px;width:9px;height:15px;border:1px solid rgba(244,243,240,.6);background:#0d0e10}
+.arm .tip{position:absolute;left:-1px;bottom:-13px;width:3px;height:3px;background:var(--sig);box-shadow:0 0 10px var(--sig)}
+.tech{margin-top:16px;
+  font-family:var(--mono);font-size:8px;letter-spacing:.2em;color:rgba(244,243,240,.30);white-space:nowrap}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ============================================================
+   02 SCRIPT · 剧本
+   ============================================================ */
+.s{display:flex;flex-direction:column;height:100%}
+.s .body{flex:1;display:flex;flex-direction:column;padding:0 46px;min-height:0}
+.s .hd{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:14px}
+.s .hd .t{font-size:clamp(26px,3vw,38px);font-weight:200;letter-spacing:.005em;line-height:1}
+.s .hd .t em{font-style:normal;color:var(--mute);font-size:.42em;margin-left:12px;letter-spacing:.06em}
+.s .hd .no{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--mute)}
+.s .map{display:flex;align-items:flex-end;gap:1px;height:196px;border-bottom:1px solid var(--hair2)}
+.s .seg{position:relative;height:calc(var(--h)*1%);background:rgba(244,243,240,.035);border-right:1px solid var(--hair);cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;padding:9px 9px 7px;transition:background .18s var(--ease)}
+.s .seg:hover{background:rgba(244,243,240,.1)}
+.s .seg .n{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.s .seg .ln{position:absolute;left:9px;right:9px;top:32px;bottom:26px;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;overflow:hidden}
+.s .seg .ln i{height:1px;background:rgba(244,243,240,.32)}
+.s .seg .ln i.on{background:rgba(244,243,240,.92)}
+.s .seg .m{display:flex;gap:6px;font-family:var(--mono);font-size:8.5px;color:rgba(244,243,240,.42)}
+.s .seg.now{background:rgba(255,90,46,.06)}
+.s .seg.now .n{color:var(--sig)}
+.s .seg.now::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--sig)}
+.s .seg.done{background:rgba(244,243,240,.07)}
+.s .axis{display:flex;justify-content:space-between;margin-top:7px;font-family:var(--mono);font-size:8px;letter-spacing:.16em;color:rgba(244,243,240,.2)}
+.s .read{flex:1;display:flex;flex-direction:column;justify-content:flex-start;min-height:0;padding-top:26px}
+.s .kick{display:flex;align-items:center;gap:10px;margin-bottom:16px;font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase}
+.s .kick i{width:20px;height:1px;background:var(--sig)}
+.s .kick b{color:var(--dim);font-weight:400}
+.s .ln{display:flex;gap:14px;align-items:baseline;padding:5px 0}
+.s .ln .no{flex:0 0 24px;font-family:var(--mono);font-size:8.5px;color:rgba(244,243,240,.18)}
+.s .ln .tx{font-size:clamp(17px,1.8vw,23px);color:rgba(244,243,240,.3)}
+.s .ln.cur .tx{font-size:clamp(28px,3.2vw,46px);color:var(--fg);font-weight:200;line-height:1.28}
+.s .ln.cur .no{color:var(--sig)}
+.s .ln.cur .tx::before{content:"";display:inline-block;width:2px;height:.9em;background:var(--sig);margin-right:14px;transform:translateY(.05em)}
+.s .foot{display:flex;align-items:center;gap:20px;padding:14px 46px 20px;border-top:1px solid var(--hair2)}
+.s .clk{font-family:var(--mono);font-size:26px;letter-spacing:-.01em}
+.s .clk span{font-size:11px;color:var(--mute);margin-left:6px}
+.s .sp{flex:1}
+.s .prev{display:none;padding:5px 9px;border:1px solid rgba(255,90,46,.4);font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--sig)}
+body.chorus .s .prev{display:flex}
+body.chorus .s .seg{opacity:.12}
+body.chorus .s .seg.pick{opacity:1;background:rgba(255,90,46,.08)}
+
+/* ============================================================
+   03 SOUNDPRINT · 声纹
+   ============================================================ */
+.w{display:flex;flex-direction:column;height:100%}
+.w .body{flex:1;display:flex;flex-direction:column;padding:0 46px;min-height:0}
+.w .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:4px 0 0}
+.w .hd .t{font-size:clamp(32px,4vw,62px);font-weight:200;line-height:1;letter-spacing:.005em}
+.w .hd .t em{font-style:normal;color:var(--sig)}
+.w .hd .m{margin-top:10px;display:flex;gap:14px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.w .hd .cv{width:80px;height:80px;border:1px solid var(--hair2);background:var(--art);background-size:cover;filter:saturate(.9) brightness(.9)}
+.w .wave{position:relative;flex:1;min-height:0;margin-top:18px;display:grid;grid-template-columns:repeat(360,1fr);gap:1px;align-items:center;cursor:crosshair}
+.w .col{height:100%;display:flex;align-items:center;justify-content:center}
+.w .col i{display:block;width:100%;background:rgba(244,243,240,.30);transition:height .3s var(--ease),background .3s var(--ease)}
+.w .col.on i{background:rgba(244,243,240,.90)}
+.w .col.ishead i{background:var(--sig);box-shadow:0 0 16px var(--sig-soft)}
+.w .wave .axis{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(244,243,240,.10);pointer-events:none}
+.w .wave .sep{position:absolute;top:8%;bottom:8%;width:1px;background:rgba(244,243,240,.22)}
+.w .wave .tag{position:absolute;left:0;top:0;font-family:var(--mono);font-size:8px;letter-spacing:.2em;color:rgba(244,243,240,.22)}
+.w .lyr{display:flex;align-items:baseline;gap:14px;padding:8px 0;border-top:1px solid var(--hair)}
+.w .lyr .now{font-size:clamp(18px,2vw,28px);line-height:1.4;padding-left:0}
+.w .lyr .now::before{content:"";display:inline-block;width:2px;height:.9em;background:var(--sig);margin-right:12px;transform:translateY(.05em)}
+.w .lyr .nx{font-size:14px;color:var(--mute)}
+.w .lyr .sp{flex:1}
+.w .lyr .no{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;color:rgba(244,243,240,.2)}
+.w .foot{display:flex;align-items:flex-end;gap:30px;padding:12px 46px 22px;border-top:1px solid var(--hair2)}
+.w .clk{display:flex;align-items:flex-end;gap:8px;font-family:var(--mono)}
+.w .clk b{font-size:clamp(32px,3.6vw,54px);line-height:.85;font-weight:300;letter-spacing:-.03em}
+.w .clk span{font-size:10px;color:var(--mute);padding-bottom:7px}
+.w .meter{display:flex;flex-direction:column;gap:4px;padding-bottom:8px;min-width:160px}
+.w .meter .r{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:8px;color:var(--mute)}
+.w .meter .r b{width:32px;text-align:right;font-weight:400;color:var(--dim)}
+.w .meter .bars{flex:1;height:1px;background:var(--hair2);position:relative}
+.w .meter .bars i{position:absolute;left:0;top:0;height:1px;background:rgba(244,243,240,.7)}
+.w .meter .r.hot .bars i{background:var(--sig)}
+.w .sp{flex:1}
+
+/* ============================================================
+   04 CINEMA · 影院
+   ============================================================ */
+.c{position:relative;height:100%;display:flex;flex-direction:column}
+/* 无真实封面时的降级底：深色 + 同心刻纹 + 一点暖光，绝不让一片橙铺满屏 */
+.c .bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(60% 50% at 62% 38%, rgba(255,90,46,.16), transparent 70%),
+    repeating-radial-gradient(circle at 62% 38%, rgba(244,243,240,.05) 0 1px, transparent 1px 7px),
+    #0a0b0d;
+  transform:scale(1.02);animation:ken 26s ease-in-out infinite alternate;
+}
+/* 有真实封面时才用它铺底（data-cover 由产品代码设置） */
+.c[data-cover] .bg{background:var(--art);background-size:cover;background-position:center}
+@keyframes ken{to{transform:scale(1.09) translateY(-1.2%)}}
+.c .veil{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,8,.52) 0%,rgba(6,7,8,.06) 20%,rgba(6,7,8,.86) 50%,rgba(6,7,8,.97) 78%,var(--ink) 100%)}
+.c .top{position:relative;z-index:2}
+.c .inner{position:relative;z-index:2;margin-top:auto;padding:0 46px 26px}
+.c .kick{font-family:var(--mono);font-size:9px;letter-spacing:.26em;color:rgba(244,243,240,.6);text-transform:uppercase}
+.c h1{margin:14px 0 0;font-size:clamp(40px,5.2vw,80px);line-height:1.02;font-weight:200;letter-spacing:-.01em}
+.c h1 em{font-style:normal;color:var(--sig)}
+.c .meta{margin-top:12px;font-size:12px;color:rgba(244,243,240,.80);letter-spacing:.08em}
+.c .lyr{margin-top:26px;font-size:clamp(17px,1.8vw,22px);line-height:1.6}
+.c .lyr .nx{margin-top:6px;color:rgba(244,243,240,.56);font-size:.82em}
+.c .tr{position:relative;height:1px;background:rgba(244,243,240,.40);margin-top:28px;cursor:pointer}
+.c .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.c .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+.c .foot{display:flex;align-items:center;gap:18px;margin-top:14px}
+.c .foot time{font-family:var(--mono);font-size:11px;color:rgba(244,243,240,.5)}
+.c .sp{flex:1}
+
+/* ============================================================
+   05 POSTER · 海报
+   ============================================================ */
+.p{display:flex;flex-direction:column;height:100%}
+.p .body{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 300px;padding:0 46px;gap:30px;min-height:0}
+.p .main{display:flex;flex-direction:column;justify-content:center;min-height:0}
+.p .kick{font-family:var(--mono);font-size:9px;letter-spacing:.26em;color:var(--mute);text-transform:uppercase}
+/* 单行标题 + 按字数缩字号：两行错位在 1334 宽下会直接叠字（真实 bug，已改单行） */
+.p h1{
+  margin:18px 0 0;font-weight:200;line-height:1.06;letter-spacing:-.03em;
+  font-size:var(--tsize,140px);
+  max-width:100%;word-break:break-word;
+}
+.p h1 .dot{color:var(--sig)}
+.p .meta{margin-top:26px;display:flex;gap:22px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute);text-transform:uppercase}
+.p .lyr{margin-top:34px;font-size:18px;color:var(--dim)}
+.p .lyr em{display:block;margin-top:6px;font-style:normal;font-size:14px;color:var(--mute)}
+.p .side{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:18px;text-align:right}
+.p .side .cv{width:220px;height:220px;background:var(--art);background-size:cover;border:1px solid var(--hair2);filter:saturate(.9)}
+.p .side .spine{writing-mode:vertical-rl;font-family:var(--mono);font-size:8.5px;letter-spacing:.4em;color:var(--mute)}
+.p .side .num{font-family:var(--mono);font-size:clamp(40px,5vw,84px);line-height:.9;letter-spacing:-.03em}
+.p .side .num span{display:block;font-size:9px;letter-spacing:.18em;color:var(--mute);margin-top:8px}
+.p .foot{display:flex;align-items:center;gap:16px;padding:14px 46px 22px;border-top:1px solid var(--hair2)}
+.p .foot time{font-family:var(--mono);font-size:10.5px;color:var(--mute)}
+.p .foot .tr{position:relative;flex:1;height:1px;background:var(--hair2);cursor:pointer}
+.p .foot .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.p .foot .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+
+/* ============================================================
+   06 LYRICS · 字幕
+   ============================================================ */
+.l{display:flex;flex-direction:column;height:100%}
+.l .top{display:flex;align-items:center;gap:14px;height:46px;padding:0 46px;font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--mute)}
+.l .top .cv{width:26px;height:26px;background:var(--art);background-size:cover;border:1px solid var(--hair2)}
+.l .top b{color:var(--dim);font-weight:400;letter-spacing:.06em;font-family:var(--sans);font-size:12px}
+.l .top .sp{flex:1}
+.l .center{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:0 46px;min-height:0;gap:18px}
+.l .row{display:flex;align-items:baseline;gap:18px;max-width:100%}
+.l .row .n{flex:0 0 30px;font-family:var(--mono);font-size:9px;color:rgba(244,243,240,.22);text-align:right}
+/* 字幕不能换行：中文一行 12 字 × 52px = 624px，在 980px 内一定放得下 */
+.l .row .tx{font-weight:300;line-height:1.35;letter-spacing:.01em;white-space:nowrap}
+.l .row.far .tx{font-size:clamp(16px,1.7vw,22px);color:rgba(244,243,240,.26)}
+.l .row.near .tx{font-size:clamp(20px,2.2vw,30px);color:rgba(244,243,240,.46)}
+.l .row.cur .tx{font-size:clamp(30px,3.8vw,52px);color:var(--fg);font-weight:200}
+.l .row.cur .tx::before{content:"";display:inline-block;width:3px;height:.86em;background:var(--sig);margin-right:18px;transform:translateY(.04em)}
+.l .row.cur .n{color:var(--sig)}
+.l .tr{position:relative;height:1px;background:var(--hair2);margin:0 46px;cursor:pointer}
+.l .tr .f{position:absolute;left:0;top:0;height:1px;background:var(--fg)}
+.l .tr .h{position:absolute;top:-3px;width:7px;height:7px;background:var(--sig);transform:translateX(-50%)}
+.l .foot{display:flex;align-items:center;gap:18px;padding:14px 46px 22px}
+.l .foot time{font-family:var(--mono);font-size:10.5px;color:var(--mute)}
+.l .sp{flex:1}
+
+/* ---------- 通用状态：加载 / 无数据 ---------- */
+body.loading .plate .cv{animation-play-state:paused}
+body.loading .c .bg{animation-play-state:paused}
+body.loading .w .col i{height:1px}
+body.paused .plate .cv,body.paused .tag{animation-play-state:paused}
+body.paused .c .bg{animation-play-state:paused}
+
+.demo{
+  position:fixed;right:46px;bottom:92px;z-index:9;display:flex;gap:2px;padding:3px;
+  background:rgba(10,11,13,.9);border:1px solid var(--hair);
+}
+.demo{display:none}
+.demo span{padding:0 8px;display:flex;align-items:center;font-family:var(--mono);font-size:8px;letter-spacing:.14em;color:rgba(244,243,240,.2)}
+.demo button{padding:5px 9px;background:none;border:0;cursor:pointer;font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase}
+.demo button.on{background:rgba(244,243,240,.14);color:var(--fg)}
+
+@media (max-width:1080px){
+  .bar,.g .body,.s .body,.w .body,.c .inner,.p .body,.l .center,.l .top{padding-left:26px;padding-right:26px}
+  .g .foot,.s .foot,.w .foot,.p .foot,.l .foot{padding-left:26px;padding-right:26px}
+  .p .body{grid-template-columns:1fr}
+  .p .side{display:none}
+  .w .meter{display:none}
+  .g .body{grid-template-columns:1fr}
+  .g .right{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="switch" id="switch">
+  <button class="on" data-v="g">01</button>
+  <button data-v="s">02</button>
+  <button data-v="w">03</button>
+  <button data-v="c">04</button>
+  <button data-v="p">05</button>
+  <button data-v="l">06</button>
+  <span class="nm" id="vname">GROOVES · 碟</span>
+</div>
+
+<div class="stage">
+
+  <!-- ============ 01 GROOVES ============ -->
+  <section class="view on g" data-view="g">
+    <div class="bar"><span><b>AFEIFEI</b> · 碟</span><span class="r"><span class="live">● 正在播放</span><span>FLAC 1411</span></span></div>
+    <div class="body">
+      <div class="left">
+        <div class="idx"><i></i><span>第 04 首 / 共 12</span></div>
+        <h1>老人と海<em>.</em></h1>
+        <div class="meta">ヨルシカ / 老人と海 / 2020</div>
+        <div class="lyr">
+          <div class="now">他梦见狮子回到沙滩上。</div>
+          <div class="nx">马林鱼把小船拖进深蓝</div>
+        </div>
+        <div class="clk"><b data-cur>01:44</b><span>/ 05:21</span></div>
+        <div class="st" data-struct data-seek></div>
+        <div class="sname"><span data-seg>副歌</span><span>点击任意段跳转</span></div>
+      </div>
+      <div class="right">
+        <div class="vinyl">
+          <div class="label"></div>
+          <div class="sheen"></div>
+          <div class="hole"></div>
+          <div class="dial"></div>
+          <div class="arm"><span class="weight"></span><span class="head"></span><span class="tip"></span></div>
+        </div>
+        <div class="tech">33⅓ RPM · SIDE A · 44.1kHz / 24bit</div>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="transport">
+        <button class="tb">◀◀<kbd>←</kbd></button>
+        <button class="tb on" data-play>暂停<kbd>空格</kbd></button>
+        <button class="tb">▶▶<kbd>→</kbd></button>
+        <button class="tb">队列 3</button>
+      </div>
+      <span style="flex:1"></span>
+      <span style="font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--mute)">唱针位置 = 播放进度</span>
+    </div>
+  </section>
+
+  <!-- ============ 02 SCRIPT ============ -->
+  <section class="view s" data-view="s">
+    <div class="bar"><span><b>AFEIFEI</b> · 剧本</span><span class="r"><span class="live">● 正在播放</span><span>结构 · 高置信</span></span></div>
+    <div class="body">
+      <div class="hd"><div class="t">老人と海<em>ヨルシカ / 2020 / 05:21</em></div><div class="no">第 04 首 / 共 12</div></div>
+      <div class="map" data-map></div>
+      <div class="axis"><span>00:00</span><span>01:30</span><span>03:00</span><span>04:30</span><span>05:21</span></div>
+      <div class="read">
+        <div class="kick"><i></i><span data-segname>副歌</span><b data-segrange>01:18 – 02:20</b><b data-lineno>第 12 / 34 行</b></div>
+        <div id="sLines"></div>
+      </div>
+    </div>
+    <div class="foot">
+      <span class="clk"><span data-cur>01:44</span><span>/ 05:21</span></span>
+      <div class="transport">
+        <button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button>
+      </div>
+      <span class="sp"></span>
+      <span class="prev">将生成 01:02 · 11 行</span>
+      <button class="tb" data-chorus>只听副歌</button>
+    </div>
+  </section>
+
+  <!-- ============ 03 SOUNDPRINT ============ -->
+  <section class="view w" data-view="w">
+    <div class="bar"><span><b>AFEIFEI</b> · 声纹</span><span class="r"><span class="live">● 正在播放</span><span>FLAC 1411</span></span></div>
+    <div class="body">
+      <div class="hd">
+        <div><div class="t">老人と海<em>.</em></div><div class="m"><span>ヨルシカ</span><span>2020</span><span>已播 32%</span></div></div>
+        <div class="cv" style="background:var(--art)"></div>
+      </div>
+      <div class="wave" data-wave><span class="tag">SOUNDPRINT · 随播放生长</span><div class="axis"></div></div>
+      <div class="lyr"><div class="now">他梦见狮子回到沙滩上。</div><div class="nx">马林鱼把小船拖进深蓝</div><span class="sp"></span><span class="no">第 12 / 34 行</span></div>
+    </div>
+    <div class="foot">
+      <div class="clk"><b data-cur>01:44</b><span>/ 05:21</span></div>
+      <div class="meter">
+        <div class="r hot"><span>L</span><div class="bars"><i style="width:62%"></i></div><b>-6.1</b></div>
+        <div class="r"><span>R</span><div class="bars"><i style="width:48%"></i></div><b>-9.4</b></div>
+      </div>
+      <span class="sp"></span>
+      <div class="transport">
+        <button class="tb">◀◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶▶</button><button class="tb">队列 3</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 CINEMA ============ -->
+  <section class="view c" data-view="c" data-cover>
+    <div class="bg"></div>
+    <div class="veil"></div>
+    <div class="top"><div class="bar"><span><b>AFEIFEI</b> · 影院</span><span class="r"><span class="live">● 正在播放</span><span>04 / 12</span></span></div></div>
+    <div class="inner">
+      <div class="kick">NOW PLAYING</div>
+      <h1>老人と海<em>.</em></h1>
+      <div class="meta">ヨルシカ · 老人と海 · 2020</div>
+      <div class="lyr">
+        <div>他梦见狮子回到沙滩上。</div>
+        <div class="nx">马林鱼把小船拖进深蓝</div>
+      </div>
+      <div class="tr" data-seek><div class="f"></div><div class="h"></div></div>
+      <div class="foot">
+        <time data-cur>01:44</time>
+        <div class="transport">
+          <button class="tb">◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶</button>
+        </div>
+        <span class="sp"></span>
+        <time>05:21</time>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 05 POSTER ============ -->
+  <section class="view p" data-view="p">
+    <div class="bar"><span><b>AFEIFEI</b> · 海报</span><span class="r"><span class="live">● 正在播放</span><span>SIDE A · TRACK 04</span></span></div>
+    <div class="body">
+      <div class="main">
+        <div class="kick">老人と海 · ヨルシカ</div>
+        <h1 id="pTitle">老人と海<span class="dot">.</span></h1>
+        <div class="meta"><span>ヨルシカ</span><span>2020</span><span>FLAC 1411</span><span>05:21</span></div>
+        <div class="lyr">他梦见狮子回到沙滩上。<em>马林鱼把小船拖进深蓝</em></div>
+      </div>
+      <div class="side">
+        <div class="spine">ONE RECORD · ONE ROOM · NO.04</div>
+        <div class="cv" style="background-image:var(--art)"></div>
+        <div class="num"><span data-cur>01:44</span><span>OF 05:21</span></div>
+      </div>
+    </div>
+    <div class="foot">
+      <time data-cur>01:44</time>
+      <div class="tr" data-seek><div class="f"></div><div class="h"></div></div>
+      <time>05:21</time>
+      <div class="transport"><button class="tb">◀</button><button class="tb on" data-play>暂停</button><button class="tb">▶</button></div>
+    </div>
+  </section>
+
+  <!-- ============ 06 LYRICS ============ -->
+  <section class="view l" data-view="l">
+    <div class="top">
+      <span class="cv" style="background-image:var(--art)"></span>
+      <b>老人と海</b><span>ヨルシカ</span>
+      <span class="sp"></span>
+      <span>04 / 12</span>
+    </div>
+    <div class="center" id="lCenter">
+      <div class="row far"><span class="n">10</span><span class="tx">八十五天的清晨没有鱼</span></div>
+      <div class="row near"><span class="n">11</span><span class="tx">汽笛在梦的第三段靠岸</span></div>
+      <div class="row cur"><span class="n">12</span><span class="tx">他梦见狮子回到沙滩上。</span></div>
+      <div class="row near"><span class="n">13</span><span class="tx">马林鱼把小船拖进深蓝</span></div>
+      <div class="row far"><span class="n">14</span><span class="tx">群鲨来的那晚星星很低</span></div>
+    </div>
+    <div class="tr" data-seek><div class="f"></div><div class="h"></div></div>
+    <div class="foot">
+      <time data-cur>01:44</time>
+      <div class="transport">
+        <button class="tb">◀◀<kbd>←</kbd></button><button class="tb on" data-play>暂停<kbd>空格</kbd></button><button class="tb">▶▶<kbd>→</kbd></button>
+      </div>
+      <span class="sp"></span>
+      <time>05:21</time>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ---------- 占位封面 ---------- */
+/* 用本机真实照片当封面 —— 图为主的三套（影院/海报/碟）必须靠真图才能验证，
+   CSS 渐变再好看也替代不了照片的明暗层次。产品里这里换成解码后的封面。 */
+document.documentElement.style.setProperty('--art',
+  'url("file:///C:/Windows/Web/Wallpaper/Windows/img0.jpg")');
+
+const TOTAL = 321;
+let pos = 104, playing = true, chorus = false;
+
+const SEGS = [
+  {name:'前奏',   s:0,   e:22,  lines:4},
+  {name:'主歌 A', s:22,  e:78,  lines:9},
+  {name:'副歌',   s:78,  e:140, lines:11, pick:true},
+  {name:'主歌 B', s:140, e:196, lines:10},
+  {name:'桥段',   s:196, e:246, lines:8},
+  {name:'尾奏',   s:246, e:321, lines:6}
+];
+const MAXL = Math.max(...SEGS.map(s=>s.lines));
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+/* ---------- 01 刻纹：结构条 ---------- */
+const gStruct = document.querySelector('[data-struct]');
+SEGS.forEach((sg,i)=>{
+  const el = document.createElement('span');
+  el.style.width = ((sg.e-sg.s)/TOTAL*100)+'%';
+  el.dataset.i = i;
+  gStruct.appendChild(el);
+});
+
+/* ---------- 02 剧本：结构地图 ---------- */
+const map = document.querySelector('[data-map]');
+SEGS.forEach((sg,i)=>{
+  const el = document.createElement('div');
+  el.className = 'seg' + (sg.pick?' pick':'');
+  el.dataset.i = i;
+  el.style.width = ((sg.e-sg.s)/TOTAL*100)+'%';
+  el.style.setProperty('--h', (34 + (sg.lines/MAXL)*66).toFixed(1));
+  el.innerHTML = `<span class="n">${sg.name}</span>
+    <div class="ln">${Array.from({length:sg.lines},()=>'<i></i>').join('')}</div>
+    <span class="m"><b>${fmt(sg.s)}</b><span>${sg.lines} 行</span></span>`;
+  el.addEventListener('click', ()=>{ pos = sg.s+.4; paint(); });
+  map.appendChild(el);
+});
+
+const TEXT = {
+  '前奏':   ['（前奏）','钢琴进来','第二小节','鼓点落'],
+  '主歌 A': ['汽笛在梦的第三段靠岸','八十五天的清晨没有鱼','而帆在盐粒里慢慢变旧','老人把星辰缝进补丁','海流把名字冲成传说','灯塔数着回港的次数','浪把誓言写在沙上又收走','他与海交换一生的沉默','天亮时渔线还在手中'],
+  '副歌':   ['他梦见狮子回到沙滩上。','马林鱼把小船拖进深蓝','群鲨来的那晚星星很低','他把桨举过头顶','海把天空按进水里','他数着自己的呼吸','浪一层一层地退','月亮碎在舷边','他不肯松手','线在掌心发烫','天亮之前他不是一个人'],
+  '主歌 B': ['港口的孩子喊他的名字','报纸说他又空手而归','他说海只是还没开口','他把网补了第三遍','风从西北来','屋顶的铁皮在响','他数着剩下的淡水','梦比鱼更沉','第二天的潮水照常'],
+  '桥段':   ['如果这就是最后一段航程','请把灯留给我','如果这就是最后一句话','让我说完再走','海不回答','海只把船推得更远','他笑起来'],
+  '尾奏':   ['（器乐）','弦乐铺底','鼓点渐远','海声','归于安静','结束']
+};
+
+/* ---------- 03 声纹：柱 ---------- */
+const COLS = 360;
+const wave = document.querySelector('[data-wave]');
+const cols = [];
+function envelope(x){
+  const intro = Math.min(1, Math.max(0,(x-.02)/.16));
+  const body = .55 + .45*Math.sin(x*Math.PI*1.15);
+  const build = (x>.24 && x<.46) ? 1.18 : 1;
+  const outro = x>.82 ? Math.max(.22, 1-(x-.82)/.2) : 1;
+  return Math.max(.05, intro*body*build*outro);
+}
+for (let i=0;i<COLS;i++){
+  const x = i/(COLS-1);
+  const h = Math.min(100, envelope(x)*(.72+Math.random()*.56)*100);
+  const col = document.createElement('div');
+  col.className = 'col';
+  const bar = document.createElement('i');
+  bar.style.height = Math.max(3,h).toFixed(1)+'%';
+  col.appendChild(bar);
+  wave.appendChild(col);
+  cols.push(col);
+}
+SEGS.slice(1).forEach(sg=>{
+  const sep = document.createElement('div');
+  sep.className = 'sep';
+  sep.style.left = (sg.s/TOTAL*100)+'%';
+  wave.appendChild(sep);
+});
+
+/* ---------- 05 海报：字号自适应（长曲名降档） ---------- */
+/* 单行标题按字数缩字号：1334 宽下 6 字 200px 刚好占 60% */
+(function fitTitle(){
+  const t = document.getElementById('pTitle');
+  const len = t.textContent.replace(/\s/g,'').length;
+  const size = len <= 5 ? 168 : len <= 8 ? 120 : len <= 12 ? 92 : 72;
+  t.style.setProperty('--tsize', size + 'px');
+})();
+
+/* ---------- 一份时间源 ---------- */
+const arm = document.querySelector('.g .arm');
+const sLines = document.getElementById('sLines');
+
+function paint(){
+  const p = pos/TOTAL;
+  document.querySelectorAll('[data-cur]').forEach(el=>el.textContent = fmt(pos));
+
+  let idx = SEGS.findIndex(s=>pos>=s.s && pos<s.e);
+  if (idx<0) idx = SEGS.length-1;
+  const seg = SEGS[idx];
+
+  /* 结构条 / 地图 */
+  document.querySelectorAll('[data-i]').forEach(el=>{
+    const i = +el.dataset.i;
+    el.classList.toggle('done', i<idx);
+    el.classList.toggle('now', i===idx);
+  });
+
+  /* 刻纹：唱针角度随进度走（24° 起始 → 50° 收尾），这是"针在哪，歌就在哪" */
+  if (arm) arm.style.transform = `rotate(${(24 + p * 26).toFixed(2)}deg)`;
+
+  /* 刻纹的结构条下方段名 */
+  document.querySelectorAll('.g [data-seg]').forEach(el => { el.textContent = seg.name; });
+
+  /* 剧本：段内三行 */
+  const all = TEXT[seg.name] || [];
+  const per = (seg.e-seg.s)/Math.max(1,all.length);
+  const local = Math.min(all.length-1, Math.max(0, Math.floor((pos-seg.s)/per)));
+  const from = Math.max(0, local-1);
+  const before = SEGS.slice(0,idx).reduce((n,s)=>n+s.lines,0);
+  sLines.innerHTML = all.slice(from, from+3).map((tx,k)=>{
+    const gi = from+k;
+    const cls = gi===local ? 'ln cur' : 'ln';
+    return `<div class="${cls}"><span class="no">${String(before+gi+1).padStart(2,'0')}</span><span class="tx">${tx}</span></div>`;
+  }).join('');
+  document.querySelector('[data-segname]').textContent = seg.name;
+  document.querySelector('[data-segrange]').textContent = `${fmt(seg.s)} – ${fmt(seg.e)}`;
+  document.querySelector('[data-lineno]').textContent = `第 ${before+local+1} / 34 行`;
+  const dots = map.children[idx].querySelectorAll('.ln i');
+  dots.forEach((d,i)=>d.classList.toggle('on', i<=local));
+
+  /* 声纹 */
+  const litN = Math.round(p*COLS);
+  for (let i=0;i<COLS;i++){
+    cols[i].classList.toggle('on', i<litN);
+    cols[i].classList.toggle('ishead', i===litN);
+  }
+}
+paint();
+setInterval(()=>{ if(playing){ pos = Math.min(TOTAL, pos+.5); paint(); } },500);
+
+/* ---------- 交互 ---------- */
+document.querySelectorAll('[data-seek]').forEach(box=>{
+  box.addEventListener('click', e=>{
+    const r = box.getBoundingClientRect();
+    pos = Math.max(0, Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));
+    paint();
+  });
+});
+document.querySelectorAll('[data-play]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    playing = !playing;
+    document.body.classList.toggle('paused', !playing);
+    document.querySelectorAll('[data-play]').forEach(b=>{
+      b.textContent = playing ? '暂停' : '播放';
+      b.classList.toggle('on', playing);
+      const k = document.createElement('kbd'); k.textContent='空格'; b.appendChild(k);
+    });
+  });
+});
+document.querySelector('[data-chorus]').addEventListener('click', e=>{
+  chorus = !chorus;
+  document.body.classList.toggle('chorus', chorus);
+  e.currentTarget.classList.toggle('on', chorus);
+});
+addEventListener('keydown', e=>{
+  if (e.code==='Space'){ e.preventDefault(); document.querySelector('[data-play]').click(); }
+  if (e.key==='ArrowRight'){ pos = Math.min(TOTAL,pos+5); paint(); }
+  if (e.key==='ArrowLeft'){ pos = Math.max(0,pos-5); paint(); }
+  const m = {'1':'g','2':'s','3':'w','4':'c','5':'p','6':'l'};
+  if (m[e.key]) go(m[e.key]);
+});
+
+/* ---------- 切换 ---------- */
+const NAMES = {g:'GROOVES · 碟', s:'SCRIPT · 剧本', w:'SOUNDPRINT · 声纹', c:'CINEMA · 影院', p:'POSTER · 海报', l:'LYRICS · 字幕'};
+const btns = [...document.querySelectorAll('#switch button')];
+const views = [...document.querySelectorAll('.view')];
+function go(id){
+  views.forEach(v=>v.classList.toggle('on', v.dataset.view===id));
+  btns.forEach(b=>b.classList.toggle('on', b.dataset.v===id));
+  document.getElementById('vname').textContent = NAMES[id];
+  paint();
+}
+btns.forEach(b=>b.addEventListener('click', ()=>go(b.dataset.v)));
+</script>
+</body>
+</html>

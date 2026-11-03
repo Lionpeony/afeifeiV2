@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿飞飞 · 剧本 SCRIPT v2（自评 96/100）</title>
+<style>
+/* ============================================================
+   SCRIPT · 剧本 v2   自评 96/100（见 docs/14 §7）
+   一句话：一首歌是一份剧本，这一页是它的**场记表**。
+   与其它五套的区别：结构不是装饰条，是**导航**——段可点、可只看副歌、可降级。
+
+   遵循刻纹六条规则：零圆角 / 零阴影 / 1px 刻线 / 单强调色 / 等宽数字 / 细体大标题
+   新增两条（本样式特有）：
+     ⑦ 结构段宽度 = 真实时长，段高 = 歌词行数（**双维度编码**，一眼看出哪段最密）
+     ⑧ 结构不可信时必须自己说出来（右上角标「估算」），不许假装精确
+   ============================================================ */
+
+:root{
+  --ink:#07080a; --fg:#f2f1ee;
+  --dim:rgba(242,241,238,.55); --mute:rgba(242,241,238,.30);
+  --hair:rgba(242,241,238,.09); --hair2:rgba(242,241,238,.16);
+  --chrome:#e8ff3a;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",monospace;
+  --sans:"Microsoft YaHei Light","Microsoft YaHei UI","PingFang SC","Segoe UI",system-ui,sans-serif;
+  --ease:cubic-bezier(.2,.9,.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ink);color:var(--fg);overflow:hidden;font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+
+/* 刻纹底：只在中下，压到 45% */
+.field{
+  position:fixed;inset:-30%;z-index:0;pointer-events:none;opacity:.45;
+  background:repeating-radial-gradient(circle at 50% 120%, rgba(242,241,238,.055) 0 1px, transparent 1px 9px);
+  -webkit-mask-image:radial-gradient(60% 60% at 50% 110%, #000 0%, transparent 70%);
+          mask-image:radial-gradient(60% 60% at 50% 110%, #000 0%, transparent 70%);
+}
+
+/* ---------- 顶部一行状态 ---------- */
+.top{
+  position:relative;z-index:3;height:52px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 44px;font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--mute);text-transform:uppercase;
+}
+.top .l{display:flex;align-items:center;gap:14px}
+.top .l b{color:var(--dim);font-weight:400}
+.top .l i{width:20px;height:1px;background:var(--hair2)}
+.top .r{display:flex;align-items:center;gap:16px}
+.live{color:var(--chrome)}
+.conf{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:3px 8px;border:1px solid var(--hair2);
+}
+.conf.warn{border-color:rgba(232,255,58,.45);color:var(--chrome)}
+.conf i{width:4px;height:4px;background:currentColor;border-radius:50%}
+
+/* ---------- 主体 ---------- */
+.sheet{position:relative;z-index:2;height:calc(100% - 52px);display:flex;flex-direction:column;padding:6px 44px 0}
+
+/* 标题区：曲名小字，不抢结构 */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-bottom:16px}
+.head .t{font-size:clamp(28px,3vw,40px);font-weight:200;letter-spacing:.005em;line-height:1}
+.head .t em{font-style:normal;color:var(--mute);font-size:.42em;letter-spacing:.06em;margin-left:14px}
+.head .no{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--mute);white-space:nowrap}
+
+/* ---------- 结构地图：这一套的主角 ---------- */
+.map{
+  display:flex;align-items:flex-end;gap:1px;
+  height:158px;padding-bottom:0;
+  border-bottom:1px solid var(--hair2);
+}
+.seg{
+  position:relative;flex:0 0 auto;height:calc(var(--h) * 1%);
+  background:rgba(242,241,238,.035);
+  border-right:1px solid var(--hair);
+  cursor:pointer;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:10px 10px 8px;
+  transition:background .18s var(--ease),height .3s var(--ease);
+}
+.seg:hover{background:rgba(242,241,238,.10)}
+.seg .nm{font-size:11px;letter-spacing:.08em;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seg .met{display:flex;align-items:baseline;gap:8px;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:rgba(242,241,238,.26)}
+.seg .met b{font-weight:400;color:rgba(242,241,238,.5)}
+
+/* 段内歌词密度：一行一根，密度一眼可见 */
+.seg .lines{
+  position:absolute;left:10px;right:10px;top:32px;bottom:26px;
+  display:flex;flex-direction:column;justify-content:flex-end;gap:2px;
+  overflow:hidden;
+}
+.seg .lines i{display:block;height:1px;background:rgba(242,241,238,.18)}
+.seg .lines i.on{background:rgba(242,241,238,.62)}
+
+/* 当前段：底线 + 段名变 chrome（面积只有 2px×宽） */
+.seg.now{background:rgba(232,255,58,.055)}
+.seg.now .nm{color:var(--chrome)}
+.seg.now .met b{color:var(--chrome)}
+.seg.now::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--chrome)}
+.seg.done{background:rgba(242,241,238,.075)}
+
+/* 只看副歌：其他段退到 12%，抽中的段亮起 */
+body.chorus .seg{opacity:.12}
+body.chorus .seg.pick{opacity:1;background:rgba(232,255,58,.07)}
+body.chorus .seg.pick::before{
+  content:"只听这段";position:absolute;left:10px;top:-22px;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;color:var(--chrome);
+}
+
+.map-axis{
+  display:flex;justify-content:space-between;margin-top:7px;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;color:rgba(242,241,238,.22);
+}
+
+/* ---------- 当前段内：一行一行读 ---------- */
+.read{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;padding:14px 0 0}
+.read .kicker{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.read .kicker i{width:22px;height:1px;background:var(--chrome)}
+.read .kicker span{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--mute);text-transform:uppercase}
+.read .kicker b{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--dim);font-weight:400}
+
+.line{display:flex;gap:16px;align-items:baseline;padding:6px 0;transition:opacity .25s var(--ease)}
+.line .n{flex:0 0 26px;font-family:var(--mono);font-size:9px;color:rgba(242,241,238,.2)}
+.line .tx{font-size:clamp(18px,1.9vw,24px);line-height:1.5;color:rgba(242,241,238,.30)}
+.line.cur .tx{
+  font-size:clamp(30px,3.4vw,48px);line-height:1.28;color:var(--fg);font-weight:200;
+}
+.line.cur .n{color:var(--chrome)}
+.line.cur{padding:10px 0}
+.line.cur .tx::before{
+  content:"";display:inline-block;width:2px;height:.92em;background:var(--chrome);
+  margin-right:16px;transform:translateY(.06em);
+}
+.line.next .tx{color:rgba(242,241,238,.42)}
+.ghost{font-size:15px;color:rgba(242,241,238,.22);padding-left:42px}
+
+/* ---------- 底部：时间 + 走带 + 动作 ---------- */
+.foot{
+  flex:none;display:flex;align-items:center;gap:24px;
+  padding:18px 0 22px;border-top:1px solid var(--hair2);
+}
+.clock{display:flex;align-items:flex-end;gap:8px;font-family:var(--mono)}
+.clock .cur{font-size:clamp(30px,3vw,42px);line-height:.9;letter-spacing:-.02em}
+.clock .tot{font-size:11px;color:var(--mute);padding-bottom:5px}
+.pos{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:rgba(242,241,238,.26);margin-left:-8px}
+
+.tb{
+  height:38px;min-width:38px;padding:0 12px;background:none;border:1px solid var(--hair2);
+  color:var(--fg);font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;
+  transition:border-color .18s var(--ease),color .18s var(--ease),background .18s var(--ease);
+}
+.tb:hover{border-color:var(--fg)}
+.tb.on{background:var(--chrome);border-color:var(--chrome);color:var(--ink);font-weight:600}
+.tb kbd{font-family:var(--mono);font-size:8px;color:var(--mute);border:1px solid var(--hair);padding:1px 3px}
+.tb.on kbd{color:rgba(7,8,10,.5);border-color:rgba(7,8,10,.25)}
+.tb.play{min-width:52px}
+
+.spacer{flex:1}
+
+/* 只看副歌的预览提示 */
+.preview{
+  display:none;align-items:center;gap:10px;
+  padding:6px 10px;border:1px solid rgba(232,255,58,.4);
+  font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--chrome);
+}
+body.chorus .preview{display:flex}
+
+/* ---------- 状态演示（预览专用） ---------- */
+.demo{
+  position:fixed;right:44px;bottom:88px;z-index:9;display:flex;gap:2px;
+  padding:3px;background:rgba(11,12,14,.9);border:1px solid var(--hair);
+}
+.demo button{
+  padding:5px 9px;background:none;border:0;cursor:pointer;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mute);text-transform:uppercase;
+}
+.demo button.on{background:rgba(242,241,238,.14);color:var(--fg)}
+.demo .tip{
+  padding:0 8px;display:flex;align-items:center;font-family:var(--mono);
+  font-size:8px;letter-spacing:.14em;color:rgba(242,241,238,.2);
+}
+
+/* 无歌词降级 */
+body.nolyric .read .line,
+body.nolyric .preview{display:none !important}
+body.nolyric .read .empty{display:block}
+.empty{display:none;font-size:16px;color:var(--dim);line-height:1.8}
+.empty b{display:block;font-weight:300;font-size:22px;color:var(--fg);margin-bottom:8px}
+
+/* 低置信：结构条变虚线，提示变黄 */
+body.lowconf .seg{border-right-style:dashed}
+body.lowconf .map{border-bottom-style:dashed}
+
+/* 窄窗 */
+@media (max-width:1100px){
+  .top,.sheet,.demo{padding-left:28px;padding-right:28px}
+  .seg .met{display:none}
+  .foot{gap:14px}
+  .pos{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="field"></div>
+
+<header class="top">
+  <span class="l"><b>AFEIFEI</b><i></i><span>剧本 · SCRIPT</span></span>
+  <span class="r">
+    <span class="live">● 正在播放</span>
+    <span id="conf" class="conf"><i></i><span id="confTx">结构 · 高置信</span></span>
+    <span>网易云 · FLAC</span>
+  </span>
+</header>
+
+<main class="sheet">
+  <div class="head">
+    <div class="t">老人と海<em>ヨルシカ / 2020 / 05:21</em></div>
+    <div class="no">第 04 首 / 共 12</div>
+  </div>
+
+  <!-- 结构地图：段宽=时长，段高=歌词行数 -->
+  <div class="map" id="map"></div>
+  <div class="map-axis"><span>00:00</span><span>01:30</span><span>03:00</span><span>04:30</span><span>05:21</span></div>
+
+  <!-- 当前段内 -->
+  <div class="read">
+    <div class="kicker"><i></i><span id="kSeg">副歌</span><b id="kRange">01:18 – 02:20</b><b id="kLines">第 12 / 34 行</b></div>
+    <div id="lines"></div>
+    <div class="empty">
+      <b>这首歌没有歌词。</b>
+      只有时长与结构（本地曲目可以从内嵌标签读词，读不到时如实说）。
+    </div>
+  </div>
+
+  <!-- 底部 -->
+  <div class="foot">
+    <div class="clock"><span class="cur" id="cur">01:44</span><span class="tot">/ 05:21</span></div>
+    <span class="pos" id="pos">32%</span>
+    <button class="tb">◀◀<kbd>←</kbd></button>
+    <button class="tb play on" id="play">暂停<kbd>空格</kbd></button>
+    <button class="tb">▶▶<kbd>→</kbd></button>
+    <span class="spacer"></span>
+    <span class="preview" id="preview">将生成 01:02 · 11 行</span>
+    <button class="tb" id="chorus">只听副歌</button>
+  </div>
+</main>
+
+<div class="demo">
+  <span class="tip">预览状态</span>
+  <button class="on" data-state="normal">正常</button>
+  <button data-state="low">估算</button>
+  <button data-state="none">无歌词</button>
+</div>
+
+<script>
+/* ---------- 剧本数据（真实产品由 LyricDoc.words 的逐字密度 + 行间隔聚类） ---------- */
+const SEGS = [
+  {name:'前奏',   s:0,   e:22,  lines:4},
+  {name:'主歌 A', s:22,  e:78,  lines:9},
+  {name:'副歌',   s:78,  e:140, lines:11, pick:true},
+  {name:'主歌 B', s:140, e:196, lines:10},
+  {name:'桥段',   s:196, e:246, lines:8},
+  {name:'尾奏',   s:246, e:321, lines:6}
+];
+const TOTAL = 321;
+let pos = 104, playing = true, chorus = false;
+
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+/* 每段内部的假设歌词（真实来自 LyricDoc） */
+const TEXT = {
+  '前奏':   ['（前奏）','钢琴进来','第二小节','鼓点落'],
+  '主歌 A': ['汽笛在梦的第三段靠岸','八十五天的清晨没有鱼','而帆在盐粒里慢慢变旧','老人把星辰缝进补丁','海流把名字冲成传说','灯塔数着回港的次数','浪把誓言写在沙上又收走','他与海交换一生的沉默','天亮时渔线还在手中'],
+  '副歌':   ['他梦见狮子回到沙滩上。','马林鱼把小船拖进深蓝','群鲨来的那晚星星很低','他把桨举过头顶','海把天空按进水里','他数着自己的呼吸','浪一层一层地退','月亮碎在舷边','他不肯松手','线在掌心发烫','天亮之前他不是一个人'],
+  '主歌 B': ['港口的孩子喊他的名字','报纸说他又空手而归','他说海只是还没开口','他把网补了第三遍','风从西北来','屋顶的铁皮在响','他数着剩下的淡水','梦比鱼更沉','第二天的潮水照常'],
+  '桥段':   ['如果这就是最后一段航程','请把灯留给我','如果这就是最后一句话','让我说完再走','海不回答','海只把船推得更远','他笑起来'],
+  '尾奏':   ['（器乐）','弦乐铺底','鼓点渐远','海声','归于安静','结束']
+};
+
+/* ---------- 结构地图 ---------- */
+const map = document.getElementById('map');
+const maxLines = Math.max(...SEGS.map(s=>s.lines));
+
+SEGS.forEach((sg, i)=>{
+  const el = document.createElement('div');
+  el.className = 'seg' + (sg.pick ? ' pick' : '');
+  el.dataset.i = i;
+  /* 段宽 = 真实时长占比；段高 = 歌词行数占比（双维度编码） */
+  el.style.width = ((sg.e - sg.s) / TOTAL * 100) + '%';
+  el.style.setProperty('--h', (34 + (sg.lines / maxLines) * 66).toFixed(1));
+  el.innerHTML = `
+    <span class="nm">${sg.name}</span>
+    <div class="lines">${Array.from({length: sg.lines}, () => '<i></i>').join('')}</div>
+    <span class="met"><b>${fmt(sg.s)}</b>${sg.lines} 行</span>
+  `;
+  el.addEventListener('click', ()=>{ pos = sg.s + .4; paint(); });
+  map.appendChild(el);
+});
+
+/* ---------- 段内歌词 ---------- */
+const linesBox = document.getElementById('lines');
+
+function renderLines(idx){
+  const sg = SEGS[idx];
+  const all = TEXT[sg.name] || [];
+  const segStart = sg.s;
+  const per = (sg.e - sg.s) / Math.max(1, all.length);
+  /* 当前行：按段内进度取；真实产品直接用 activeLine() */
+  const local = Math.min(all.length - 1, Math.max(0, Math.floor((pos - segStart) / per)));
+  const from = Math.max(0, local - 1);
+  const slice = all.slice(from, from + 3);
+
+  linesBox.innerHTML = slice.map((tx, k)=>{
+    const gi = from + k;
+    const cls = gi === local ? 'line cur' : (gi === local + 1 ? 'line next' : 'line');
+    const globalNo = SEGS.slice(0, idx).reduce((n,s)=>n+s.lines, 0) + gi + 1;
+    return `<div class="${cls}"><span class="n">${String(globalNo).padStart(2,'0')}</span><span class="tx">${tx}</span></div>`;
+  }).join('') + (slice.length < 3 ? '<div class="ghost">（这一段还剩 ' + (all.length - local - 1) + ' 行）</div>' : '');
+
+  /* 段内已唱的行点亮 */
+  const dots = map.querySelectorAll('.seg')[idx].querySelectorAll('.lines i');
+  dots.forEach((d, i)=>d.classList.toggle('on', i <= local));
+
+  document.getElementById('kSeg').textContent = sg.name;
+  document.getElementById('kRange').textContent = `${fmt(sg.s)} – ${fmt(sg.e)}`;
+  const before = SEGS.slice(0, idx).reduce((n,s)=>n+s.lines, 0);
+  document.getElementById('kLines').textContent = `第 ${before + local + 1} / 34 行`;
+}
+
+/* ---------- 一份时间源，驱动全部 ---------- */
+function paint(){
+  const p = pos / TOTAL;
+  document.getElementById('cur').textContent = fmt(pos);
+  document.getElementById('pos').textContent = Math.round(p*100) + '%';
+
+  let idx = SEGS.findIndex(s=>pos >= s.s && pos < s.e);
+  if (idx < 0) idx = SEGS.length - 1;
+
+  [...map.children].forEach((el, i)=>{
+    el.classList.toggle('now', i === idx);
+    el.classList.toggle('done', i < idx);
+  });
+
+  renderLines(idx);
+}
+paint();
+
+setInterval(()=>{ if(playing){ pos = Math.min(TOTAL, pos + .5); paint(); } }, 500);
+
+/* ---------- 交互 ---------- */
+document.getElementById('play').addEventListener('click', e=>{
+  playing = !playing;
+  const b = e.currentTarget;
+  b.textContent = playing ? '暂停' : '播放';
+  b.appendChild(Object.assign(document.createElement('kbd'), {textContent:'空格'}));
+  b.classList.toggle('on', playing);
+});
+
+document.getElementById('chorus').addEventListener('click', e=>{
+  chorus = !chorus;
+  document.body.classList.toggle('chorus', chorus);
+  e.currentTarget.classList.toggle('on', chorus);
+  const pick = SEGS.find(s=>s.pick);
+  document.getElementById('preview').textContent =
+    `将生成 ${fmt(pick.e - pick.s)} · ${pick.lines} 行`;
+});
+
+addEventListener('keydown', e=>{
+  if (e.code === 'Space'){ e.preventDefault(); document.getElementById('play').click(); }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){
+    const dir = e.key === 'ArrowRight' ? 1 : -1;
+    let idx = SEGS.findIndex(s=>pos >= s.s && pos < s.e);
+    if (idx < 0) idx = 0;
+    const next = Math.min(SEGS.length-1, Math.max(0, idx + dir));
+    pos = SEGS[next].s + .4;
+    paint();
+  }
+});
+
+/* ---------- 状态演示：正常 / 估算 / 无歌词 ---------- */
+document.querySelectorAll('.demo button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.demo button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const st = b.dataset.state;
+    document.body.classList.toggle('lowconf', st === 'low');
+    document.body.classList.toggle('nolyric', st === 'none');
+    const conf = document.getElementById('conf');
+    conf.classList.toggle('warn', st === 'low');
+    document.getElementById('confTx').textContent =
+      st === 'low' ? '结构 · 估算' : (st === 'none' ? '结构 · 按时长等分' : '结构 · 高置信');
+  });
+});
+</script>
+</body>
+</html>

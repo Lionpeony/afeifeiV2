@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="../dist/renderer/app.css" />
+<style>
+  body { margin: 0; padding: 24px 40px; background: var(--bg, #f5f2ec); }
+  .lib-list { max-width: 900px; }
+</style>
+</head>
+<body>
+  <div class="lib-list">
+    <div class="lib-thead online-thead with-btn">
+      <span class="th-title">TITLE</span>
+      <span class="th-a">ARTIST</span>
+      <span class="th-b">ALBUM</span>
+      <span class="th-dur">TIME</span>
+    </div>
+    <!-- 用户搜「泡沫」时的真实返回形状：同名歌各种版本，标题必须完整可读才能挑出正版 -->
+    <div class="lib-row online-row" title="泡沫 — G.E.M.邓紫棋">
+      <span class="lib-title">泡沫</span>
+      <span class="lib-artist">G.E.M.邓紫棋</span>
+      <span class="lib-artist">X.X.X. Live</span>
+      <span class="lib-dur">4:18</span>
+      <button type="button" class="dl-btn">下载</button>
+    </div>
+    <div class="lib-row online-row" title="泡沫 (G.E.M.重生版) — G.E.M.邓紫棋">
+      <span class="lib-title">泡沫 (G.E.M.重生版)</span>
+      <span class="lib-artist">G.E.M.邓紫棋</span>
+      <span class="lib-artist">I AM GLORIA</span>
+      <span class="lib-dur">4:18</span>
+      <button type="button" class="dl-btn">下载</button>
+    </div>
+    <div class="lib-row online-row" title="泡沫 (Live) — Swang多雷">
+      <span class="lib-title">泡沫 (Live)</span>
+      <span class="lib-artist">Swang多雷</span>
+      <span class="lib-artist">FORBIDDEN SPACE</span>
+      <span class="lib-dur">3:18</span>
+      <button type="button" class="dl-btn">下载</button>
+    </div>
+    <div class="lib-row online-row" title="泡沫 (0.8倍调) — 阿吉">
+      <span class="lib-title">泡沫 (0.8倍调)</span>
+      <span class="lib-artist">阿吉</span>
+      <span class="lib-artist">泡沫 (0.8倍调)</span>
+      <span class="lib-dur">3:50</span>
+      <button type="button" class="dl-btn">下载</button>
+    </div>
+    <div class="lib-row online-row" title="泡沫 — 叶芷涵 / 辉楠">
+      <span class="lib-title">泡沫</span>
+      <span class="lib-artist">叶芷涵 / 辉楠</span>
+      <span class="lib-artist">泡沫 (Beyonce)</span>
+      <span class="lib-dur">4:08</span>
+      <button type="button" class="dl-btn">下载</button>
+    </div>
+  </div>
+</body>
+</html>
