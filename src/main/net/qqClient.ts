@@ -29,10 +29,15 @@ const SESSION_COOKIE_RE = /qqmusic_session=([^;]+)/;
 let qqToken = "";
 let tokenLoaded = false;
 
-function loadToken(): string {
+/**
+ * KV 是异步的（fs/promises），这里必须 await —— 上一版把它当同步值用
+ * （`typeof Promise` 永远不是 "string"），token 永远读成空串，
+ * QQ 登录态重启即丢：扫码当次内存里有 token 所以一切正常，一重启全匿名。
+ */
+async function loadToken(): Promise<string> {
   if (!tokenLoaded) {
     tokenLoaded = true;
-    const raw = readKey(TOKEN_KEY) as unknown;
+    const raw = await readKey(TOKEN_KEY).catch(() => null);
     qqToken = typeof raw === "string" && raw ? raw : "";
   }
   return qqToken;
@@ -56,7 +61,7 @@ function harvestToken(sources: (string | undefined)[]): void {
 }
 
 async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
-  const token = loadToken();
+  const token = await loadToken();
   const sep = pathAndQuery.includes("?") ? "&" : "?";
   const session = token ? `${sep}cookie=${encodeURIComponent(`qqmusic_session=${token}`)}` : "";
   const { json } = await fetchJson(`${qqApiUrl()}${pathAndQuery}${session}`);

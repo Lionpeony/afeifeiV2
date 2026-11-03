@@ -22,8 +22,13 @@ const OUT = path.resolve("docs/assets");
 const ELECTRON = path.resolve("node_modules/electron/dist/electron.exe");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** 只搬"状态"，不搬缓存：Cache/GPUCache 几百 MB，搬了纯浪费。 */
-const SKIP = new Set(["Cache", "GPUCache", "Code Cache", "DawnGraphiteCache", "DawnWebGPUCache", "blob_storage"]);
+/**
+ * 只搬"状态"，不搬缓存体：Chromium 缓存几百 MB，搬了纯浪费。
+ * 注意 Windows 大小写不敏感：应用自己的 `cache/`（存 QQ 会话）与 Chromium 的 `Cache/`
+ * 是**同一个物理目录**，整目录跳过会把 qq-auth-sessions.json 一起丢掉，
+ * 所以这里只跳 Cache_Data（Chromium 的缓存体），不跳 Cache 本身。
+ */
+const SKIP = new Set(["Cache_Data", "GPUCache", "Code Cache", "DawnGraphiteCache", "DawnWebGPUCache", "blob_storage"]);
 
 function copyProfile(dstRoot) {
   if (!fs.existsSync(REAL_PROFILE)) throw new Error(`找不到真实用户目录：${REAL_PROFILE}`);
@@ -41,6 +46,11 @@ function copyProfile(dstRoot) {
       if (/^crash-.*\.(log|json)$/.test(name)) fs.rmSync(path.join(logs, name), { force: true });
     }
   }
+  // QQ 会话是 QQ 真机判据的命根子：没复制到就提前喊，别等到「请先登录」再猜
+  const sess = path.join(dst, "cache", "qq-auth-sessions.json");
+  console.log(
+    `QQ 会话文件：${fs.existsSync(sess) ? `${fs.statSync(sess).size}B 已复制` : "没复制到（restoredCount 必为 0）"}`,
+  );
   return dst;
 }
 
@@ -378,6 +388,69 @@ try {
   );
   if (!chartPlaying) throw new Error("点了榜单第一首，15s 没起播：resolveOnlineUrl 对榜单曲目不通");
   console.log(`A-14 真机：${cardN} 张榜 → 下钻 ${rowN} 首 → 第一首起播`);
+
+  /*
+   * QQ 真机：登录态在 qq-session-token.json（复制 profile 时一起带过来）。
+   * 换源 → 搜索 → 起播。判据里"标题变了"不可省：只看计时在走，
+   * 上一首（网易云）还在放也能糊弄过去。
+   */
+  await page.evaluate(
+    `[...document.querySelectorAll('.rail button')].find((x) => x.textContent.includes('在线'))?.click()`,
+  );
+  await sleep(600);
+  const qqChip = await page.evaluate(`(() => {
+    const b = [...document.querySelectorAll('.seg button')].find((x) => x.textContent.includes('QQ'));
+    if (!b) return false;
+    b.click();
+    return true;
+  })()`);
+  if (!qqChip) throw new Error("找不到「QQ 音乐」chip");
+  await sleep(500);
+  await page.evaluate(`(() => {
+    const input = document.querySelector('.search');
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    setter.call(input, '青花瓷');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  })()`);
+  await sleep(300);
+  await page.evaluate(
+    `[...document.querySelectorAll('button')].find(x => x.textContent.trim() === '搜索')?.click()`,
+  );
+  const qqRows = await until(page, `document.querySelectorAll('.online-row').length > 0`, 45000, "QQ 搜索结果");
+  if (!qqRows) {
+    const dump = await page.evaluate(`(() => ({
+      chip: [...document.querySelectorAll('.seg button')].map((b) => b.textContent.trim() + (b.className.includes("on") ? "*" : "")),
+      value: document.querySelector('.search')?.value,
+      note: document.querySelector('.lib-note')?.textContent || "",
+      rows: document.querySelectorAll('.online-row').length,
+    }))()`);
+    throw new Error(`20s 没等到 QQ 搜索结果：${JSON.stringify(dump)}`);
+  }
+  const titleBefore = await page.evaluate(`document.querySelector(".np-tx b")?.textContent || ""`);
+  await page.evaluate(`document.querySelector('.online-row').click()`);
+  const qqPlaying = await until(
+    page,
+    `(() => {
+      const label = document.querySelector("button.tb.main")?.getAttribute("aria-label");
+      const clock = (document.querySelector(".seek .tm")?.textContent || "").trim();
+      const title = (document.querySelector(".np-tx b")?.textContent || "").trim();
+      return label === "暂停" && clock !== "" && clock !== "0:00" && title !== ${JSON.stringify(titleBefore)} && title !== "";
+    })()`,
+    20000,
+    "QQ 曲目起播",
+  );
+  if (!qqPlaying) {
+    const dump = await page.evaluate(`(() => ({
+      note: document.querySelector(".lib-note")?.textContent || "",
+      status: document.querySelector(".tbar .status")?.textContent || "",
+      title: document.querySelector(".np-tx b")?.textContent || "",
+      firstRow: (document.querySelector(".online-row")?.textContent || "").slice(0, 60),
+    }))()`);
+    throw new Error(`QQ 曲目没起播：${JSON.stringify(dump)}`);
+  }
+  const titleAfter = await page.evaluate(`document.querySelector(".np-tx b")?.textContent || ""`);
+  if (titleAfter === titleBefore) throw new Error(`标题没变（${titleAfter}）：可能还在放上一首`);
+  console.log(`QQ 真机：搜索「青花瓷」→ 起播《${titleAfter}》`);
 } finally {
   page?.close();
   child.kill();

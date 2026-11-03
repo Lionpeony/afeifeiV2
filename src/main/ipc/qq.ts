@@ -21,6 +21,37 @@ function readableError(err: unknown): string {
   }
 }
 
+/**
+ * 登录态与昵称。字段映射照抄 Folia normalizeQqUser（qqNormalize.ts）：
+ * 登录时回 { data: { profile } }，凭据兜底的顶层 nick 常为空，
+ * **真实昵称在 profile.info（GetLoginUserInfo）下**；账号 id 优先 str_musicid（微信凭据的 musicid 是占位 0）。
+ *
+ * 两个入口共用：`qq:profile`（预加载层的直连口）与 `qq:call("profile")`
+ * —— 源侧 provider 走的是后者，qqClient 白名单没有这条，之前一调就炸
+ * 「不允许调用 QQ 接口：profile」，getUrl 里靠它区分「没登录/没版权」的逻辑全部失效。
+ */
+async function qqProfileInfo(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> {
+  const s = (await callQq("status", {})) as { data?: { profile?: Record<string, unknown> } };
+  const nested = s?.data?.profile;
+  const profile: Record<string, unknown> =
+    nested && typeof nested === "object" ? nested : (s?.data ?? {});
+  const info = (profile.info && typeof profile.info === "object" ? profile.info : {}) as Record<string, unknown>;
+  const loggedIn = Object.keys(profile).length > 0;
+  const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const nick = [
+    str(profile.nickname), str(profile.nick), str(profile.name), str(profile.userName),
+    str(info.nickname), str(info.nick), str(info.name), str(info.userName),
+  ].find(Boolean);
+  const uid =
+    str(profile.str_musicid) ??
+    (profile.musicid != null ? String(profile.musicid) : undefined) ??
+    (profile.uin != null ? String(profile.uin) : undefined) ??
+    str(info.str_musicid) ??
+    (info.musicid != null ? String(info.musicid) : undefined) ??
+    null;
+  return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid };
+}
+
 export function registerQqIpc(): void {
   /* ---------- QQ 音乐通道（匿名接口，见 main/net/qqClient.ts 的实测记录） ---------- */
 
@@ -34,6 +65,7 @@ export function registerQqIpc(): void {
         }
         return fetchQqQrc((params as { songmid: string }).songmid);
       }
+      if (method === "profile") return qqProfileInfo();
       return await callQq(method, (params ?? {}) as Record<string, unknown>);
     } catch (err) {
       // 同 netease:call —— 上游错误压成可读字符串，别让渲染层收到 [object Object]
@@ -87,30 +119,7 @@ export function registerQqIpc(): void {
     const loggedIn = !!status.data && Object.keys(status.data).length > 0;
     return { code: check.code ?? 801, loggedIn, message: hint ?? check.message ?? "" };
   });
-  ipcMain.handle("qq:profile", async () => {
-    // 字段映射照抄 Folia normalizeQqUser（qqNormalize.ts）：登录时回 { data: { profile } }，
-    // 凭据兜底的顶层 nick 常为空，**真实昵称在 profile.info（GetLoginUserInfo）下**；
-    // 账号 id 优先 str_musicid（微信凭据的 musicid 是占位 0），再 info 兜底。
-    const s = (await callQq("status", {})) as { data?: { profile?: Record<string, unknown> } };
-    const nested = s?.data?.profile;
-    const profile: Record<string, unknown> =
-      nested && typeof nested === "object" ? nested : (s?.data ?? {});
-    const info = (profile.info && typeof profile.info === "object" ? profile.info : {}) as Record<string, unknown>;
-    const loggedIn = Object.keys(profile).length > 0;
-    const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
-    const nick = [
-      str(profile.nickname), str(profile.nick), str(profile.name), str(profile.userName),
-      str(info.nickname), str(info.nick), str(info.name), str(info.userName),
-    ].find(Boolean);
-    const uid =
-      str(profile.str_musicid) ??
-      (profile.musicid != null ? String(profile.musicid) : undefined) ??
-      (profile.uin != null ? String(profile.uin) : undefined) ??
-      str(info.str_musicid) ??
-      (info.musicid != null ? String(info.musicid) : undefined) ??
-      null;
-    return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid };
-  });
+  ipcMain.handle("qq:profile", () => qqProfileInfo());
   ipcMain.handle("qq:logout", async () => {
     await callQq("logout", {});
   });
