@@ -178,10 +178,10 @@ export const PRESETS: StagePresetDef[] = [
 export const LAYER_KEYS: StageLayer[] = ["wallpaper", "visual", "cover", "lyric", "controls"];
 
 /** C1 视觉模式白名单（C-13）。与 contracts 的 VisualMode 一致，sanitize 用。 */
-export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring"];
+export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring", "machi"];
 
 /** 模式显示名（视图浮层按钮）。 */
-export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形" };
+export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形", machi: "町景" };
 
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];

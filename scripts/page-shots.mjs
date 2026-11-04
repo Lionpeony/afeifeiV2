@@ -155,8 +155,8 @@ app.whenReady().then(async () => {
   win.webContents.on("render-process-gone", (_e, details) => {
     console.error(`✗ 渲染进程结束：${details.reason}（exitCode ${details.exitCode}）`);
   });
-  win.webContents.on("console-message", (_e, level, message) => {
-    if (level >= 2) console.error(`  renderer: ${message}`);
+  win.webContents.on("console-message", (_e, level, message, lineNo, sourceId) => {
+    if (level >= 2) console.error(`  renderer: ${message} @ ${sourceId}:${lineNo}`);
   });
 
   fs.mkdirSync(OUT, { recursive: true });
@@ -798,12 +798,47 @@ app.whenReady().then(async () => {
   );
   if (caroAfter !== 1) throw new Error(`ArrowRight 没把对焦移到第二张：${caroAfter}`);
   // 关掉菜单再拍：菜单浮层会挡住右栏的轮播
+  const clickViewBtn = (name) =>
+    win.webContents.executeJavaScript(
+      `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === ${JSON.stringify(name)})?.click()`,
+      true,
+    );
+  await clickViewBtn("视图");
+  await sleep(300);
+  await shoot("page-stage-carousel.png");
+
+  // 町景（C-13，folia machi 移植）：重开菜单切「町景」，再关掉拍（create 异步，等着色器编完）
+  try {
+    await clickViewBtn("视图");
+    await sleep(300);
+    console.error("MACHI-STEP 1 menu reopened");
+    await win.webContents.executeJavaScript(clickMenuBtn("町景"), true);
+    console.error("MACHI-STEP 2 mode switched");
+    await clickViewBtn("视图");
+    console.error("MACHI-STEP 3 menu closed");
+  } catch (err) {
+    console.error("MACHI-STEP failed:", err?.message ?? err);
+  }
+  // 首次进町景要编译整套着色器（软渲染的机器上以 10 秒计），等够再拍。
+  // 换菜单关闭那步如果被 three 初始化的拒绝打断，这里再补一次（不致命）
+  await sleep(30000);
   await win.webContents.executeJavaScript(
     `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === "视图")?.click()`,
     true,
+  ).catch(() => undefined);
+  await sleep(5000);
+  await shoot("page-stage-machi.png");
+  const machi = await win.webContents.executeJavaScript(
+    `(() => {
+      const host = document.querySelector(".st-machi");
+      const canvas = host?.querySelector("canvas");
+      return { host: !!host, canvas: !!canvas, w: canvas?.width ?? 0, h: canvas?.height ?? 0 };
+    })()`,
+    true,
   );
-  await sleep(300);
-  await shoot("page-stage-carousel.png");
+  if (!machi.host || !machi.canvas || machi.w < 100 || machi.h < 100) {
+    throw new Error(`町景画布没挂出来：${JSON.stringify(machi)}`);
+  }
 
   app.quit();
 });

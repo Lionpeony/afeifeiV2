@@ -122,10 +122,12 @@ export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
 export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 
 /**
- * C1 视觉层的呈现模式（C-13）。三种共用同一份 analyser 数据（I3 不破）：
- * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。加第四种先问反目标 #2。
+ * C1 视觉层的呈现模式（C-13）。前三种共用同一份 analyser 数据（I3 不破）：
+ * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。
+ * machi 町景是 folia 三维场景（three.js，自带渲染循环，见 views/stage/machi/），
+ * 不走 2D canvas 管线——它是显式搬代码的例外（THIRD-PARTY-NOTICES.md）。
  */
-export type VisualMode = "bars" | "wave" | "ring";
+export type VisualMode = "bars" | "wave" | "ring" | "machi";
 
 export interface StageConfig {
   preset: StagePreset;

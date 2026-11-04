@@ -62,6 +62,7 @@ if (TEST) {
       "stage-presets": "src/renderer/ui/views/stage/presets.ts",
       "stage-spectrum": "src/renderer/ui/views/stage/spectrum.ts",
       "stage-visuals": "src/renderer/ui/views/stage/visuals.ts",
+      "stage-machi-adapter": "src/renderer/ui/views/stage/machi/adapter.ts",
       "lyric-source": "src/renderer/ui/lyric-source.ts",
       "local-lyric": "src/renderer/ui/local-lyric.ts",
       "lyric-bindings": "src/renderer/domain/lyrics/bindings.ts",

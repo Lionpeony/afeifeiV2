@@ -13,6 +13,9 @@ import { activeLine, karaokeState, litCount } from "./lyric-state.js";
 import { LAYER_KEYS, PRESETS, VISUAL_MODE_NAMES, VISUAL_MODES } from "./presets.js";
 import { barHeights } from "./spectrum.js";
 import { carouselItems, ringGeom } from "./visuals.js";
+import { buildMachiTheme, buildSongContext, MachiValue, spectrumPower, zeroBands } from "./machi/adapter.js";
+import { DEFAULT_MACHI_TUNING } from "./machi/types.js";
+import { MachiRuntime, type MachiSongContext } from "./machi/createMachiRuntime.js";
 import { sampleCoverTint } from "./tint-client.js";
 
 const SPECTRUM_BARS = 48; // 电影感预设的频谱柱数（50 §9.2）
@@ -109,6 +112,15 @@ export function StageView({
   const [doc, setDoc] = useState<LyricDoc | null>(null);
   const [lyricNote, setLyricNote] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  /* C-13 町景（folia machi，three.js 自带渲染循环）：挂载/销毁与换歌/换主题都在 effect 推，
+     每帧只推时间与能量两个数（见 onTick 的 machi 分支） */
+  const machiHostRef = useRef<HTMLDivElement>(null);
+  const machiRuntimeRef = useRef<MachiRuntime | null>(null);
+  const machiTimeRef = useRef(new MachiValue(0));
+  const machiPowerRef = useRef(new MachiValue(0));
+  const machiBandsRef = useRef(zeroBands());
+  const machiOn = stage.layers.visual && stage.visualMode === "machi";
 
   const remote = player.remote;
   const renderer = stage.lyricRenderer;
@@ -363,9 +375,13 @@ export function StageView({
             if (imStatRef.current && imStatRef.current.textContent !== stat) imStatRef.current.textContent = stat;
           }
         }
-        // 视觉（C1，C-13 三模式）：共用同一份 analyser 数据，开关就是图层里的「频谱」。
+        // 视觉（C1，C-13 多模式）：共用同一份 analyser 数据，开关就是图层里的「频谱」。
         // 静音/暂停时 barHeights 给全 0，屏幕上真的空 —— 不画假波形
-        if (stage.layers.visual) {
+        if (stage.layers.visual && stage.visualMode === "machi") {
+          // 町景：three.js 自带渲染循环，这里只喂进度与能量两个数
+          machiTimeRef.current.set(t / 1000);
+          machiPowerRef.current.set(spectrumPower(spectrum(24) ?? []));
+        } else if (stage.layers.visual) {
           const canvas = rootRef.current?.querySelector<HTMLCanvasElement>(".st-spectrum");
           const ctx = canvas?.getContext("2d");
           if (canvas && ctx) {
@@ -415,8 +431,100 @@ export function StageView({
           }
         }
       }),
-    [doc, renderer, stage.preset, stage.layers.visual, stage.visualMode, stage.intensity, spectrum, durationMs],
+    [doc, renderer, stage.preset, stage.layers.visual, stage.visualMode, stage.intensity, spectrum, durationMs, machiOn, machiTimeRef, machiPowerRef],
   );
+
+  /* ---- C-13 町景生命周期：开关只建/毁一次，歌/主题/暂停就地推送（folia 外壳同款策略）---- */
+  const machiSongKey = `${nowTrack?.id ?? ""}|${doc?.trackId ?? ""}|${doc?.lines.length ?? 0}`;
+  // 场景色全在 --stage-* token 里：preset/customTokens/封面取色（--stage-tint）任何一个变了都重推
+  const machiThemeKey = `${stage.preset}|${stage.intensity}|${coverUrl ?? ""}|${JSON.stringify(stage.customTokens ?? {})}`;
+
+  useEffect(() => {
+    if (!machiOn) return;
+    const host = machiHostRef.current;
+    if (!host) return;
+    const abort = new AbortController();
+    let disposed = false;
+    // 主题色从场景 token 读：招牌、灯光、天空全部从这四个色派生（engine/palette.ts）
+    const cs = rootRef.current ? getComputedStyle(rootRef.current) : null;
+    const theme = buildMachiTheme(
+      {
+        bg: cs?.getPropertyValue("--stage-bg").trim() ?? "",
+        fg: cs?.getPropertyValue("--stage-fg").trim() ?? "",
+        accent: cs?.getPropertyValue("--stage-accent").trim() ?? "",
+        dim: cs?.getPropertyValue("--stage-fg-dim").trim() ?? "",
+        line: cs?.getPropertyValue("--stage-line").trim() ?? "",
+      },
+      stage.intensity,
+    );
+    void MachiRuntime.create({
+      host,
+      song: buildSongContext(nowTrack ?? null, doc),
+      theme,
+      // 运镜跟着动效档位走：0 档静止构图（试金石），1/2 档缓慢运镜
+      tuning: { ...DEFAULT_MACHI_TUNING, motion: stage.intensity > 0 },
+      renderQuality: { scale: 1, antialias: "auto" },
+      currentTime: machiTimeRef.current,
+      audioPower: machiPowerRef.current,
+      audioBands: machiBandsRef.current,
+      paused: !playing,
+      staticMode: false,
+      showText: true,
+      previewMode: false,
+      transparent: false,
+      fallbackIcons: [],
+      onContextLost: () => {
+        // 上下文丢失：用户切一下视觉模式即可重建（销毁路径在 cleanup）
+        console.warn("[machi] webgl context lost");
+      },
+      signal: abort.signal,
+    })
+      .then((rt) => {
+        if (disposed) {
+          rt.destroy();
+          return;
+        }
+        machiRuntimeRef.current = rt;
+        rt.setPaused(!playing);
+      })
+      .catch((err) => {
+        if (!(err instanceof DOMException && err.name === "AbortError")) console.error("[machi] create failed", err);
+      });
+    return () => {
+      disposed = true;
+      abort.abort();
+      machiRuntimeRef.current?.destroy();
+      machiRuntimeRef.current = null;
+    };
+    // eslint 不在此文件生效；deps 刻意只留 machiOn——歌/主题/暂停走下面三个 effect
+  }, [machiOn]);
+
+  useEffect(() => {
+    if (!machiOn) return;
+    machiRuntimeRef.current?.swapSong(buildSongContext(nowTrack ?? null, doc));
+  }, [machiSongKey]); // machiSongKey 涵盖了 nowTrack/doc 的变化
+  useEffect(() => {
+    if (!machiOn) return;
+    const rt = machiRuntimeRef.current;
+    if (!rt) return;
+    const cs = rootRef.current ? getComputedStyle(rootRef.current) : null;
+    rt.setTheme(
+      buildMachiTheme(
+        {
+          bg: cs?.getPropertyValue("--stage-bg").trim() ?? "",
+          fg: cs?.getPropertyValue("--stage-fg").trim() ?? "",
+          accent: cs?.getPropertyValue("--stage-accent").trim() ?? "",
+          dim: cs?.getPropertyValue("--stage-fg-dim").trim() ?? "",
+          line: cs?.getPropertyValue("--stage-line").trim() ?? "",
+        },
+        stage.intensity,
+      ),
+    );
+  }, [machiThemeKey]); // machiThemeKey 涵盖 preset/theme/intensity/customTokens
+  useEffect(() => {
+    if (!machiOn) return;
+    machiRuntimeRef.current?.setPaused(!playing);
+  }, [playing, machiOn]);
 
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
 
@@ -591,9 +699,15 @@ export function StageView({
         <div className={`st-wallpaper ${preset.wallpaperFromCover ? "from-cover" : ""}`} />
       ) : null}
 
-      {/* C1 视觉（A-07 / C-13）：三模式共用这一个 canvas，data-mode 给截图桩与调试用。
+      {/* C1 视觉（A-07 / C-13）：2D 模式共用这一个 canvas，data-mode 给截图桩与调试用。
+          町景走独立 three.js 画布（自带渲染循环），2D canvas 不渲染。
           关掉=不渲染 canvas，每帧绘制直接不跑 —— 低端机就靠这个 */}
-      {stage.layers.visual ? <canvas className="st-spectrum" width={480} height={120} data-mode={stage.visualMode} /> : null}
+      {stage.layers.visual && stage.visualMode === "machi" ? (
+        <div ref={machiHostRef} className="st-machi" aria-hidden="true" />
+      ) : null}
+      {stage.layers.visual && stage.visualMode !== "machi" ? (
+        <canvas className="st-spectrum" width={480} height={120} data-mode={stage.visualMode} />
+      ) : null}
 
       <div className="st-page">
         <PageHead
