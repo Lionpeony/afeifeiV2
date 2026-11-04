@@ -10,17 +10,25 @@
 /** 轮播面数量上限：右栏相纸 ~200px 宽，6 张以后背面互相穿帮，没有信息量。 */
 export const CAROUSEL_MAX = 6;
 
+/** 轮播面：id 去重键；url 为 null = 没封面的曲目，渲染占位盘（folia Carousel3D 的行为）。 */
+export interface CarouselItem {
+  id: string;
+  url: string | null;
+}
+
 /**
- * 轮播面列表：当前封面在前、队列封面随后。去重、截到上限；
+ * 轮播面列表：按传入顺序去重、截到上限；
  * **不足两张返回空数组**（调用方退回单封面渲染，不硬转）。
+ * 没封面的条目保留（url=null 交渲染层画占位）——这是 folia `Carousel3D.tsx`
+ * 对 `coverUrl` 缺失条目的处理：占位盘，而不是把它踢出轮播。
  */
-export function carouselFaces(current: string | null, more: string[]): string[] {
-  const out: string[] = [];
+export function carouselItems(items: (CarouselItem | null)[]): CarouselItem[] {
+  const out: CarouselItem[] = [];
   const seen = new Set<string>();
-  for (const url of [current, ...more]) {
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    out.push(url);
+  for (const it of items) {
+    if (!it || seen.has(it.id)) continue;
+    seen.add(it.id);
+    out.push(it);
     if (out.length >= CAROUSEL_MAX) break;
   }
   return out.length >= 2 ? out : [];

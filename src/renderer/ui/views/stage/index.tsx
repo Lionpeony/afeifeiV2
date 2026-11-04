@@ -12,12 +12,20 @@ import { PageHead } from "../../PageHead.js";
 import { activeLine, karaokeState, litCount } from "./lyric-state.js";
 import { LAYER_KEYS, PRESETS, VISUAL_MODE_NAMES, VISUAL_MODES } from "./presets.js";
 import { barHeights } from "./spectrum.js";
-import { carouselFaces, ringGeom } from "./visuals.js";
+import { carouselItems, ringGeom } from "./visuals.js";
 import { sampleCoverTint } from "./tint-client.js";
 
 const SPECTRUM_BARS = 48; // 电影感预设的频谱柱数（50 §9.2）
 const SCRIPT_ROWS = 12; // 台词本一屏 12 句（3 列 × 4 排）；整段几百句不可能全铺
 const UP_NEXT = 3; // 右栏「接下来」条数（稿子 3 条）
+/* C-13 封面轮播（folia Carousel3D 的度量，量纲按相纸 214px 收）：
+   侧面偏移、缩放/透明度递减、±15° 转角直接取自它的公式；触发阈值照抄
+   （滚轮 150ms 去抖 / 键盘 100ms 节流 / 触摸 50px / 距离 |d|>2 不渲染） */
+const CARO_SIDE = 64;
+const CARO_SCALE_ACTIVE = 1.08; // folia 桌面档 1.1，按小相纸微收
+const CARO_SCALE_STEP = 0.15;
+const CARO_OPACITY_BASE = 0.6;
+const CARO_OPACITY_STEP = 0.15;
 
 export interface StageViewProps {
   state: AppState;
@@ -412,12 +420,82 @@ export function StageView({
 
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
 
-  /* C-13 轮播面：当前封面 + 队列封面去重；<2 张给空数组（退回单封面，不硬转）。
-     依赖用 upNextKey（3+ 首 id 的稳定串），数组每帧换引用会把 memo 打穿 */
-  const caroFaces = useMemo(
-    () => (stage.coverCarousel ? carouselFaces(coverUrl, upNext.map((id) => queueCovers[id])) : []),
-    [stage.coverCarousel, coverUrl, upNextKey, queueCovers],
+  /* C-13 轮播面（folia Carousel3D）：当前曲目在前 + 「接下来」曲目，**无封面的也进轮播**
+     （渲染占位盘——folia 对缺封面条目的处理）；<2 张给空数组，退回单封面。
+     依赖用 upNextKey（id 稳定串），数组每帧换引用会把 memo 打穿 */
+  const caroItems = useMemo(
+    () =>
+      stage.coverCarousel
+        ? carouselItems([
+            player.trackId ? { id: player.trackId, url: coverUrl } : null,
+            ...upNext.map((id) => ({ id, url: queueCovers[id] ?? null })),
+          ])
+        : [],
+    [stage.coverCarousel, player.trackId, coverUrl, upNextKey, queueCovers],
   );
+  const [caroFocus, setCaroFocus] = useState(0);
+  const caroRef = useRef<HTMLDivElement | null>(null);
+  const caroLastWheel = useRef<number | null>(null);
+  const caroLastKey = useRef(0);
+  const caroTouchX = useRef(0);
+  // 面列表变了（切歌/队列变）焦点归零，别停在已不存在的下标上
+  const caroKey = caroItems.map((i) => i.id).join("|");
+  useEffect(() => setCaroFocus(0), [caroKey]);
+  const caroFocusIdx = Math.min(caroFocus, Math.max(0, caroItems.length - 1));
+
+  /* 滚轮换焦点：folia 的 150ms 去抖（滚轮一格算一次）。必须 preventDefault，
+     否则事件穿透到底下 .st-side-scroll 会把队列列表滚走 —— React 的 wheel 是
+     passive 的，只能挂原生监听 */
+  useEffect(() => {
+    const el = caroRef.current;
+    if (!el || caroItems.length < 2) return;
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      if (Math.abs(delta) < 20) return;
+      if (caroLastWheel.current) {
+        clearTimeout(caroLastWheel.current);
+      }
+      caroLastWheel.current = window.setTimeout(() => {
+        caroLastWheel.current = null;
+        setCaroFocus((f) =>
+          Math.min(caroItems.length - 1, Math.max(0, f + (delta > 0 ? 1 : -1))),
+        );
+      }, 150);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (caroLastWheel.current) {
+        clearTimeout(caroLastWheel.current);
+        caroLastWheel.current = null;
+      }
+    };
+  }, [caroItems.length]);
+
+  /* 左右方向键换焦点：folia 的 100ms 节流。挂容器不挂 window——
+     播放页还有别的键位，不抢全局（与 folia 唯一的行为偏差） */
+  const onCaroKey = (e: React.KeyboardEvent): void => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const now = Date.now();
+    if (now - caroLastKey.current < 100) return;
+    caroLastKey.current = now;
+    setCaroFocus((f) =>
+      Math.min(caroItems.length - 1, Math.max(0, f + (e.key === "ArrowRight" ? 1 : -1))),
+    );
+  };
+  const onCaroTouchStart = (e: React.TouchEvent): void => {
+    caroTouchX.current = e.targetTouches[0]?.clientX ?? 0;
+  };
+  const onCaroTouchEnd = (e: React.TouchEvent): void => {
+    const end = e.changedTouches[0]?.clientX ?? 0;
+    const diff = caroTouchX.current - end;
+    if (Math.abs(diff) <= 50) return; // folia 的 50px 阈值
+    setCaroFocus((f) =>
+      Math.min(caroItems.length - 1, Math.max(0, f + (diff > 0 ? 1 : -1))),
+    );
+  };
 
   /* 台词本：一屏 12 句，当前句往前留 4 句（歌词几百行也不铺满整页） */
   const scriptStart = doc
@@ -586,15 +664,48 @@ export function StageView({
                 className={coverUrl ? "art" : "art no-cover"}
                 data-side={nowTrack ? `SIDE A · ${pad2(queue.cursor + 1)}` : "SIDE A"}
               >
-                {/* C-13 轮播：≥2 张封面才转，否则退回单封面（caroFaces 空数组就是这个信号）。
-                    aria-hidden：轮播是装饰，曲名/歌手在下面的 cap 里都有语义 */}
-                {caroFaces.length >= 2 ? (
-                  <div className="st-caro" aria-hidden="true">
-                    <div className="st-caro-ring" style={{ "--st-caro-n": caroFaces.length } as React.CSSProperties}>
-                      {caroFaces.map((url, i) => (
-                        <img key={url} src={url} alt="" style={{ "--st-caro-i": i } as React.CSSProperties} />
-                      ))}
-                    </div>
+                {/* C-13 对焦式 3D 轮播（folia Carousel3D）：中间对焦 + 两侧 ±15° 退后，
+                    点击两侧聚焦、滚轮/左右键翻动；<2 张退回单封面（caroItems 空数组就是这个信号）。
+                    无封面曲目渲染占位盘，不编图 */}
+                {caroItems.length >= 2 ? (
+                  <div
+                    ref={caroRef}
+                    className="st-caro"
+                    role="group"
+                    aria-label="封面轮播：点击两侧、滚轮或左右方向键切换"
+                    tabIndex={0}
+                    onKeyDown={onCaroKey}
+                    onTouchStart={onCaroTouchStart}
+                    onTouchEnd={onCaroTouchEnd}
+                  >
+                    {caroItems.map((it, i) => {
+                      const d = i - caroFocusIdx;
+                      if (Math.abs(d) > 2) return null; // folia：|d|>4 不渲染，相纸小，收到 2
+                      const active = d === 0;
+                      return (
+                        <button
+                          key={it.id}
+                          type="button"
+                          className={`st-caro-face${active ? " on" : ""}`}
+                          style={
+                            {
+                              transform: `translateX(calc(-50% + ${(d * CARO_SIDE).toFixed(1)}px)) rotateY(${
+                                d > 0 ? -15 : d < 0 ? 15 : 0
+                              }deg) scale(${active ? CARO_SCALE_ACTIVE : 1 - Math.abs(d) * CARO_SCALE_STEP})`,
+                              opacity: active ? 1 : Math.max(0, CARO_OPACITY_BASE - Math.abs(d) * CARO_OPACITY_STEP),
+                              zIndex: 10 - Math.abs(d),
+                            } as React.CSSProperties
+                          }
+                          aria-current={active ? "true" : undefined}
+                          aria-label={active ? "正在对焦的封面" : `聚焦到第 ${i + 1} 张封面`}
+                          onClick={() => {
+                            if (!active) setCaroFocus(i);
+                          }}
+                        >
+                          {it.url ? <img src={it.url} alt="" draggable={false} /> : <i className="ph" aria-hidden="true" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
                   coverUrl ? <img ref={coverRef} className="st-cover-img" src={coverUrl} alt="" /> : null

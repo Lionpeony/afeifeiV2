@@ -600,7 +600,9 @@
   will-change: transform;
 }
 
-/* ---- C-13 封面 3D 轮播：相纸图区（bottom 让开 46px 说明白边）里转一圈封面 ---- */
+/* ---- C-13 封面 3D 轮播（folia Carousel3D 移植）：
+       对焦式——中间大、两侧 ±15° 退后，装饰线在背后穿过，点击/滚轮/左右键换焦点。
+       相纸图区（bottom 让开 46px 说明白边），焦点态样式在这里，几何在 tsx 的内联 transform ---- */
 .st-caro {
   position: absolute;
   left: 0;
@@ -608,43 +610,75 @@
   right: 0;
   bottom: 46px;
   perspective: 700px;
+  outline: none;
+}
+/* folia 的「装饰线」：一条 1px 横线穿过所有封面背后 */
+.st-caro::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--stage-fg) 20%, transparent),
+    transparent
+  );
   pointer-events: none;
 }
-.st-caro-ring {
+.st-caro-face {
   position: absolute;
-  inset: 0;
-  transform-style: preserve-3d;
-  animation: st-caro-spin 24s linear infinite;
+  left: 50%;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition:
+    transform 300ms cubic-bezier(0.3, 0.7, 0.3, 1),
+    opacity 300ms cubic-bezier(0.3, 0.7, 0.3, 1);
+  will-change: transform, opacity;
 }
-/* hover 停转：想看清哪张时按住它 */
-.st-caro:hover .st-caro-ring {
-  animation-play-state: paused;
-}
-.st-caro-ring img {
-  position: absolute;
-  inset: 0;
+.st-caro-face img,
+.st-caro-face .ph {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  backface-visibility: visible;
+  pointer-events: none;
+}
+/* 对焦态：细环（folia 的 ring-2，量纲收成 1px 墨环）+ 相纸式描边 */
+.st-caro-face.on img,
+.st-caro-face.on .ph {
+  outline: 1px solid color-mix(in srgb, var(--stage-fg) 60%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--stage-fg) 22%, transparent);
+}
+/* 无封面占位盘：与 .art.no-cover 同一套刻纹语言，不编图 */
+.st-caro-face .ph {
+  background-color: var(--stage-raised);
+  background-image: repeating-radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--stage-fg) 16%, transparent) 0 1px,
+    transparent 1px 9px
+  );
   outline: 1px solid color-mix(in srgb, var(--stage-fg) 24%, transparent);
-  transform: rotateY(calc(var(--st-caro-i) * (360deg / var(--st-caro-n)))) translateZ(90px);
 }
-@keyframes st-caro-spin {
-  from {
-    transform: rotateY(0deg);
-  }
-  to {
-    transform: rotateY(360deg);
-  }
+.st-caro:focus-visible {
+  outline: 1px solid var(--stage-accent);
+  outline-offset: 3px;
 }
-/* 动效档位 0（50 §9.2 试金石）：轮播停成一张静止的多面拼贴，不留坏布局 */
-.fx-0 .st-caro-ring {
-  animation: none;
+/* 动效档位 0（50 §9.2 试金石）：切换瞬移到位，不留动画 */
+.fx-0 .st-caro-face {
+  transition: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .st-caro-ring {
-    animation: none;
+  .st-caro-face {
+    transition: none;
   }
 }
 .st-photo .cap {

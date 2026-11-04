@@ -761,19 +761,49 @@ app.whenReady().then(async () => {
     `[...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"))?.querySelector("input")?.click()`,
     true,
   );
-  await sleep(250);
+  await sleep(300);
+  // folia Carousel3D 对焦式轮播：fixture 无封面但有队列 → 应渲染占位盘面（不再退回）。
+  // 交互判据：聚焦容器发 ArrowRight → 对焦面从第 1 张移到第 2 张（aria-current 跟着走）
   const caro = await win.webContents.executeJavaScript(
     `(() => {
       const label = [...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"));
+      const faces = [...document.querySelectorAll(".st-caro .st-caro-face")];
       return {
         checked: label?.querySelector("input")?.checked ?? null,
         caro: !!document.querySelector(".st-caro"),
+        faces: faces.length,
+        placeholders: document.querySelectorAll(".st-caro .st-caro-face .ph").length,
+        active: faces.findIndex((f) => f.getAttribute("aria-current") === "true"),
       };
     })()`,
     true,
   );
   if (caro.checked !== true) throw new Error(`封面轮播开关没勾上：${JSON.stringify(caro)}`);
-  if (caro.caro) throw new Error("无封面 fixture 却渲染了轮播（应退回单封面）");
+  if (!caro.caro || caro.faces < 2 || caro.placeholders !== caro.faces || caro.active !== 0) {
+    throw new Error(`对焦轮播没按预期渲染：${JSON.stringify(caro)}`);
+  }
+  await win.webContents.executeJavaScript(
+    `(() => {
+      const c = document.querySelector(".st-caro");
+      c.focus();
+      c.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      return true;
+    })()`,
+    true,
+  );
+  await sleep(400);
+  const caroAfter = await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".st-caro .st-caro-face")].findIndex((f) => f.getAttribute("aria-current") === "true")`,
+    true,
+  );
+  if (caroAfter !== 1) throw new Error(`ArrowRight 没把对焦移到第二张：${caroAfter}`);
+  // 关掉菜单再拍：菜单浮层会挡住右栏的轮播
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === "视图")?.click()`,
+    true,
+  );
+  await sleep(300);
+  await shoot("page-stage-carousel.png");
 
   app.quit();
 });

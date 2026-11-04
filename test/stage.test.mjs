@@ -18,7 +18,7 @@ import {
   sanitizeStageConfig,
   sanitizeThemeTokens,
 } from "../dist-test/stage-presets.mjs";
-import { carouselFaces, ringGeom } from "../dist-test/stage-visuals.mjs";
+import { carouselItems, ringGeom } from "../dist-test/stage-visuals.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
 /** 一份可控的测试 LyricDoc：只有 contracts/lyric.ts 一种模型（毫秒，逐字行内相对）。 */
@@ -259,14 +259,16 @@ test("C-13 stage/setVisualMode / setCarousel：切换生效且幂等", () => {
   dispatch({ type: "stage/setVisualMode", mode: s0.visualMode });
 });
 
-test("C-13 carouselFaces：当前封面在前、去重、上限 6；不足两张给空数组", () => {
-  assert.deepEqual(carouselFaces(null, []), [], "没封面不硬转");
-  assert.deepEqual(carouselFaces("a", ["a"]), [], "只有一张不硬转");
-  assert.deepEqual(carouselFaces("a", ["a", "b"]), ["a", "b"], "重复的当前封面去重");
-  assert.deepEqual(carouselFaces(null, ["a", "b", "a", "c"]), ["a", "b", "c"]);
-  const many = ["1", "2", "3", "4", "5", "6", "7", "8"];
-  assert.equal(carouselFaces(null, many).length, 6, "上限 6");
-  assert.deepEqual(carouselFaces("cur", many)[0], "cur", "当前封面排第一");
+test("C-13 carouselItems：去重、上限 6、无封面保留（占位盘）、不足两张给空数组", () => {
+  const it = (id, url = null) => ({ id, url });
+  assert.deepEqual(carouselItems([]), [], "空队列不硬转");
+  assert.deepEqual(carouselItems([it("a")]), [], "只有一张不硬转");
+  assert.deepEqual(carouselItems([it("a", "u1"), it("b"), it("a")]), [it("a", "u1"), it("b")], "同 id 去重（先到先得）");
+  assert.deepEqual(carouselItems([null, it("a"), it("b"), it("a"), it("c")]), [it("a"), it("b"), it("c")], "null 项与重复剔除");
+  const many = ["1", "2", "3", "4", "5", "6", "7", "8"].map((x) => it(x));
+  assert.equal(carouselItems(many).length, 6, "上限 6");
+  assert.deepEqual(carouselItems([it("cur", "u"), it("b")]), [it("cur", "u"), it("b")], "当前曲目排第一");
+  assert.equal(carouselItems([it("a"), it("b", null)])[1].url, null, "无封面条目保留，渲染层画占位盘");
 });
 
 test("C-13 ringGeom：内半径与柱长上限，画布太扁 lenMax=0", () => {
