@@ -1012,6 +1012,33 @@ button.primary:hover:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/* 取消红心的那一列：只在给了 onUnlike 的区块（账号红心）出现 */
+.acct-row.with-like {
+  grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 0.8fr) 54px 24px;
+}
+
+.acct-row.pending {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.acct-row .hm {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.acct-row .hm:hover,
+.acct-row .hm:focus-visible {
+  transform: scale(1.2);
+  outline: none;
+}
+
 .acct-div {
   height: 1px;
   margin: 0 0 18px;

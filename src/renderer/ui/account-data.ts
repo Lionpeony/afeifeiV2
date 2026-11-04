@@ -25,13 +25,18 @@ export interface AccountState {
   loading: boolean;
   /** 错误态的「重试」用 */
   reload(): void;
+  /**
+   * 本地摘掉一首（账号红心取消成功后调）。
+   * 不重拉整份列表：43 首红心重拉就是一次 song_detail 往返，界面还会闪一下 LOADING。
+   */
+  removeSong(songId: string): void;
 }
 
 export function useAccountBundle(load: () => Promise<AccountBundle>): AccountState {
   const loadFn = useRef(load);
   loadFn.current = load;
 
-  const [state, setState] = useState<Omit<AccountState, "reload">>({
+  const [state, setState] = useState<Omit<AccountState, "reload" | "removeSong">>({
     sourceId: "",
     songs: [],
     hint: null,
@@ -70,5 +75,10 @@ export function useAccountBundle(load: () => Promise<AccountBundle>): AccountSta
     };
   }, [tick]);
 
-  return { ...state, reload: () => setTick((t) => t + 1) };
+  return {
+    ...state,
+    reload: () => setTick((t) => t + 1),
+    removeSong: (songId) =>
+      setState((s) => ({ ...s, songs: s.songs.filter((t) => t.sourceId !== songId) })),
+  };
 }

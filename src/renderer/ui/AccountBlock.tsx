@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { fmtDuration } from "./views/library/rows.js";
 import type { AccountState } from "./account-data.js";
@@ -18,12 +19,34 @@ export interface AccountBlockProps {
   /** 行右侧的附加说明（如播放次数）；返回 null 就退回时长 */
   extra?(track: RemoteTrack, index: number): string | null;
   onPlay(sourceId: string, track: RemoteTrack): void;
+  /**
+   * 给了就在每行挂一颗心（账号红心可取消）。
+   * 行为照 folia 的 `handleLike`：**心和提示先答，请求后发**；失败把行放回去并提示一次。
+   */
+  onUnlike?(sourceId: string, songId: string): Promise<void>;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
-export function AccountBlock({ title, note, state, empty, extra, onPlay }: AccountBlockProps) {
+export function AccountBlock({ title, note, state, empty, extra, onPlay, onUnlike }: AccountBlockProps) {
   const count = state.songs.length;
+  // 正在取消的行：先灰掉、禁点，请求落地再真正移除——不做「点完瞬间消失、失败又诈尸」
+  const [pending, setPending] = useState<Set<string>>(() => new Set());
+
+  const unlike = (track: RemoteTrack): void => {
+    if (!onUnlike) return;
+    setPending((p) => new Set(p).add(track.sourceId));
+    void onUnlike(state.sourceId, track.sourceId)
+      .then(() => state.removeSong(track.sourceId))
+      .catch(() => undefined) // 提示由调用方给，这里只负责让行回到可用状态
+      .finally(() =>
+        setPending((p) => {
+          const next = new Set(p);
+          next.delete(track.sourceId);
+          return next;
+        }),
+      );
+  };
   return (
     <section className="acct" aria-label={title}>
       <div className="acct-head">
@@ -54,7 +77,7 @@ export function AccountBlock({ title, note, state, empty, extra, onPlay }: Accou
           {state.songs.map((track, i) => (
             <div
               key={`${track.sourceId}-${i}`}
-              className="acct-row"
+              className={`acct-row${onUnlike ? " with-like" : ""}${pending.has(track.sourceId) ? " pending" : ""}`}
               role="button"
               tabIndex={0}
               onClick={() => onPlay(state.sourceId, track)}
@@ -70,6 +93,20 @@ export function AccountBlock({ title, note, state, empty, extra, onPlay }: Accou
               </span>
               <span className="tag">{track.album || "—"}</span>
               <span className="du">{extra?.(track, i) ?? fmtDuration(track.durationMs)}</span>
+              {onUnlike ? (
+                <button
+                  type="button"
+                  className="hm"
+                  aria-label={`从账号红心移除《${track.title}》`}
+                  title="从账号红心移除"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unlike(track);
+                  }}
+                >
+                  ♥
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

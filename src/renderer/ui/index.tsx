@@ -665,6 +665,22 @@ function App() {
     });
   };
 
+  /**
+   * 取消账号红心。照 folia `handleLike` 的三条：提示先答、失败说一次、失败要把状态放回去。
+   * 这里是 `throw` 给 AccountBlock 的：它负责让行回到可用状态（reject = 没成功）。
+   */
+  const unlikeAccount = async (sourceId: string, songId: string): Promise<void> => {
+    const svc = services.current;
+    if (!svc) throw new Error("服务还没准备好");
+    try {
+      await svc.accountSetLiked(sourceId, songId, false);
+      setNotice({ text: "已从账号红心移除" });
+    } catch (err) {
+      setNotice({ text: err instanceof Error ? err.message : "取消红心失败，已恢复" });
+      throw err;
+    }
+  };
+
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
     switch (page) {
@@ -696,6 +712,7 @@ function App() {
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("liked")}
             onPlayRemote={playRemoteSafe}
+            onUnlike={unlikeAccount}
           />
         );
       case "recent":
