@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   clampCursor,
+  dropTargetIndex,
   nextShuffleSeed,
   orderOf,
   positionOf,
@@ -174,4 +175,30 @@ test("pushHistory 追加到末尾", () => {
 
 test("pushHistory 超过上限时丢最旧的", () => {
   assert.deepEqual(pushHistory(["a", "b", "c"], "d", 3), ["b", "c", "d"]);
+});
+
+/* ---------- 拖拽落点换算（P0-11） ---------- */
+
+test("往下拖要 -1：把第 1 首拖到第 3 首之前 → 最终落在下标 1", () => {
+  // items=[a,b,c,d]，from=0，指针落在"第 3 行之前"（gap=2）
+  assert.equal(dropTargetIndex(0, 2, 4), 1);
+  // 拖到队尾（gap=4）→ 落在最后一格
+  assert.equal(dropTargetIndex(0, 4, 4), 3);
+});
+
+test("往上拖不减一：把第 4 首拖到第 2 首之前 → 落在下标 1", () => {
+  assert.equal(dropTargetIndex(3, 1, 4), 1);
+  assert.equal(dropTargetIndex(3, 0, 4), 0);
+});
+
+test("原地放下不变（缝在自身上/下沿都算没动）", () => {
+  assert.equal(dropTargetIndex(2, 2, 4), 2);
+  assert.equal(dropTargetIndex(2, 3, 4), 2);
+});
+
+test("越界钳制：空队列 -1，缝超范围夹到两端", () => {
+  assert.equal(dropTargetIndex(0, 0, 0), -1);
+  assert.equal(dropTargetIndex(-1, 0, 4), -1);
+  assert.equal(dropTargetIndex(0, 99, 4), 3);
+  assert.equal(dropTargetIndex(3, -5, 4), 0);
 });

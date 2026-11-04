@@ -93,6 +93,20 @@ export function stepBackward(
   return order[pos - 1];
 }
 
+/**
+ * 拖拽落点换算（P0-11，抄 SPlayer `useDragSort.calculateTargetIndex` 的最后一段）。
+ *
+ * `gap` 是**插入缝**（0..len，缝在"第 gap 行之前"），`from` 是拖动行当前下标，
+ * 返回值是移动后该行落在的最终下标。**往下拖要 -1** —— 少这一行，往下拖会永远差一位。
+ * 单独抽成纯函数是因为这条换算只能靠断言钉住，界面上看起来只是"顺序不太对"。
+ */
+export function dropTargetIndex(from: number, gap: number, len: number): number {
+  if (from < 0 || len <= 0) return -1;
+  const g = Math.min(Math.max(gap, 0), len);
+  const to = from < g ? g - 1 : g;
+  return Math.max(0, Math.min(to, len - 1));
+}
+
 /** 把越界的 cursor 夹到合法范围；空队列返回 -1。 */
 export function clampCursor(items: TrackId[], cursor: number): number {
   if (items.length === 0) return -1;
