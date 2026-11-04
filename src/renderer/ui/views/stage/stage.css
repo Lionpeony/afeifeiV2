@@ -570,6 +570,16 @@
   inset: 0;
   border: 1px dashed color-mix(in srgb, var(--stage-fg) 22%, transparent);
 }
+/* 无封面（P0-26）：刻纹占位。保留虚线框（"相纸没装片"的记号），
+   但底纹换唱片纹 —— 纯留白会被读成"图还没加载出来" */
+.st-photo .art.no-cover {
+  background-color: var(--stage-raised);
+  background-image: repeating-radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--stage-fg) 16%, transparent) 0 1px,
+    transparent 1px 9px
+  );
+}
 .st-photo .art::after {
   content: attr(data-side);
   position: absolute;

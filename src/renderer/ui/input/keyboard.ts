@@ -8,15 +8,26 @@
  *   ③ 焦点在文本输入 → 静默
  *   ④ 焦点在滑杆 → 静默（←/→ 归滑杆）
  *   ⑤ 有模态打开 → 静默
- *   ⑥ 匹配命令表
+ *   ⑥ 查键位表（`keymap.ts`）→ 交给装配层执行
  */
 import { resolveEsc, isTextTarget, isRangeTarget, isListTarget } from "./resolve-esc.js";
+import { resolveKey } from "./keymap.js";
 import { idsOf, closeTop } from "./panels.js";
 
 export interface KeyboardActions {
   togglePalette(): void;
   togglePlay(): void;
   focusSearch(): void;
+  /** 当前页 id：0–9 只在播放页生效，所以键位表需要知道在哪儿。 */
+  page(): string;
+  seekBy(deltaMs: number): void;
+  /** 0–9：跳到整曲的百分之几 */
+  seekPercent(percent: number): void;
+  prev(): void;
+  next(): void;
+  volumeBy(delta: number): void;
+  mute(): void;
+  like(): void;
 }
 
 export function installKeyboard(actions: KeyboardActions): () => void {
@@ -41,19 +52,41 @@ export function installKeyboard(actions: KeyboardActions): () => void {
     // 模态打开：快捷键整体静默
     if (idsOf("modal").length > 0) return;
 
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-      e.preventDefault();
-      actions.togglePalette();
-      return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-      e.preventDefault();
-      actions.focusSearch();
-      return;
-    }
-    if (e.key === " " && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      actions.togglePlay();
+    const action = resolveKey(e, actions.page());
+    if (!action) return;
+    e.preventDefault();
+
+    switch (action.type) {
+      case "palette":
+        actions.togglePalette();
+        break;
+      case "focusSearch":
+        actions.focusSearch();
+        break;
+      case "togglePlay":
+        actions.togglePlay();
+        break;
+      case "seekBy":
+        actions.seekBy(action.deltaMs);
+        break;
+      case "seekPercent":
+        actions.seekPercent(action.percent);
+        break;
+      case "prev":
+        actions.prev();
+        break;
+      case "next":
+        actions.next();
+        break;
+      case "volumeBy":
+        actions.volumeBy(action.delta);
+        break;
+      case "mute":
+        actions.mute();
+        break;
+      case "like":
+        actions.like();
+        break;
     }
   };
 

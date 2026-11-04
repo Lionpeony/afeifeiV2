@@ -29,6 +29,8 @@ export interface StageViewProps {
   importTheme(): Promise<Record<string, string> | null>;
   /** 引擎当前曲目总时长（沉浸态的剩余时间/进度上限用）。无曲目返回 0。 */
   durationMs(): number;
+  /** 打开「换一份歌词」弹窗（P0-19）。 */
+  findLyric(): void;
 }
 
 const fmt = (ms: number): string => {
@@ -58,7 +60,15 @@ function fileOf(id: string): string {
  *   press 田字格整句落墨 / karaoke 田字格逐字点亮 / minimal 单行大字 / theatrical 三行提词器。
  * 每帧只写 class 与 transform；换预设仍只换场景层 token，控件不位移。
  */
-export function StageView({ state, cover, spectrum, exportTheme, importTheme, durationMs }: StageViewProps) {
+export function StageView({
+  state,
+  cover,
+  spectrum,
+  exportTheme,
+  importTheme,
+  durationMs,
+  findLyric,
+}: StageViewProps) {
   const { player, stage } = state;
   const preset = PRESETS.find((p) => p.id === stage.preset) ?? PRESETS[0];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -94,6 +104,8 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
   const remote = player.remote;
   const renderer = stage.lyricRenderer;
   const playing = player.status === "playing";
+  /** 当前曲的用户校准（P0-18），毫秒。菜单显示它，装配层用它推给 lyric-source。 */
+  const lyricOffset = state.lyrics.offsets[player.trackId ?? ""] ?? 0;
 
   /* 曲库元数据：队列行与台词本要标题/时长。在线曲目不在曲库里 → 走兜底，不编数据。 */
   useEffect(() => subscribeLibrary(() => setRev((r) => r + 1)), []);
@@ -533,7 +545,10 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
               {/* 说明收进相纸白边（拍立得本来就是写在白边上的）：
                   挂在外面时整块比右栏高 40px，说明行会压到台词本头上（真机实测 gap=-22px）。
                   收进来之后相纸可以整体被 flex 压缩，矮窗不再溢出 */}
-              <div className="art" data-side={nowTrack ? `SIDE A · ${pad2(queue.cursor + 1)}` : "SIDE A"}>
+              <div
+                className={coverUrl ? "art" : "art no-cover"}
+                data-side={nowTrack ? `SIDE A · ${pad2(queue.cursor + 1)}` : "SIDE A"}
+              >
                 {coverUrl ? <img ref={coverRef} className="st-cover-img" src={coverUrl} alt="" /> : null}
                 <div className="cap">
                   <b>{nowTitle}</b>
@@ -614,6 +629,45 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
               <option value="minimal">单行</option>
               <option value="theatrical">剧场</option>
             </select>
+          </div>
+          {/* 歌词校准（P0-18）：按曲记，正 = 词往后推；超过 ±10s 会被 store 夹住 */}
+          <div className="st-menu-row">
+            <span className="lbl">校准</span>
+            <button
+              type="button"
+              title="歌词整体提前 0.5 秒"
+              disabled={!player.trackId}
+              onClick={() =>
+                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: -500 })
+              }
+            >
+              -0.5s
+            </button>
+            <button
+              type="button"
+              title="重置这一首的校准"
+              disabled={!player.trackId || lyricOffset === 0}
+              onClick={() => player.trackId && dispatch({ type: "lyric/resetOffset", trackId: player.trackId })}
+            >
+              {lyricOffset === 0 ? "对齐" : `${lyricOffset > 0 ? "+" : "-"}${(Math.abs(lyricOffset) / 1000).toFixed(1)}s`}
+            </button>
+            <button
+              type="button"
+              title="歌词整体延后 0.5 秒"
+              disabled={!player.trackId}
+              onClick={() =>
+                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: 500 })
+              }
+            >
+              +0.5s
+            </button>
+          </div>
+          {/* 换词（P0-19）：词对不上（不是慢半拍，而是另一首）时走这里 */}
+          <div className="st-menu-row">
+            <span className="lbl">词源</span>
+            <button type="button" title="搜一版别的歌词" disabled={!player.trackId} onClick={findLyric}>
+              换一份…
+            </button>
           </div>
           <div className="st-menu-row">
             <span className="lbl">译文</span>
@@ -700,7 +754,10 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
                 <div className="im-grid">
                   {/* 左：封套相纸（无封面 = 素底虚线框，不编图） */}
                   <figure className="st-photo im-sleeve">
-                    <div className="art" data-side={`SIDE A · ${pad2(queue.cursor + 1)}`}>
+                    <div
+                      className={coverUrl ? "art" : "art no-cover"}
+                      data-side={`SIDE A · ${pad2(queue.cursor + 1)}`}
+                    >
                       {coverUrl ? <img className="st-cover-img" src={coverUrl} alt="" /> : null}
                     </div>
                     <figcaption className="im-sleeve-cap">
