@@ -474,6 +474,19 @@ async function main() {
     );
     console.log(`  账号推荐 OK：未登录时首页给本地推荐 + 提示（${billEnd.slice(0, 20)}…）`);
 
+    /* 账号数据接入（R1）：喜欢 / 最近两页各挂一块账号区（未登录给提示，不是空白） */
+    for (const [page, want] of [
+      ["liked", "账号红心"],
+      ["recent", "账号听歌排行"],
+    ]) {
+      await app2.evaluate(`document.querySelector('[data-page="${page}"]')?.click()`);
+      const mounted = await app2.waitFor(`!!document.querySelector(".acct")`, 3000);
+      const txt = await app2.evaluate(`document.querySelector(".acct")?.textContent ?? ""`);
+      assert.ok(mounted && txt.includes(want), `${page} 页应有「${want}」区块，实际：${txt.slice(0, 40)}`);
+    }
+    await app2.evaluate(`document.querySelector('[data-page="library"]')?.click()`);
+    console.log("  账号区块 OK：喜欢的音乐 / 最近播放 各挂一块账号区");
+
     /* 离线态（P0-25）：事件 → 横幅出现；恢复 → 消失 */
     await app2.evaluate(`window.dispatchEvent(new Event("offline"))`);
     assert.ok(await app2.waitFor(`!!document.querySelector(".net-banner")`, 2000), "断网应出常驻横幅");
