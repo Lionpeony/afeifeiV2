@@ -1,4 +1,4 @@
-/* 桌面歌词窗（M9-1）：透明窗上的一行白字黑边。app.css 链入了 tokens.css，变量在这里同样生效。
+/* 桌面歌词窗（M9-1 / P0-21）：透明窗上的两行字 + 底部细线。
    文字必须不依赖主题也能读：固定白字 + 深色描影（rgb/rgba，不碰裸 hex，lint 规则 5）。 */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
@@ -8,23 +8,66 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
   position: relative;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 24px;
+  padding: 0 24px 10px;
   -webkit-app-region: drag; /* 交互态整窗可拖位置；穿透态下区域无意义 */
 }
+
+/* 两行一组：主句在上、译文在下，整体垂直居中；没有词时整块为空，窗口几乎看不见 */
+.lyric-body {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .lyric-line {
   margin: 0;
   max-width: 100%;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.94);
   text-shadow:
     0 0 4px rgba(0, 0, 0, 0.9),
     0 2px 8px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* 逐字：唱过的亮、没唱的压暗。切成两个 span 而不是逐字标签 —— 桌面条只要"进度感"，
+   每个字一个盒模型在 720px 宽的窗口里只会让排版更容易抖。 */
+.lyric-line .on { color: rgba(255, 255, 255, 0.97); }
+.lyric-line .off { color: rgba(255, 255, 255, 0.42); }
+
+.lyric-tr {
+  margin: 0;
+  max-width: 100%;
+  font-size: 15px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.66);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 整曲进度：贴在窗口底部的一条细线，穿透态也看得见，不占版面 */
+.lyric-bar {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 4px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.lyric-bar i {
+  display: block;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.72);
+  transition: width 0.2s linear;
 }
 
 /* 工具条：交互态悬停浮现（右上角），穿透态整个窗口收不到鼠标，自然不可见 */

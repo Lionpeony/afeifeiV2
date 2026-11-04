@@ -101,7 +101,8 @@ async function openLyricWindow(): Promise<void> {
 
     lyric = new BrowserWindow({
       width: 720,
-      height: 110,
+      // 两行（主句 + 译文）+ 底部进度线；110 只够一行，翻译会被裁掉
+      height: 132,
       ...(x !== undefined && y !== undefined ? { x, y } : {}),
       frame: false,
       transparent: true,
