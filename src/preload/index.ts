@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld("api", {
   statFiles: (filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]> =>
     ipcRenderer.invoke("library:statFiles", filePaths),
   cover: (filePath: string): Promise<string | null> => ipcRenderer.invoke("library:cover", filePath),
+  /** 本地词原文（同名 .lrc → 内嵌标签）；解析与 LRCLIB 兜底在渲染层 */
+  localLyric: (filePath: string): Promise<{ text: string; source: "local" | "embedded" } | null> =>
+    ipcRenderer.invoke("library:localLyric", filePath),
+  /** 出站 HTTP：让主进程发，绕开渲染层的 CSP 与 CORS（只给 LRCLIB 兜底用） */
+  fetchJson: (
+    url: string,
+    options?: Record<string, unknown>,
+  ): Promise<{ status: number; json: unknown; setCookie: string[] }> =>
+    ipcRenderer.invoke("net:fetchJson", url, options),
 
   // 通用小文件（收藏 / 歌单 / 历史）
   readStore: (key: string): Promise<string | null> => ipcRenderer.invoke("store:read", key),

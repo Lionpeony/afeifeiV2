@@ -19,6 +19,10 @@ export interface LyricState {
 
 let doc: LyricDoc | null = null;
 let note = "";
+/** 词自带的时间轴偏移（扒词人标的），取词时记下来，校准时不能覆盖它。 */
+let baseOffset = 0;
+/** 用户校准（P0-18），毫秒：正 = 歌词整体往后推。 */
+let userOffset = 0;
 /** 已经取到（或正在取）的曲目键：同一首不重复取 */
 let loadedKey: string | null = null;
 /** 请求序号：切歌时作废在途请求，慢的旧响应不许盖掉新歌 */
@@ -44,9 +48,40 @@ export function subscribeLyric(fn: () => void): () => void {
 export function clearLyric(reason = ""): void {
   seq += 1; // 在途请求作废
   loadedKey = null;
+  baseOffset = 0;
   if (doc === null && note === reason) return; // 幂等：订阅者不该收到重复通知
   doc = null;
   note = reason;
+  emit();
+}
+
+/**
+ * 设置用户校准（P0-18）。必须在切歌/改校准时由装配层推下来 ——
+ * 这里不读 store（本模块能进 node 单测，就靠"只认注入"这条）。
+ */
+export function setUserOffset(ms: number): void {
+  const next = Number.isFinite(ms) ? Math.round(ms) : 0;
+  if (next === userOffset) return;
+  userOffset = next;
+  if (!doc) return; // 还没有词：记住值，下次取到词时会带上
+  doc = { ...doc, offsetMs: baseOffset + userOffset };
+  emit();
+}
+
+/** 当前生效的用户校准（测试与界面读它，不读闭包变量）。 */
+export function userOffsetOf(): number {
+  return userOffset;
+}
+
+/**
+ * 用户手动挑了另一版词（P0-19）：**直接换 doc**，不等下一次取词。
+ * `seq` 要自增 —— 否则切歌时那个还在路上的旧请求回来，会把用户刚挑的词盖掉。
+ */
+export function setManualLyric(next: LyricDoc): void {
+  seq += 1;
+  baseOffset = next.offsetMs;
+  doc = { ...next, offsetMs: baseOffset + userOffset };
+  note = "";
   emit();
 }
 
@@ -71,7 +106,10 @@ export async function loadLyric(
   try {
     const next = await fetch(sourceId, songId);
     if (my !== seq) return; // 期间又切歌了，丢弃
-    doc = next;
+    // 两个偏移分开存：词自带的 + 用户校准的。合并成一份后算总账，
+    // 否则每调一次都会把词自带的偏移吃掉一层（叠着叠着就歪了）
+    baseOffset = next.offsetMs;
+    doc = { ...next, offsetMs: baseOffset + userOffset };
     note = "";
     emit();
   } catch (err: unknown) {

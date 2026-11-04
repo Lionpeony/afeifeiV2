@@ -25,14 +25,21 @@ export interface LyricQuery {
   artistName?: string;
   /** 目标时长（毫秒），用于挑最接近的版本。 */
   durationMs?: number;
+  /** 自由文本（P0-19 手动搜索用的「歌名 歌手」）：有它就只发 `q`，让 LRCLIB 自己分词。 */
+  q?: string;
 }
 
 export async function searchLrclib(
   http: Pick<HttpPort, "fetchJson">,
   query: LyricQuery,
 ): Promise<LrclibHit[]> {
-  const params = new URLSearchParams({ track_name: query.trackName });
-  if (query.artistName) params.set("artist_name", query.artistName);
+  const params = new URLSearchParams();
+  if (query.q) {
+    params.set("q", query.q);
+  } else {
+    params.set("track_name", query.trackName);
+    if (query.artistName) params.set("artist_name", query.artistName);
+  }
   const res = await http.fetchJson(`${API}?${params.toString()}`, {
     headers: { "User-Agent": UA },
   });

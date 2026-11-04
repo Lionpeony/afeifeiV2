@@ -7,6 +7,7 @@ import { grant } from "../media/tokens.js";
 import { readTags, scanDirs } from "../fs/readTags.js";
 import { statFiles } from "../fs/statFiles.js";
 import { readCover } from "../fs/cover.js";
+import { readLocalLyric } from "../fs/readLyric.js";
 import { readKey, writeKey } from "../fs/kv.js";
 import { exportBackup, importBackup } from "../fs/backup.js";
 import { fetchJson } from "../net/fetchJson.js";
@@ -119,6 +120,12 @@ export function registerIpc(): void {
   ipcMain.handle("library:cover", (_e, filePath: unknown) => {
     if (typeof filePath !== "string") return null;
     return readCover(filePath);
+  });
+
+  // 本地曲目歌词（P0-20）：只取原文，解析与兜底在渲染层
+  ipcMain.handle("library:localLyric", (_e, filePath: unknown) => {
+    if (typeof filePath !== "string") return null;
+    return readLocalLyric(filePath);
   });
 
   ipcMain.handle("library:statFiles", (_e, filePaths: unknown) => {
