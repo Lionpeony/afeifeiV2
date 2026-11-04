@@ -25,6 +25,8 @@ export const ERROR_INFO: Record<ErrorCode, CodeInfo> = {
   aborted: { text: "已取消", retryable: false },
   "disk-full": { text: "磁盘空间不足", retryable: false },
   unknown: { text: "出了点问题", retryable: true },
+  // P0-14 自愈的停机原因：连跳三首才出现，必须说真话，不能塞进 unknown
+  "too-many-failures": { text: "连续几首都播不了，已暂停", retryable: true },
 };
 
 /** 上游常见错误的长相，用来做通用翻译（平台专属映射由各音源自己补）。 */

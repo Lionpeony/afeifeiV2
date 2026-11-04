@@ -98,19 +98,38 @@ test("sameGains：长度不同 / 任一不同都算不相等", () => {
 });
 
 test("sanitizeAudioConfig：null / 坏结构 → 全默认", () => {
-  assert.deepEqual(sanitizeAudioConfig(null), { preampDb: 0, eq: EQ_DEFAULT, crossfadeSec: 0 });
-  assert.deepEqual(sanitizeAudioConfig("junk"), { preampDb: 0, eq: EQ_DEFAULT, crossfadeSec: 0 });
+  assert.deepEqual(sanitizeAudioConfig(null), {
+    preampDb: 0,
+    eq: EQ_DEFAULT,
+    crossfadeSec: 0,
+    outputId: "",
+  });
+  assert.deepEqual(sanitizeAudioConfig("junk"), {
+    preampDb: 0,
+    eq: EQ_DEFAULT,
+    crossfadeSec: 0,
+    outputId: "",
+  });
   assert.deepEqual(sanitizeAudioConfig({ preampDb: "3", eq: 7 }), {
     preampDb: 0,
     eq: EQ_DEFAULT,
     crossfadeSec: 0,
+    outputId: "",
   });
 });
 
 test("sanitizeAudioConfig：10 段合法数据原样保留（clamp 后）", () => {
   const eq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const cfg = sanitizeAudioConfig({ preampDb: -3, eq, crossfadeSec: 3 });
-  assert.deepEqual(cfg, { preampDb: -3, eq, crossfadeSec: 3 });
+  assert.deepEqual(cfg, { preampDb: -3, eq, crossfadeSec: 3, outputId: "" });
+});
+
+test("sanitizeAudioConfig：outputId 只认字符串（P0-09）", () => {
+  assert.equal(sanitizeAudioConfig({ outputId: "abc123" }).outputId, "abc123");
+  assert.equal(sanitizeAudioConfig({ outputId: 42 }).outputId, "");
+  assert.equal(sanitizeAudioConfig({ outputId: null }).outputId, "");
+  // 老存档没这个字段 → 跟随系统默认，不是"上次的设备丢失"
+  assert.equal(sanitizeAudioConfig({ preampDb: 0 }).outputId, "");
 });
 
 test("sanitizeAudioConfig：老 6 段存档读出来是 10 段", () => {
@@ -146,6 +165,31 @@ test("audio/setEq：10 段越界 clamp、数值生效", () => {
   dispatch({ type: "audio/setEq", gains: [12, -12, 0, 0, 0, 0, 0, 0, 0, 3] });
   assert.deepEqual(getState().audio.eq, [12, -12, 0, 0, 0, 0, 0, 0, 0, 3]);
   dispatch({ type: "audio/setEq", gains: EQ_DEFAULT });
+});
+
+test("audio/setOutput：切设备生效，值同短路（P0-09）", () => {
+  dispatch({ type: "audio/setOutput", id: "speaker-2" });
+  assert.equal(getState().audio.outputId, "speaker-2");
+  const before = getState();
+  dispatch({ type: "audio/setOutput", id: "speaker-2" });
+  assert.equal(getState(), before, "同一设备重复选择不该通知订阅者");
+  dispatch({ type: "audio/setOutput", id: "" });
+  assert.equal(getState().audio.outputId, "", "空串 = 跟随系统默认");
+});
+
+test("audio/restore：outputId 跟着存档走，不因整组恢复丢失", () => {
+  dispatch({
+    type: "audio/restore",
+    config: { preampDb: 0, eq: EQ_DEFAULT, crossfadeSec: 0, outputId: "bt-headphone" },
+  });
+  assert.equal(getState().audio.outputId, "bt-headphone");
+  // 段数不一致的迁移分支也不能把 outputId 抹掉（老 6 段存档）
+  dispatch({
+    type: "audio/restore",
+    config: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0], crossfadeSec: 0, outputId: "bt-headphone" },
+  });
+  assert.equal(getState().audio.outputId, "bt-headphone");
+  dispatch({ type: "audio/setOutput", id: "" });
 });
 
 test("audio：值没变不通知（幂等）", () => {

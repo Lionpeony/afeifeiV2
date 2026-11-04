@@ -216,9 +216,11 @@ test("示例源：详情查不到就抛错（由上层翻译成 track-missing）
 
 /* ---------- 错误翻译 ---------- */
 
-test("十二个错误码齐全，每个都有文案", () => {
+// 13 = 50 §10 的十二个 + P0-14 自愈的熔断码（too-many-failures）。
+// 改这个数字必须同时改 contracts 的 ErrorCode 联合类型 —— 这条断言就是拦"随手造码"的。
+test("十三个错误码齐全，每个都有文案", () => {
   const codes = Object.keys(ERROR_INFO);
-  assert.equal(codes.length, 12);
+  assert.equal(codes.length, 13);
   for (const code of codes) assert.ok(ERROR_INFO[code].text.length > 0, code);
 });
 

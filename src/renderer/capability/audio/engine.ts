@@ -5,10 +5,21 @@ import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, t
 import { fadeCurves } from "./crossfade.js";
 import { streamSrcOf } from "./streamSrc.js";
 
+/** 播放淡入时长（秒）。folia 用 0.2s：短到听不出"渐入"，长到能盖住起播的爆音。 */
+const FADE_IN_SEC = 0.2;
+/** 暂停淡出时长（秒）。比淡入短：用户按暂停要的是"马上安静"，不是"慢慢消失"。 */
+const PAUSE_FADE_SEC = 0.15;
+/** 剩余多少秒开始预取下一首。10s 够跨过一次网络抖动。 */
+const PRELOAD_AHEAD_SEC = 10;
+
 export interface EngineHooks {
   onReady?: () => void;
   onEnded?: () => void;
   onError?: (code: ErrorCode) => void;
+  /** 等数据中（P0-26）：waiting → true，playing/canplay → false。只报变化，调用方去重。 */
+  onBuffering?: (on: boolean) => void;
+  /** 快到结尾了：该把下一首预取进待命元素（P0-08，每首只发一次）。 */
+  onPreloadNext?: () => void;
   /** 进入 crossfade 窗口（仅 crossfadeSec>0 时发一次）：该切下一首了。 */
   onNearEnd?: () => void;
   /** crossfade 开始：入场曲已发声，调用方把 loading 转 playing。 */
@@ -68,6 +79,16 @@ export class AudioEngine {
       el.addEventListener("error", () => {
         if (el === this.el) this.hooks.onError?.(this.mapError(el));
       });
+      // 缓冲（P0-26）：waiting 才是"开始后卡住"，和 loading（还没开始）不是一回事。
+      // crossfade 的待命元素不报 —— 它卡住不该让主窗显示"缓冲中"。
+      el.addEventListener("waiting", () => {
+        if (el === this.el) this.hooks.onBuffering?.(true);
+      });
+      for (const done of ["playing", "canplay", "canplaythrough"] as const) {
+        el.addEventListener(done, () => {
+          if (el === this.el) this.hooks.onBuffering?.(false);
+        });
+      }
       el.addEventListener("timeupdate", () => {
         if (el === this.el) this.detectNearEnd();
       });
@@ -116,12 +137,25 @@ export class AudioEngine {
     return el === this.els[0] ? g.fadeA.gain : g.fadeB.gain;
   }
 
-  /** 接近结尾（剩余 ≤ crossfadeSec）→ 通知调用方切下一首。 */
+  /** 预取事件是否已发过（每首一次，换曲重置）。 */
+  private preloadFired = false;
+
+  /**
+   * 接近结尾：先发一次"预取下一首"（P0-08，剩余 ≤10s），
+   * 到了 crossfade 窗口再发"该切了"（只有 crossfade>0 才有这一步）。
+   */
   private detectNearEnd(): void {
-    if (this.crossfadeSec <= 0 || this.fading || this.nearEndFired || this.el.paused) return;
+    if (this.fading || this.el.paused) return;
     const d = this.el.duration;
     if (!Number.isFinite(d) || d <= 0) return;
-    if (d - this.el.currentTime > this.crossfadeSec) return;
+    const remain = d - this.el.currentTime;
+
+    if (!this.preloadFired && remain <= PRELOAD_AHEAD_SEC) {
+      this.preloadFired = true;
+      this.hooks.onPreloadNext?.();
+    }
+
+    if (this.crossfadeSec <= 0 || this.nearEndFired || remain > this.crossfadeSec) return;
     this.nearEndFired = true;
     this.hooks.onNearEnd?.();
   }
@@ -136,6 +170,18 @@ export class AudioEngine {
   async load(track: string): Promise<boolean> {
     if (this.currentSrc === track) return false;
     if (this.fading) this.finalize(); // 上一场没收完就点了新的：立刻收场，别叠两张
+    this.cancelPendingPause(); // 上一首的淡出收尾不能落到这首头上
+
+    // 预取命中（P0-08）：下一首已经在待命元素里装好了，直接即位，省一次取源 + load
+    if (this.preloadedTrack === track && this.elB.readyState >= 1) {
+      this.preloadedTrack = null;
+      this.el.pause();
+      this.currentSrc = track;
+      this.nearEndFired = false;
+      this.preloadFired = false;
+      this.swapMain();
+      return true;
+    }
 
     const src = await this.resolveSrc(track);
     if (!src) {
@@ -158,9 +204,73 @@ export class AudioEngine {
 
     this.currentSrc = track;
     this.nearEndFired = false;
+    this.preloadFired = false;
     this.el.src = src;
     this.el.load();
     return true;
+  }
+
+  /** 已经预取好的曲目（P0-08）。换曲/命中后清空。 */
+  private preloadedTrack: string | null = null;
+
+  /**
+   * 预取下一首到待命元素（P0-08，调度思路抄 lx 的 `usePreloadNextMusic`）。
+   *
+   * 三条纪律：
+   * ① **失败不报 onError**：预取失败不是"当前这首播不了"，报错会把界面打成 error。
+   * ② crossfade>0 时不预取：那一档自己会装待命元素，两边抢同一个元素会互相踩。
+   * ③ 异步回来要再确认一次 `preloadedTrack`：期间用户可能已经切到别的曲目。
+   */
+  async preload(track: string): Promise<boolean> {
+    if (this.crossfadeSec > 0) return false;
+    if (track === this.currentSrc || track === this.preloadedTrack) return false;
+    this.preloadedTrack = track;
+    const src = await this.resolveSrcQuiet(track);
+    if (!src || this.preloadedTrack !== track) {
+      if (this.preloadedTrack === track) this.preloadedTrack = null;
+      return false;
+    }
+    this.elB.src = src;
+    this.elB.load();
+    return true;
+  }
+
+  /** 单曲循环（P0-05）：交给元素的 `loop`，播完不重新 load，切歌也不会断。 */
+  setLoop(loop: boolean): void {
+    for (const el of this.els) el.loop = loop;
+  }
+
+  /** 待应用的输出设备（图还没建时暂存，`play()` 建图后补上）。`""` = 跟随系统默认。 */
+  private pendingOutputId: string | null = null;
+
+  /**
+   * 切输出设备（P0-09）。
+   *
+   * **必须走 `AudioContext.setSinkId`**：元素一旦接进 `MediaElementSource`，
+   * `element.setSinkId()` 就失效（声音还走旧设备，界面却显示切好了）——
+   * folia 在 `audioOutputSink.ts` 里踩过这个坑。
+   *
+   * 返回是否真的切成功：设备被拔掉时回退默认并返回 false，调用方可据此提示，
+   * 而不是让用户对着"选了却没声"发呆。
+   */
+  async setOutputDevice(id: string): Promise<boolean> {
+    this.pendingOutputId = id;
+    const g = this.graph;
+    if (!g) return false; // 图未建：记住，等 play()
+    const ctx = g.ctx as AudioContext & { setSinkId?: (sinkId: string) => Promise<void> };
+    if (typeof ctx.setSinkId !== "function") return false; // 老内核没这个 API
+    try {
+      await ctx.setSinkId(id || "default");
+      return true;
+    } catch {
+      this.pendingOutputId = "";
+      try {
+        await ctx.setSinkId("default");
+      } catch {
+        // 默认设备也切不过去：安静兜底，别把播放链路整个打断
+      }
+      return false;
+    }
   }
 
   /** 装 src、起播待命元素、两条曲线交叉、定时到点 finalize。 */
@@ -206,21 +316,26 @@ export class AudioEngine {
       clearTimeout(this.fading);
       this.fading = null;
     }
-    const outgoing = this.el;
-    outgoing.pause();
-    this.els.reverse();
-    this.el = this.els[0];
-    this.elB = this.els[1];
-    const g = this.graph;
-    if (g) {
-      // reverse 后 this.el === els[0]：fadeA 永远绑主位（值 1），fadeB 绑待命位（0）
-      g.fadeA.gain.cancelScheduledValues(g.ctx.currentTime);
-      g.fadeB.gain.cancelScheduledValues(g.ctx.currentTime);
-      g.fadeA.gain.value = 1;
-      g.fadeB.gain.value = 0;
-    }
+    this.el.pause();
+    this.swapMain();
     this.nearEndFired = false;
     this.hooks.onSwitched?.();
+  }
+
+  /**
+   * 交换主/待命，**数组顺序不动**。
+   *
+   * 这里原来是 `els.reverse()`：那会把 `els[0]` 换成另一个元素，而 `gainOf` 是按
+   * "els[0] → fadeA" 算的 —— 但两个元素的 `MediaElementSource → fadeX` 在
+   * `createGraph` 时就绑死了，换位之后"主元素"实际挂在 fadeB 上（增益 0），
+   * **第一次 crossfade 结束就会静音**。所以只交换指针，并把两条增益按元素归位。
+   */
+  private swapMain(): void {
+    const outgoing = this.el;
+    this.el = this.elB;
+    this.elB = outgoing;
+    this.hardSetGain(this.el, 1);
+    this.hardSetGain(this.elB, 0);
   }
 
   /**
@@ -232,14 +347,39 @@ export class AudioEngine {
    * 代理地址同样必须在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
    */
   private async resolveSrc(track: string): Promise<string | null> {
-    if (/^https?:\/\//i.test(track)) return streamSrcOf(track);
+    const src = await this.resolveSrcQuiet(track);
+    if (!src) this.hooks.onError?.("track-missing");
+    return src;
+  }
 
-    const token = await this.media.grant(track);
-    if (!token) {
-      this.hooks.onError?.("track-missing");
+  /**
+   * 取源但不报错：预取（P0-08）用它。
+   * `grant` 是 IPC，桥没接好/主进程没注册时会 **reject**（不是返回 null）——
+   * 这里吞掉并返回 null，否则预取会变成未捕获的 promise 异常。
+   */
+  private async resolveSrcQuiet(track: string): Promise<string | null> {
+    if (/^https?:\/\//i.test(track)) return streamSrcOf(track);
+    try {
+      const token = await this.media.grant(track);
+      return token ? this.media.urlOf(token) : null;
+    } catch {
       return null;
     }
-    return this.media.urlOf(token);
+  }
+
+  /**
+   * 重试当前这首（P0-14）：只负责**重新取源并装进元素**，起播仍由调用方 dispatch 驱动。
+   *
+   * 不能只 `el.load()`：本地曲目的 url 是**带令牌**的（`resolveSrc` 每次重新 grant），
+   * 令牌过期时原 src 已经不可用，必须整条重取。所以清掉 `currentSrc` 再走 `load()`，
+   * 让 `willCrossfade` 判成 false（重试不进 crossfade，用户要的是"同一首马上放"）。
+   * 取源失败时 `load()` 内部会再发 onError，由调用方的重试计数兜住。
+   */
+  async reload(): Promise<boolean> {
+    const track = this.currentSrc;
+    if (!track) return false;
+    this.currentSrc = null;
+    return this.load(track);
   }
 
   async play(): Promise<void> {
@@ -248,7 +388,9 @@ export class AudioEngine {
       // 建图前收到的配置在这里一次应用——不能丢，否则"先调 EQ 再点播放"会静默失效
       if (this.pendingPreamp !== null) applyPreamp(this.graph, this.pendingPreamp);
       if (this.pendingEq) applyEq(this.graph, this.pendingEq);
+      if (this.pendingOutputId) void this.setOutputDevice(this.pendingOutputId);
     }
+    this.cancelPendingPause(); // 淡出收尾还没落地就续播：撤掉，否则刚响就停
     await resumeGraph(this.graph);
     try {
       await this.el.play();
@@ -256,7 +398,7 @@ export class AudioEngine {
         // crossfade 中：待命曲一起恢复，增益曲线继续走完；不许碰增益
         void this.elB.play().catch(() => undefined);
       } else {
-        this.fadeIn();
+        this.fadeTo(this.el, 1, FADE_IN_SEC);
       }
     } catch (err) {
       // 用户没点过页面就 play() 会被拒；这不是错误，别把界面打成 error
@@ -265,25 +407,63 @@ export class AudioEngine {
   }
 
   /**
-   * 把主路增益恢复到 1。
-   *
-   * **这里不能再用 ramp**。`linearRampToValueAtTime` 依赖 AudioContext 的时间轴推进，
-   * 而刚从 suspended 恢复时 currentTime 不往前走，ramp 永远到不了终点，
-   * 增益就卡在 0——表现正是"进度条在走、但完全没声音"。
-   *
-   * 短 ramp 防的那点咔哒声，远不值得冒"整个播放器静音"的风险。
+   * 把某一路增益硬置到目标值（取消所有排期）。斜坡出事时的兜底也用它。
    */
-  private fadeIn(): void {
-    const gain = this.gainOf(this.el);
-    if (!gain || !this.graph) return;
-    gain.cancelScheduledValues(this.graph.ctx.currentTime);
-    gain.value = 1;
+  private hardSetGain(el: HTMLAudioElement, value: number): void {
+    const g = this.graph;
+    const param = this.gainOf(el);
+    if (!g || !param) return;
+    param.cancelScheduledValues(g.ctx.currentTime);
+    param.value = value;
+  }
+
+  /**
+   * 增益斜坡（P0-07，抄 folia `playbackFade.ts`）。**必须配一个止损定时器**：
+   * `linearRampToValueAtTime` 依赖 AudioContext 时间轴推进，刚从 suspended 恢复时
+   * currentTime 不走，ramp 永远到不了终点 —— 表现正是"进度条在走、但完全没声音"。
+   * 所以坡走完（或按理该走完）时硬置终值。
+   * 止损定时器带**每参数代号**：快速"暂停→播放"时，旧的止损不能把新坡踩回去。
+   */
+  private fadeTo(el: HTMLAudioElement, to: number, sec: number): void {
+    const g = this.graph;
+    const param = this.gainOf(el);
+    if (!g || !param) return;
+    const seq = (this.fadeSeq.get(param) ?? 0) + 1;
+    this.fadeSeq.set(param, seq);
+    const t0 = g.ctx.currentTime;
+    param.cancelScheduledValues(t0);
+    param.setValueAtTime(Math.max(0.0001, param.value), t0);
+    param.linearRampToValueAtTime(to, t0 + sec);
+    setTimeout(() => {
+      if (this.fadeSeq.get(param) !== seq) return;
+      this.hardSetGain(el, to);
+    }, sec * 1000 + 80);
+  }
+
+  /** 每参数一个代号，给止损定时器判"我还是最新的那个吗"。 */
+  private readonly fadeSeq = new WeakMap<AudioParam, number>();
+
+  /** 暂停的淡出收尾（见 pause）。 */
+  private pauseTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** 取消还没执行的"淡出后暂停"：换曲/续播时要撤掉，否则会把新曲一起停掉。 */
+  private cancelPendingPause(): void {
+    if (!this.pauseTimer) return;
+    clearTimeout(this.pauseTimer);
+    this.pauseTimer = null;
   }
 
   pause(): void {
+    // 淡出 150ms 再真停（P0-07）：直接 pause 会有咔哒声。
     // 两路都停：crossfade 中暂停是合法操作，恢复时 play() 会把两路一起拉起
-    this.el.pause();
-    this.elB.pause();
+    this.cancelPendingPause();
+    this.fadeTo(this.el, 0, PAUSE_FADE_SEC);
+    this.pauseTimer = setTimeout(() => {
+      this.pauseTimer = null;
+      this.el.pause();
+      this.elB.pause();
+      this.hardSetGain(this.el, 0); // 归位：下次 play 从 0 淡入
+    }, PAUSE_FADE_SEC * 1000);
   }
 
   seek(positionMs: number): void {

@@ -89,12 +89,12 @@ export const EQ_PRESETS: EqPreset[] = [
   { id: "night", name: "夜间", gains: [-3, -1, 1, 3, 3, 2, 0, -2, -4, -6] },
 ];
 
-/** KV 里存的 { preampDb, eq, crossfadeSec } → 合法配置。null / 坏结构回落默认。 */
+/** KV 里存的 { preampDb, eq, crossfadeSec, outputId } → 合法配置。null / 坏结构回落默认。 */
 export function sanitizeAudioConfig(raw: unknown): AudioConfig {
   if (!raw || typeof raw !== "object") {
-    return { preampDb: PREAMP_DEFAULT, eq: [...EQ_DEFAULT], crossfadeSec: 0 };
+    return { preampDb: PREAMP_DEFAULT, eq: [...EQ_DEFAULT], crossfadeSec: 0, outputId: "" };
   }
-  const r = raw as { preampDb?: unknown; eq?: unknown; crossfadeSec?: unknown };
+  const r = raw as { preampDb?: unknown; eq?: unknown; crossfadeSec?: unknown; outputId?: unknown };
   return {
     preampDb:
       typeof r.preampDb === "number" && Number.isFinite(r.preampDb)
@@ -102,5 +102,7 @@ export function sanitizeAudioConfig(raw: unknown): AudioConfig {
         : PREAMP_DEFAULT,
     eq: sanitizeGains(r.eq),
     crossfadeSec: sanitizeCrossfade(r.crossfadeSec),
+    // 设备 id 不做白名单（浏览器给的字符串，且设备可能当前不在场）：只守"是字符串"
+    outputId: typeof r.outputId === "string" ? r.outputId : "",
   };
 }
