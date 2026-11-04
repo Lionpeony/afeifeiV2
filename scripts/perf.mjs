@@ -20,8 +20,19 @@ const BASELINE_FILE = "perf-baseline.json";
 /** 劣化超过基线 20% 即红（docs/04 M8 第 4 项；I5 的"预算进 CI"补完）。 */
 const REGRESSION = 1.2;
 
+/**
+ * 噪声下限（2026-11-04 加）：光看 20% 不够。
+ * 实测同一版本重跑 7 轮，restore 在 22–52ms 之间摆（中位 31.7 / 42.7 两组成绩），
+ * 20% 在 20–50ms 的指标上只等于 4–10ms，比机器抖动还小——门禁测不出劣化，只会随机红。
+ * 所以再加一条：**绝对差也要超过 15ms** 才算劣化。
+ * ponytail: 15ms 是这台机器上量出来的抖动幅度，换机器/换盘要重测，别直接搬。
+ */
+const NOISE_MS = 15;
+
 const BUDGET = {
-  restoreMs: 120,
+  // 原 120ms。实测 5000 首恢复在 30–50ms，120 留了 3 倍余量，等于没有护栏——
+  // 劣化到 100ms 它照样绿。收到 80ms：约 2 倍实测 + 噪声余量，真出现数量级劣化必红。
+  restoreMs: 80,
   frameP95Ms: 20,
   searchMs: 100,
 };
@@ -184,15 +195,18 @@ function compareBaseline(m) {
     ["滚动帧 p95", m.frameP95Ms, base.frameP95Ms],
     ["搜索响应", m.searchMs, base.searchMs],
   ];
-  const bad = checks.filter(([, now, base0]) => base0 > 0 && now > base0 * REGRESSION);
+  // 两条都要满足才算劣化：比例超 20% **且** 绝对差超噪声下限
+  const bad = checks.filter(
+    ([, now, base0]) => base0 > 0 && now > base0 * REGRESSION && now - base0 > NOISE_MS,
+  );
   if (bad.length) {
     throw new Error(
-      `性能较基线劣化超过 ${Math.round((REGRESSION - 1) * 100)}%：\n  · ` +
+      `性能较基线劣化（>${Math.round((REGRESSION - 1) * 100)}% 且 >${NOISE_MS}ms）：\n  · ` +
         bad.map(([n, now, b]) => `${n} ${now.toFixed(1)}ms > 基线 ${Number(b).toFixed(1)}ms`).join("\n  · "),
     );
   }
   console.log(
-    `  基线对比 OK（劣化 <20%）：恢复 ${m.restoreMs.toFixed(1)}/${Number(base.restoreMs).toFixed(1)} · ` +
+    `  基线对比 OK（<20% 或差值 <${NOISE_MS}ms）：恢复 ${m.restoreMs.toFixed(1)}/${Number(base.restoreMs).toFixed(1)} · ` +
       `p95 ${m.frameP95Ms.toFixed(1)}/${Number(base.frameP95Ms).toFixed(1)} · ` +
       `搜索 ${m.searchMs.toFixed(1)}/${Number(base.searchMs).toFixed(1)}`,
   );
