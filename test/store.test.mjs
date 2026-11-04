@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch, getState, subscribe } from "../dist-test/kernel.mjs";
+import {
+  dispatch,
+  getState,
+  sanitizeLyricOffsets,
+  sanitizePlaybackConfig,
+  subscribe,
+} from "../dist-test/kernel.mjs";
 
 test("play 写入状态", () => {
   dispatch({ type: "player/play", trackId: "t1" });
@@ -224,4 +230,214 @@ test("移动当前这一格到下一位：光标跟着，播放序不乱", () =>
   assert.equal(s.queue.cursor, 2);
   assert.equal(s.player.trackId, "b");
   assert.equal(s.queue.items[s.queue.cursor], "b", "cursor 与正在播的必须指向同一项");
+});
+
+test("失败策略（P0-15）：默认 skip，可切成 pause", () => {
+  assert.equal(getState().playback.onError, "skip", "默认必须是自动跳过");
+  dispatch({ type: "playback/setOnError", onError: "pause" });
+  assert.equal(getState().playback.onError, "pause");
+  dispatch({ type: "playback/setOnError", onError: "skip" });
+  assert.equal(getState().playback.onError, "skip");
+});
+
+test("失败策略：坏存档落回 skip，不进真相", () => {
+  assert.deepEqual(sanitizePlaybackConfig(null), { onError: "skip" });
+  assert.deepEqual(sanitizePlaybackConfig("{坏掉的 json"), { onError: "skip" });
+  assert.deepEqual(sanitizePlaybackConfig('{"onError":"whatever"}'), { onError: "skip" });
+  assert.deepEqual(sanitizePlaybackConfig('{"onError":"pause"}'), { onError: "pause" });
+});
+
+test("cue 带上标题与源标识（P0-13）：恢复后顶栏说歌名，不是一串直链", () => {
+  dispatch({
+    type: "player/cue",
+    trackId: "https://stream/x.mp3",
+    positionMs: 1000,
+    trackTitle: "晴天",
+    remote: { sourceId: "netease", songId: "9" },
+  });
+  const s = getState();
+  assert.equal(s.player.trackTitle, "晴天");
+  assert.equal(s.player.remote.songId, "9");
+  assert.equal(s.player.positionMs, 1000);
+});
+
+test("cue 不带标题时清空上一首的（别串台）", () => {
+  dispatch({ type: "player/cue", trackId: "C:/b.mp3" });
+  const s = getState();
+  assert.equal(s.player.trackTitle, null);
+  assert.equal(s.player.remote, null);
+});
+
+/* ---------- 队列面板（P0-10/12/16） ---------- */
+
+test("queue/clear：队列、光标、标题、进度一起归零，进空态", () => {
+  reset();
+  dispatch({ type: "player/seek", positionMs: 5000 });
+  dispatch({ type: "queue/clear" });
+  const s = getState();
+  assert.deepEqual(s.queue.items, []);
+  assert.equal(s.queue.cursor, -1);
+  assert.deepEqual(s.queue.failed, []);
+  assert.equal(s.player.status, "idle", "清空后是 idle，不是 ended（ended 会被当成「播完了还有下一首」）");
+  assert.equal(s.player.trackId, null);
+  assert.equal(s.player.positionMs, 0);
+});
+
+test("queue/fail：同一首重复标记是幂等的（不产生新状态）", () => {
+  reset();
+  dispatch({ type: "queue/fail", trackId: "b", failed: true });
+  assert.deepEqual(getState().queue.failed, ["b"]);
+  const before = getState();
+  dispatch({ type: "queue/fail", trackId: "b", failed: true });
+  assert.equal(getState(), before, "重复标记不该通知订阅者");
+  dispatch({ type: "queue/fail", trackId: "b", failed: false });
+  assert.deepEqual(getState().queue.failed, []);
+});
+
+test("queue/remove：删掉的曲目连失败标记一起清掉", () => {
+  reset(["a", "b", "c"], 0);
+  dispatch({ type: "queue/fail", trackId: "c", failed: true });
+  dispatch({ type: "queue/remove", index: 2 });
+  assert.deepEqual(getState().queue.failed, [], "同一 id 重新入队不该带着旧标记");
+});
+
+test("queue/set：换一整条队列时失败标记作废", () => {
+  reset();
+  dispatch({ type: "queue/fail", trackId: "b", failed: true });
+  dispatch({ type: "queue/set", items: ["x", "y"], startAt: 0 });
+  assert.deepEqual(getState().queue.failed, []);
+});
+
+/* ---------- 歌词校准（P0-18） ---------- */
+
+test("lyric/nudgeOffset：按曲累加、±10s 封顶、归零删键", () => {
+  dispatch({ type: "lyric/resetOffset", trackId: "t1" });
+  dispatch({ type: "lyric/nudgeOffset", trackId: "t1", deltaMs: 500 });
+  dispatch({ type: "lyric/nudgeOffset", trackId: "t1", deltaMs: 500 });
+  assert.equal(getState().lyrics.offsets.t1, 1000);
+  // 另一首互不影响（这是"按曲"的意义）
+  assert.equal(getState().lyrics.offsets.t2, undefined);
+  dispatch({ type: "lyric/nudgeOffset", trackId: "t1", deltaMs: 999999 });
+  assert.equal(getState().lyrics.offsets.t1, 10000, "上限 ±10s");
+  dispatch({ type: "lyric/nudgeOffset", trackId: "t1", deltaMs: -10000 });
+  assert.equal("t1" in getState().lyrics.offsets, false, "归零要删键，不留一堆 0 撑存档");
+});
+
+test("lyric/resetOffset：只清这一首", () => {
+  dispatch({ type: "lyric/nudgeOffset", trackId: "a", deltaMs: 500 });
+  dispatch({ type: "lyric/nudgeOffset", trackId: "b", deltaMs: -500 });
+  dispatch({ type: "lyric/resetOffset", trackId: "a" });
+  assert.equal(getState().lyrics.offsets.a, undefined);
+  assert.equal(getState().lyrics.offsets.b, -500);
+  dispatch({ type: "lyric/resetOffset", trackId: "b" });
+});
+
+test("sanitizeLyricOffsets：坏条目逐条丢，不整份作废", () => {
+  assert.deepEqual(sanitizeLyricOffsets(null), {});
+  assert.deepEqual(sanitizeLyricOffsets("{坏 json"), {});
+  const got = sanitizeLyricOffsets('{"ok":500,"big":99999,"zero":0,"str":"x","neg":-300}');
+  assert.deepEqual(got, { ok: 500, big: 10000, neg: -300 }, "99999 夹到 10000，0 与字符串丢掉");
+});
+
+/* ---------- P0-24 睡眠定时：播完当前曲再停 ---------- */
+
+/** 起一条 a/b/c 的队列并播第一首（每条用例自己铺干净现场） */
+const seedPlaying = (mode = "order") => {
+  dispatch({
+    type: "queue/restore",
+    state: {
+      items: ["a", "b", "c"],
+      cursor: 0,
+      context: ["a", "b", "c"],
+      history: [],
+      mode,
+      shuffleSeed: 1,
+    },
+  });
+  dispatch({ type: "player/play", trackId: "a" });
+};
+
+test("勾了「播完再停」：到点不暂停，这首结束才停且不切下一首", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 1 });
+  dispatch({ type: "sleep/expire" });
+
+  assert.equal(getState().player.status, "playing", "到点那一刻不许暂停");
+  assert.equal(getState().sleep.pending, true, "要挂起等这首播完");
+  assert.equal(getState().sleep.endsAt, null, "定时本身结束，界面不再倒计时");
+
+  dispatch({ type: "player/ended" });
+  const s = getState();
+  assert.equal(s.player.status, "paused");
+  assert.equal(s.player.trackId, "a", "停在这首，不许替用户切下一首");
+  assert.equal(s.sleep.pending, false, "挂起只用一次");
+});
+
+test("不勾「播完再停」：到点立刻暂停（A-23 老行为不变）", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: false });
+  dispatch({ type: "sleep/set", endsAt: 2 });
+  dispatch({ type: "sleep/expire" });
+  assert.equal(getState().player.status, "paused");
+  assert.equal(getState().sleep.pending, false);
+});
+
+test("单曲循环 + 挂起：播完是停，不是重播", () => {
+  seedPlaying("repeat-one");
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 3 });
+  dispatch({ type: "sleep/expire" });
+  dispatch({ type: "player/ended" });
+  const s = getState();
+  assert.equal(s.player.status, "paused");
+  assert.equal(s.player.positionMs, 0);
+});
+
+test("挂起时用户主动切下一首：跟着走，别在新歌上突然停", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 4 });
+  dispatch({ type: "sleep/expire" });
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.trackId, "b");
+  assert.equal(getState().sleep.pending, false);
+});
+
+test("挂起时取消勾选 = 别等了，立刻暂停", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 5 });
+  dispatch({ type: "sleep/expire" });
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: false });
+  assert.equal(getState().player.status, "paused");
+  assert.equal(getState().sleep.pending, false);
+});
+
+test("挂起时点「取消」：挂起一起清掉", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 6 });
+  dispatch({ type: "sleep/expire" });
+  dispatch({ type: "sleep/clear" });
+  assert.equal(getState().sleep.pending, false);
+  assert.equal(getState().sleep.endsAt, null);
+});
+
+test("重新定时会清掉上一次的挂起", () => {
+  seedPlaying();
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: true });
+  dispatch({ type: "sleep/set", endsAt: 7 });
+  dispatch({ type: "sleep/expire" });
+  dispatch({ type: "sleep/set", endsAt: 8 });
+  assert.equal(getState().sleep.pending, false);
+  assert.equal(getState().sleep.endsAt, 8);
+});
+
+test("queue/restore：老快照没有 failed 字段时补空数组", () => {
+  dispatch({
+    type: "queue/restore",
+    state: { items: ["a", "b"], cursor: 0, context: ["a", "b"], history: [], mode: "order", shuffleSeed: 1 },
+  });
+  assert.deepEqual(getState().queue.failed, []);
 });

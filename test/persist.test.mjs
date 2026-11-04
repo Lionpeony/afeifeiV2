@@ -98,6 +98,32 @@ test("restore：正常存档原样取回", async () => {
   assert.equal(got.queue.items.length, 2);
 });
 
+test("P0-13：标题与在线源标识一起存，重启后不是裸直链", async () => {
+  const port = memoryPort();
+  const p = createPersister(port, 10);
+  const remote = { sourceId: "netease", songId: "123", coverUrl: "https://x/c.jpg" };
+  const withOnline = () => {
+    const s = fakeState();
+    return {
+      ...s,
+      player: { ...s.player, trackId: "https://stream/x.mp3", trackTitle: "晴天", remote },
+    };
+  };
+
+  p.schedule(withOnline, () => 0);
+  await sleep(40);
+  const snap = JSON.parse(port.saved[0]);
+  assert.equal(snap.trackTitle, "晴天");
+  assert.deepEqual(snap.remote, remote);
+});
+
+test("P0-13：老快照没有 title/remote 也能读（不升版本）", async () => {
+  const legacy = { v: 1, trackId: "C:/a.mp3", positionMs: 0, volume: 0.5, queue: fakeState().queue };
+  const got = await createPersister(memoryPort(JSON.stringify(legacy)), 10).restore();
+  assert.equal(got.trackTitle, undefined, "缺字段读出来是 undefined，调用方按 null 恢复");
+  assert.equal(got.remote, undefined);
+});
+
 test("静音写进存档；缺字段的老存档照样能读（不升版本）", async () => {
   const port = memoryPort();
   const p = createPersister(port, 10);
