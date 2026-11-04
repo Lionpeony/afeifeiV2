@@ -27,7 +27,7 @@ import { commandIdFor } from "./input/media.js";
 import { currentTheme, type Theme } from "./theme.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
-import { HomeView } from "./views/home/index.js";
+import { HomeView, type DailyBundle } from "./views/home/index.js";
 import { LikedView } from "./views/liked/index.js";
 import { RadioView } from "./views/radio/index.js";
 import { RecentView } from "./views/recent/index.js";
@@ -621,6 +621,29 @@ function App() {
     });
   };
 
+  /**
+   * 首页的账号每日推荐（R1）。
+   * 选第一个「有账号能力且已登录」的源；都没有就把「有账号能力但没登录」这句话带回去——
+   * 不带的话用户只看得到本地推荐，永远不知道自己登录后这里是另一份。
+   */
+  const dailyForHome = async (): Promise<DailyBundle> => {
+    const svc = services.current;
+    if (!svc) return { sourceId: "", songs: [], hint: null };
+    let sawAccount = false;
+    for (const s of svc.sources()) {
+      if (!s.canAccount) continue;
+      sawAccount = true;
+      const st = await svc.loginStatus(s.id).catch(() => ({ loggedIn: false, nick: null }));
+      if (!st.loggedIn) continue;
+      return { sourceId: s.id, songs: await svc.accountDailySongs(s.id), hint: null };
+    }
+    return {
+      sourceId: "",
+      songs: [],
+      hint: sawAccount ? "登录网易云后，这里换成你账号的每日推荐" : null,
+    };
+  };
+
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
     switch (page) {
@@ -642,6 +665,12 @@ function App() {
             onPlayGroup={onPlayGroup}
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
             onGo={setPage}
+            daily={dailyForHome}
+            onPlayRemote={(sourceId, track) => {
+              void playRemote(sourceId, track).catch((err: unknown) => {
+                setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
+              });
+            }}
           />
         );
       case "liked":

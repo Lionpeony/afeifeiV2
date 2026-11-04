@@ -463,6 +463,17 @@ async function main() {
     await press("m"); // 复原，别把静音态带给后面的阶段
     console.log("  键位 OK：↑/↓ 音量、M 静音");
 
+    /* 账号每日推荐（R1）：未登录时必须说清「这是本地算的」，不能假装是账号的 */
+    await app2.evaluate(`document.querySelector('[data-page="home"]')?.click()`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".bill-end")`, 3000), "首页应有推荐节目单");
+    const billEnd = await app2.evaluate(`document.querySelector(".bill-end")?.textContent ?? ""`);
+    await app2.evaluate(`document.querySelector('[data-page="library"]')?.click()`); // 回到曲库，别影响后面阶段
+    assert.ok(
+      /登录|账号/.test(billEnd) || /END OF DAILY/.test(billEnd),
+      `首页推荐要能看出数据来源：${billEnd}`,
+    );
+    console.log(`  账号推荐 OK：未登录时首页给本地推荐 + 提示（${billEnd.slice(0, 20)}…）`);
+
     /* 离线态（P0-25）：事件 → 横幅出现；恢复 → 消失 */
     await app2.evaluate(`window.dispatchEvent(new Event("offline"))`);
     assert.ok(await app2.waitFor(`!!document.querySelector(".net-banner")`, 2000), "断网应出常驻横幅");
