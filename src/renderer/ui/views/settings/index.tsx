@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { PageHead } from "../../PageHead.js";
 import type { Theme } from "../../theme.js";
 import { ShortcutsSection } from "./shortcuts-section.js";
@@ -16,6 +17,12 @@ export interface SettingsViewProps {
   onOpenMini(): void;
   onExportBackup(): void;
   onImportBackup(): void;
+  /** 失败策略（P0-15）：跳过下一首 / 停下等用户。 */
+  playOnError: "skip" | "pause";
+  onPlayOnError(value: "skip" | "pause"): void;
+  /** 输出设备（P0-09）：`""` = 跟随系统默认。 */
+  outputId: string;
+  onOutput(id: string): void;
   /** 全局快捷键（A-24 可配置那半）。 */
   shortcutBindings: ShortcutBinding[];
   shortcutStatus: ShortcutStatus[];
@@ -30,6 +37,33 @@ export interface SettingsViewProps {
  */
 export function SettingsView(props: SettingsViewProps) {
   const { theme, onTheme, trackCount, scanning, notice } = props;
+
+  // 输出设备列表（P0-09）。浏览器 API 直接拿，不走 IPC —— sinkId 本来就只在渲染进程有意义。
+  // 拿不到（浏览器拒绝/无权限）就只剩"跟随系统默认"一项，不摆空下拉。
+  const [outputs, setOutputs] = useState<{ id: string; label: string }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices();
+        if (!alive) return;
+        setOutputs(
+          list
+            .filter((d) => d.kind === "audiooutput")
+            .map((d, i) => ({ id: d.deviceId, label: d.label || `输出设备 ${i + 1}` })),
+        );
+      } catch {
+        if (alive) setOutputs([]);
+      }
+    };
+    void load();
+    // 插拔耳机/切蓝牙：列表要跟着变，否则用户得重进设置页
+    navigator.mediaDevices.addEventListener("devicechange", load);
+    return () => {
+      alive = false;
+      navigator.mediaDevices.removeEventListener("devicechange", load);
+    };
+  }, []);
 
   return (
     <section className="settings">
@@ -85,6 +119,52 @@ export function SettingsView(props: SettingsViewProps) {
             <button type="button" className="btn" onClick={props.onOpenMini}>
               打开
             </button>
+          </div>
+          <div className="set-row">
+            <span className="k">
+              <b>输出设备</b>
+              <span>换声卡 / 蓝牙耳机后立刻生效；拔掉会自动回默认</span>
+            </span>
+            <select
+              className="set-pick"
+              value={props.outputId}
+              onChange={(e) => props.onOutput(e.target.value)}
+              aria-label="输出设备"
+            >
+              <option value="">跟随系统默认</option>
+              {/* 存档里的设备当前不在场时也要能显示：否则下拉会静默跳回"默认"，用户以为设置丢了 */}
+              {props.outputId && !outputs.some((d) => d.id === props.outputId) ? (
+                <option value={props.outputId}>上次选的设备（当前不可用）</option>
+              ) : null}
+              {outputs.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="set-row">
+            <span className="k">
+              <b>播放失败时</b>
+              <span>先重试两次，仍失败才按这里处理；连跳三首会停下</span>
+            </span>
+            <div className="seg">
+              {(
+                [
+                  ["skip", "跳过下一首"],
+                  ["pause", "停下等我"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={props.playOnError === value ? "on" : ""}
+                  onClick={() => props.onPlayOnError(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
