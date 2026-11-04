@@ -33,6 +33,11 @@ import { OnlineView, type SourceOption } from "./views/online/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
 import { NavIcon } from "./icons.js";
 import { NAV_FOOT, NAV_MAIN, NAV_MINE, PAGE_LABEL, type PageId } from "./pages.js";
+import { createMediaSession, type MediaSessionController } from "./media-session.js";
+import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
+import { errorText, isRetryable } from "../capability/errors.js";
+import { createShortcuts, type ShortcutStatus, type ShortcutsController } from "./shortcuts.js";
+import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 
@@ -150,6 +155,12 @@ function App() {
   const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
   const sleepEndsAt = state.sleep.endsAt;
+  const queueMode = state.queue.mode;
+  /* 最新状态镜像：媒体会话的 handler 闭包里要读当前值，不能吃渲染那一刻的旧快照 */
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const npCoverRef = useRef<string | null>(null);
+  npCoverRef.current = npCover;
 
   /**
    * 睡眠定时（A-23）：只在截止时刻挂一个 setTimeout 触发 `sleep/expire`。
@@ -182,6 +193,63 @@ function App() {
       alive = false;
     };
   }, [trackId, remote?.coverUrl]);
+
+  /*
+   * 系统媒体会话（Windows SMTC / 系统媒体面板 + 媒体键）：抄 lx-music-desktop 的
+   * useMediaSessionInfo.ts（结构语义 1:1，含静音保活与 9 个 action handler）。
+   * 位置每秒同步一次；曲目 / 播放态 / 封面变化立刻同步。
+   */
+  const mediaSessionRef = useRef<MediaSessionController | null>(null);
+  useEffect(() => {
+    const ctrl = createMediaSession({
+      read: () => {
+        const st = stateRef.current;
+        const id = st.player.trackId;
+        if (!id) return null;
+        const track = getTracks().find((t) => t.id === id);
+        return {
+          title: st.player.trackTitle ?? baseName(id),
+          artist: track?.artist ?? "",
+          album: track?.album ?? "",
+          artwork: st.player.remote?.coverUrl ?? npCoverRef.current,
+          playbackState: st.player.status === "playing" ? "playing" : "paused",
+          positionMs: services.current?.positionMs() ?? 0,
+          durationMs: services.current?.engine.durationMs() ?? 0,
+        };
+      },
+      toggle: () => dispatch({ type: "player/toggle" }),
+      next: () => dispatch({ type: "queue/next" }),
+      prev: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
+      seek: (positionMs) => dispatch({ type: "player/seek", positionMs }),
+      seekBy: (deltaMs) =>
+        dispatch({
+          type: "player/seek",
+          positionMs: Math.max(0, (services.current?.positionMs() ?? 0) + deltaMs),
+        }),
+    });
+    mediaSessionRef.current = ctrl;
+    // 上报能力：主进程据此决定媒体键归 Chromium 的 MediaSession（Windows SMTC）还是 globalShortcut 兜底
+    window.api.setMediaSessionSupported(ctrl.supported);
+    return () => {
+      ctrl.dispose();
+      mediaSessionRef.current = null;
+    };
+  }, []);
+
+  /* 曲目 / 播放态 / 封面变化 → 立刻同步系统媒体会话 */
+  useEffect(() => {
+    mediaSessionRef.current?.update();
+  }, [trackId, trackTitle, status, npCover, remote?.coverUrl]);
+
+  /* 位置推进：每 500ms 同步一次 positionState（系统面板的进度条）。不跟帧走 —— 那是白烧。 */
+  useEffect(() => {
+    let last = 0;
+    return onFrame((now) => {
+      if (now - last < 500) return;
+      last = now;
+      mediaSessionRef.current?.update();
+    });
+  }, []);
 
   const onPlay = (index: number): void => {
     const rows = getFiltered();
@@ -254,6 +322,22 @@ function App() {
       }),
       registerCommand({ id: "queue-next", label: "下一首", run: () => dispatch({ type: "queue/next" }) }),
       registerCommand({
+        id: "volume-up",
+        label: "音量 +",
+        run: () => dispatch({ type: "player/setVolume", volume: getState().player.volume + 0.05 }),
+      }),
+      registerCommand({
+        id: "volume-down",
+        label: "音量 −",
+        run: () => dispatch({ type: "player/setVolume", volume: getState().player.volume - 0.05 }),
+      }),
+      registerCommand({
+        id: "queue-mode",
+        label: "切换播放模式",
+        run: () =>
+          dispatch({ type: "queue/mode", mode: nextPlayMode(stateRef.current.queue.mode) }),
+      }),
+      registerCommand({
         id: "tab-home",
         label: "转到：首页",
         run: () => setPage("home"),
@@ -312,6 +396,47 @@ function App() {
       const id = commandIdFor(cmd);
       if (id) runCommand(id);
     });
+  }, []);
+
+  /*
+   * 全局快捷键（A-24 可配置那半）：读档 → 注册到主进程 → 按键回来执行动作。
+   * 动作语义仍走命令注册表（播放语义只有一份）。
+   */
+  const shortcutsRef = useRef<ShortcutsController | null>(null);
+  const [shortcutStatus, setShortcutStatus] = useState<ShortcutStatus[]>([]);
+  const [shortcutBindings, setShortcutBindings] = useState<ShortcutBinding[]>(
+    DEFAULT_BINDINGS.map((b) => ({ ...b })),
+  );
+  useEffect(() => {
+    const ctrl = createShortcuts(
+      {
+        readStore: (key) => window.api.readStore(key),
+        writeStore: (key, json) => window.api.writeStore(key, json),
+        setGlobalShortcuts: (bindings) => window.api.setGlobalShortcuts(bindings),
+        onGlobalShortcut: (cb) => window.api.onGlobalShortcut(cb),
+        onGlobalShortcutStatus: (cb) => window.api.onGlobalShortcutStatus(cb),
+      },
+      (action) => {
+        // 能落到命令注册表的都走命令（播放语义只有一份）
+        const id = commandIdFor(action);
+        if (id) {
+          runCommand(id);
+          return;
+        }
+        if (action === "volume-up" || action === "volume-down") {
+          const cur = getState().player;
+          const delta = action === "volume-up" ? 0.05 : -0.05;
+          dispatch({ type: "player/setVolume", volume: cur.volume + delta });
+        }
+      },
+    );
+    shortcutsRef.current = ctrl;
+    const off = ctrl.onStatus(setShortcutStatus);
+    void ctrl.init().then((b) => setShortcutBindings(b));
+    return () => {
+      off();
+      shortcutsRef.current = null;
+    };
   }, []);
 
   /**
@@ -432,6 +557,21 @@ function App() {
             onOpenFx={() => setFxOpen(true)}
             onOpenLyric={() => void services.current?.openLyric()}
             onOpenMini={() => void services.current?.openMini()}
+            shortcutBindings={shortcutBindings}
+            shortcutStatus={shortcutStatus}
+            onShortcutChange={async (action, acc) => {
+              const ctrl = shortcutsRef.current;
+              if (!ctrl) return "快捷键还没准备好";
+              const err = await ctrl.setBinding(action, acc);
+              setShortcutBindings(ctrl.bindings());
+              return err;
+            }}
+            onShortcutReset={async () => {
+              const ctrl = shortcutsRef.current;
+              if (!ctrl) return;
+              await ctrl.resetDefaults();
+              setShortcutBindings(ctrl.bindings());
+            }}
             onExportBackup={() =>
               void services.current?.exportBackup().then((dest) => {
                 if (dest) setScanNote(`已备份到 ${dest}`);
@@ -449,6 +589,7 @@ function App() {
           <LibraryView
             onPlay={onPlay}
             onPlayGroup={onPlayGroup}
+            onAddToQueue={(ids) => dispatch({ type: "queue/add", items: ids })}
             onScan={() => void onScan()}
             scanning={scanning}
             scanNote={scanNote}
@@ -562,8 +703,24 @@ function App() {
         <span className="date">{today()}</span>
         <span className="status" data-status={status} title={error ?? undefined}>
           {status}
-          {error ? ` · ${error}` : ""}
+          {/* 错误只给人话（原始码用户看不懂）；码与文案在 capability/errors.ts 一处对账 */}
+          {error ? ` · ${errorText(error)}` : ""}
         </span>
+        {/* 出错且可重试：给一个重试按钮（重试 = 重播当前这首） */}
+        {error && isRetryable(error) ? (
+          <button
+            type="button"
+            className="retry-btn"
+            title={`重试：${errorText(error)}`}
+            onClick={() => {
+              const id = trackId;
+              if (!id) return;
+              dispatch({ type: "player/play", trackId: id, trackTitle: trackTitle ?? null });
+            }}
+          >
+            重试
+          </button>
+        ) : null}
         <button type="button" className="theme-toggle" onClick={toggleTheme} title="日间 / 夜间（只换 token 值）">
           <i className="moon" />
         </button>
@@ -688,6 +845,14 @@ function App() {
         </div>
 
         <div className="tools">
+          <button
+            type="button"
+            title={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}
+            aria-label={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}
+            onClick={() => dispatch({ type: "queue/mode", mode: nextPlayMode(queueMode) })}
+          >
+            {PLAY_MODE_SHORT[queueMode]}
+          </button>
           <button
             type="button"
             className={volOpen || muted ? "on" : ""}

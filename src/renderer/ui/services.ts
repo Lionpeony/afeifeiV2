@@ -51,6 +51,14 @@ export interface Api {
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
   /** 媒体键与托盘发来的命令名（A-24）：`toggle` / `next` / `prev`，语义在命令注册表里 */
   onPlaybackCommand(cb: (cmd: string) => void): void;
+  /** 上报 Chromium MediaSession 能不能用（A-24）：能 → 媒体键交给系统媒体面板，不能 → 主进程注册 globalShortcut 兜底 */
+  setMediaSessionSupported(supported: boolean): void;
+  /** 全局快捷键（A-24 可配置那半）：给绑定 → 主进程注册；结果与按键分别回传。 */
+  setGlobalShortcuts(bindings: { action: string; accelerator: string }[]): void;
+  onGlobalShortcut(cb: (action: string) => void): void;
+  onGlobalShortcutStatus(
+    cb: (results: { action: string; accelerator: string; registered: boolean }[]) => void,
+  ): void;
   /** 托盘显示用（A-25）：只推「在播什么 / 是否在播」，主进程不做判断 */
   pushTrayState(state: { playing: boolean; title: string | null }): void;
   exportTheme(json: string): Promise<boolean>;

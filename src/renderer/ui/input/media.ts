@@ -9,6 +9,10 @@ const MEDIA_COMMAND_IDS: Record<string, string> = {
   toggle: "play-toggle",
   next: "queue-next",
   prev: "queue-prev",
+  // 全局快捷键的动作名（A-24 可配置那半）：也走这张表，播放语义不多一份
+  "play-pause": "play-toggle",
+  "volume-up": "volume-up",
+  "volume-down": "volume-down",
 };
 
 /** 未知命令名一律返回 null（主进程发什么由我们自己定，但白名单比 if-else 链好查）。 */

@@ -11,6 +11,7 @@ import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 import { installCrashGuard } from "./crash.js";
 import { startUpdateCheck } from "./update/checker.js";
 import { registerMediaKeys, unregisterMediaKeys, type PlaybackCommand } from "./mediaKeys.js";
+import { GlobalShortcutController } from "./globalShortcuts.js";
 import { createTray, destroyTray } from "./tray.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
@@ -30,12 +31,48 @@ installCrashGuard();
 let mainWin: BrowserWindow | null = null;
 /** 用户真的要退出（托盘「退出」/ 系统注销）：此时关窗才允许销毁。 */
 let quitting = false;
+/** 媒体键兜底通道的命令出口（createWindow 里赋值）。 */
+let sendPlaybackCommand: ((cmd: PlaybackCommand) => void) | null = null;
+/**
+ * 媒体键归谁管：**等渲染层上报**。
+ * 渲染层有 Chromium MediaSession（Windows 上 = SMTC 系统媒体面板）→ 由它接管，
+ * 主进程把 globalShortcut 媒体键注销，避免同一次按键被两边各处理一遍（切两首）。
+ * 渲染层报告不支持 → 才注册 globalShortcut 兜底。
+ */
+ipcMain.on("media-session:capability", (_e, supported: unknown) => {
+  if (supported === true) {
+    unregisterMediaKeys();
+    log("main", "media session: Chromium MediaSession 可用，媒体键交给系统媒体面板");
+    return;
+  }
+  if (sendPlaybackCommand) registerMediaKeys(sendPlaybackCommand);
+  log("main", "media session: 不可用，媒体键退回 globalShortcut");
+});
+
+/**
+ * 全局快捷键（A-24 可配置那半）：渲染层给绑定 → 这里注册 → 结果回报渲染层。
+ * 主进程只做系统调用，播放语义仍在渲染层命令注册表里。
+ */
+const globalShortcuts = new GlobalShortcutController();
+ipcMain.on("shortcuts:set", (_e, bindings: unknown) => {
+  if (!Array.isArray(bindings)) return;
+  const list = bindings.filter(
+    (b): b is { action: string; accelerator: string } =>
+      !!b && typeof (b as { action?: unknown }).action === "string" && typeof (b as { accelerator?: unknown }).accelerator === "string",
+  );
+  const results = globalShortcuts.apply(list, (action) => {
+    if (!mainWin || mainWin.isDestroyed()) return;
+    mainWin.webContents.send("shortcut:action", action);
+  }, () => mainWin);
+  if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send("shortcuts:status", results);
+});
 
 app.on("before-quit", () => {
   quitting = true;
 });
 app.on("will-quit", () => {
   unregisterMediaKeys();
+  globalShortcuts.dispose();
   destroyTray();
 });
 
@@ -158,7 +195,8 @@ if (!locked) {
       if (!mainWin || mainWin.isDestroyed()) return;
       mainWin.webContents.send("player:command", cmd);
     };
-    registerMediaKeys(send);
+    sendPlaybackCommand = send;
+    // 媒体键**不在这里注册**：等渲染层上报 MediaSession 能力后再定（见文件顶部）
     createTray({ send, window: () => mainWin, quit: () => app.quit() });
 
     // 冷启动：argv 里带协议 URL（第二次实例走 second-instance，这里管第一次）

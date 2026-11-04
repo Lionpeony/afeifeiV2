@@ -836,3 +836,38 @@
   line-height: 1.7;
   color: var(--fg-dim);
 }
+
+/* 全局快捷键区块：键位按钮 / 录键态 / 注册失败提示 */
+.set-sub {
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--fg-dim);
+}
+.keycap {
+  min-width: 132px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+.keycap.recording {
+  border-color: var(--accent);
+  color: var(--accent);
+  animation: keycap-pulse 1.1s ease-in-out infinite;
+}
+.keycap.bad {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.set-note.warn {
+  color: var(--danger);
+}
+@keyframes keycap-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}

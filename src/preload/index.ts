@@ -86,6 +86,27 @@ contextBridge.exposeInMainWorld("api", {
       if (typeof cmd === "string") cb(cmd);
     });
   },
+  /**
+   * 上报「Chromium MediaSession 能不能用」：能 → 媒体键交给系统媒体面板（Windows SMTC），
+   * 不能 → 主进程注册 globalShortcut 媒体键兜底。两边同时在会双触发（按一次切两首）。
+   */
+  setMediaSessionSupported: (supported: boolean): void => {
+    ipcRenderer.send("media-session:capability", supported);
+  },
+  /** 全局快捷键（A-24 可配置那半）：渲染层给绑定，主进程注册并回报结果。 */
+  setGlobalShortcuts: (bindings: { action: string; accelerator: string }[]): void => {
+    ipcRenderer.send("shortcuts:set", bindings);
+  },
+  onGlobalShortcut: (cb: (action: string) => void): void => {
+    ipcRenderer.on("shortcut:action", (_e, action: unknown) => {
+      if (typeof action === "string") cb(action);
+    });
+  },
+  onGlobalShortcutStatus: (cb: (results: { action: string; accelerator: string; registered: boolean }[]) => void): void => {
+    ipcRenderer.on("shortcuts:status", (_e, results: unknown) => {
+      if (Array.isArray(results)) cb(results as { action: string; accelerator: string; registered: boolean }[]);
+    });
+  },
   /** 托盘只显示，不判断：这一行就是它需要的全部信息 */
   pushTrayState: (state: { playing: boolean; title: string | null }): void => {
     ipcRenderer.send("tray:state", {

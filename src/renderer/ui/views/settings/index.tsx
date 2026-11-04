@@ -1,5 +1,8 @@
 import { PageHead } from "../../PageHead.js";
 import type { Theme } from "../../theme.js";
+import { ShortcutsSection } from "./shortcuts-section.js";
+import type { ShortcutAction, ShortcutBinding } from "../../../domain/shortcuts/index.js";
+import type { ShortcutStatus } from "../../shortcuts.js";
 
 export interface SettingsViewProps {
   theme: Theme;
@@ -13,6 +16,11 @@ export interface SettingsViewProps {
   onOpenMini(): void;
   onExportBackup(): void;
   onImportBackup(): void;
+  /** 全局快捷键（A-24 可配置那半）。 */
+  shortcutBindings: ShortcutBinding[];
+  shortcutStatus: ShortcutStatus[];
+  onShortcutChange(action: ShortcutAction, accelerator: string): Promise<string | null>;
+  onShortcutReset(): Promise<void>;
 }
 
 /**
@@ -79,6 +87,13 @@ export function SettingsView(props: SettingsViewProps) {
             </button>
           </div>
         </section>
+
+        <ShortcutsSection
+          bindings={props.shortcutBindings}
+          status={props.shortcutStatus}
+          onChange={props.onShortcutChange}
+          onResetDefaults={props.onShortcutReset}
+        />
 
         <section className="set-block">
           <h3>

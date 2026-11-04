@@ -42,14 +42,53 @@ function forward(): void {
   }
 }
 
+/** 桌面歌词窗开关（全局快捷键用）：开着就关，没开就开。 */
+export function toggleLyricWindow(): void {
+  if (lyric && !lyric.isDestroyed()) {
+    lyric.close();
+    return;
+  }
+  void openLyricWindow();
+}
+
 export function registerLyricIpc(): void {
-  ipcMain.handle("lyric:open", async () => {
-    if (lyric && !lyric.isDestroyed()) {
-      // 已开着：穿透态就解锁，否则聚焦。这个按钮兼任"解锁"入口（穿透态窗口收不到鼠标）
-      if (mode === "pass") setMode("interactive");
-      else lyric.focus();
-      return;
-    }
+  // 桌面歌词窗开关（全局快捷键用）：状态只有主进程知道（渲染层看不到别的窗口）。
+  ipcMain.handle("lyric:toggle", () => {
+    toggleLyricWindow();
+    return true;
+  });
+
+  ipcMain.handle("lyric:open", () => openLyricWindow());
+
+  // 歌词窗意图：目前只有"锁定"（切穿透）。主进程只搬运。
+  ipcMain.on("lyric:action", (_e, action: unknown) => {
+    if (action === "lock") setMode("pass");
+  });
+
+  ipcMain.handle("lyric:unlock", () => {
+    if (lyric && !lyric.isDestroyed() && mode === "pass") setMode("interactive");
+  });
+
+  // 主窗歌词桥 → 歌词窗。主进程不存状态（lastState 只为模式切换重发）。
+  ipcMain.on("lyric:state", (_e, json: unknown) => {
+    if (typeof json !== "string") return;
+    lastState = json;
+    forward();
+  });
+
+  ipcMain.on("lyric:close", () => {
+    lyric?.close();
+  });
+}
+
+/** 开桌面歌词窗（已开着则解锁 / 聚焦）。open 与 toggle 共用这一份。 */
+async function openLyricWindow(): Promise<void> {
+  if (lyric && !lyric.isDestroyed()) {
+    // 已开着：穿透态就解锁，否则聚焦。这个按钮兼任"解锁"入口（穿透态窗口收不到鼠标）
+    if (mode === "pass") setMode("interactive");
+    else lyric.focus();
+    return;
+  }
     let x: number | undefined;
     let y: number | undefined;
     try {
@@ -89,25 +128,4 @@ export function registerLyricIpc(): void {
     mode = (await readKey("lyric-mode")) === "pass" ? "pass" : "interactive";
     if (mode === "pass") lyric.setIgnoreMouseEvents(true, { forward: true });
     void lyric.loadURL("app://afeifei/lyric.html").then(forward);
-  });
-
-  // 歌词窗意图：目前只有"锁定"（切穿透）。主进程只搬运。
-  ipcMain.on("lyric:action", (_e, action: unknown) => {
-    if (action === "lock") setMode("pass");
-  });
-
-  ipcMain.handle("lyric:unlock", () => {
-    if (lyric && !lyric.isDestroyed() && mode === "pass") setMode("interactive");
-  });
-
-  // 主窗歌词桥 → 歌词窗。主进程不存状态（lastState 只为模式切换重发）。
-  ipcMain.on("lyric:state", (_e, json: unknown) => {
-    if (typeof json !== "string") return;
-    lastState = json;
-    forward();
-  });
-
-  ipcMain.on("lyric:close", () => {
-    lyric?.close();
-  });
 }

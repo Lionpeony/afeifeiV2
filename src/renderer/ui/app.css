@@ -306,6 +306,23 @@ html::after {
   color: var(--danger);
 }
 
+/* 出错时的重试按钮：紧跟状态文案，一眼能点到 */
+.retry-btn {
+  margin-left: 10px;
+  padding: 2px 9px;
+  border: 1px solid var(--danger);
+  border-radius: 2px;
+  background: none;
+  color: var(--danger);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.retry-btn:hover {
+  background: var(--danger);
+  color: var(--bg);
+}
+
 /* ---------- 曲库 ---------- */
 
 .library {
@@ -1051,6 +1068,31 @@ html::after {
 .lib-like.on {
   color: var(--fg);
   font-weight: 700;
+}
+
+/* 「加入队列」：默认淡，悬停显形（列表行右侧第二格） */
+.lib-ops {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.lib-addq {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  color: var(--fg-dim);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.35;
+}
+.lib-row:hover .lib-addq {
+  opacity: 1;
+}
+.lib-addq:hover {
+  color: var(--accent);
 }
 
 .lib-title {
