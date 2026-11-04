@@ -102,7 +102,35 @@ app.whenReady().then(async () => {
   await win.loadFile(path.resolve("dist/renderer/index.html"));
   await sleep(900); // 曲库恢复 + 首帧
 
+  // 渲染进程崩了会让 capturePage() 返回空图（写出 0 字节 PNG，肉眼看不出来）——把它说出来
+  win.webContents.on("render-process-gone", (_e, details) => {
+    console.error(`✗ 渲染进程结束：${details.reason}（exitCode ${details.exitCode}）`);
+  });
+  win.webContents.on("console-message", (_e, level, message) => {
+    if (level >= 2) console.error(`  renderer: ${message}`);
+  });
+
   fs.mkdirSync(OUT, { recursive: true });
+
+  /**
+   * 拍一张图。空图**不写盘**：`capturePage()` 偶尔返回空 NativeImage，
+   * 直接写会产出 0 字节 PNG —— 它长得像"证据"，review 时完全看不出来（`page-stage.png`
+   * 在 HEAD 里就是一张 0 字节的图）。返回是否真的拍到了。
+   */
+  const shoot = async (name) => {
+    let img = await win.webContents.capturePage();
+    if (img.isEmpty()) {
+      await sleep(500);
+      img = await win.webContents.capturePage();
+    }
+    if (img.isEmpty()) {
+      console.error(`✗ ${name} 截到空图，跳过（渲染进程没绘制）`);
+      return false;
+    }
+    fs.writeFileSync(path.join(OUT, name), img.toPNG());
+    console.log(`shot → docs/assets/${name}`);
+    return true;
+  };
 
   for (const [label, id] of PAGES) {
     const ok = await win.webContents.executeJavaScript(
@@ -116,9 +144,7 @@ app.whenReady().then(async () => {
     );
     if (!ok) throw new Error(`找不到导航项「${label}」`);
     await sleep(400); // 切页后一帧
-    const img = await win.webContents.capturePage();
-    fs.writeFileSync(path.join(OUT, `page-${id}${suffix}.png`), img.toPNG());
-    console.log(`shot → docs/assets/page-${id}${suffix}.png`);
+    await shoot(`page-${id}${suffix}.png`);
   }
 
   // 夜间一版（docs/09 B4 证据）：同一进程切主题，不重启、不重排
@@ -128,8 +154,7 @@ app.whenReady().then(async () => {
   );
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
   await sleep(300);
-  fs.writeFileSync(path.join(OUT, `page-local-dark${suffix}.png`), (await win.webContents.capturePage()).toPNG());
-  console.log(`shot → docs/assets/page-local-dark${suffix}.png`);
+  await shoot(`page-local-dark${suffix}.png`);
 
   // 音效面板（A-06 证据）：10 段竖排滑杆 + 预设。点了「人声」才拍，曲线要跟着变
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
@@ -156,8 +181,43 @@ app.whenReady().then(async () => {
   );
   if (!presetOk) throw new Error("找不到 EQ 预设「人声」");
   await sleep(350);
-  fs.writeFileSync(path.join(OUT, "console-eq.png"), (await win.webContents.capturePage()).toPNG());
-  console.log("shot → docs/assets/console-eq.png");
+  await shoot("console-eq.png");
+
+  /* ---- 队列面板（P0-10/11/16 证据）：三张——空态 / 有内容 / 失败标记 ---- */
+  const clickText = (scope, text) =>
+    win.webContents.executeJavaScript(
+      `(() => {
+        const b = [...document.querySelectorAll(${JSON.stringify(scope)})].find((x) => x.textContent === ${JSON.stringify(text)});
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+      true,
+    );
+
+  await clickText(".tools button", "音效"); // 关掉音效弹层，别挡
+  await sleep(200);
+
+  // ① 空队列态：真实置空时该说的话（不是留白）
+  await clickText(".tools button", "队列");
+  await sleep(300);
+  await shoot("queue-empty.png");
+  await win.webContents.executeJavaScript(`document.querySelector(".qp-x")?.click()`, true);
+  await sleep(200);
+
+  // ② 有内容：用「加入队列」造 8 首（不点播 → 不会有错误态干扰这张）
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('[aria-label^="加入队列"]')].slice(0, 8).forEach((b) => b.click())`,
+    true,
+  );
+  await sleep(300);
+  await clickText(".tools button", "队列");
+  await sleep(300);
+  await shoot("queue.png");
+
+  // 失败标记（P0-16）的视觉证据不在这里拍：fixture 的路径是假的但元素不报 error
+  // （没有 media:grant handler 时音频静默失败），拍出来是一张"看起来正常"的假图。
+  // 它的判据放在 smoke 阶段 3：真删一个文件 → 断言 `.qp-row` 里有「播不了」。
 
   app.quit();
 });

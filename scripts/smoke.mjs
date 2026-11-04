@@ -106,6 +106,33 @@ function connect(url) {
   };
 }
 
+/**
+ * 在**另一个窗口**里断言（桌面歌词窗是独立渲染进程）。
+ * 只取 /json/list 里 url 匹配的那一页，主窗的 client 不动。
+ */
+async function evaluateInWindow(urlPart, expression, timeoutMs = 8000) {
+  const started = Date.now();
+  let page = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const list = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
+      page = list.find((t) => t.type === "page" && (t.url || "").includes(urlPart));
+      if (page) break;
+    } catch {
+      /* 还没起来 */
+    }
+    await sleep(200);
+  }
+  assert.ok(page, `找不到窗口 ${urlPart}（CDP /json/list 里没有）`);
+  const client = connect(page.webSocketDebuggerUrl);
+  await client.ready;
+  await client.send("Runtime.enable");
+  await sleep(600); // 等它渲染第一帧
+  const msg = await client.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+  client.close();
+  return msg.result?.result?.value;
+}
+
 async function launch(extraArgs = [], reloadFirst = true) {
   const child = spawn(
     EXE,
@@ -260,6 +287,51 @@ async function main() {
   assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
   console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
 
+  /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在弹层里，且真的落到状态 ---- */
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent.includes("睡眠"))?.click()`);
+  assert.ok(await app.waitFor(`!!document.querySelector(".sleep-wait input")`, 3000), "睡眠弹层应有「播完当前曲再停」勾选");
+  await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`);
+  assert.equal(await app.evaluate(`document.querySelector(".sleep-wait input")?.checked`), true, "勾上后应保持选中");
+  await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`); // 复原，别把偏好写进存档
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent.includes("睡眠"))?.click()`);
+  console.log("  睡眠定时 OK：播完当前曲再停可选");
+
+  /* ---- 设置页：输出设备下拉（P0-09）---- */
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "设置")?.click()`);
+  assert.ok(await app.waitFor(`document.querySelector("select.set-pick") !== null`, 5000), "设置页没有输出设备下拉（P0-09）");
+  const outputOpts = await app.evaluate(
+    `[...document.querySelectorAll("select.set-pick option")].map((o) => o.textContent ?? "")`,
+  );
+  assert.ok(
+    outputOpts.length >= 1 && outputOpts[0].includes("默认"),
+    `下拉至少要能回到"跟随系统默认"，实际 ${JSON.stringify(outputOpts)}`,
+  );
+  // 这条是环境断言：setSinkId 一旦没了（Electron 降级/换内核），设备选择会"看着能选其实无效"
+  const sinkApi = await app.evaluate(`typeof AudioContext.prototype.setSinkId`);
+  assert.equal(sinkApi, "function", `AudioContext.setSinkId 不可用，实际 ${sinkApi}`);
+
+  /* ---- 设置页：全局快捷键补 seek（P0-23）---- */
+  const shortcutText = await app.evaluate(
+    `[...document.querySelectorAll(".set-block")].map((b) => b.innerText).join("\\n")`,
+  );
+  assert.ok(shortcutText.includes("快进 5 秒"), "快捷键区块应有「快进 5 秒」（P0-23）");
+  assert.ok(shortcutText.includes("快退 5 秒"), "快捷键区块应有「快退 5 秒」");
+  const keycaps = await app.evaluate(`[...document.querySelectorAll(".keycap")].map((b) => b.textContent ?? "")`);
+  assert.ok(
+    keycaps.some((t) => t.includes("Ctrl+Alt+Right")),
+    `seek 前键默认应是 Ctrl+Alt+Right，实际 ${JSON.stringify(keycaps)}`,
+  );
+  assert.ok(
+    keycaps.some((t) => t.includes("Ctrl+Alt+Shift+Right")),
+    "切歌键应退到 Ctrl+Alt+Shift+Right（不与 seek 撞车）",
+  );
+  console.log("  全局快捷键 OK：9 项含 seek，键位不撞车");
+
+  // 回到在线页：下一步要用它的搜索框（刚才 在线页 的那段断言在前）
+  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
+  await sleep(200);
+  console.log(`  输出设备 OK：下拉 ${outputOpts.length} 项，setSinkId 可用`);
+
   await app.evaluate(`(() => {
     const input = document.querySelector(".search");
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
@@ -340,6 +412,10 @@ async function main() {
     await app2.evaluate(`${PLAY_BUTTON}.click()`);
     await sleep(600);
 
+    // 预取（P0-08）与淡入淡出（P0-07）**这里不测**：两个 <audio> 是 `new Audio()` 建的，
+    // 不进 DOM（`querySelectorAll("audio")` 恒为 []），属性嗅探只会得到"空数组全通过"的假绿。
+    // 它们的判据是听觉与切歌延迟，见文件头那句「切歌不爆音是听觉判据」——手测项列在 docs/22 §四。
+
     const seen = new Set();
     for (let i = 1; i <= 20; i += 1) {
       await app2.evaluate(`${NEXT_BUTTON}.click()`);
@@ -355,6 +431,100 @@ async function main() {
     }
     assert.ok(seen.size >= 15, `20 次切歌应切到多个不同曲目，实际只有 ${seen.size} 个`);
     console.log(`  连切 20 首 OK：经过 ${seen.size} 个不同曲目，无 error、进度条不越界`);
+
+    /* 播放模式仍要能从界面切四档（切档不崩、状态不变 error） */
+    const clickMode = `(() => {
+      const b = [...document.querySelectorAll(".tools button")].find((x) => (x.title || "").startsWith("播放模式"));
+      if (!b) return false;
+      b.click();
+      return true;
+    })()`;
+    for (let i = 0; i < 4; i += 1) {
+      assert.ok(await app2.evaluate(clickMode), "找不到播放模式按钮");
+      await sleep(150);
+      const st = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
+      assert.ok(!st.startsWith("error"), `切播放模式后不该进 error：${st}`);
+    }
+    console.log("  播放模式 OK：四档可切、不进 error");
+
+    /* 键位表（P0-22）：挑两个 DOM 上直接看得见的键 —— ↑/↓ 音量、M 静音 */
+    const press = (k) => app2.evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)} }))`);
+    const vol0 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
+    await press("ArrowUp");
+    const vol1 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
+    assert.ok(vol1 > vol0, `↑ 应加大音量：${vol0} → ${vol1}`);
+    await press("ArrowDown");
+    const vol2 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
+    assert.ok(vol2 < vol1, `↓ 应减小音量：${vol1} → ${vol2}`);
+    const muted0 = await app2.evaluate(`document.querySelector("button.mute")?.getAttribute("aria-pressed")`);
+    await press("m");
+    const muted1 = await app2.evaluate(`document.querySelector("button.mute")?.getAttribute("aria-pressed")`);
+    assert.notEqual(muted1, muted0, "M 应切换静音");
+    await press("m"); // 复原，别把静音态带给后面的阶段
+    console.log("  键位 OK：↑/↓ 音量、M 静音");
+
+    /* 离线态（P0-25）：事件 → 横幅出现；恢复 → 消失 */
+    await app2.evaluate(`window.dispatchEvent(new Event("offline"))`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".net-banner")`, 2000), "断网应出常驻横幅");
+    await app2.evaluate(`window.dispatchEvent(new Event("online"))`);
+    assert.ok(await app2.waitFor(`!document.querySelector(".net-banner")`, 2000), "恢复后横幅应消失");
+    console.log("  离线态 OK：横幅随事件出现 / 消失");
+
+    /* 三态（P0-26）：无封面要有刻纹占位；阶段文案不能是空 */
+    assert.ok(await app2.waitFor(`!!document.querySelector(".np-art.blank")`, 3000), "无封面应有刻纹占位");
+    const phaseText = await app2.evaluate(`document.querySelector(".np-tx span")?.textContent ?? ""`);
+    // 这里只验"阶段行有话说"（样本 wav 只有 5.57s，跑到一半可能已经 ended）；
+    // "缓冲中 ≠ 解码中" 由 test/playback-phase.test.mjs 钉
+    assert.ok(phaseText.length > 0, "播放条的阶段文案不能是空");
+    console.log(`  三态 OK：刻纹占位 + 阶段「${phaseText}」`);
+
+    /* 迷你窗（P0-27）：封面位 + 歌词行 + 可拖进度 */
+    await app2.evaluate(`window.api.openMini()`);
+    const miniWin = await evaluateInWindow(
+      "mini.html",
+      `({
+        seek: !!document.querySelector(".mini-seek"),
+        art: !!document.querySelector(".mini-art"),
+        btns: document.querySelectorAll(".mini-btns button").length,
+      })`,
+    );
+    assert.ok(miniWin?.seek, "迷你窗应有可拖进度条（P0-27）");
+    assert.ok(miniWin?.art, "迷你窗应有封面位");
+    assert.ok(miniWin?.btns >= 4, `迷你窗应有 4 个控制键，实际 ${miniWin?.btns}`);
+    console.log("  迷你窗 OK：封面 + 歌词 + 可拖进度 + 控制键");
+
+    /* 换词入口（P0-19）：控制台「正在播放」→ 播放页 →「视图」→「换一份…」 */
+    await app2.evaluate(`document.querySelector("button.np")?.click()`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".st-viewbtn")`, 3000), "应能进入播放页");
+    await app2.evaluate(`document.querySelector(".st-viewbtn")?.click()`);
+    const hasFind = await app2.waitFor(
+      `[...document.querySelectorAll(".st-menu-row button")].some((b) => b.textContent.includes("换一份"))`,
+      3000,
+    );
+    assert.ok(hasFind, "视图菜单应有「换一份…」（P0-19 入口）");
+    await app2.evaluate(
+      `[...document.querySelectorAll(".st-menu-row button")].find((b) => b.textContent.includes("换一份"))?.click()`,
+    );
+    const prefilled = await app2.waitFor(
+      `(() => { const i = document.querySelector(".palette-input"); return !!i && i.value.trim().length > 0; })()`,
+      3000,
+    );
+    assert.ok(prefilled, "换词弹窗应预填「歌名 歌手」");
+    console.log("  换词弹窗 OK：入口可达 + 预填查询");
+
+    /* 桌面歌词窗（P0-21）：独立渲染进程 + 新结构（双行 / 逐字 / 进度线）不能白屏 */
+    await app2.evaluate(`window.api.openLyric()`);
+    const lyricWin = await evaluateInWindow(
+      "lyric.html",
+      `({
+        bar: !!document.querySelector(".lyric-bar"),
+        tools: !!document.querySelector(".lyric-tools"),
+        text: (document.querySelector(".lyric-line")?.textContent ?? "").slice(0, 40),
+      })`,
+    );
+    assert.ok(lyricWin?.bar, "桌面歌词窗应有进度线容器（缺了就是白屏）");
+    assert.ok(lyricWin?.tools, "交互态应有工具条（锁定/字号/关闭）");
+    console.log("  桌面歌词窗 OK：结构就位（双行 + 进度线）");
 
     await app2.close({ hard: true });
     current = null;
@@ -386,6 +556,29 @@ async function main() {
     const hasRetry = await app4.evaluate(`document.querySelectorAll(".retry-btn").length > 0`);
     assert.ok(!hasRetry, `不可重试的错误不该出现重试按钮，实际 ${shown}`);
     console.log(`  文件被删 OK：界面落进 ${shown}`);
+
+    /* 队列面板（P0-10/12/16）：失败曲目要标出来，清空要两步确认 */
+    await app4.evaluate(
+      `[...document.querySelectorAll(".tools button")].find((b) => b.textContent === "队列")?.click()`,
+    );
+    const qpOpen = await app4.waitFor(`!!document.querySelector(".qp-row")`, 3000);
+    assert.ok(qpOpen, "队列面板打不开（P0-10）");
+    const rowText = await app4.evaluate(`document.querySelector(".qp-row")?.textContent ?? ""`);
+    assert.ok(rowText.includes("播不了"), `失败曲目应在队列里标出来（P0-16），实际「${rowText}」`);
+
+    await app4.evaluate(
+      `[...document.querySelectorAll(".qp-foot button")].find((b) => b.textContent === "清空")?.click()`,
+    );
+    const confirming = await app4.evaluate(
+      `[...document.querySelectorAll(".qp-foot button")].some((b) => b.textContent.startsWith("确认清空"))`,
+    );
+    assert.ok(confirming, "清空必须先要一次确认（P0-12）");
+    await app4.evaluate(
+      `[...document.querySelectorAll(".qp-foot button")].find((b) => b.textContent.startsWith("确认清空"))?.click()`,
+    );
+    const emptied = await app4.waitFor(`!!document.querySelector(".qp-empty")`, 3000);
+    assert.ok(emptied, "清空后要进空队列态（不是留个空列表）");
+    console.log("  队列面板 OK：失败标记 / 清空二次确认 / 空态");
 
     await app4.close();
     current = null;
