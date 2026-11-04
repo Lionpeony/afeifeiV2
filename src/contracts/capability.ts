@@ -99,11 +99,37 @@ export type { LyricDoc } from "./lyric.js";
  * 可选方法 + 声明表：方法可以不写（那项能力声明为 false），
  * 但**声明了 true 却没实现**会在启动时炸 —— 这是 50 §7.2 的全部意义。
  */
+/**
+ * 账号级数据（R1 第一批）。与「音源能力」分开的理由：
+ * 这些接口都要求登录，返回的是**这个账号**的东西，不是这个源的公共数据；
+ * 未登录时它们该抛 auth-required，而不是退化成空列表——空列表会让界面
+ * 显示成「今天没有推荐」，用户不知道自己只是没登录。
+ *
+ * 五件事一一对应网易云的五个接口（见 docs/22 §R1）：
+ *   dailySongs      → recommend_songs（每日推荐，登录后才有）
+ *   likedIds        → likelist（账号红心的 songId，本地曲库的红心是另一套）
+ *   setLiked        → like（收藏 / 取消）
+ *   listeningHistory→ user_record（听歌排行，week = 近一周 / all = 全部）
+ *   personalFm      → personal_fm（漫游）
+ */
+export interface AccountCapability {
+  dailySongs(): Promise<RemoteTrack[]>;
+  likedIds(): Promise<string[]>;
+  setLiked(songId: string, liked: boolean): Promise<void>;
+  listeningHistory(range: "week" | "all"): Promise<RemoteTrack[]>;
+  personalFm(): Promise<RemoteTrack[]>;
+}
+
 export interface SourceProvider {
   readonly id: string;
   readonly name: string;
   readonly capabilities: MethodCapabilities;
   readonly traits: Traits;
+  /**
+   * 有账号数据的源才提供这一块。UI 一律读「有没有 account」决定要不要出入口，
+   * 不去 try 某个方法存不存在（同 capabilities 的纪律）。
+   */
+  readonly account?: AccountCapability;
 
   search(keyword: string, page?: number): Promise<SearchResult>;
   getDetail?(sourceId: string): Promise<RemoteTrack>;

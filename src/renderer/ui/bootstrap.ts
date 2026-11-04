@@ -1,4 +1,5 @@
 import type { AppState, DownloadItem, ErrorCode } from "../../contracts/index.js";
+import type { AccountCapability } from "../../contracts/capability.js";
 import type {
   DownloadPort,
   KeyValuePort,
@@ -452,6 +453,7 @@ export async function bootstrap(): Promise<Services> {
         canDownload: p.capabilities.canGetUrl,
         canPlaylists: p.capabilities.canListPlaylists,
         canToplists: p.capabilities.canGetToplist,
+        canAccount: Boolean(p.account),
       })),
 
     async listPlaylists(sourceId) {
@@ -514,6 +516,16 @@ export async function bootstrap(): Promise<Services> {
         throw humanize(err);
       }
     },
+
+    /* ---- 账号级数据（R1 第一批）。五件事都走同一个门：没 account 说能力缺失，
+       上游的 auth-required / network 一律收敛成人话，界面只显示那句话。 ---- */
+    canAccount: (sourceId) => Boolean(getProvider(sourceId)?.account),
+    accountDailySongs: (sourceId) => runAccount(sourceId, (acc) => acc.dailySongs()),
+    accountLikedIds: (sourceId) => runAccount(sourceId, (acc) => acc.likedIds()),
+    accountSetLiked: (sourceId, songId, liked) =>
+      runAccount(sourceId, (acc) => acc.setLiked(songId, liked)),
+    accountHistory: (sourceId, range) => runAccount(sourceId, (acc) => acc.listeningHistory(range)),
+    accountPersonalFm: (sourceId) => runAccount(sourceId, (acc) => acc.personalFm()),
 
     async lyric(sourceId, songId) {
       // 手动挑的那版最优先：用户的选择比任何自动匹配都权威（P0-19）
@@ -738,6 +750,21 @@ export async function bootstrap(): Promise<Services> {
   });
 
   return services;
+}
+
+/**
+ * 账号级调用的统一入口。
+ * 集中一处是为了让「没这个能力」和「上游拒绝」两条错都只翻译一次——
+ * 五个页面各写一遍 humanize 迟早出现一处忘了包、界面显示 [object Object]。
+ */
+async function runAccount<T>(sourceId: string, fn: (acc: AccountCapability) => Promise<T>): Promise<T> {
+  const acc = getProvider(sourceId)?.account;
+  if (!acc) throw humanize({ code: "capability-missing" });
+  try {
+    return await fn(acc);
+  } catch (err) {
+    throw humanize(err);
+  }
 }
 
 /** store → engine 的单向同步。任何"引擎反过来改 store"都是 bug。 */

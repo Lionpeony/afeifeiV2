@@ -69,6 +69,12 @@ const NETEASE_ALLOWED = new Set([
   "playlist_track_all",
   "login_status",
   "user_playlist",
+  // 账号级数据（R1）：每日推荐 / 账号红心 / 收藏 / 听歌排行 / 个人 FM
+  "recommend_songs",
+  "likelist",
+  "like",
+  "user_record",
+  "personal_fm",
 ]);
 
 /**

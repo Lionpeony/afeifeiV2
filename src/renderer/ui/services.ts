@@ -3,7 +3,14 @@
  * 桥的类型、Services 接口、错误收敛。实现都在 bootstrap.ts。
  */
 import type { AudioEngine } from "../capability/audio/engine.js";
-import type { LyricDoc, OnlinePlaylist, Quality, SearchResult, Toplist } from "../../contracts/capability.js";
+import type {
+  LyricDoc,
+  OnlinePlaylist,
+  Quality,
+  RemoteTrack,
+  SearchResult,
+  Toplist,
+} from "../../contracts/capability.js";
 import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
 import type { Track } from "../domain/library/schema.js";
@@ -126,6 +133,8 @@ export interface Services {
     canDownload: boolean;
     canPlaylists: boolean;
     canToplists: boolean;
+    /** 有账号级数据（每日推荐 / 红心 / 播放记录 / 漫游） */
+    canAccount: boolean;
   }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
@@ -135,6 +144,20 @@ export interface Services {
   listToplists(sourceId: string): Promise<Toplist[]>;
   /** 歌单曲目（分页）。 */
   playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
+
+  /* ---- 账号级数据（R1 第一批）：源没有 account 就抛 capability-missing ---- */
+  /** 这个源有没有账号数据能力。首页/漫游读它决定要不要出入口，不去 try 方法。 */
+  canAccount(sourceId: string): boolean;
+  /** 每日推荐（账号）。未登录抛 auth-required 的人话。 */
+  accountDailySongs(sourceId: string): Promise<RemoteTrack[]>;
+  /** 账号红心的 songId 列表。**不是**本地曲库那套 trackId。 */
+  accountLikedIds(sourceId: string): Promise<string[]>;
+  /** 收藏 / 取消（账号级）。 */
+  accountSetLiked(sourceId: string, songId: string, liked: boolean): Promise<void>;
+  /** 听歌排行：week 近一周 / all 全部。 */
+  accountHistory(sourceId: string, range: "week" | "all"): Promise<RemoteTrack[]>;
+  /** 个人 FM（漫游）。每次调用给一批。 */
+  accountPersonalFm(sourceId: string): Promise<RemoteTrack[]>;
   /** 在线曲目歌词。错误已翻译成人话。 */
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   /** 本地曲目歌词（P0-20）：同名 lrc → 内嵌 → LRCLIB，带缓存；都没有抛「纯音乐」。 */

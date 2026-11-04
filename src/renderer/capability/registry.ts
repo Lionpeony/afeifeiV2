@@ -14,6 +14,9 @@ import {
 
 const providers = new Map<string, SourceProvider>();
 
+/** AccountCapability 的五件事，缺一个就在启动时炸（见 assertCapabilities）。 */
+const ACCOUNT_METHODS = ["dailySongs", "likedIds", "setLiked", "listeningHistory", "personalFm"] as const;
+
 export class CapabilityError extends Error {
   constructor(message: string) {
     super(message);
@@ -39,6 +42,16 @@ export function assertCapabilities(provider: SourceProvider): void {
 
   if (!provider.traits || !Array.isArray(provider.traits.qualities)) {
     throw new CapabilityError(`${provider.id}: 缺少 traits.qualities`);
+  }
+
+  // account 是一个包，不是一个方法：给了就必须五样齐全，否则入口点进去才炸
+  if (provider.account) {
+    for (const method of ACCOUNT_METHODS) {
+      const impl = (provider.account as unknown as Record<string, unknown>)[method];
+      if (typeof impl !== "function") {
+        throw new CapabilityError(`${provider.id}: 提供了 account 却缺少 ${method}()`);
+      }
+    }
   }
 }
 

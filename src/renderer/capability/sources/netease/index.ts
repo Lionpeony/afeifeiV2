@@ -64,6 +64,25 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     };
   }
 
+  /* ---------- 账号身份 ---------- */
+
+  /** uid 从登录态取（login_status 的 profile.userId），不要求调用方传。 */
+  async function requireUid(): Promise<number> {
+    const st = await ncm<{ profile?: { userId?: number } }>("login_status");
+    const uid = st?.profile?.userId;
+    if (!uid) throw err("auth-required", "先登录后才能用这项");
+    return uid;
+  }
+
+  /**
+   * 空列表分不清「今天真没有」和「没登录」——网易云未登录时多数接口返回空 + code 301。
+   * 所以凡是可能空着返回的账号接口，空了就回头问一次登录态，把话说清楚。
+   */
+  async function requireLogin(): Promise<void> {
+    const profile = await api.profile("netease").catch(() => ({ loggedIn: false }));
+    if (!profile.loggedIn) throw err("auth-required", "先登录后才能用这项");
+  }
+
   /* ---------- 契约实现 ---------- */
 
   return {
@@ -214,6 +233,53 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     async login(): Promise<void> {
       const profile = await api.profile("netease");
       if (!profile.loggedIn) throw err("auth-required", "尚未登录");
+    },
+
+    /**
+     * 账号级数据（R1 第一批，url 见 docs/22 §R1）。五件事都要求登录。
+     * 没有做成 capabilities 里的 flag：它是一整包，扫描单个 flag 表达不了「五件事齐全」。
+     */
+    account: {
+      async dailySongs(): Promise<RemoteTrack[]> {
+        // v3 给 data.dailySongs；老版本给 recommend，两个都认
+        const body = await ncm<{
+          data?: { dailySongs?: Record<string, unknown>[] };
+          recommend?: Record<string, unknown>[];
+        }>("recommend_songs");
+        const list = body?.data?.dailySongs ?? body?.recommend ?? [];
+        if (list.length === 0) await requireLogin();
+        return list.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      },
+
+      async likedIds(): Promise<string[]> {
+        const body = await ncm<{ ids?: (number | string)[] }>("likelist", { uid: await requireUid() });
+        return (body?.ids ?? []).map((id) => String(id));
+      },
+
+      async setLiked(songId: string, liked: boolean): Promise<void> {
+        // like 接口认字符串 'false' 为取消（见 NeteaseCloudMusicApi/module/like.js）
+        await ncm("like", { id: songId, like: liked ? "true" : "false" });
+      },
+
+      async listeningHistory(range: "week" | "all"): Promise<RemoteTrack[]> {
+        const body = await ncm<{ weekData?: Record<string, unknown>[]; allData?: Record<string, unknown>[] }>(
+          "user_record",
+          { uid: await requireUid(), type: range === "week" ? 1 : 0 },
+        );
+        // 排行每行是 { playCount, score, song }，歌在 song 里
+        const rows = (range === "week" ? body?.weekData : body?.allData) ?? [];
+        return rows
+          .map((row) => (row?.song ?? row) as Record<string, unknown>)
+          .map(toTrack)
+          .filter((t): t is RemoteTrack => t !== null);
+      },
+
+      async personalFm(): Promise<RemoteTrack[]> {
+        const body = await ncm<{ data?: Record<string, unknown>[] }>("personal_fm");
+        const list = body?.data ?? [];
+        if (list.length === 0) await requireLogin();
+        return list.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      },
     },
   };
 }
