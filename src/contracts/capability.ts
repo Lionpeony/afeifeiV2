@@ -117,6 +117,12 @@ export interface AccountCapability {
   likedIds(): Promise<string[]>;
   /** 红心曲目的**详情**（标题/时长/封面）。likedIds 只有 id，列表页渲染不了。 */
   likedSongs(): Promise<RemoteTrack[]>;
+  /**
+   * 平台自报的红心总数（"我喜欢的音乐"歌单的 trackCount）。
+   * 只在一个地方用：`likedIds()` 回空时，用它区分「这个账号确实没有红心」和「读取被拦/失败」——
+   * 少了它，两种情况在界面上都是「还没有红心」。
+   */
+  likedTotal(): Promise<number>;
   setLiked(songId: string, liked: boolean): Promise<void>;
   listeningHistory(range: "week" | "all"): Promise<RemoteTrack[]>;
   personalFm(): Promise<RemoteTrack[]>;

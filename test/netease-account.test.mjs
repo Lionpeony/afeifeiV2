@@ -127,6 +127,24 @@ test("听歌排行：week → type 1 取 weekData，all → type 0 取 allData�
   assert.equal(all[1].title, "搁浅");
 });
 
+test("likedTotal：从 user_playlist 里挑 specialType=5 那个的 trackCount", async () => {
+  const api = fakeApi({
+    user_playlist: {
+      playlist: [
+        { specialType: 1, trackCount: 99 },
+        { specialType: 5, trackCount: 43 },
+      ],
+    },
+  });
+  const p = createNeteaseProvider(api);
+  assert.equal(await p.account.likedTotal(), 43, "红心歌单是 specialType=5，别拿第一个歌单的数目");
+});
+
+test("likedTotal：没有红心歌单（新号）→ 0，不抛", async () => {
+  const p = createNeteaseProvider(fakeApi({ user_playlist: { playlist: [] } }));
+  assert.equal(await p.account.likedTotal(), 0);
+});
+
 test("红心详情：likelist 拿 id → song_detail 分批取详情（不是 N 次单曲请求）", async () => {
   const ids = Array.from({ length: 250 }, (_, i) => i + 1);
   const api = fakeApi({

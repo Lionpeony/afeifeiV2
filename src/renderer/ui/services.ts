@@ -154,6 +154,8 @@ export interface Services {
   accountLikedIds(sourceId: string): Promise<string[]>;
   /** 账号红心的曲目详情（批量取，不是 N 次单曲请求）。 */
   accountLikedSongs(sourceId: string): Promise<RemoteTrack[]>;
+  /** 平台自报的红心总数，用来分辨「真空」和「读取失败」。 */
+  accountLikedTotal(sourceId: string): Promise<number>;
   /** 收藏 / 取消（账号级）。 */
   accountSetLiked(sourceId: string, songId: string, liked: boolean): Promise<void>;
   /** 听歌排行：week 近一周 / all 全部。 */

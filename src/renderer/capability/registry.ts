@@ -19,6 +19,7 @@ const ACCOUNT_METHODS = [
   "dailySongs",
   "likedIds",
   "likedSongs",
+  "likedTotal",
   "setLiked",
   "listeningHistory",
   "personalFm",

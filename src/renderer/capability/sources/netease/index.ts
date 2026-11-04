@@ -286,6 +286,20 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         return out;
       },
 
+      /**
+       * 「我喜欢的音乐」歌单的 trackCount。只用来分辨「真空」和「读取失败」。
+       * 走 user_playlist 一次拿全（specialType = 5 那个就是红心歌单），不额外打 playlist_detail。
+       */
+      async likedTotal(): Promise<number> {
+        const body = await ncm<{ playlist?: { specialType?: number; trackCount?: number }[] }>("user_playlist", {
+          uid: await requireUid(),
+          limit: 1000,
+          offset: 0,
+        });
+        const liked = (body?.playlist ?? []).find((p) => p?.specialType === 5);
+        return Number(liked?.trackCount ?? 0);
+      },
+
       async setLiked(songId: string, liked: boolean): Promise<void> {
         // like 接口认字符串 'false' 为取消（见 NeteaseCloudMusicApi/module/like.js）
         await ncm("like", { id: songId, like: liked ? "true" : "false" });
