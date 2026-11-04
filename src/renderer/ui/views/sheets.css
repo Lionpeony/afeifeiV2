@@ -828,6 +828,18 @@
   gap: 8px;
 }
 
+/* 输出设备下拉（P0-09）：跟 .btn 同一套纸墨边，宽度跟着最长设备名走但不超过半栏 */
+.set-row .set-pick {
+  max-width: 46%;
+  padding: 4px 8px;
+  border: 1px solid var(--fg);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .set-note {
   margin: 0;
   font-family: var(--font-mono);
