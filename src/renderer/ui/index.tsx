@@ -15,7 +15,13 @@ import { ChartsView } from "./views/charts/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
-import { clearLyric, loadLyric } from "./lyric-source.js";
+import { clearLyric, loadLyric, setManualLyric, setUserOffset } from "./lyric-source.js";
+import { lyricBindKey } from "../domain/lyrics/bindings.js";
+import { toggleLike } from "../domain/likes/index.js";
+import { SEEK_STEP_MS } from "./input/keymap.js";
+import { browserNetEnv, createNetStatus } from "./net-status.js";
+import { phaseLabel, phaseOf } from "./playback-phase.js";
+import { FindLyric } from "./FindLyric.js";
 import { registerCommand, runCommand } from "./input/commands.js";
 import { commandIdFor } from "./input/media.js";
 import { currentTheme, type Theme } from "./theme.js";
@@ -35,6 +41,8 @@ import { NavIcon } from "./icons.js";
 import { NAV_FOOT, NAV_MAIN, NAV_MINE, PAGE_LABEL, type PageId } from "./pages.js";
 import { createMediaSession, type MediaSessionController } from "./media-session.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
+import { QueuePanel } from "./QueuePanel.js";
+import { pushPanel } from "./input/panels.js";
 import { errorText, isRetryable } from "../capability/errors.js";
 import { createShortcuts, type ShortcutStatus, type ShortcutsController } from "./shortcuts.js";
 import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
@@ -72,6 +80,9 @@ function App() {
   const [page, setPage] = useState<PageId>("local");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [fxOpen, setFxOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [volOpen, setVolOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
@@ -93,7 +104,8 @@ function App() {
     if (!svc) return;
     const position = svc.positionMs();
     const duration = svc.engine.durationMs();
-    if (timeEl.current) timeEl.current.textContent = fmt(position);
+    // 拖动中不写已播时间：那时显示的应该是"要跳到哪儿"，不是"现在在哪"（P0-03）
+    if (timeEl.current && !dragging.current) timeEl.current.textContent = fmt(position);
     if (totalEl.current) totalEl.current.textContent = fmt(duration);
     if (barEl.current && !dragging.current) {
       barEl.current.max = String(Math.max(1, Math.round(duration)));
@@ -138,7 +150,7 @@ function App() {
       setThemeState(s.theme);
       syncPosition();
       startMiniBridge(s);
-      startLyricBridge();
+      startLyricBridge(s);
 
       // 更新提示（M8）：一条线，不弹窗不打断播放
       s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
@@ -157,7 +169,11 @@ function App() {
 
   const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+  // P0-26：解码中（status=loading）与缓冲中（playing + waiting）是两个词
+  const phase = phaseOf(status, state.player.buffering);
   const sleepEndsAt = state.sleep.endsAt;
+  const sleepWaitEnd = state.sleep.waitEnd;
+  const sleepPending = state.sleep.pending;
   const queueMode = state.queue.mode;
   const playbackRate = state.player.playbackRate;
   const preservesPitch = state.player.preservesPitch;
@@ -311,6 +327,12 @@ function App() {
     }
   };
 
+  /* ---- 队列面板进"面板栈"：Esc 关最上层交给 input/keyboard.ts 统一裁，不另挂 keydown ---- */
+  useEffect(() => {
+    if (!queueOpen) return;
+    return pushPanel("queue", "panel", () => setQueueOpen(false));
+  }, [queueOpen]);
+
   /* ---- 键盘纪律（M6）：唯一 keydown 在 input/keyboard.ts，这里只装配命令 ---- */
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
@@ -324,17 +346,25 @@ function App() {
       registerCommand({
         id: "queue-prev",
         label: "上一首",
+        hint: "Shift+←",
         run: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
       }),
-      registerCommand({ id: "queue-next", label: "下一首", run: () => dispatch({ type: "queue/next" }) }),
+      registerCommand({
+        id: "queue-next",
+        label: "下一首",
+        hint: "Shift+→",
+        run: () => dispatch({ type: "queue/next" }),
+      }),
       registerCommand({
         id: "volume-up",
         label: "音量 +",
+        hint: "↑",
         run: () => dispatch({ type: "player/setVolume", volume: getState().player.volume + 0.05 }),
       }),
       registerCommand({
         id: "volume-down",
         label: "音量 −",
+        hint: "↓",
         run: () => dispatch({ type: "player/setVolume", volume: getState().player.volume - 0.05 }),
       }),
       registerCommand({
@@ -408,6 +438,30 @@ function App() {
    * 全局快捷键（A-24 可配置那半）：读档 → 注册到主进程 → 按键回来执行动作。
    * 动作语义仍走命令注册表（播放语义只有一份）。
    */
+  /**
+   * seek（窗口内 `←/→` 与全局 `Ctrl+Alt+←/→` 共用一份）：两端都夹住整曲范围。
+   * 两处各写一份的话，"往前到底"和"往后越界"迟早会不一致。
+   */
+  /* 离线态（P0-25）：事件驱动 + 300ms 去抖（切换 Wi-Fi 会瞬断瞬连，别闪屏） */
+  useEffect(() => {
+    const net = createNetStatus(browserNetEnv());
+    const off = net.subscribe((s) => setOffline(s === "offline"));
+    const stop = net.start();
+    return () => {
+      off();
+      stop();
+    };
+  }, []);
+
+  const seekByDelta = (deltaMs: number): void => {
+    const svc = services.current;
+    if (!svc) return;
+    const dur = svc.engine.durationMs();
+    const target = svc.positionMs() + deltaMs;
+    const next = Math.max(0, dur > 0 ? Math.min(dur, target) : target);
+    dispatch({ type: "player/seek", positionMs: next });
+  };
+
   const shortcutsRef = useRef<ShortcutsController | null>(null);
   const [shortcutStatus, setShortcutStatus] = useState<ShortcutStatus[]>([]);
   const [shortcutBindings, setShortcutBindings] = useState<ShortcutBinding[]>(
@@ -427,6 +481,14 @@ function App() {
         const id = commandIdFor(action);
         if (id) {
           runCommand(id);
+          return;
+        }
+        if (action === "seek-forward") {
+          seekByDelta(SEEK_STEP_MS);
+          return;
+        }
+        if (action === "seek-back") {
+          seekByDelta(-SEEK_STEP_MS);
           return;
         }
         if (action === "volume-up" || action === "volume-down") {
@@ -472,9 +534,44 @@ function App() {
       });
       return;
     }
-    clearLyric(trackId ? "本地曲目暂无歌词" : "");
+    if (!trackId) {
+      clearLyric("");
+      return;
+    }
+    // 本地曲目（P0-20）：同名 .lrc → 内嵌标签 → LRCLIB，都没有就是「纯音乐」。
+    // 取词与缓存都在 bootstrap 的 services 里，这里只挑曲目。
+    const track = getTracks().find((t) => t.id === trackId);
+    void loadLyric("local", trackId, () => {
+      const svc = services.current;
+      return svc ? svc.localLyric(track) : Promise.reject(new Error("还没准备好，请稍后再试"));
+    });
   }, [lyricKey]);
 
+  /**
+   * 歌词校准（P0-18）：把这**这一首**的偏移推给 lyric-source。
+   * 放在取词 effect 之后：切歌时 loadLyric 先发起（异步），这里同步把偏移换掉，
+   * 等词回来时用的就是新偏移。改同一首的校准则立刻重排。
+   */
+  const lyricOffset = state.lyrics.offsets[trackId ?? ""] ?? 0;
+  useEffect(() => {
+    setUserOffset(lyricOffset);
+  }, [lyricOffset, lyricKey]);
+
+  /* 换词弹窗（P0-19）的初始查询：本地「歌名 歌手」，在线用标题（那里已经是「歌名 — 歌手」）。 */
+  const findTrack = findOpen && !remote && trackId ? getTracks().find((t) => t.id === trackId) : undefined;
+  const findQuery = remote
+    ? (trackTitle ?? "")
+    : findTrack
+      ? `${findTrack.title} ${findTrack.artist}`
+      : trackId
+        ? baseName(trackId)
+        : "";
+
+  /**
+   * 键位表（P0-22）：键 → 语义在 `input/keymap.ts`（纯函数、一条键一条用例），
+   * 这里只把语义接到 dispatch 上。焦点纪律由 `installKeyboard` 前置拦掉。
+   * 依赖 `[page]`：0–9 只在播放页生效，换页必须换一份闭包。
+   */
   useEffect(
     () =>
       installKeyboard({
@@ -484,8 +581,28 @@ function App() {
           setPage("local");
           setTimeout(() => document.querySelector<HTMLInputElement>(".search")?.focus(), 0);
         },
+        page: () => page,
+        seekBy: seekByDelta,
+        seekPercent: (percent) => {
+          const svc = services.current;
+          if (!svc) return;
+          const dur = svc.engine.durationMs();
+          if (dur <= 0) return; // 还没解码出时长：宁可不跳，也不要跳到 0
+          dispatch({ type: "player/seek", positionMs: Math.round((dur * percent) / 100) });
+        },
+        prev: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
+        next: () => dispatch({ type: "queue/next" }),
+        volumeBy: (delta) =>
+          dispatch({ type: "player/setVolume", volume: getState().player.volume + delta }),
+        mute: () => dispatch({ type: "player/setMuted", muted: !getState().player.muted }),
+        like: () => {
+          const p = getState().player;
+          // 在线曲目的 trackId 是直链，换了直链就是另一首 —— 红心只记本地曲目
+          if (!p.trackId || p.remote) return;
+          toggleLike(p.trackId);
+        },
       }),
-    [],
+    [page],
   );
 
   /**
@@ -516,6 +633,7 @@ function App() {
             exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
             importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
             durationMs={() => services.current?.engine.durationMs() ?? 0}
+            findLyric={() => setFindOpen(true)}
           />
         );
       case "home":
@@ -563,6 +681,10 @@ function App() {
             onOpenFx={() => setFxOpen(true)}
             onOpenLyric={() => void services.current?.openLyric()}
             onOpenMini={() => void services.current?.openMini()}
+            playOnError={state.playback.onError}
+            onPlayOnError={(value) => dispatch({ type: "playback/setOnError", onError: value })}
+            outputId={state.audio.outputId}
+            onOutput={(id) => dispatch({ type: "audio/setOutput", id })}
             shortcutBindings={shortcutBindings}
             shortcutStatus={shortcutStatus}
             onShortcutChange={async (action, acc) => {
@@ -688,6 +810,7 @@ function App() {
     <button
       type="button"
       key={item.id}
+      data-page={item.id}
       className={`it${item.small ? " sm" : ""}${page === item.id ? " on" : ""}`}
       onClick={() => setPage(item.id)}
       title={item.label}
@@ -698,7 +821,13 @@ function App() {
   );
 
   return (
-    <main className="shell">
+    <main className={offline ? "shell offline" : "shell"}>
+      {/* 离线态（P0-25）：常驻横幅，不用 toast —— 断网期间 toast 会反复刷屏 */}
+      {offline ? (
+        <div className="net-banner" role="status" aria-live="polite">
+          离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
+        </div>
+      ) : null}
       <header className="tbar">
         <h1 className="brand">
           <i />
@@ -773,12 +902,12 @@ function App() {
         {/* 左：正在播放。整块可点跳播放页（旧仓 console 行为） */}
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
           <span
-            className="np-art"
+            className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}`}
             style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
           />
           <span className="np-tx">
             <b>{trackTitle ?? baseName(trackId)}</b>
-            <span>{trackId ? (remote ? "在线音源" : "本地曲库") : "从曲库选一首开始"}</span>
+            <span>{phaseLabel(phase, !!remote)}</span>
           </span>
         </button>
 
@@ -828,7 +957,20 @@ function App() {
               onPointerDown={() => {
                 dragging.current = true;
               }}
-              onPointerUp={() => {
+              // 松手才提交（P0-03）：拖动中只画预览，不发 seek ——
+              // 每动一格就 seek 一次会把音频打成"碎碎的发声片段"（旧行为）
+              onPointerUp={(e) => {
+                dragging.current = false;
+                dispatch({ type: "player/seek", positionMs: Number(e.currentTarget.value) });
+              }}
+              // 指针在窗外交代时 pointerup 可能收不到：丢捕获也要收尾，
+              // 否则 dragging 卡住 → 进度条永远停在原地（P0-03 的兜底）
+              onLostPointerCapture={(e) => {
+                if (!dragging.current) return;
+                dragging.current = false;
+                dispatch({ type: "player/seek", positionMs: Number(e.currentTarget.value) });
+              }}
+              onPointerCancel={() => {
                 dragging.current = false;
               }}
               onPointerMove={(e) => {
@@ -841,7 +983,18 @@ function App() {
                 tip.textContent = fmt(pct * duration);
                 tip.style.left = `${pct * 100}%`;
               }}
-              onChange={(e) => dispatch({ type: "player/seek", positionMs: Number(e.target.value) })}
+              onChange={(e) => {
+                // 拖动中：只画预览（墨色填充 + 时间），不触发 seek
+                if (!dragging.current) {
+                  dispatch({ type: "player/seek", positionMs: Number(e.target.value) });
+                  return;
+                }
+                const v = Number(e.target.value);
+                const duration = services.current?.engine.durationMs() ?? 0;
+                if (timeEl.current) timeEl.current.textContent = fmt(v);
+                const pct = duration > 0 ? Math.min(100, (v / duration) * 100) : 0;
+                e.currentTarget.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+              }}
             />
             <span ref={tipEl} className="seek-tip" aria-hidden="true" />
             <span ref={totalEl} className="tm">
@@ -873,16 +1026,23 @@ function App() {
           </button>
           <button
             type="button"
-            className={sleepOpen || sleepEndsAt ? "on" : ""}
+            className={sleepOpen || sleepEndsAt || sleepPending ? "on" : ""}
             aria-expanded={sleepOpen}
             onClick={() => {
               setSleepOpen(!sleepOpen);
               setVolOpen(false);
             }}
-            title="睡眠定时：到点暂停，不退出"
+            title={
+              sleepPending
+                ? "到点了：这首播完就停"
+                : sleepWaitEnd
+                  ? "睡眠定时：播完当前曲再停"
+                  : "睡眠定时：到点暂停，不退出"
+            }
           >
             睡眠
             {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
+            {sleepPending ? <span className="sleep-left">等这首完</span> : null}
           </button>
           <button
             type="button"
@@ -900,6 +1060,15 @@ function App() {
           </button>
           <button type="button" onClick={() => void services.current?.openMini()} title="迷你窗">
             迷你
+          </button>
+          <button
+            type="button"
+            className={queueOpen ? "on" : ""}
+            aria-expanded={queueOpen}
+            onClick={() => setQueueOpen((v) => !v)}
+            title="播放队列（P0-10）"
+          >
+            队列
           </button>
           <button type="button" className={fxOpen ? "on" : ""} aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
             音效
@@ -953,7 +1122,23 @@ function App() {
 
         {sleepOpen && (
           <div className="vol-pop sleep-pop" role="dialog" aria-label="睡眠定时">
-            <p className="sleep-now">{sleepEndsAt ? "定时中 · 到点自动暂停" : "到点只暂停，不退出"}</p>
+            <p className="sleep-now">
+              {sleepPending
+                ? "已到点 · 这首播完就停"
+                : sleepEndsAt
+                  ? sleepWaitEnd
+                    ? "定时中 · 播完当前曲停"
+                    : "定时中 · 到点自动暂停"
+                  : "到点只暂停，不退出"}
+            </p>
+            <label className="sleep-wait">
+              <input
+                type="checkbox"
+                checked={sleepWaitEnd}
+                onChange={(e) => dispatch({ type: "sleep/setWaitEnd", waitEnd: e.target.checked })}
+              />
+              <span>播完当前曲再停</span>
+            </label>
             <div className="sleep-opts">
               {SLEEP_OPTIONS.map((m) => (
                 <button
@@ -993,7 +1178,13 @@ function App() {
               onClick={() =>
                 dispatch({
                   type: "audio/restore",
-                  config: { preampDb: PREAMP_DEFAULT, eq: EQ_DEFAULT, crossfadeSec: 0 },
+                  // 音效重置只动音效：输出设备是另一件事，不能被顺手改回默认（P0-09）
+                  config: {
+                    preampDb: PREAMP_DEFAULT,
+                    eq: EQ_DEFAULT,
+                    crossfadeSec: 0,
+                    outputId: state.audio.outputId,
+                  },
                 })
               }
             >
@@ -1088,6 +1279,36 @@ function App() {
           }
         />
       ) : null}
+
+      {findOpen && trackId ? (
+        <FindLyric
+          initialQuery={findQuery}
+          onSearch={(q) => {
+            const svc = services.current;
+            return svc ? svc.searchLyrics(q) : Promise.reject(new Error("还没准备好，请稍后再试"));
+          }}
+          onPick={async (hit) => {
+            const svc = services.current;
+            if (!svc) throw new Error("还没准备好，请稍后再试");
+            const text = hit.syncedLyrics?.trim() || hit.plainLyrics?.trim() || "";
+            const libTrack = getTracks().find((t) => t.id === trackId);
+            // 线上按 sourceId:songId 绑，本地按曲目 id 绑 —— 见 lyricBindKey
+            const doc = await svc.bindLyric(
+              lyricBindKey(remote, trackId) ?? "",
+              trackId,
+              text,
+              remote ? undefined : libTrack?.durationMs,
+            );
+            setManualLyric(doc);
+            setNotice({
+              text: `已换上「${hit.trackName}${hit.artistName ? ` — ${hit.artistName}` : ""}」的歌词`,
+            });
+          }}
+          onClose={() => setFindOpen(false)}
+        />
+      ) : null}
+
+      {queueOpen ? <QueuePanel queue={state.queue} onClose={() => setQueueOpen(false)} /> : null}
     </main>
   );
 }
