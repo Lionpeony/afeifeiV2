@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clearLyric, loadLyric, lyricState, subscribeLyric } from "../dist-test/lyric-source.mjs";
+import {
+  clearLyric,
+  loadLyric,
+  lyricState,
+  setManualLyric,
+  setUserOffset,
+  subscribeLyric,
+  userOffsetOf,
+} from "../dist-test/lyric-source.mjs";
 
 /**
  * A-02 判据「桌面歌词未进播放页也有词」的机制部分：
@@ -88,6 +96,72 @@ test("取词失败给文案，且允许重试（失败不占位）", async () =>
   });
   assert.equal(retried, 1, "失败后再进要能重新取");
   assert.ok(lyricState().doc);
+  clearLyric("");
+});
+
+/* ---------- 歌词校准（P0-18） ---------- */
+
+test("校准只加在词自带偏移之上，连调不叠加", async () => {
+  clearLyric("");
+  setUserOffset(0);
+  await loadLyric("netease", "off1", async () => ({ lines: [{ startMs: 0, endMs: 1, text: "a" }], offsetMs: 120 }));
+  assert.equal(lyricState().doc.offsetMs, 120, "词自带的偏移必须先保留");
+  setUserOffset(500);
+  assert.equal(lyricState().doc.offsetMs, 620, "120 + 500");
+  setUserOffset(1000);
+  assert.equal(lyricState().doc.offsetMs, 1120, "再调一次是 120 + 1000，不是 620 + 1000");
+  setUserOffset(0);
+  assert.equal(lyricState().doc.offsetMs, 120, "归零要回到词自带的那一档");
+  clearLyric("");
+});
+
+test("先设校准再切歌：新词回来时就带着它（时序判据）", async () => {
+  clearLyric("");
+  setUserOffset(-800);
+  await loadLyric("netease", "off2", async () => ({ lines: [{ startMs: 0, endMs: 1, text: "b" }], offsetMs: 0 }));
+  assert.equal(lyricState().doc.offsetMs, -800, "切歌前设的值要落到新词上");
+  setUserOffset(0);
+  clearLyric("");
+});
+
+test("没有词时设校准不炸，值记住", () => {
+  clearLyric("");
+  setUserOffset(700);
+  assert.equal(userOffsetOf(), 700);
+  assert.equal(lyricState().doc, null);
+  setUserOffset(0);
+});
+
+/* ---------- 手动换词（P0-19） ---------- */
+
+test("手动换词立刻生效，且不被在途的旧响应盖掉", async () => {
+  clearLyric("");
+  setUserOffset(200);
+  let release;
+  const pending = loadLyric(
+    "netease",
+    "m1",
+    () =>
+      new Promise((resolve) => {
+        release = () => resolve({ lines: [{ startMs: 0, endMs: 1, text: "旧的" }], offsetMs: 0 });
+      }),
+  );
+  setManualLyric({
+    trackId: "m1",
+    source: "manual",
+    hasWordTiming: false,
+    lines: [{ index: 0, startMs: 0, endMs: 1, text: "挑的", words: [] }],
+    segments: [],
+    offsetMs: 100,
+    quality: "estimated",
+    fetchedAt: 1,
+  });
+  assert.equal(lyricState().doc.lines[0].text, "挑的");
+  assert.equal(lyricState().doc.offsetMs, 300, "词自带 100 + 用户校准 200");
+  release();
+  await pending;
+  assert.equal(lyricState().doc.lines[0].text, "挑的", "切歌前那个旧请求必须作废");
+  setUserOffset(0);
   clearLyric("");
 });
 
