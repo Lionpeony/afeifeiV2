@@ -19,7 +19,7 @@
 | 10 | 下载增强（命名模板 / 并发 / 批量） | B | **已完成**（2026-11-04） | `domain/download/naming.ts`（命名模板）、`domain/download/settings.ts`（并发 1–6 默认 3）、在线搜索批量下载 |
 | 11 | 「不喜欢」/ 少推这首 | B | **已完成**（2026-11-04） | `domain/dislikes/`（黑名单持久化）、推荐与漫游过滤、在线日报「不感兴趣」 |
 | 12 | 听歌统计 | B | **已完成**（2026-11-04） | `domain/listening/log.ts`（会话账本）、`projection/stats.ts`（周/月/24h/Top）、`views/stats/`（听歌报告页） |
-| 13 | 视觉器 / 3D 轮播 / ~~桌面壁纸~~ | C | **已完成**（2026-11-04，壁纸子项经确认不做；轮播已改为复用 folia `Carousel3D`，见 `THIRD-PARTY-NOTICES.md`） | `views/stage/visuals.ts`（轮播面/环形几何）、`presets.ts`（visualMode 白名单）、stage 菜单「视觉/封面」两行、对焦式轮播 `index.tsx` + `stage.css` |
+| 13 | 视觉器 / 3D 轮播 / ~~桌面壁纸~~ | C | **已完成**（2026-11-04，壁纸子项经确认不做；轮播复用 folia `Carousel3D`；视觉器第四模式「町景」整段移植 folia machi 引擎 + konbini 场景，three.js 依赖 + 71 文件 vendored，见 `THIRD-PARTY-NOTICES.md` 与 `docs/02`） | `views/stage/machi/**`（71 文件）、`machi/adapter.ts`、stage 菜单「视觉/封面」两行、对焦式轮播 `index.tsx` + `stage.css` |
 | 14 | 同步服务器 | C | **不做**（2026-11-04 用户定） | — |
 | 15 | 开放 API | C | **不做**（2026-11-04 用户定） | — |
 | 16 | 使用引导动画 | C | **已完成**（2026-11-04） | `views/onboarding.tsx`（3 步、键盘可过）、KV `onboarded`、smoke/page-shots 断言 |
