@@ -58,6 +58,22 @@ test("每日推荐：配额内同艺人最多 3 首，曲库不够就全给（�
   assert.equal(dailyPicks({ tracks: [], liked: new Set(), recent: [], seed: 3 }).length, 0);
 });
 
+test("每日推荐：不喜欢名单在取牌之前摘掉（B-11，公共函数新增入参）", () => {
+  const picks = dailyPicks({
+    tracks: lib,
+    liked: new Set(["c2"]),
+    recent: ["b1"],
+    seed: 7,
+    count: 8,
+    disliked: new Set(["c2", "b1", "a1"]),
+  });
+  const ids = picks.map((x) => x.id);
+  assert.equal(ids.includes("c2"), false, "红心也压不过不喜欢");
+  assert.equal(ids.includes("b1"), false);
+  assert.equal(ids.includes("a1"), false);
+  assert.equal(ids.length, 5);
+});
+
 test("换新倒计时：06:00 前算当天，过点后算次日", () => {
   const before = new Date(2026, 10, 3, 5, 0, 0);
   assert.equal(nextRefreshMs(before), 60 * 60 * 1000);

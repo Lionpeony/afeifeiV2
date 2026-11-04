@@ -14,8 +14,16 @@ contextBridge.exposeInMainWorld("api", {
   grant: (filePath: string): Promise<string | null> => ipcRenderer.invoke("media:grant", filePath),
 
   // 曲库
-  pickDir: (): Promise<string | null> => ipcRenderer.invoke("library:pickDir"),
   scan: (dirs: string[]): Promise<string[]> => ipcRenderer.invoke("library:scan", dirs),
+  // 曲库目录列表（M9）：持久化在 KV，扫描按列表重扫
+  libraryRoots: (): Promise<string[]> => ipcRenderer.invoke("library:roots"),
+  addLibraryRoot: (): Promise<string[] | null> => ipcRenderer.invoke("library:addRoot"),
+  removeLibraryRoot: (dir: string): Promise<string[]> => ipcRenderer.invoke("library:removeRoot", dir),
+  // 系统通知 + 开机自启（M9）
+  notify: (payload: { title: string; body: string }): Promise<boolean> =>
+    ipcRenderer.invoke("notify:show", payload),
+  autoLaunch: (): Promise<boolean> => ipcRenderer.invoke("app:autoLaunch"),
+  setAutoLaunch: (on: boolean): Promise<boolean> => ipcRenderer.invoke("app:setAutoLaunch", on),
   readTags: (filePaths: string[]): Promise<unknown[]> => ipcRenderer.invoke("library:readTags", filePaths),
   statFiles: (filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]> =>
     ipcRenderer.invoke("library:statFiles", filePaths),

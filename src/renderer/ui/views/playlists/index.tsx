@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { OnlinePlaylist, RemoteTrack } from "../../../../contracts/capability.js";
+import type { SavedPlaylistView } from "../../services.js";
 import { PageHead } from "../../PageHead.js";
 import { Segmented } from "../../Segmented.js";
 
@@ -14,6 +15,20 @@ export interface PlaylistViewProps {
   ): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   /** 与在线页同一条播放链路（resolveOnlineUrl → player/play）。 */
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  /* ---- 收藏的在线歌单（M11） ---- */
+  onlinePlaylists(): Promise<SavedPlaylistView[]>;
+  savePlaylist(
+    sourceId: string,
+    playlist: { id: string; name: string; count: number; coverUrl?: string },
+  ): Promise<SavedPlaylistView[]>;
+  importPlaylist(sourceId: string, ref: string): Promise<SavedPlaylistView[]>;
+  removePlaylist(sourceId: string, id: string): Promise<SavedPlaylistView[]>;
+}
+
+/** 选中的是「哪个源的哪个歌单」：收藏的歌单可能不属于当前下拉里那个源。 */
+interface Selection {
+  sourceId: string;
+  id: string;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -24,36 +39,59 @@ function fmtDuration(ms: number): string {
 }
 
 /**
- * 歌单页（M9-5）：**只读投影**——歌单列表 + 曲目列表 + 点歌播放，不做任何写操作。
- * 音源来自声明 canListPlaylists 的注册项，**不写死任何一家**：
- * 加第三家源时这里自动多一个下拉选项（判据：能力契约复验）。
- * 未登录由 listPlaylists 抛 auth-required 的人话，直接显示。
+ * 歌单页（M9-5 只读 → M11 可收藏）。
+ *
+ * 两块内容刻意分开：
+ *  - **我收藏的**：本机 KV，粘链接/点收藏得来，跨重启都在；
+ *  - **账号歌单**：每次进页面从音源拉最新，作者改了你也就跟着变。
+ * 合成一份会出现「昨天收藏的歌单今天自己改名了」的困惑。
+ *
+ * 音源来自声明 canListPlaylists 的注册项，不写死任何一家。
  */
-export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }: PlaylistViewProps) {
+export function PlaylistsView({
+  sources,
+  listPlaylists,
+  playlistTracks,
+  onPlay,
+  onlinePlaylists,
+  savePlaylist,
+  importPlaylist,
+  removePlaylist,
+}: PlaylistViewProps) {
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [saved, setSaved] = useState<SavedPlaylistView[]>([]);
   const [playlists, setPlaylists] = useState<OnlinePlaylist[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Selection | null>(null);
   const [tracks, setTracks] = useState<RemoteTrack[]>([]);
   const [nextPage, setNextPage] = useState<number | undefined>(undefined);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ref, setRef] = useState("");
 
   useEffect(() => {
     if (!sourceId && sources[0]) setSourceId(sources[0].id);
   }, [sources, sourceId]);
 
   useEffect(() => {
+    let alive = true;
+    void onlinePlaylists()
+      .then((list) => {
+        if (alive) setSaved(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [onlinePlaylists]);
+
+  useEffect(() => {
     if (!sourceId) return;
     let alive = true;
     setPlaylists([]);
-    setSelected(null);
-    setTracks([]);
     setNote("");
     listPlaylists(sourceId)
       .then((list) => {
-        if (!alive) return;
-        setPlaylists(list);
-        if (list.length === 0) setNote("这个账号还没有歌单。");
+        if (alive) setPlaylists(list);
       })
       .catch((err: unknown) => {
         if (alive) setNote(err instanceof Error ? err.message : String(err));
@@ -63,11 +101,11 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
     };
   }, [sourceId, listPlaylists]);
 
-  const loadTracks = async (playlistId: string, page: number): Promise<void> => {
+  const loadTracks = async (src: string, playlistId: string, page: number): Promise<void> => {
     setBusy(true);
     setNote("");
     try {
-      const result = await playlistTracks(sourceId, playlistId, page);
+      const result = await playlistTracks(src, playlistId, page);
       setTracks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
       setNextPage(result.nextPage);
       if (page === 0 && result.items.length === 0) setNote("这个歌单是空的。");
@@ -78,14 +116,53 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
     }
   };
 
-  const open = async (playlist: OnlinePlaylist): Promise<void> => {
-    setSelected(playlist.id);
-    await loadTracks(playlist.id, 0);
+  const open = (src: string, id: string): void => {
+    setSelected({ sourceId: src, id });
+    void loadTracks(src, id, 0);
   };
 
   const play = async (track: RemoteTrack): Promise<void> => {
+    const src = selected?.sourceId ?? sourceId;
     try {
-      await onPlay(sourceId, track);
+      await onPlay(src, track);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const doImport = async (): Promise<void> => {
+    const text = ref.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    setNote("");
+    try {
+      setSaved(await importPlaylist(sourceId, text));
+      setRef("");
+      setNote("已收藏。点它取曲目。");
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const keep = async (playlist: OnlinePlaylist): Promise<void> => {
+    try {
+      setSaved(await savePlaylist(sourceId, playlist));
+      setNote(`已收藏「${playlist.name}」`);
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const drop = async (item: SavedPlaylistView): Promise<void> => {
+    try {
+      setSaved(await removePlaylist(item.sourceId, item.id));
+      if (selected?.sourceId === item.sourceId && selected.id === item.id) {
+        setSelected(null);
+        setTracks([]);
+        setNextPage(undefined);
+      }
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -99,9 +176,11 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
     );
   }
 
+  const isOn = (src: string, id: string): boolean => selected?.sourceId === src && selected.id === id;
+
   return (
-    <section className="library">
-      <PageHead title="歌单" meta="PLAYLISTS · READ ONLY" />
+    <section className="library playlists-page">
+      <PageHead title="歌单" meta="PLAYLISTS" />
       <div className="lib-head">
         <Segmented
           label="音源"
@@ -109,24 +188,65 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
           value={sourceId}
           onChange={setSourceId}
         />
-        {playlists.length > 0 ? <span className="badge">{playlists.length} 个歌单</span> : null}
+        <input
+          className="search pl-ref"
+          value={ref}
+          placeholder="粘贴歌单分享链接或 id，然后点导入"
+          onChange={(e) => setRef(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void doImport();
+          }}
+        />
+        <button type="button" className="primary" onClick={() => void doImport()} disabled={busy || !ref.trim()}>
+          导入
+        </button>
       </div>
 
       {note ? <p className="lib-note">{note}</p> : null}
 
       <div className="pl-wrap">
         <div className="pl-list">
-          {playlists.map((p) => (
-            <button
-              type="button"
-              key={p.id}
-              className={`pl-item ${p.id === selected ? "on" : ""}`}
-              onClick={() => void open(p)}
-            >
-              <span className="pl-name">{p.name}</span>
-              <span className="pl-count">{p.count} 首</span>
-            </button>
+          {saved.length > 0 ? <p className="pl-sect">我收藏的 · {saved.length}</p> : null}
+          {saved.map((p) => (
+            <div className="pl-line" key={`${p.sourceId}:${p.id}`}>
+              <button
+                type="button"
+                className={`pl-item ${isOn(p.sourceId, p.id) ? "on" : ""}`}
+                onClick={() => open(p.sourceId, p.id)}
+                title={`${p.name}（${p.sourceId}）`}
+              >
+                <span className="pl-name">{p.name}</span>
+                <span className="pl-count">{p.count > 0 ? `${p.count} 首` : "—"}</span>
+              </button>
+              <button
+                type="button"
+                className="pl-x"
+                aria-label={`取消收藏 ${p.name}`}
+                title="取消收藏（只是从本机列表移除，不删远端歌单）"
+                onClick={() => void drop(p)}
+              >
+                ×
+              </button>
+            </div>
           ))}
+
+          <p className="pl-sect">账号歌单 · {sources.find((s) => s.id === sourceId)?.name ?? sourceId}</p>
+          {playlists.map((p) => (
+            <div className="pl-line" key={p.id}>
+              <button
+                type="button"
+                className={`pl-item ${isOn(sourceId, p.id) ? "on" : ""}`}
+                onClick={() => open(sourceId, p.id)}
+              >
+                <span className="pl-name">{p.name}</span>
+                <span className="pl-count">{p.count} 首</span>
+              </button>
+              <button type="button" className="pl-save" onClick={() => void keep(p)} title="收藏到本机列表">
+                收藏
+              </button>
+            </div>
+          ))}
+          {playlists.length === 0 && !note ? <p className="pl-empty">这个账号还没有歌单。</p> : null}
         </div>
 
         <div className="lib-list">
@@ -154,14 +274,12 @@ export function PlaylistsView({ sources, listPlaylists, playlistTracks, onPlay }
               type="button"
               className="pl-more"
               disabled={busy}
-              onClick={() => selected !== null && void loadTracks(selected, nextPage)}
+              onClick={() => selected && void loadTracks(selected.sourceId, selected.id, nextPage)}
             >
               {busy ? "加载中…" : "加载更多"}
             </button>
           ) : null}
-          {tracks.length === 0 && !note && selected === null ? (
-            <p className="lib-empty">选一个歌单。</p>
-          ) : null}
+          {tracks.length === 0 && selected === null ? <p className="lib-empty">选一个歌单。</p> : null}
         </div>
       </div>
     </section>

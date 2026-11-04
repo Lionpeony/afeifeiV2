@@ -12,6 +12,8 @@ import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
 import { StageView } from "./views/stage/index.js";
 import { ChartsView } from "./views/charts/index.js";
+import { PlaylistsView } from "./views/playlists/index.js";
+import { StatsView } from "./views/stats/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -107,6 +109,10 @@ function App() {
   const [sleepOpen, setSleepOpen] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [theme, setThemeState] = useState<Theme>("light");
+  const [libraryRoots, setLibraryRoots] = useState<string[]>([]);
+  const [autoLaunch, setAutoLaunch] = useState(false);
+  const [lyricFiltersText, setLyricFiltersText] = useState("");
+  const [globalTokenCount, setGlobalTokenCount] = useState(0);
   const [npCover, setNpCover] = useState<string | null>(null);
   const services = useRef<Services | null>(null);
   const timeEl = useRef<HTMLSpanElement>(null);
@@ -142,11 +148,12 @@ function App() {
     }
   };
 
-  /* 明暗切换（docs/09 B4）：当前值以 DOM 上的 data-theme 为准，不靠闭包里的旧 state。 */
+  /* 顶栏是「快捷开关」：只在明暗之间来回切。四档配色在设置页里选——
+     顶栏点一下就换一档会让用户找不到「回到刚才那档」的路径。 */
   const toggleTheme = (): void => {
     const svc = services.current;
     if (!svc) return;
-    setThemeState(svc.setTheme(currentTheme() === "dark" ? "light" : "dark"));
+    setThemeState(svc.setTheme(currentTheme() === "light" ? "dark" : "light"));
   };
 
   useEffect(() => {
@@ -171,6 +178,33 @@ function App() {
       syncPosition();
       startMiniBridge(s);
       startLyricBridge(s);
+
+      // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
+      // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
+      void s
+        .libraryRoots()
+        .then((roots) => {
+          if (alive) setLibraryRoots(roots);
+        })
+        .catch(() => undefined);
+      void s
+        .autoLaunch()
+        .then((on) => {
+          if (alive) setAutoLaunch(on);
+        })
+        .catch(() => undefined);
+      void s
+        .lyricFilters()
+        .then((text) => {
+          if (alive) setLyricFiltersText(text);
+        })
+        .catch(() => undefined);
+      void s
+        .globalTokens()
+        .then((tokens) => {
+          if (alive) setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
+        })
+        .catch(() => undefined);
 
       // 启动就把账号红心读一次：底栏那颗心不能等用户点进「喜欢的音乐」才有状态
       void (async () => {
@@ -847,8 +881,13 @@ function App() {
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
             account={() => accountBundle("fm")}
             onPlayRemote={playRemoteSafe}
+            onReportDislike={(sourceId, songId) =>
+              services.current?.reportDislike(sourceId, songId, "fm") ?? Promise.resolve(false)
+            }
           />
         );
+      case "stats":
+        return <StatsView />;
       case "settings":
         return (
           <SettingsView
@@ -893,6 +932,37 @@ function App() {
                 if (r?.restored) setScanNote("备份已恢复，重启应用后生效");
               })
             }
+            libraryRoots={libraryRoots}
+            onAddRoot={() =>
+              void services.current?.addLibraryRoot().then((roots) => {
+                if (!roots) return;
+                setLibraryRoots(roots);
+                setScanNote("目录已加入，点「扫描文件夹」按新列表重扫");
+              })
+            }
+            onRemoveRoot={(dir) =>
+              void services.current?.removeLibraryRoot(dir).then((roots) => {
+                setLibraryRoots(roots);
+                setScanNote("目录已移除；已入库的曲目不会自动删，重扫才标记 missing");
+              })
+            }
+            autoLaunch={autoLaunch}
+            onAutoLaunch={(on) => void services.current?.setAutoLaunch(on).then(setAutoLaunch)}
+            lyricFilters={lyricFiltersText}
+            onSaveLyricFilters={(text) =>
+              services.current?.setLyricFilters(text) ?? Promise.resolve(["还没准备好，请稍后再试"])
+            }
+            globalTokenCount={globalTokenCount}
+            onImportGlobalTheme={async () => {
+              const tokens = await services.current?.importGlobalTheme();
+              setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
+              return tokens ?? null;
+            }}
+            onExportGlobalTheme={() => services.current?.exportGlobalTheme() ?? Promise.resolve(false)}
+            onClearGlobalTheme={async () => {
+              await services.current?.clearGlobalTheme();
+              setGlobalTokenCount(0);
+            }}
           />
         );
       case "local":
@@ -905,6 +975,9 @@ function App() {
             scanning={scanning}
             scanNote={scanNote}
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+            onEditMeta={(id, patch) =>
+              services.current?.editTrackMeta(id, patch) ?? Promise.reject(new Error("还没准备好，请稍后再试"))
+            }
           />
         );
       case "downloads":
@@ -915,6 +988,38 @@ function App() {
           />
         ) : (
           <p className="lib-empty">还没准备好，请稍候。</p>
+        );
+      case "playlists":
+        return (
+          <PlaylistsView
+            sources={sources.filter((s) => s.canPlaylists)}
+            listPlaylists={(sourceId) => {
+              const svc = services.current;
+              return svc ? svc.listPlaylists(sourceId) : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            playlistTracks={(sourceId, playlistId, page) => {
+              const svc = services.current;
+              return svc
+                ? svc.playlistTracks(sourceId, playlistId, page)
+                : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            onPlay={playRemote}
+            onlinePlaylists={() => services.current?.onlinePlaylists() ?? Promise.resolve([])}
+            savePlaylist={(sourceId, playlist) => {
+              const svc = services.current;
+              return svc ? svc.savePlaylist(sourceId, playlist) : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            importPlaylist={(sourceId, ref) => {
+              const svc = services.current;
+              return svc
+                ? svc.importPlaylist(sourceId, ref)
+                : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            removePlaylist={(sourceId, id) => {
+              const svc = services.current;
+              return svc ? svc.removePlaylist(sourceId, id) : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+          />
         );
       case "charts":
         return (
@@ -974,6 +1079,11 @@ function App() {
               const svc = services.current;
               if (!svc) return Promise.resolve("还没准备好，请稍后再试");
               return svc.downloadTrack(sourceId, track);
+            }}
+            onDownloadMany={(sourceId, tracks) => {
+              const svc = services.current;
+              if (!svc) return Promise.resolve("还没准备好，请稍后再试");
+              return svc.downloadTracks(sourceId, tracks);
             }}
           />
         );

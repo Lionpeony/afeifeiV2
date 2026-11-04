@@ -12,6 +12,8 @@ export type IconName =
   | "downloads"
   | "liked"
   | "recent"
+  | "playlists"
+  | "stats"
   | "settings";
 
 const PATHS: Record<IconName, ReactNode> = {
@@ -65,6 +67,18 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <circle cx="8" cy="8" r="5.4" />
       <path d="M8 5.2v3l2.1 1.2" />
+    </>
+  ),
+  playlists: (
+    <>
+      <path d="M2.5 3.8h8M2.5 7.2h8M2.5 10.6h5" />
+      <path d="M11 8.4 14 10.3 11 12.2Z" />
+    </>
+  ),
+  stats: (
+    <>
+      <path d="M2.5 13.5h11" />
+      <path d="M4 13.5V9M7 13.5V5M10 13.5V7.5M13 13.5V3.5" />
     </>
   ),
   settings: (

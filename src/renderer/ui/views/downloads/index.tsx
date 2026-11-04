@@ -4,6 +4,12 @@ import { downloadRows, fmtBytes, fmtSpeed, type DownloadRow } from "../../../pro
 import type { Services } from "../../services.js";
 import { PageHead } from "../../PageHead.js";
 import { toast } from "../../toast.js";
+import { NAME_TEMPLATE_DEFAULT, NAME_TEMPLATE_HINT } from "../../../domain/download/naming.js";
+import {
+  MAX_CONCURRENCY,
+  MIN_CONCURRENCY,
+  DEFAULT_CONCURRENCY,
+} from "../../../domain/download/settings.js";
 
 const STATE_TEXT: Record<DownloadRow["state"], string> = {
   queued: "排队中",
@@ -27,6 +33,19 @@ export function DownloadsView({
   const [rows, setRows] = useState<DownloadRow[]>(downloadRows(getState()));
   const [usage, setUsage] = useState(0);
   const [note, setNote] = useState("");
+  const [template, setTemplate] = useState(NAME_TEMPLATE_DEFAULT);
+  const [concurrency, setConcurrency] = useState(DEFAULT_CONCURRENCY);
+  const [settingsNote, setSettingsNote] = useState("");
+
+  useEffect(() => {
+    void services
+      .downloadSettings()
+      .then((s) => {
+        setTemplate(s.template);
+        setConcurrency(s.concurrency);
+      })
+      .catch(() => undefined);
+  }, [services]);
 
   useEffect(
     () =>
@@ -43,6 +62,18 @@ export function DownloadsView({
   const act = (fn: () => void, msg?: string): void => {
     fn();
     if (msg) toast(msg);
+  };
+
+  const saveSettings = async (): Promise<void> => {
+    try {
+      const saved = await services.setDownloadSettings({ template, concurrency });
+      setTemplate(saved.template);
+      setConcurrency(saved.concurrency);
+      setSettingsNote("已保存；新任务按这个模板命名，并发立即生效。");
+      toast("下载设置已保存");
+    } catch (err) {
+      setSettingsNote(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -64,6 +95,47 @@ export function DownloadsView({
         </button>
         {note ? <span className="badge">{note}</span> : null}
       </div>
+
+      {/* 下载设置（B-10）：模板只管文件名，目录另设；并发默认 2、上限 6 */}
+      <div className="dl-settings">
+        <label className="dl-set-field">
+          文件名
+          <input
+            className="dl-template"
+            value={template}
+            aria-label="下载文件名模板"
+            onChange={(e) => setTemplate(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void saveSettings();
+            }}
+          />
+        </label>
+        <label className="dl-set-field">
+          并发
+          <select
+            value={concurrency}
+            aria-label="同时下载数"
+            onChange={(e) => setConcurrency(Number(e.target.value))}
+          >
+            {Array.from({ length: MAX_CONCURRENCY - MIN_CONCURRENCY + 1 }, (_, i) => i + MIN_CONCURRENCY).map(
+              (n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <button type="button" className="primary" onClick={() => void saveSettings()}>
+          保存设置
+        </button>
+      </div>
+      {/* 说明单独一行：塞进上面那行会被 flex 挤成半截，用户看不到占位符全名 */}
+      <p className="dl-settings-hint">
+        {NAME_TEMPLATE_HINT}
+        {concurrency > 3 ? " · 并发偏高，容易被上游限流" : ""}
+        {settingsNote ? ` · ${settingsNote}` : ""}
+      </p>
 
       <div className="lib-list">
         <div className="lib-thead dl-thead">

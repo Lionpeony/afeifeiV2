@@ -422,10 +422,12 @@ html::after {
   text-align: right;
 }
 /* 行：与表头同模板。有下载按钮的行 :has 自动扩列 */
-.online-row {
+/* 必须压过后面的 .lib-row（六列模板）：同特异性时后写的赢，
+   之前在线/榜单/歌单的曲目行四列被塞进六列网格，标题与歌手挤在一格。 */
+.lib-row.online-row {
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
 }
-.online-row:has(.dl-btn) {
+.lib-row.online-row:has(.dl-btn) {
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 52px;
 }
 
@@ -459,6 +461,68 @@ html::after {
   border-radius: 0;
   background: var(--bg-raised);
   text-align: center;
+}
+
+/* 元数据编辑（M11）：三行输入 + 一行说明，宽度够放下「歌手 - 歌名」这类长值 */
+.palette.meta-edit {
+  width: 420px;
+  padding: 16px 18px;
+}
+
+.meta-edit-head {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.meta-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.meta-edit-row > span {
+  flex: none;
+  width: 36px;
+  color: var(--fg-dim);
+  font-size: 12px;
+}
+
+.meta-edit-row > input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.meta-edit-row > input:focus {
+  outline: none;
+  border-color: var(--fg-dim);
+}
+
+.meta-edit-note {
+  margin: 10px 0 0;
+  color: var(--fg-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.meta-edit-error {
+  margin: 8px 0 0;
+  color: var(--brass);
+  font-size: 12px;
+}
+
+.meta-edit-ops {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .dialog h2 {
@@ -561,6 +625,10 @@ html::after {
   display: grid;
   grid-template-columns: 220px 1fr;
   gap: 12px;
+}
+/* 歌单页每行多一个「收藏 / 取消收藏」，220px 会把歌单名压成两三个字 */
+.playlists-page .pl-wrap {
+  grid-template-columns: 270px 1fr;
 }
 .pl-list {
   overflow-y: auto;
@@ -665,6 +733,232 @@ html::after {
   cursor: pointer;
 }
 .pl-more:hover { color: var(--fg); }
+
+/* 听歌报告（B-12）：纯 CSS 柱图，颜色只用 tokens.css 的变量 */
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+}
+.stats-card > span {
+  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+.stats-card > b {
+  font-size: 20px;
+  font-weight: 600;
+}
+.stats-note {
+  margin: 6px 0 10px;
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.stats-block {
+  padding-top: 8px;
+  margin-bottom: 10px;
+  border-top: 1px solid var(--line);
+}
+.stats-block > h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.stats-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 96px;
+}
+.stats-bar-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+}
+.stats-bar-track {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+}
+.stats-bar {
+  width: 100%;
+  min-height: 0;
+  background: var(--fg-dim);
+  opacity: 0.65;
+}
+.stats-bar-col > span {
+  color: var(--fg-dim);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.stats-hours {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 44px;
+}
+.stats-hour {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  height: 100%;
+}
+.stats-hour-bar {
+  width: 100%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+.stats-hour-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  color: var(--fg-dim);
+  font-size: 10px;
+}
+.stats-ranks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.stats-rank {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.stats-rank-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stats-rank-track {
+  height: 5px;
+  background: var(--line);
+}
+.stats-rank-track > span {
+  display: block;
+  height: 100%;
+  background: var(--fg-dim);
+}
+.stats-rank-ms {
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+.stats-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  color: var(--fg-dim);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.stats-empty > b {
+  color: var(--fg);
+  font-size: 14px;
+}
+
+/* 下载设置 / 在线批量（B-10） */
+.dl-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dl-set-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.dl-template {
+  box-sizing: border-box;
+  width: 200px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+}
+.dl-template:focus,
+.online-pick:focus-visible {
+  outline: 1px solid var(--fg-dim);
+}
+.dl-settings-hint {
+  margin: -4px 0 10px;
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.online-pick {
+  margin-right: 8px;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+
+/* 歌单页（M11）：一行 = 歌单 + 一个右侧动作（收藏 / 取消收藏） */
+.pl-line {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.pl-line > .pl-item {
+  flex: 1;
+  min-width: 0;
+}
+.pl-save,
+.pl-line > .pl-x {
+  flex: none;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  /* 通用 .pl-x 默认隐藏、只在 .pl-row:hover 显形；这里父级叫 .pl-line，
+     不写这一行「取消收藏」会永远看不见，键盘也摸不到 */
+  opacity: 1;
+}
+.pl-save:hover {
+  color: var(--fg);
+  border-color: var(--fg-dim);
+}
+/* 分组小标题：收藏的 / 账号歌单 */
+.pl-sect {
+  margin: 6px 0 2px;
+  color: var(--fg-dim);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+/* 粘贴导入的输入框：占满剩下的宽度，别把「导入」按钮挤到换行 */
+.pl-ref {
+  flex: 1;
+  min-width: 120px;
+}
 
 /* 曲库三视图（M10-1）：唱片墙卡片网格 + 歌手列表 + 组详情 */
 .album-grid {
@@ -883,7 +1177,7 @@ html::after {
    设计稿的本地表不放封面——封面留给唱片墙，列表要的是横向扫读速度。 */
 .lib-row {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 30px;
+  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 58px;
   align-items: center;
   gap: 10px;
   padding: 0 4px;
@@ -914,7 +1208,7 @@ html::after {
 /* 六列表头只在本地页（.cols6）生效，在线/下载页仍用原来的 flex 表头 */
 .lib-thead.cols6 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 30px;
+  grid-template-columns: 26px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 58px;
   gap: 10px;
   padding: 0 4px 6px;
 }
@@ -1075,7 +1369,8 @@ html::after {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: flex-end;
+  gap: 6px;
 }
 .lib-addq {
   flex: none;
@@ -1123,6 +1418,51 @@ html::after {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 行内可点的歌手 / 专辑（M11）：平时长得像正文，hover 才提示能点。
+   用 button 不用 span，键盘 Tab 才停得下来。 */
+.lib-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lib-link:hover {
+  color: var(--fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 歌手详情里的专辑条：点一张 → 切到专辑详情 */
+.artist-albums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.artist-album {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.artist-album:hover {
+  color: var(--fg);
+  border-color: var(--fg-dim);
 }
 
 .lib-dur {

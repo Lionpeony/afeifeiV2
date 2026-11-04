@@ -24,8 +24,16 @@ export interface Api {
   saveState(json: string): Promise<void>;
   pickFiles(): Promise<string[]>;
   grant(filePath: string): Promise<string | null>;
-  pickDir(): Promise<string | null>;
   scan(dirs: string[]): Promise<string[]>;
+  /** 已保存的曲库目录（M9）；空数组 = 还没添加过 */
+  libraryRoots(): Promise<string[]>;
+  /** 弹目录选择器并加入列表；取消返回 null */
+  addLibraryRoot(): Promise<string[] | null>;
+  removeLibraryRoot(dir: string): Promise<string[]>;
+  /** 系统通知（窗口在后台时才有意义） */
+  notify(payload: { title: string; body: string }): Promise<boolean>;
+  autoLaunch(): Promise<boolean>;
+  setAutoLaunch(on: boolean): Promise<boolean>;
   readTags(filePaths: string[]): Promise<unknown[]>;
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
   cover(filePath: string): Promise<string | null>;
@@ -121,8 +129,24 @@ export interface Services {
   setTheme(theme: Theme): Theme;
   pick(): Promise<string[]>;
   positionMs(): number;
-  /** 选目录并扫描。取消返回 null。 */
+  /** 按已保存的目录列表扫描；一个都没有时先让你选一个（M9）。取消返回 null。 */
   scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
+  /**
+   * 改本地曲目的显示元数据（M11）。**不写音频文件标签**（照 folia：标签写坏了没法回滚），
+   * 只改索引之上的一层覆盖；三个字段都留空 = 恢复文件原值。
+   */
+  editTrackMeta(id: string, patch: { title?: string; artist?: string; album?: string }): Promise<void>;
+  /** 已保存的曲库目录（M9）。空数组 = 还没添加过。 */
+  libraryRoots(): Promise<string[]>;
+  /** 弹目录选择器并加入列表；取消返回 null。 */
+  addLibraryRoot(): Promise<string[] | null>;
+  removeLibraryRoot(dir: string): Promise<string[]>;
+  /** 开机自启（M9）：状态以系统为准，返回生效值。 */
+  autoLaunch(): Promise<boolean>;
+  setAutoLaunch(on: boolean): Promise<boolean>;
+  /** 歌词正则过滤（B-2）：一行一条；返回写错了、已忽略的模式。改规则不重抓歌词。 */
+  lyricFilters(): Promise<string>;
+  setLyricFilters(text: string): Promise<string[]>;
   /** 取封面（带缓存与请求去重）。 */
   cover(id: string, path: string): Promise<string | null>;
   /** 已注册的音源（UI 的选项来源就是它，不写死）。canDownload = canGetUrl（M7）。 */
@@ -142,8 +166,23 @@ export interface Services {
   listPlaylists(sourceId: string): Promise<OnlinePlaylist[]>;
   /** 榜单列表（A-14）。下钻曲目走 playlistTracks(sourceId, 榜 id)。 */
   listToplists(sourceId: string): Promise<Toplist[]>;
-  /** 歌单曲目（分页）。 */
+  /** 歌单曲目（分页）。收藏的在线歌单也用这条取曲目。 */
   playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
+
+  /* ---- 收藏的在线歌单（M11）：分享链接 / id → 收藏 → 点开就播 ---- */
+  /** 已收藏的在线歌单（本机持久化，与账号歌单列表是两件事）。 */
+  onlinePlaylists(): Promise<SavedPlaylistView[]>;
+  /** 存一个已知头信息的歌单（账号歌单行上的「收藏」走这条）。重复 = 更新。 */
+  savePlaylist(
+    sourceId: string,
+    playlist: { id: string; name: string; count: number; coverUrl?: string },
+  ): Promise<SavedPlaylistView[]>;
+  /**
+   * 粘贴分享文案导入：认 `?id=`、`/playlist/123`、纯数字三种写法。
+   * 认不出就抛人话，不猜。名字取不到时退回「歌单 <id>」。
+   */
+  importPlaylist(sourceId: string, ref: string): Promise<SavedPlaylistView[]>;
+  removePlaylist(sourceId: string, id: string): Promise<SavedPlaylistView[]>;
 
   /* ---- 账号级数据（R1 第一批）：源没有 account 就抛 capability-missing ---- */
   /** 这个源有没有账号数据能力。首页/漫游读它决定要不要出入口，不去 try 方法。 */
@@ -162,6 +201,11 @@ export interface Services {
   accountHistory(sourceId: string, range: "week" | "all"): Promise<RemoteTrack[]>;
   /** 个人 FM（漫游）。每次调用给一批。 */
   accountPersonalFm(sourceId: string): Promise<RemoteTrack[]>;
+  /**
+   * 上报「少推这首」（B-11）。返回 false = 源不支持或上报失败，
+   * 本地名单已生效，界面不该因为这个把操作回滚。
+   */
+  reportDislike(sourceId: string, songId: string, scene: "fm" | "daily"): Promise<boolean>;
   /** 在线曲目歌词。错误已翻译成人话。 */
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
   /** 本地曲目歌词（P0-20）：同名 lrc → 内嵌 → LRCLIB，带缓存；都没有抛「纯音乐」。 */
@@ -186,13 +230,31 @@ export interface Services {
   exportTheme(): Promise<boolean>;
   /** 从文件导入主题包，返回 sanitize 过的 token 覆盖。取消返回 null。 */
   importTheme(): Promise<Record<string, string> | null>;
+  /* ---- 全局配色包（B-9）：与播放页共用文件 IO，白名单各一份 ---- */
+  globalTokens(): Promise<Record<string, string> | null>;
+  /** 导入全局配色包。取消返回 null；拿播放页的包来导会抛人话。 */
+  importGlobalTheme(): Promise<Record<string, string> | null>;
+  /** 导出当前全局覆盖；没有覆盖时返回 false（没东西可导）。 */
+  exportGlobalTheme(): Promise<boolean>;
+  clearGlobalTheme(): Promise<void>;
   /** 备份数据到目录。取消返回 null。 */
   exportBackup(): Promise<string | null>;
   /** 恢复备份。恢复后需重启生效。 */
   importBackup(): Promise<{ restored: boolean } | null>;
 
   /** 加入下载队列（M7）。返回给用户看的一句话。 */
-  downloadTrack(sourceId: string, track: { sourceId: string; title: string; artist: string }): Promise<string>;
+  downloadTrack(
+    sourceId: string,
+    track: { sourceId: string; title: string; artist: string; album?: string },
+  ): Promise<string>;
+  /** 批量加入下载队列（B-10）。已在队列里的曲目自动跳过，返回一句话汇总。 */
+  downloadTracks(
+    sourceId: string,
+    tracks: { sourceId: string; title: string; artist: string; album?: string }[],
+  ): Promise<string>;
+  /** 下载设置（B-10）：命名模板 + 并发上限。 */
+  downloadSettings(): Promise<{ template: string; concurrency: number }>;
+  setDownloadSettings(next: { template: string; concurrency: number }): Promise<{ template: string; concurrency: number }>;
   /** 取消并删除一个任务（含磁盘文件）。 */
   removeDownload(id: string): Promise<void>;
   /** 下载目录当前占用（字节）。 */
@@ -221,6 +283,16 @@ export interface Services {
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
   /** 退出登录（按 sourceId 路由）。 */
   logout(sourceId: string): Promise<void>;
+}
+
+/** 收藏的在线歌单（存 KV，跨重启）。`sourceId + id` 唯一。 */
+export interface SavedPlaylistView {
+  sourceId: string;
+  id: string;
+  name: string;
+  count: number;
+  coverUrl?: string;
+  savedAt: number;
 }
 
 export interface NcmBody {

@@ -630,18 +630,19 @@ export function StageView({
               <option value="theatrical">剧场</option>
             </select>
           </div>
-          {/* 歌词校准（P0-18）：按曲记，正 = 词往后推；超过 ±10s 会被 store 夹住 */}
+          {/* 歌词时间轴（P0-18 → B-1）：按曲记，正 = 词往后推。
+              folia 的步进是 250ms，比原来的 500ms 更适合对半拍；滑杆负责大范围粗调。 */}
           <div className="st-menu-row">
             <span className="lbl">校准</span>
             <button
               type="button"
-              title="歌词整体提前 0.5 秒"
+              title="歌词整体提前 0.25 秒"
               disabled={!player.trackId}
               onClick={() =>
-                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: -500 })
+                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: -250 })
               }
             >
-              -0.5s
+              −0.25s
             </button>
             <button
               type="button"
@@ -649,18 +650,35 @@ export function StageView({
               disabled={!player.trackId || lyricOffset === 0}
               onClick={() => player.trackId && dispatch({ type: "lyric/resetOffset", trackId: player.trackId })}
             >
-              {lyricOffset === 0 ? "对齐" : `${lyricOffset > 0 ? "+" : "-"}${(Math.abs(lyricOffset) / 1000).toFixed(1)}s`}
+              {lyricOffset === 0 ? "对齐" : `${lyricOffset > 0 ? "+" : "−"}${(Math.abs(lyricOffset) / 1000).toFixed(2)}s`}
             </button>
             <button
               type="button"
-              title="歌词整体延后 0.5 秒"
+              title="歌词整体延后 0.25 秒"
               disabled={!player.trackId}
               onClick={() =>
-                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: 500 })
+                player.trackId && dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: 250 })
               }
             >
-              +0.5s
+              +0.25s
             </button>
+          </div>
+          <div className="st-menu-row">
+            <span className="lbl">时间轴</span>
+            <input
+              type="range"
+              min={-10000}
+              max={10000}
+              step={250}
+              value={lyricOffset}
+              disabled={!player.trackId}
+              aria-label="歌词时间轴整体偏移"
+              onChange={(e) => {
+                if (!player.trackId) return;
+                const next = Number(e.target.value);
+                dispatch({ type: "lyric/nudgeOffset", trackId: player.trackId, deltaMs: next - lyricOffset });
+              }}
+            />
           </div>
           {/* 换词（P0-19）：词对不上（不是慢半拍，而是另一首）时走这里 */}
           <div className="st-menu-row">

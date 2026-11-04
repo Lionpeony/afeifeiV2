@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupByAlbum, groupByArtist } from "../dist-test/library-group.mjs";
+import { albumKeyOf, artistNameOf, groupByAlbum, groupByArtist } from "../dist-test/library-group.mjs";
 
 const t = (id, title, artist, album) => ({
   id,
@@ -50,6 +50,24 @@ test("组间排序按拼音首字母：李(l) < 张(z)；同首字母内按首�
   const groups = groupByArtist([t("1", "A", "张三", ""), t("2", "B", "李四", "")]);
   assert.equal(groups[0].artist, "李四");
   assert.equal(groups[1].artist, "张三");
+});
+
+/* ---- 行内链接（M11）：链接种下的键必须能查到分组，否则点了跳空 ---- */
+
+test("albumKeyOf / artistNameOf 与分组键逐字一致", () => {
+  const tracks = [t("1", "A", "歌手甲", "专辑X"), t("2", "B", " ", " ")];
+  const albums = groupByAlbum(tracks);
+  const artists = groupByArtist(tracks);
+  for (const track of tracks) {
+    assert.ok(albums.some((g) => g.key === albumKeyOf(track)));
+    assert.ok(artists.some((g) => g.artist === artistNameOf(track)));
+  }
+});
+
+test("空标签兜底：未知专辑 / 未知歌手", () => {
+  const track = t("1", "A", "", "");
+  assert.equal(artistNameOf(track), "未知歌手");
+  assert.equal(albumKeyOf(track), `未知专辑\u0000未知歌手`);
 });
 
 test("空输入 → 空数组；输入数组不被修改", () => {

@@ -26,15 +26,20 @@ export interface ArtistGroup {
 const NO_ALBUM = "未知专辑";
 const NO_ARTIST = "未知歌手";
 
+/** 分组用的歌手名（空标签兜底）。行上的歌手链接必须用同一个函数取值，否则点了跳不到。 */
+export const artistNameOf = (track: Track): string => track.artist.trim() || NO_ARTIST;
+
+/** 分组的专辑键。`:albumKeyOf` 与 `groupByAlbum` 的键必须逐字一致。 */
+export const albumKeyOf = (track: Track): string =>
+  `${track.album.trim() || NO_ALBUM}\u0000${artistNameOf(track)}`;
+
 export function groupByAlbum(tracks: Track[]): AlbumGroup[] {
   const map = new Map<string, AlbumGroup>();
   for (const t of tracks) {
-    const album = t.album.trim() || NO_ALBUM;
-    const artist = t.artist.trim() || NO_ARTIST;
-    const key = `${album}\u0000${artist}`;
+    const key = albumKeyOf(t);
     const group = map.get(key);
     if (group) group.tracks.push(t);
-    else map.set(key, { key, album, artist, tracks: [t] });
+    else map.set(key, { key, album: t.album.trim() || NO_ALBUM, artist: artistNameOf(t), tracks: [t] });
   }
   return [...map.values()].sort((a, b) =>
     initialsOf(a.album).localeCompare(initialsOf(b.album)),
@@ -44,7 +49,7 @@ export function groupByAlbum(tracks: Track[]): AlbumGroup[] {
 export function groupByArtist(tracks: Track[]): ArtistGroup[] {
   const map = new Map<string, ArtistGroup>();
   for (const t of tracks) {
-    const artist = t.artist.trim() || NO_ARTIST;
+    const artist = artistNameOf(t);
     const group = map.get(artist);
     if (group) group.tracks.push(t);
     else map.set(artist, { artist, tracks: [t] });

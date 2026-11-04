@@ -13,6 +13,8 @@ export type PageId =
   | "downloads"
   | "liked"
   | "recent"
+  | "playlists"
+  | "stats"
   | "settings"
   | "stage";
 
@@ -37,8 +39,10 @@ export const NAV_MAIN: NavItem[] = [
 
 /** 我的：登录账号数据，两侧装饰线隔开。 */
 export const NAV_MINE: NavItem[] = [
+  { id: "playlists", label: "歌单", icon: "playlists", small: true },
   { id: "liked", label: "喜欢的音乐", icon: "liked", small: true },
   { id: "recent", label: "最近播放", icon: "recent", small: true },
+  { id: "stats", label: "听歌报告", icon: "stats", small: true },
 ];
 
 export const NAV_FOOT: NavItem[] = [{ id: "settings", label: "设置", icon: "settings", small: true }];
@@ -54,6 +58,8 @@ export const PAGE_LABEL: Record<PageId, string> = {
   downloads: "下载",
   liked: "喜欢的音乐",
   recent: "最近播放",
+  playlists: "歌单",
+  stats: "听歌报告",
   settings: "设置",
   stage: "播放页",
 };

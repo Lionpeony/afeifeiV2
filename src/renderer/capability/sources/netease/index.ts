@@ -1,5 +1,6 @@
 import type {
   LyricDoc,
+  OnlinePlaylist,
   RemoteTrack,
   SearchResult,
   SourceProvider,
@@ -209,6 +210,21 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         .filter((t): t is Toplist => t !== null);
     },
 
+    /** 歌单头信息（M11 导入用）。id 不存在时上游给 code=404，统一报人话。 */
+    async playlistMeta(playlistId: string): Promise<OnlinePlaylist> {
+      const body = await ncm<{
+        playlist?: { id?: number | string; name?: string; trackCount?: number; coverImgUrl?: string };
+      }>("playlist_detail", { id: playlistId });
+      const p = body?.playlist;
+      if (!p) throw err("network", "这个歌单不存在，或作者已经删掉了");
+      return {
+        id: String(p.id ?? playlistId),
+        name: typeof p.name === "string" && p.name ? p.name : "未命名歌单",
+        count: Number(p.trackCount ?? 0),
+        coverUrl: typeof p.coverImgUrl === "string" ? p.coverImgUrl : undefined,
+      };
+    },
+
     async getPlaylist(playlistId: string, page = 0) {
       const limit = 50;
       const body = await ncm<{ songs?: Record<string, unknown>[]; total?: number }>("playlist_track_all", {
@@ -323,6 +339,12 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         const list = body?.data ?? [];
         if (list.length === 0) await requireLogin();
         return list.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      },
+
+      /** 少推这首（B-11）：本地名单由 domain 管，这里只负责告诉上游。 */
+      async dislike(songId: string, scene: "fm" | "daily"): Promise<void> {
+        if (scene === "fm") await ncm("fm_trash", { id: songId });
+        else await ncm("recommend_songs_dislike", { id: songId });
       },
     },
   };

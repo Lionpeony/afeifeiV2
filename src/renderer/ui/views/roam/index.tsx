@@ -3,6 +3,13 @@ import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { getLikes, subscribe as subscribeLikes } from "../../../domain/likes/index.js";
+import {
+  addDislike,
+  getDislikes,
+  hasDislike,
+  remoteDislikeKey,
+  subscribe as subscribeDislikes,
+} from "../../../domain/dislikes/index.js";
 import { getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
 import { dailyPicks, dailySeed, reasonOf, shuffledBy } from "../../../domain/recommend/index.js";
 import { bumpSalt, getSalt, subscribe as subscribeSalt } from "../../../domain/recommend/salt.js";
@@ -15,6 +22,8 @@ export interface RoamViewProps {
   /** 账号漫游（个人 FM）。有数据就整页走账号，没有才退回本地抽签。 */
   account(): Promise<AccountBundle>;
   onPlayRemote(sourceId: string, track: RemoteTrack): void;
+  /** 上报「少推这首」给在线源（B-11）。失败返回 false，本地名单照样生效。 */
+  onReportDislike(sourceId: string, songId: string): Promise<boolean>;
   cover(id: string, path: string): Promise<string | null>;
 }
 
@@ -39,10 +48,11 @@ interface Draw {
  * 没登录才退回本地那套"今日推荐洗牌 + 抽签"。
  * 两种模式的差别只在牌堆来源，抽签/收下/记录的交互完全一样。
  */
-export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamViewProps) {
+export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, cover }: RoamViewProps) {
   const [, setRev] = useState(0);
   const [draws, setDraws] = useState<Draw[]>([]);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [dislikeNote, setDislikeNote] = useState("");
   const coverFn = useRef(cover);
   coverFn.current = cover;
   const acct = useAccountBundle(account);
@@ -52,6 +62,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamView
   useEffect(() => subscribeLikes(bump), []);
   useEffect(() => subscribeHistory(bump), []);
   useEffect(() => subscribeSalt(bump), []);
+  useEffect(() => subscribeDislikes(bump), []);
 
   const tracks = getTracks();
   const liked = getLikes();
@@ -59,10 +70,10 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamView
   const seed = dailySeed() + getSalt();
 
   // 本地牌堆：每日推荐优先，切牌时按新种子重洗；抽完一轮再洗
-  const deck = dailyPicks({ tracks, liked, recent, seed, count: 30 });
-  // 在线牌堆：FM 给的一批按顺序翻，翻完让用户点「再要一批」
-  const fm = acct.songs;
-  const onlineMode = fm.length > 0;
+  const deck = dailyPicks({ tracks, liked, recent, seed, count: 30, disliked: getDislikes() });
+  // 在线牌堆：FM 给的一批按顺序翻，翻完让用户点「再要一批」；不喜欢名单先摘掉
+  const fm = acct.songs.filter((t) => !hasDislike(remoteDislikeKey(acct.sourceId, t.sourceId)));
+  const onlineMode = acct.songs.length > 0;
   const drawnOnline = draws.filter((d) => d.remote).length;
   const current = draws[draws.length - 1];
 
@@ -86,7 +97,8 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamView
       return;
     }
 
-    const pool = deck.length > 0 ? deck : shuffledBy(tracks, seed);
+    // 再过一遍名单：刚点「不喜欢」时 React 还没重渲染，deck 是上一份
+    const pool = (deck.length > 0 ? deck : shuffledBy(tracks, seed)).filter((t) => !hasDislike(t.id));
     if (pool.length === 0) return;
     // 尽量不重复抽同一首：先挑还没出现过的，抽干了才允许重样
     const seen = new Set(draws.map((d) => d.local?.id).filter(Boolean));
@@ -142,6 +154,24 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamView
     }
     if (!current.local) return;
     onPlayGroup([current.local, ...deck.filter((t) => t.id !== current.local?.id)], 0);
+  };
+
+  /**
+   * 不喜欢（B-11）：先记名单、再换下一首。
+   * 本地和在线都靠名单过滤；在线额外尽力上报一次，失败也要说清"只在本机生效"。
+   */
+  const dislikeCurrent = async (): Promise<void> => {
+    if (!current) return;
+    const remote = current.remote;
+    const key = remote ? remoteDislikeKey(remote.sourceId, remote.track.sourceId) : current.local?.id;
+    if (!key) return;
+    addDislike(key);
+    setDislikeNote("已记下，本机以后不再抽到这首。");
+    if (remote) {
+      const ok = await onReportDislike(remote.sourceId, remote.track.sourceId).catch(() => false);
+      setDislikeNote(ok ? "已告诉上游少推这首。" : "本机已记下；没通知到上游，仍按本机名单过滤。");
+    }
+    draw();
   };
 
   /** 重洗：在线就是再要一批 FM，本地就是换副牌 */
@@ -212,10 +242,14 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, cover }: RoamView
                 <button type="button" className="btn" onClick={draw} disabled={onlineMode && drawnOnline >= fm.length}>
                   换一首
                 </button>
+                <button type="button" className="btn ghost" onClick={() => void dislikeCurrent()}>
+                  不喜欢 · 少推
+                </button>
                 <button type="button" className="btn ghost" onClick={reshuffle}>
                   {onlineMode ? "再要一批" : "重洗这副牌"}
                 </button>
               </div>
+              {dislikeNote ? <p className="deck-empty">{dislikeNote}</p> : null}
               {onlineMode && drawnOnline >= fm.length ? (
                 <p className="deck-empty">这一批抽完了，点「再要一批」让网易云再推一轮。</p>
               ) : null}

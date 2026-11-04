@@ -24,6 +24,8 @@ export interface OnlineViewProps {
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
   /** 加入下载队列（M7）。返回给用户看的一句话。 */
   onDownload(sourceId: string, track: RemoteTrack): Promise<string>;
+  /** 批量下载（B-10）：一次 toast 汇总，不逐首弹小票。 */
+  onDownloadMany(sourceId: string, tracks: RemoteTrack[]): Promise<string>;
   /** 查某音源的登录态（登录按钮/退出按钮随源切换，不再网易云专属）。 */
   loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
   /** 开始登录：网易云弹扫码窗，QQ 按通道出码（channel 可选）。 */
@@ -53,6 +55,7 @@ export function OnlineView({
   onSearch,
   onPlay,
   onDownload,
+  onDownloadMany,
   loginStatus,
   startLogin,
   pollLogin,
@@ -63,6 +66,8 @@ export function OnlineView({
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
+  /** 批量下载的多选（B-10）：存 sourceId，换一批搜索结果后自动清空 */
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   /* QQ 搜索实测要 20–45s：5s 后把「还在搜」说出来，别让人对着空白区猜死活 */
@@ -106,6 +111,7 @@ export function OnlineView({
     try {
       const result = await onSearch(sourceId, keyword);
       setRows(result.items);
+      setSelected(new Set());
       if (result.items.length === 0) setNote("没搜到。换个词试试。");
     } catch (err) {
       setRows([]);
@@ -130,6 +136,27 @@ export function OnlineView({
     setNote("");
     try {
       toast(await onDownload(sourceId, track)); // 成功是瞬态通知，走小票不占 note
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const toggle = (id: string): void => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const downloadMany = async (): Promise<void> => {
+    const picked = rows.filter((t) => selected.has(t.sourceId));
+    if (picked.length === 0) return;
+    setNote("");
+    try {
+      toast(await onDownloadMany(sourceId, picked));
+      setSelected(new Set());
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -212,6 +239,21 @@ export function OnlineView({
           </>
         ) : null}
         {rows.length > 0 ? <span className="badge">{rows.length} 条</span> : null}
+        {currentSource?.canDownload && rows.length > 0 ? (
+          <>
+            <button type="button" onClick={() => setSelected(new Set(rows.map((t) => t.sourceId)))}>
+              全选
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={selected.size === 0}
+              onClick={() => void downloadMany()}
+            >
+              下载选中{selected.size > 0 ? `（${selected.size}）` : ""}
+            </button>
+          </>
+        ) : null}
       </div>
 
       {loginOpen ? (
@@ -268,7 +310,19 @@ export function OnlineView({
                 onClick={() => void play(track)}
                 title={`${track.title} — ${track.artist}`}
               >
-                <span className="lib-title">{track.title}</span>
+                <span className="lib-title">
+                  {currentSource?.canDownload ? (
+                    <input
+                      type="checkbox"
+                      className="online-pick"
+                      checked={selected.has(track.sourceId)}
+                      aria-label={`选择 ${track.title}`}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggle(track.sourceId)}
+                    />
+                  ) : null}
+                  {track.title}
+                </span>
                 <span className="lib-artist">{track.artist}</span>
                 <span className="lib-artist">{track.album}</span>
                 <span className="lib-dur">{fmtDuration(track.durationMs)}</span>

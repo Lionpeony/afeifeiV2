@@ -40,6 +40,16 @@ export function oldestDone(items: DownloadItem[]): DownloadItem | null {
 }
 
 /**
+ * 「刚刚下完」：只认 active → done 这一步。
+ * 启动时从 KV 恢复的 done 条目不算——它们早就下完了，不该再弹一次系统通知。
+ */
+export function justFinished(prev: DownloadItem[], next: DownloadItem[]): DownloadItem | null {
+  return (
+    next.find((i) => i.state === "done" && prev.some((p) => p.id === i.id && p.state === "active")) ?? null
+  );
+}
+
+/**
  * 配额判定（I5）：已用 + 这个任务还要写的字节数 是否超预算。
  * total 为 0（上游没给长度）时按 0 计——无法预判的只能事后失败。
  */

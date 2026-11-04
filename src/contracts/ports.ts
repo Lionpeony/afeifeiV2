@@ -96,7 +96,6 @@ export interface LocalApiPort {
 
 /** 曲库索引的存取与扫描。 */
 export interface LibraryPort {
-  pickDir(): Promise<string | null>;
   scan(dirs: string[]): Promise<string[]>;
   /** 一次拿一批，调用方负责分片（200 个一片）。 */
   readTags(filePaths: string[]): Promise<RawMeta[]>;

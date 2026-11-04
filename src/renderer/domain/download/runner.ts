@@ -16,13 +16,13 @@ import { getTracks, setTracks } from "../library/state.js";
 import { dispatch, getState, subscribe } from "../../kernel/index.js";
 import {
   backoffMs,
-  MAX_ACTIVE,
   oldestDone,
   overQuota,
   QUOTA_BYTES,
   retryDecision,
   sanitizeForRestore,
 } from "./queue.js";
+import { getDownloadSettings, subscribeDownloadSettings } from "./settings.js";
 
 const FLUSH_MS = 500;
 const SAVE_KEY = "downloads";
@@ -181,7 +181,8 @@ export function startDownloadRunner(deps: DownloadRunnerDeps): () => void {
   function pump(): void {
     // **不许在这里调 flushProgress**：flush → dispatch → subscribe → pump → flush 是同步自唤醒，
     // 会把渲染层冻死（M7 真机首踩）。进度只由下面的 interval 驱动。
-    while (activeCountOf() < MAX_ACTIVE) {
+    // 并发上限改为读设置（默认仍是 2）；调高会立刻补位，调低不会掐断在途任务
+    while (activeCountOf() < getDownloadSettings().concurrency) {
       const next = nextQueuedOf();
       if (!next || starting.has(next.id)) break;
       void start(next);
@@ -203,9 +204,13 @@ export function startDownloadRunner(deps: DownloadRunnerDeps): () => void {
     pump();
   });
 
+  // 设置一改就 pump：并发从 2 调到 5 要马上补三个坑，不该等下一次进度 flush
+  const unsubscribeSettings = subscribeDownloadSettings(() => pump());
+
   // runner 与应用同生命周期；挂这套钩子是为了测试里能干净拆除
   return () => {
     clearInterval(progressTimer);
     unsubscribe();
+    unsubscribeSettings();
   };
 }

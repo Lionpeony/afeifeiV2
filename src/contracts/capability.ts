@@ -126,6 +126,11 @@ export interface AccountCapability {
   setLiked(songId: string, liked: boolean): Promise<void>;
   listeningHistory(range: "week" | "all"): Promise<RemoteTrack[]>;
   personalFm(): Promise<RemoteTrack[]>;
+  /**
+   * 上报「少推这首」（B-11）。可选：源不支持时 UI 仍保留本地过滤，只是不外报。
+   * `fm` = 个人 FM 的垃圾桶；`daily` = 每日推荐的不感兴趣。
+   */
+  dislike?(songId: string, scene: "fm" | "daily"): Promise<void>;
 }
 
 export interface SourceProvider {
@@ -147,6 +152,12 @@ export interface SourceProvider {
   getAlbum?(sourceId: string, page?: number): Promise<SearchResult>;
   getArtist?(sourceId: string, page?: number): Promise<SearchResult>;
   getPlaylist?(sourceId: string, page?: number): Promise<SearchResult>;
+  /**
+   * 歌单头信息（名字 / 曲目数 / 封面）。只给「导入别人的歌单」用：
+   * 用户粘一条分享链接时，我们得知道这个 id 叫什么，不然收藏列表里全是数字 id。
+   * 没有这个方法的源（如 QQ 的普通歌单）导入时退回「歌单 <id>」。
+   */
+  playlistMeta?(playlistId: string): Promise<OnlinePlaylist>;
   /** 当前账号的歌单列表（M9-5）。未登录抛 auth-required，UI 只显示人话。 */
   listPlaylists?(): Promise<OnlinePlaylist[]>;
   getRadio?(sourceId: string, page?: number): Promise<SearchResult>;

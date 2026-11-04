@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { Track } from "../../../domain/library/schema.js";
 import { isLiked, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
 import { peekCover } from "../../../domain/library/cover.js";
+import { albumKeyOf, artistNameOf } from "../../../domain/library/group.js";
+import { setFocus } from "../../library-focus.js";
 
 /** 封面按需加载：只有真的渲染到这一行才去请求。（从 index.tsx 抽出，三视图共用） */
 export function Cover({
@@ -73,7 +75,18 @@ export function TrackRows({
             {track.title}
             {track.missing ? <em className="lib-missing">缺失</em> : null}
           </span>
-          <span className="lib-artist">{track.artist}</span>
+          {/* 歌手名就是入口（M11）：点它跳歌手页，不跳就不该长得跟正文一样 */}
+          <button
+            type="button"
+            className="lib-artist lib-link"
+            title={`查看歌手：${artistNameOf(track)}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFocus({ kind: "artist", artist: artistNameOf(track) });
+            }}
+          >
+            {artistNameOf(track)}
+          </button>
           <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
           <button
             type="button"

@@ -1,4 +1,4 @@
-import { dialog, ipcMain } from "electron";
+import { app, dialog, ipcMain, Notification } from "electron";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/index.js";
@@ -9,6 +9,7 @@ import { statFiles } from "../fs/statFiles.js";
 import { readCover } from "../fs/cover.js";
 import { readLocalLyric } from "../fs/readLyric.js";
 import { readKey, writeKey } from "../fs/kv.js";
+import { dropRoot, mergeRoot } from "../fs/roots.js";
 import { exportBackup, importBackup } from "../fs/backup.js";
 import { fetchJson } from "../net/fetchJson.js";
 import { setSessionCookie } from "../net/cookie.js";
@@ -67,6 +68,8 @@ const NETEASE_ALLOWED = new Set([
   // "不允许调用网易云接口"（歌单页与榜单页都会全红，且报错与网络失败长得一样）
   "toplist",
   "playlist_track_all",
+  // 导入别人的歌单（M11）：要先拿到歌单名字与曲目数
+  "playlist_detail",
   "login_status",
   "user_playlist",
   // 账号级数据（R1）：每日推荐 / 账号红心 / 收藏 / 听歌排行 / 个人 FM
@@ -75,12 +78,35 @@ const NETEASE_ALLOWED = new Set([
   "like",
   "user_record",
   "personal_fm",
+  // 不喜欢 / 少推（B-11）：漫游 FM 走垃圾桶，日推走不感兴趣
+  "fm_trash",
+  "recommend_songs_dislike",
 ]);
 
 /**
  * 全部 IPC 在这里登记，一个地方看得完（50 §11）。
  * 主进程对参数只做最小校验，业务判断一律留在渲染层的环 1。
  */
+
+/** 曲库目录列表的 KV 键。只存路径，不存曲子。 */
+const ROOTS_KEY = "library-roots";
+
+/** 坏数据当空：一条烂 JSON 不能把用户的曲库目录全清掉（那样只能重新一个个加回来）。 */
+async function readRoots(): Promise<string[]> {
+  try {
+    const raw = await readKey(ROOTS_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeRoots(roots: string[]): Promise<void> {
+  await writeKey(ROOTS_KEY, JSON.stringify(roots));
+}
+
 export function registerIpc(): void {
   /* ---------- 播放状态 ---------- */
   ipcMain.handle("app-state:load", () => loadState());
@@ -103,10 +129,43 @@ export function registerIpc(): void {
     return grant(filePath);
   });
 
-  /* ---------- 曲库 ---------- */
-  ipcMain.handle("library:pickDir", async () => {
-    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
-    return result.canceled ? null : (result.filePaths[0] ?? null);
+  /* ---------- 系统通知（M9）：窗口在后台时，这是唯一能看见「切歌了 / 下完了」的地方 ---------- */
+  ipcMain.handle("notify:show", (_e, payload: unknown) => {
+    const p = (payload ?? {}) as { title?: unknown; body?: unknown };
+    const title = typeof p.title === "string" ? p.title.slice(0, 120) : "";
+    const body = typeof p.body === "string" ? p.body.slice(0, 240) : "";
+    if (!title || !Notification.isSupported()) return false;
+    new Notification({ title, body, silent: true }).show();
+    return true;
+  });
+
+  /* ---------- 开机自启（M9）：状态只有系统知道，这里只做透传，不另存一份 ---------- */
+  ipcMain.handle("app:autoLaunch", () => app.getLoginItemSettings().openAtLogin);
+  ipcMain.handle("app:setAutoLaunch", (_e, on: unknown) => {
+    app.setLoginItemSettings({ openAtLogin: Boolean(on) });
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  /*
+   * 曲库目录列表（M9）：以前每次扫描临时选一个目录，选完就忘——分在几个盘上的曲子
+   * 根本没法管，重扫还得重新点。现在把目录持久化，扫描只是「按列表重扫一遍」。
+   * 只存路径，不存曲子；路径失效（移动硬盘拔了）由扫描结果报 missing，不删条目。
+   */
+  ipcMain.handle("library:roots", async () => readRoots());
+
+  ipcMain.handle("library:addRoot", async () => {
+    const r = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (r.canceled || !r.filePaths[0]) return null;
+    const roots = mergeRoot(await readRoots(), r.filePaths[0]);
+    await writeRoots(roots);
+    return roots;
+  });
+
+  ipcMain.handle("library:removeRoot", async (_e, dir: unknown) => {
+    if (typeof dir !== "string" || !dir) throw new Error("library:removeRoot 需要目录路径");
+    const roots = dropRoot(await readRoots(), dir);
+    await writeRoots(roots);
+    return roots;
   });
 
   ipcMain.handle("library:scan", (_e, dirs: unknown) => {

@@ -19,6 +19,9 @@ import { PageHead } from "../../PageHead.js";
 import { fmtDuration } from "./rows.js";
 import { AlbumWall } from "./album-wall.js";
 import { ArtistsPage } from "./artists.js";
+import { albumKeyOf, artistNameOf } from "../../../domain/library/group.js";
+import { EditMeta } from "./EditMeta.js";
+import { getFocus, setFocus, subscribeFocus, viewOfFocus } from "../../library-focus.js";
 
 const ROW_HEIGHT = 42;
 
@@ -32,6 +35,8 @@ export interface LibraryViewProps {
   scanning: boolean;
   scanNote: string;
   cover(id: string, path: string): Promise<string | null>;
+  /** 改显示元数据（M11）：只写索引覆盖，不动音频文件。 */
+  onEditMeta(id: string, patch: { title?: string; artist?: string; album?: string }): Promise<void>;
 }
 
 type Mode = "all" | "likes";
@@ -51,6 +56,7 @@ export function LibraryView({
   scanning,
   scanNote,
   cover,
+  onEditMeta,
 }: LibraryViewProps) {
   const [rows, setRows] = useState<Track[]>(getFiltered());
   const [keyword, setKeyword] = useState(getQuery());
@@ -62,6 +68,7 @@ export function LibraryView({
   const [likeTick, setLikeTick] = useState(0);
   const [lists, setLists] = useState(getPlaylists());
   const [newName, setNewName] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(
@@ -75,6 +82,16 @@ export function LibraryView({
 
   useEffect(() => subscribeLikes(() => setLikeTick((t) => t + 1)), []);
   useEffect(() => subscribePlaylists(() => setLists(getPlaylists())), []);
+
+  // 别处点了歌手/专辑（M11）→ 本页切到对应视图；返回时 focus 清空，视图留在原地
+  useEffect(
+    () =>
+      subscribeFocus(() => {
+        const next = viewOfFocus(getFocus());
+        if (next) setView(next);
+      }),
+    [],
+  );
 
   // 依赖 view：切走再切回来时列表元素是重挂的，observer 必须重新认领，
   // 否则视口高度停在旧值——虚拟列表会滚着滚着白屏或错位
@@ -96,6 +113,10 @@ export function LibraryView({
 
   const win = selectVisible(shown.length, scrollTop, viewport, ROW_HEIGHT);
   const visible = shown.slice(win.start, win.end);
+
+  // 正在编辑的那首：从全库找（搜索结果里改完名字会从当前筛选里消失，不能跟着 `shown` 
+  // 一起丢，否则弹窗刚打开就没了）
+  const editing = editId === null ? undefined : getTracks().find((t) => t.id === editId);
 
   // 歌单只存 trackId，播放前对回曲库：找不到说明文件已删，跳过而不是播空气
   const playList = (ids: readonly string[]): void => {
@@ -126,13 +147,34 @@ export function LibraryView({
           </button>
         </div>
         <div className="lib-tabs">
-          <button type="button" className={view === "list" ? "on" : ""} onClick={() => setView("list")}>
+          <button
+            type="button"
+            className={view === "list" ? "on" : ""}
+            onClick={() => {
+              setView("list");
+              setFocus(null);
+            }}
+          >
             曲目
           </button>
-          <button type="button" className={view === "albums" ? "on" : ""} onClick={() => setView("albums")}>
+          <button
+            type="button"
+            className={view === "albums" ? "on" : ""}
+            onClick={() => {
+              setView("albums");
+              setFocus(null);
+            }}
+          >
             专辑
           </button>
-          <button type="button" className={view === "artists" ? "on" : ""} onClick={() => setView("artists")}>
+          <button
+            type="button"
+            className={view === "artists" ? "on" : ""}
+            onClick={() => {
+              setView("artists");
+              setFocus(null);
+            }}
+          >
             艺人
           </button>
         </div>
@@ -179,8 +221,28 @@ export function LibraryView({
                         {track.title}
                         {track.missing ? <em className="lib-missing">缺失</em> : null}
                       </span>
-                      <span className="lib-artist">{track.artist}</span>
-                      <span className="lib-album">{track.album}</span>
+                      <button
+                        type="button"
+                        className="lib-artist lib-link"
+                        title={`查看歌手：${artistNameOf(track)}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFocus({ kind: "artist", artist: artistNameOf(track) });
+                        }}
+                      >
+                        {artistNameOf(track)}
+                      </button>
+                      <button
+                        type="button"
+                        className="lib-album lib-link"
+                        title={`查看专辑：${track.album}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFocus({ kind: "album", key: albumKeyOf(track) });
+                        }}
+                      >
+                        {track.album}
+                      </button>
                       <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
                       {/* 两个操作挤在同一格：表头是 6 列，多一个元素就会错位 */}
                       <span className="lib-ops">
@@ -206,6 +268,18 @@ export function LibraryView({
                           }}
                         >
                           ≡
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-addq"
+                          aria-label={`编辑《${track.title}》的信息`}
+                          title="编辑曲目信息（只改显示，不动文件）"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditId(track.id);
+                          }}
+                        >
+                          ✎
                         </button>
                       </span>
                     </div>
@@ -270,6 +344,14 @@ export function LibraryView({
           </aside>
         </div>
       )}
+
+      {editing ? (
+        <EditMeta
+          track={editing}
+          onSave={(patch) => onEditMeta(editing.id, patch)}
+          onClose={() => setEditId(null)}
+        />
+      ) : null}
     </section>
   );
 }

@@ -1,4 +1,5 @@
 import type { LyricDoc } from "../../contracts/capability.js";
+import { filterLyricDoc, getFilters, subscribeFilters } from "../domain/lyrics/filter.js";
 
 /**
  * 全应用唯一的歌词取词点（A-02）。
@@ -18,6 +19,8 @@ export interface LyricState {
 }
 
 let doc: LyricDoc | null = null;
+/** 未过滤的原词（B-2）：改正则不用重新抓词，从这份重算一遍展示用 doc。 */
+let rawDoc: LyricDoc | null = null;
 let note = "";
 /** 词自带的时间轴偏移（扒词人标的），取词时记下来，校准时不能覆盖它。 */
 let baseOffset = 0;
@@ -32,6 +35,19 @@ const listeners = new Set<() => void>();
 const emit = (): void => {
   for (const fn of listeners) fn();
 };
+
+/** 唯一「原词 → 展示词」的落点：过滤 + 叠加两个偏移，别在别处拼 doc。 */
+function applyDoc(next: LyricDoc): void {
+  rawDoc = next;
+  doc = { ...filterLyricDoc(next, getFilters()), offsetMs: baseOffset + userOffset };
+}
+
+// 规则一改就重算（不重新发请求）。订阅挂在模块级：装配层只管 setFilters
+subscribeFilters(() => {
+  if (!rawDoc) return;
+  doc = { ...filterLyricDoc(rawDoc, getFilters()), offsetMs: baseOffset + userOffset };
+  emit();
+});
 
 export function lyricState(): LyricState {
   return { doc, note };
@@ -49,6 +65,7 @@ export function clearLyric(reason = ""): void {
   seq += 1; // 在途请求作废
   loadedKey = null;
   baseOffset = 0;
+  rawDoc = null;
   if (doc === null && note === reason) return; // 幂等：订阅者不该收到重复通知
   doc = null;
   note = reason;
@@ -80,7 +97,7 @@ export function userOffsetOf(): number {
 export function setManualLyric(next: LyricDoc): void {
   seq += 1;
   baseOffset = next.offsetMs;
-  doc = { ...next, offsetMs: baseOffset + userOffset };
+  applyDoc(next);
   note = "";
   emit();
 }
@@ -109,7 +126,7 @@ export async function loadLyric(
     // 两个偏移分开存：词自带的 + 用户校准的。合并成一份后算总账，
     // 否则每调一次都会把词自带的偏移吃掉一层（叠着叠着就歪了）
     baseOffset = next.offsetMs;
-    doc = { ...next, offsetMs: baseOffset + userOffset };
+    applyDoc(next);
     note = "";
     emit();
   } catch (err: unknown) {

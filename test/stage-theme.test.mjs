@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PRESETS, STAGE_TOKEN_KEYS, assertPresetComplete } from "../dist-test/stage-presets.mjs";
+import { GLOBAL_TOKEN_KEYS } from "../dist-test/global-theme.mjs";
 
 /**
  * A-10 判据「播放页样式与主题独立」的守门测试。
@@ -85,6 +86,19 @@ test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、
   }
   for (const key of declared) {
     assert.ok(STAGE_TOKEN_KEYS.includes(key), `tokens.css 有未登记的 ${key}：主题包导不进来`);
+  }
+});
+
+test("四档全局配色块都不许改场景层（B-9 新增 sepia/forest 后的守门）", () => {
+  const css = readSrc("../src/renderer/ui/tokens.css");
+  const blocks = css.match(/:root\[data-theme="[^"]+"\]\s*\{[\s\S]*?\}/g) ?? [];
+  assert.equal(blocks.length, 3, "应有 dark / sepia / forest 三个主题块");
+  for (const block of blocks) {
+    assert.ok(!/--stage-[a-z-]+:/.test(block), `主题块改了场景层：${block.slice(0, 40)}`);
+  }
+  // 全局配色包的白名单也不能漏进场景层
+  for (const key of GLOBAL_TOKEN_KEYS) {
+    assert.ok(!key.startsWith("--stage-"), `全局配色包白名单混入 ${key}`);
   }
 });
 

@@ -7,6 +7,7 @@ import {
   activeCount,
   backoffMs,
   clampProgress,
+  justFinished,
   nextQueued,
   oldestDone,
   overQuota,
@@ -156,4 +157,20 @@ test("clampProgress：received 不越过 total，负数归零，total 未知时�
   assert.deepEqual(clampProgress(-5, 100), { received: 0, total: 100 });
   assert.deepEqual(clampProgress(150, 0), { received: 150, total: 0 });
   assert.deepEqual(clampProgress(Number.NaN, 0), { received: 0, total: 0 });
+});
+
+/* ---- 下载完成通知（M9）：只有 active → done 才算「刚刚下完」 ---- */
+
+test("justFinished：active → done 才算下完", () => {
+  assert.equal(justFinished([item({ state: "active" })], [item({ state: "done" })]).id, "qq:001");
+});
+
+test("justFinished：启动恢复的 done 不算（没有 active 前身）", () => {
+  assert.equal(justFinished([], [item({ state: "done" })]), null);
+  assert.equal(justFinished([item({ state: "done" })], [item({ state: "done" })]), null);
+});
+
+test("justFinished：没变化给 null", () => {
+  const items = [item({ state: "active" })];
+  assert.equal(justFinished(items, items), null);
 });

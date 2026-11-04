@@ -100,3 +100,51 @@
 
   color-scheme: dark;
 }
+
+/* B-9 另外两档全局配色。和夜间块同一条纪律：
+   **只覆盖 ①结构层 + ③材质层，一个 --stage-* 都不碰**（A-10：播放页配色独立）。 */
+:root[data-theme="sepia"] {
+  --bg: #efe6d3;
+  --fg: #2b2118;
+  --fg-dim: #6b5946;
+  --line: rgba(43, 33, 24, 0.3);
+  --line-soft: rgba(43, 33, 24, 0.14);
+  --row-hover: rgba(43, 33, 24, 0.07);
+  --accent: #a34a1f;
+  --accent-ink: #f6efe0;
+  --brass: #7d6027;
+  --danger: #9b3a21;
+  --bg-raised: #e5d8bd;
+  --mask: rgba(43, 33, 24, 0.5);
+  --glass-bg: rgba(229, 216, 189, 0.97);
+  --glass-border: rgba(43, 33, 24, 0.28);
+  --glass-shadow:
+    0 12px 32px rgba(43, 33, 24, 0.22),
+    0 1px 0 rgba(43, 33, 24, 0.12);
+  --grain-opacity: 0.06;
+  --grain-blend: multiply;
+  color-scheme: light;
+}
+
+:root[data-theme="forest"] {
+  --bg: #101a17;
+  --fg: #e3ece5;
+  --fg-dim: #93aa9e;
+  --line: rgba(227, 236, 229, 0.26);
+  --line-soft: rgba(227, 236, 229, 0.13);
+  --row-hover: rgba(227, 236, 229, 0.07);
+  --accent: #6fbf8b;
+  --accent-ink: #0d1512;
+  --brass: #c2a75c;
+  --danger: #d46a54;
+  --bg-raised: #17241f;
+  --mask: rgba(0, 0, 0, 0.6);
+  --glass-bg: rgba(23, 36, 31, 0.97);
+  --glass-border: rgba(227, 236, 229, 0.24);
+  --glass-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(227, 236, 229, 0.08);
+  --grain-opacity: 0.025;
+  --grain-blend: soft-light;
+  color-scheme: dark;
+}

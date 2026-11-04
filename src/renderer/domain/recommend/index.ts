@@ -15,6 +15,8 @@ export interface DailyInput {
   recent: readonly string[];
   seed: number;
   count?: number;
+  /** 「不喜欢」名单（B-11）：取牌之前先摘掉，别让用户反复看到同一首 */
+  disliked?: ReadonlySet<string>;
 }
 
 const DEFAULT_COUNT = 30;
@@ -65,7 +67,7 @@ export function nextRefreshMs(at = new Date()): number {
   return next.getTime() - at.getTime();
 }
 
-export function dailyPicks({ tracks, liked, recent, seed, count = DEFAULT_COUNT }: DailyInput): Track[] {
+export function dailyPicks({ tracks, liked, recent, seed, count = DEFAULT_COUNT, disliked }: DailyInput): Track[] {
   if (tracks.length === 0) return [];
   const rand = rngOf(seed);
 
@@ -79,6 +81,7 @@ export function dailyPicks({ tracks, liked, recent, seed, count = DEFAULT_COUNT 
   const recentRows: Track[] = [];
   const restRows: Track[] = [];
   for (const track of tracks) {
+    if (disliked?.has(track.id)) continue;
     if (liked.has(track.id)) likedRows.push(track);
     else if (recency.has(track.id)) recentRows.push(track);
     else restRows.push(track);

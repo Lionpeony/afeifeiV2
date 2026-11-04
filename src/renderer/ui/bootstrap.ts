@@ -35,11 +35,48 @@ import {
   startQrLogin,
 } from "../capability/sources/netease/index.js";
 import { loadCover } from "../domain/library/cover.js";
+import {
+  getFilters,
+  invalidPatterns,
+  parseFilters,
+  rulesFromText,
+  rulesToText,
+  serializeFilters,
+  setFilters,
+} from "../domain/lyrics/filter.js";
+import { getMetaOverrides, getTracks, setMetaOverrides } from "../domain/library/state.js";
+import { parseMetaOverrides, patchMeta, serializeMetaOverrides } from "../domain/library/meta.js";
 import { restoreLibrary, scanLibrary } from "../domain/library/scan.js";
 import { startDownloadRunner } from "../domain/download/runner.js";
+import { justFinished } from "../domain/download/queue.js";
+import { renderName, uniqueDestPath } from "../domain/download/naming.js";
+import {
+  DOWNLOAD_SETTINGS_KEY,
+  getDownloadSettings,
+  parseDownloadSettings,
+  serializeDownloadSettings,
+  setDownloadSettings,
+} from "../domain/download/settings.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
 import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/likes/index.js";
+import { loadDislikes, saveDislikes, subscribe as subscribeDislikes } from "../domain/dislikes/index.js";
+import {
+  begin as beginListening,
+  end as endListening,
+  loadLog,
+  saveLog,
+  subscribe as subscribeLog,
+} from "../domain/listening/log.js";
 import { loadPlaylists, savePlaylists, subscribe as subscribePlaylists } from "../domain/playlists/index.js";
+import {
+  dropSaved,
+  getSavedPlaylists,
+  loadSavedPlaylists,
+  mergeSaved,
+  parsePlaylistRef,
+  saveSavedPlaylists,
+  setSavedPlaylists,
+} from "../domain/playlists/online.js";
 import { loadSalt } from "../domain/recommend/salt.js";
 import { clock } from "../kernel/clock.js";
 import { decideFailure } from "../kernel/failure.js";
@@ -54,7 +91,7 @@ import {
 } from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
 
-import { humanize, type Api, type NcmBody, type Services } from "./services.js";
+import { humanize, type Api, type NcmBody, type SavedPlaylistView, type Services } from "./services.js";
 import { bindingToDoc, resolveLocalLyric } from "./local-lyric.js";
 import {
   getLyricBinding,
@@ -66,6 +103,13 @@ import {
 } from "../domain/lyrics/bindings.js";
 import { searchLrclib } from "../domain/lyrics/fetch-lrclib.js";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "./theme.js";
+import {
+  GLOBAL_THEME_KEY,
+  getGlobalTokens,
+  globalThemeFile,
+  sanitizeGlobalTokens,
+  setGlobalTokens,
+} from "./global-theme.js";
 
 declare global {
   interface Window {
@@ -94,7 +138,6 @@ export async function bootstrap(): Promise<Services> {
   };
 
   const library: LibraryPort = {
-    pickDir: () => api.pickDir(),
     scan: (dirs) => api.scan(dirs),
     readTags: (paths) => api.readTags(paths) as Promise<RawMeta[]>,
     statFiles: (paths) => api.statFiles(paths),
@@ -308,6 +351,14 @@ export async function bootstrap(): Promise<Services> {
   subscribePlaylists(() => {
     void savePlaylists(kv);
   });
+  // 不喜欢名单（B-11）：UI 只管 add/remove，落盘跟着订阅走
+  subscribeDislikes(() => {
+    void saveDislikes(kv);
+  });
+  // 听歌账本（B-12）：每段结算完写一次，切歌是低频操作
+  subscribeLog(() => {
+    void saveLog(kv);
+  });
 
   // 「换一批」的 salt：启动时恢复今天的批次偏移（跨天自动作废，见 domain/recommend/salt）
   void loadSalt(kv);
@@ -336,13 +387,43 @@ export async function bootstrap(): Promise<Services> {
     }, 500);
   };
 
+  /**
+   * 系统通知（M9）：只在窗口藏起来时弹——前台切歌本来就在眼前，再弹一个就是骚扰。
+   * 发不出去就静默，通知失败不该影响播放。
+   */
+  const notifyIfHidden = (title: string, body: string): void => {
+    if (!document.hidden) return;
+    void api.notify({ title, body }).catch(() => undefined);
+  };
+
   let prev = getState();
   subscribe(() => {
     const next = getState();
 
+    // 后台切歌 / 下载完成 → 系统通知（M9）
+    if (next.player.trackId !== prev.player.trackId && next.player.status === "playing" && next.player.trackTitle) {
+      notifyIfHidden("正在播放", next.player.trackTitle);
+    }
+    const finished = justFinished(prev.download.items, next.download.items);
+    if (finished) notifyIfHidden("下载完成", finished.title);
+
     // 刚开始播一首 → 记历史
     if (next.player.status === "playing" && prev.player.status !== "playing" && next.player.trackId) {
       if (recordPlay(next.player.trackId)) void saveHistory(kv);
+    }
+
+    // 听歌账本（B-12）：只在 status=playing 的区间累计，暂停/切歌/退出播放都结算。
+    // 连切时 trackId 变了但状态一直是 playing，也必须 end + begin，否则整段算给上一首。
+    const playing = next.player.status === "playing";
+    const wasPlaying = prev.player.status === "playing";
+    if (playing && next.player.trackId && (!wasPlaying || next.player.trackId !== prev.player.trackId)) {
+      const local = getTracks().find((t) => t.id === next.player.trackId);
+      beginListening(next.player.trackId, {
+        title: next.player.trackTitle ?? local?.title ?? "",
+        artist: local?.artist ?? "",
+      });
+    } else if (!playing && wasPlaying) {
+      endListening();
     }
 
     if (next.audio !== prev.audio) scheduleAudioSave();
@@ -380,12 +461,38 @@ export async function bootstrap(): Promise<Services> {
   performance.mark("afeifei:restore-end");
   performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
 
-  await Promise.all([loadLikes(kv), loadPlaylists(kv), loadHistory(kv)]);
+  // 元数据覆盖（M11）：文件标签不动，只在索引之上盖一层；坏数据当没有
+  setMetaOverrides(parseMetaOverrides(await kv.read("library-meta")));
+
+  await Promise.all([
+    loadLikes(kv),
+    loadDislikes(kv),
+    loadPlaylists(kv),
+    loadSavedPlaylists(kv),
+    loadHistory(kv),
+    loadLog(kv),
+  ]);
 
   // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排
   const storedTheme = await kv.read(THEME_KEY);
   const theme: Theme = isTheme(storedTheme) ? storedTheme : "light";
   applyTheme(theme);
+
+  // 全局配色包（B-9）：覆盖挂在 html 的 inline style 上，优先级高于预设块
+  const storedGlobal = await kv.read(GLOBAL_THEME_KEY);
+  if (storedGlobal) {
+    try {
+      setGlobalTokens(sanitizeGlobalTokens(JSON.parse(storedGlobal)));
+    } catch {
+      /* 坏快照当没有 */
+    }
+  }
+
+  // 歌词过滤规则（B-2）：装配层读回 KV，lyric-source 订阅着这份规则，改规则不重抓词
+  setFilters(parseFilters(await kv.read("lyric-filters")));
+
+  // 下载设置（B-10）：runner 订阅着这份值，改并发会立刻补位
+  setDownloadSettings(parseDownloadSettings(await kv.read(DOWNLOAD_SETTINGS_KEY)));
 
   // 音频配置：入口先 sanitize 再进 store——坏数据在这里挡下，不进真相
   const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
@@ -433,6 +540,51 @@ export async function bootstrap(): Promise<Services> {
     void persister.flush(getState, () => clock.t(performance.now()));
   });
 
+  /** 收藏歌单的展示形态（不把 domain 的内部结构泄进 Services 契约）。 */
+  const savedView = (): SavedPlaylistView[] =>
+    getSavedPlaylists().map((p) => ({
+      sourceId: p.sourceId,
+      id: p.id,
+      name: p.name,
+      count: p.count,
+      coverUrl: p.coverUrl,
+      savedAt: p.savedAt,
+    }));
+
+  /**
+   * 唯一入队口（B-10）：模板在这里变成路径，单曲与批量共用。
+   * 不在队列里重复加同一 id（含已完成），否则点两次就把同一个文件下两遍。
+   */
+  const enqueueDownload = (
+    sourceId: string,
+    track: { sourceId: string; title: string; artist: string; album?: string },
+    dir: string,
+    index?: number,
+  ): boolean => {
+    const id = `${sourceId}:${track.sourceId}`;
+    const items = getState().download.items;
+    if (items.some((i) => i.id === id)) return false;
+    const base = renderName(getDownloadSettings().template, { ...track, index, id: track.sourceId });
+    const destPath = uniqueDestPath(dir, base, ".mp3", id, items);
+    dispatch({
+      type: "download/add",
+      item: {
+        id,
+        sourceId,
+        songId: track.sourceId,
+        title: `${track.title} — ${track.artist}`,
+        destPath,
+        state: "queued",
+        received: 0,
+        total: 0,
+        tries: 0,
+        speed: 0,
+        error: null,
+      },
+    });
+    return true;
+  };
+
   const services: Services = {
     engine,
     theme,
@@ -478,6 +630,44 @@ export async function bootstrap(): Promise<Services> {
       } catch (err) {
         throw humanize(err);
       }
+    },
+
+    // 收藏的在线歌单（M11）：域里留一份内存，KV 留一份持久化；返回的都是「改完之后的全量」
+    onlinePlaylists: () => Promise.resolve(savedView()),
+
+    async savePlaylist(sourceId, playlist) {
+      setSavedPlaylists(mergeSaved(getSavedPlaylists(), { sourceId, ...playlist }));
+      await saveSavedPlaylists(kv).catch(() => undefined);
+      return savedView();
+    },
+
+    async importPlaylist(sourceId, ref) {
+      const id = parsePlaylistRef(ref);
+      if (!id) {
+        throw new Error("没认出歌单 id：粘贴分享链接，或直接填歌单 id（一串数字）");
+      }
+      const provider = getProvider(sourceId);
+      if (!provider) throw humanize({ code: "capability-missing" });
+      // 名字只是显示用：源没有 playlistMeta（比如 QQ 的普通歌单）就退回 id，不让导入失败
+      let meta: { id: string; name: string; count: number; coverUrl?: string } = {
+        id,
+        name: `歌单 ${id}`,
+        count: 0,
+      };
+      if (provider.playlistMeta) {
+        try {
+          meta = await provider.playlistMeta(id);
+        } catch (err) {
+          throw humanize(err);
+        }
+      }
+      return services.savePlaylist(sourceId, meta);
+    },
+
+    async removePlaylist(sourceId, id) {
+      setSavedPlaylists(dropSaved(getSavedPlaylists(), sourceId, id));
+      await saveSavedPlaylists(kv).catch(() => undefined);
+      return savedView();
     },
 
     async playlistTracks(sourceId, playlistId, page = 0) {
@@ -528,6 +718,18 @@ export async function bootstrap(): Promise<Services> {
       runAccount(sourceId, (acc) => acc.setLiked(songId, liked)),
     accountHistory: (sourceId, range) => runAccount(sourceId, (acc) => acc.listeningHistory(range)),
     accountPersonalFm: (sourceId) => runAccount(sourceId, (acc) => acc.personalFm()),
+
+    async reportDislike(sourceId, songId, scene) {
+      const acc = getProvider(sourceId)?.account;
+      // 上报是"尽力而为"：源没有这个能力、或上游抽风，本地名单照样生效
+      if (!acc?.dislike) return false;
+      try {
+        await acc.dislike(songId, scene);
+        return true;
+      } catch {
+        return false;
+      }
+    },
 
     async lyric(sourceId, songId) {
       // 手动挑的那版最优先：用户的选择比任何自动匹配都权威（P0-19）
@@ -633,6 +835,34 @@ export async function bootstrap(): Promise<Services> {
       return tokens;
     },
 
+    // 全局配色包（B-9）：与播放页共用 theme:import/export 的文件 IO，token 白名单分开
+    globalTokens: () => Promise.resolve(getGlobalTokens()),
+
+    async importGlobalTheme() {
+      const raw = await api.importTheme();
+      if (!raw) return null;
+      const file = raw as { scope?: unknown; tokens?: unknown };
+      if (file.scope !== "global") {
+        throw new Error("这不是全局配色包（播放页的主题包请到播放页「视图」里导入）");
+      }
+      const tokens = sanitizeGlobalTokens(file);
+      if (!tokens) throw new Error("这个文件里没有可用的全局配色 token");
+      setGlobalTokens(tokens);
+      await kv.write(GLOBAL_THEME_KEY, JSON.stringify(tokens)).catch(() => undefined);
+      return tokens;
+    },
+
+    async exportGlobalTheme() {
+      const tokens = getGlobalTokens();
+      if (!tokens) return false;
+      return api.exportTheme(JSON.stringify(globalThemeFile(tokens), null, 2));
+    },
+
+    async clearGlobalTheme() {
+      setGlobalTokens(null);
+      await kv.write(GLOBAL_THEME_KEY, "").catch(() => undefined);
+    },
+
     importSource: () => api.importUserSource(),
 
     async installSource(_fileName, code) {
@@ -699,32 +929,60 @@ export async function bootstrap(): Promise<Services> {
     },
 
     async scan(onProgress) {
-      const dir = await api.pickDir();
-      if (!dir) return null;
-      return scanLibrary(library, [dir], onProgress);
+      // 曲库目录是持久化的（M9）：第一次扫先选一个，之后每次重扫按列表走，不再问一遍
+      let roots = await api.libraryRoots();
+      if (roots.length === 0) {
+        const added = await api.addLibraryRoot();
+        if (!added || added.length === 0) return null;
+        roots = added;
+      }
+      return scanLibrary(library, roots, onProgress);
+    },
+
+    async editTrackMeta(id, patch) {
+      // 先落内存再落盘：界面立刻看到新名字，写盘失败最多是重启后回到文件值
+      const next = patchMeta(getMetaOverrides(), id, patch);
+      setMetaOverrides(next);
+      await kv.write("library-meta", serializeMetaOverrides(next)).catch(() => undefined);
+    },
+
+    libraryRoots: () => api.libraryRoots(),
+    addLibraryRoot: () => api.addLibraryRoot(),
+    removeLibraryRoot: (dir) => api.removeLibraryRoot(dir),
+    autoLaunch: () => api.autoLaunch(),
+    setAutoLaunch: (on) => api.setAutoLaunch(on),
+
+    lyricFilters: () => Promise.resolve(rulesToText(getFilters())),
+    async setLyricFilters(text) {
+      const next = rulesFromText(text);
+      setFilters(next); // 先生效：正则改完当屏歌词就要变，不等写盘
+      await kv.write("lyric-filters", serializeFilters(next)).catch(() => undefined);
+      return invalidPatterns(next);
     },
 
     async downloadTrack(sourceId, track) {
       const dir = await api.downloadDir();
-      // 文件名里的 Windows 非法字符压掉；扩展名按 320k 直链的实际格式写死 mp3（flac 待源按音质返回后处理）
-      const safe = `${track.title} - ${track.artist}`.replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
-      const destPath = `${dir}/${safe}.mp3`;
-      const id = `${sourceId}:${track.sourceId}`;
-      const item: DownloadItem = {
-        id,
-        sourceId,
-        songId: track.sourceId,
-        title: `${track.title} — ${track.artist}`,
-        destPath,
-        state: "queued",
-        received: 0,
-        total: 0,
-        tries: 0,
-        speed: 0,
-        error: null,
-      };
-      dispatch({ type: "download/add", item });
-      return "已加入下载队列。";
+      return enqueueDownload(sourceId, track, dir)
+        ? "已加入下载队列。"
+        : "这首已经在下载队列里了。";
+    },
+
+    async downloadTracks(sourceId, tracks) {
+      if (tracks.length === 0) return "没选歌。";
+      const dir = await api.downloadDir();
+      let added = 0;
+      tracks.forEach((track, i) => {
+        if (enqueueDownload(sourceId, track, dir, i + 1)) added += 1;
+      });
+      const skipped = tracks.length - added;
+      return `已加入 ${added} 首${skipped > 0 ? `，跳过 ${skipped} 首（已在队列）` : ""}。`;
+    },
+
+    downloadSettings: () => Promise.resolve({ ...getDownloadSettings() }),
+    async setDownloadSettings(next) {
+      const saved = setDownloadSettings(next);
+      await kv.write(DOWNLOAD_SETTINGS_KEY, serializeDownloadSettings(saved)).catch(() => undefined);
+      return { ...saved };
     },
 
     async removeDownload(id) {
