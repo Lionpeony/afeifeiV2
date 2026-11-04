@@ -8,8 +8,11 @@ export type PlayerStatus = "idle" | "loading" | "playing" | "paused" | "ended" |
 export type PlayMode = "order" | "repeat-all" | "repeat-one" | "shuffle";
 
 /**
- * 50 §10 的十二个码。M1 只用到其中四个，但先把全集钉死 ——
+ * 50 §10 的十二个码 + P0-14 自愈新增的一个（十三）。M1 只用到其中四个，但先把全集钉死 ——
  * 否则每加一个功能就会有人顺手造一个自己的错误字符串。
+ *
+ * 为什么没有"没有下一首"这种码：那种情况**照原样报真实原因**（"这首歌找不到了"）比
+ * 换成"队列空了"更有用，也少一个码。
  */
 export type ErrorCode =
   | "source-mismatch"
@@ -23,7 +26,9 @@ export type ErrorCode =
   | "decode-failed"
   | "aborted"
   | "disk-full"
-  | "unknown";
+  | "unknown"
+  /** 连续几首都失败，熔断停机（P0-14）；可重试，用户处理完网络/文件后点重试即可 */
+  | "too-many-failures";
 
 export interface PlayerState {
   status: PlayerStatus;
@@ -46,8 +51,15 @@ export interface PlayerState {
   preservesPitch: boolean;
   error: ErrorCode | null;
   /**
+   * 正在等数据（P0-26）：`playing` 但音频元素在 `waiting`。
+   * 与 `status === "loading"`（解码中/取源中）分开 —— 一个是"还没开始"，一个是"开始后卡住了"，
+   * 用户能做的事完全不同（等一会儿 vs 换网络/换音质）。不持久化。
+   */
+  buffering: boolean;
+  /**
    * 在线曲目的音源内标识：歌词 / 封面用。本地曲目为 null。
-   * 不持久化 —— 在线播放队列重启后不恢复歌词，属已知取舍。
+   * **持久化**（P0-13，2026-11-04 推翻旧取舍）：不存它，重启后队列里只剩一串签名直链，
+   * 没有标题、封面、歌词，等于把在线曲目退化成裸 URL。代价是快照多几十字节，换来可用。
    */
   remote: { sourceId: string; songId: string; coverUrl?: string } | null;
 }
@@ -62,6 +74,11 @@ export interface QueueState {
   mode: PlayMode;
   /** shuffle 的种子。同种子同顺序，可复现。 */
   shuffleSeed: number;
+  /**
+   * 播不出来的曲目（P0-16）。队列面板上标出来、点它可重试；成功播放后自动移除。
+   * 存在队列里而不是组件局部：切页面/重开面板还得看得见，否则用户不知道刚才跳过了什么。
+   */
+  failed: TrackId[];
 }
 
 /**
@@ -71,6 +88,13 @@ export interface QueueState {
  */
 export interface SleepState {
   endsAt: number | null;
+  /**
+   * 「播完当前曲再停」（P0-24）：到点时如果这首还没放完，不立刻暂停，等它自然结束。
+   * 存成偏好而不是一次性参数 —— 喜欢这种停法的人每次都要这个，别让他每次勾一遍。
+   */
+  waitEnd: boolean;
+  /** 已经到点、正在等这首播完。到点那一刻置上，真正停下时清掉。 */
+  pending: boolean;
 }
 
 /** 音频链路配置（50 §5.1）。与播放状态分开：换歌不动它，重启要恢复它。 */
@@ -81,6 +105,11 @@ export interface AudioConfig {
   eq: number[];
   /** crossfade 时长（秒，0/3/6）。0 = 关（M9-3）。 */
   crossfadeSec: number;
+  /**
+   * 输出设备 id（`enumerateDevices` 的 `deviceId`），`""` = 跟随系统默认（P0-09）。
+   * 存 id 不存名字：名字随语言/重插会变，id 才是稳定标识。
+   */
+  outputId: string;
 }
 
 /** 播放页五层（50 §9.2）。cover 与 controls 永远开着 —— toggleLayer 对它们无效。 */
@@ -126,10 +155,37 @@ export interface DownloadItem {
   error: string | null;
 }
 
+/**
+ * 播放行为配置（P0-15）。与 `AudioConfig` 分开：那边是音质链路，这边是"出错怎么办"，
+ * 两者改动频率与影响面完全不同（调 EQ 不该动错误策略，反之亦然）。
+ */
+export interface PlaybackConfig {
+  /**
+   * 播放失败时：`skip` 自动跳到下一首；`pause` 停下等用户处理。
+   * 默认 `skip`（抄 MusicFreeDesktop 的 `playMusic.playError` 默认值）。
+   */
+  onError: "skip" | "pause";
+}
+
+/**
+ * 歌词校准（P0-18）。
+ *
+ * 为什么**按曲**记而不是全局：歌曲自带的时间轴误差是逐首的（扒词的人不同），
+ * 一个全局偏移会把调准的那首又调歪。抄 SPlayer 的 `songOffset`（按 id 存）。
+ * 键是 trackId；值单位毫秒，正数 = 歌词整体往后推。
+ */
+export interface LyricOffsets {
+  offsets: Record<string, number>;
+}
+
 export interface AppState {
   player: PlayerState;
   queue: QueueState;
   audio: AudioConfig;
+  /** 播放行为（不是音质）：失败怎么办这类"换首歌也不该变"的策略。 */
+  playback: PlaybackConfig;
+  /** 歌词校准（P0-18）：按曲记的偏移，毫秒。正 = 歌词晚出现。 */
+  lyrics: LyricOffsets;
   stage: StageConfig;
   sleep: SleepState;
   download: { items: DownloadItem[] };
@@ -156,6 +212,8 @@ export type Intent =
   | { type: "player/setPreservesPitch"; on: boolean }
   | { type: "player/ended" }
   | { type: "player/error"; code: ErrorCode }
+  /** 等数据中（P0-26）：`playing` 但在 `waiting`。与"解码中"分开显示。 */
+  | { type: "player/buffering"; on: boolean }
   | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }
   /** 追加到队尾（"添加到队列"）：不打断当前播放，cursor 不动。 */
   | { type: "queue/add"; items: TrackId[] }
@@ -168,13 +226,31 @@ export type Intent =
   /** 移动队列里某一格（A-20）。同样用 items 下标，播放序由 orderOf 现算。 */
   | { type: "queue/move"; from: number; to: number }
   /** 睡眠定时（A-23）。endsAt 是绝对时刻，由 UI 算好传进来 —— kernel 不碰 Date.now()。 */
-  | { type: "sleep/set"; endsAt: number }
+  | { type: "sleep/set"; endsAt: number; waitEnd?: boolean }
   | { type: "sleep/clear" }
-  /** 定时到点：暂停但**不退出**（A-23）。计时器在 UI，这里只做状态转移。 */
+  /** 勾/取消「播完当前曲再停」（P0-24）。 */
+  | { type: "sleep/setWaitEnd"; waitEnd: boolean }
+  /**
+   * 定时到点（A-23 / P0-24）：默认暂停但**不退出**；勾了「播完再停」则只挂 pending，
+   * 等 `player/ended` 那一刻才真正停。计时器在 UI，这里只做状态转移。
+   */
   | { type: "sleep/expire" }
   | { type: "queue/restore"; state: QueueState }
-  /** 装载但不播（恢复上次状态用）。 */
-  | { type: "player/cue"; trackId: TrackId; positionMs?: number }
+  /** 清空队列（P0-12）：队列、光标、标题、进度一起归零，回到空态，不假装还有歌。 */
+  | { type: "queue/clear" }
+  /** 标记 / 取消「这首播不出来」（P0-16）。成功播放 500ms 后由装配层取消。 */
+  | { type: "queue/fail"; trackId: TrackId; failed: boolean }
+  /**
+   * 装载但不播（恢复上次状态用）。
+   * 带标题与在线标识：从快照恢复时没有它们，顶栏会显示一串签名直链（P0-13）。
+   */
+  | {
+      type: "player/cue";
+      trackId: TrackId;
+      positionMs?: number;
+      trackTitle?: string | null;
+      remote?: PlayerState["remote"];
+    }
   /** 引擎加载完成，loading 可以落到 paused。 */
   | { type: "player/ready" }
   /** crossfade 的入场曲已发声（M9-3）：loading 原地转 playing，trackId 不动。 */
@@ -185,8 +261,20 @@ export type Intent =
   | { type: "audio/setEq"; gains: number[] }
   /** crossfade 时长（秒，0/3/6，非法值回落 0）。 */
   | { type: "audio/setCrossfade"; sec: number }
+  /** 输出设备（P0-09）：`""` = 跟随系统默认。 */
+  | { type: "audio/setOutput"; id: string }
   /** 恢复持久化的音频配置（入口侧已 sanitize）。 */
   | { type: "audio/restore"; config: AudioConfig }
+  /** 失败策略（P0-15）：自动跳过 / 停下等用户。 */
+  | { type: "playback/setOnError"; onError: "skip" | "pause" }
+  /** 恢复持久化的播放行为配置（入口侧已 sanitize）。 */
+  | { type: "playback/restore"; config: PlaybackConfig }
+  /** 歌词校准（P0-18）：给某首歌加减偏移，单位毫秒（±500 一步）。 */
+  | { type: "lyric/nudgeOffset"; trackId: TrackId; deltaMs: number }
+  /** 清掉某首歌的校准，回到词自带的时间轴。 */
+  | { type: "lyric/resetOffset"; trackId: TrackId }
+  /** 恢复持久化的校准表（入口侧已 sanitize）。 */
+  | { type: "lyric/restoreOffsets"; offsets: Record<string, number> }
   /** 播放页配置。preset 切换不重建 store、不重解码封面（M4 判据）。 */
   | { type: "stage/setPreset"; preset: StagePreset }
   | { type: "stage/setIntensity"; intensity: 0 | 1 | 2 }

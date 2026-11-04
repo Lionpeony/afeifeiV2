@@ -18,6 +18,12 @@ interface Snapshot {
   /** 老快照没有这两个字段：读的时候按 1 / true 处理，不为此升版本 */
   playbackRate?: number;
   preservesPitch?: boolean;
+  /**
+   * 当前曲的显示信息与在线源标识（P0-13）。老快照没有：按 null 处理，不升版本
+   * —— 升版本会让所有老用户丢队列，代价远大于收益。
+   */
+  trackTitle?: string | null;
+  remote?: AppState["player"]["remote"];
   queue: AppState["queue"];
 }
 
@@ -41,6 +47,9 @@ export function createPersister(port: StoragePort, delayMs = 1000): Persister {
       muted: s.player.muted,
       playbackRate: s.player.playbackRate,
       preservesPitch: s.player.preservesPitch,
+      // 标题与在线源标识必须一起存：只存 trackId 的话，在线曲目重启后就是一条裸直链（P0-13）
+      trackTitle: s.player.trackTitle,
+      remote: s.player.remote,
       queue: s.queue,
     };
     return JSON.stringify(snap);

@@ -1,4 +1,4 @@
-import type { AppState, DownloadItem, Intent } from "../../contracts/index.js";
+import type { AppState, DownloadItem, Intent, PlaybackConfig } from "../../contracts/index.js";
 import { clampCursor, nextShuffleSeed, orderOf, prevAction, pushHistory, stepBackward, stepForward } from "./queue.js";
 
 /**
@@ -21,12 +21,17 @@ const initialState: AppState = {
     playbackRate: 1,
     preservesPitch: true,
     error: null,
+    buffering: false,
     remote: null,
   },
-  queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1 },
+  queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1, failed: [] },
   // 10 段与 capability/audio/eq.ts 的 EQ_BANDS 对齐；kernel 不 import capability（环约束），
   // 这条一致性由 test/audio.test.mjs 钉住 —— 上次段数从 6 改 10 就是这里漏了
-  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], crossfadeSec: 0 },
+  audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], crossfadeSec: 0, outputId: "" },
+  // 默认自动跳过（P0-15，抄 MusicFreeDesktop 的 `playMusic.playError` 默认值）：
+  // 播放器卡在坏文件上比"跳过了用户没注意"更糟
+  playback: { onError: "skip" },
+  lyrics: { offsets: {} },
   stage: {
     preset: "paper",
     intensity: 1,
@@ -36,7 +41,7 @@ const initialState: AppState = {
     translation: true,
     customTokens: null,
   },
-  sleep: { endsAt: null },
+  sleep: { endsAt: null, waitEnd: false, pending: false },
   download: { items: [] },
 };
 
@@ -44,6 +49,35 @@ const initialState: AppState = {
 const AUDIO_LIMIT_DB = 12;
 const clampAudioDb = (v: number): number =>
   Number.isFinite(v) ? Math.min(AUDIO_LIMIT_DB, Math.max(-AUDIO_LIMIT_DB, v)) : 0;
+
+/**
+ * 歌词校准限幅（P0-18）：±10 秒。
+ * 超过这个量级的"对不齐"通常不是误差，而是**词根本不是这一首**——该重新匹配（P0-19），
+ * 硬调只会把词越推越离谱。
+ */
+const LYRIC_OFFSET_LIMIT_MS = 10_000;
+
+const clampLyricOffset = (v: number): number =>
+  Number.isFinite(v)
+    ? Math.max(-LYRIC_OFFSET_LIMIT_MS, Math.min(LYRIC_OFFSET_LIMIT_MS, Math.round(v)))
+    : 0;
+
+/** KV 里的校准表 → 合法对象。坏条目逐条丢，不整份作废。 */
+export function sanitizeLyricOffsets(raw: string | null): Record<string, number> {
+  try {
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: Record<string, number> = {};
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value !== "number") continue;
+      const ms = clampLyricOffset(value);
+      if (id && ms !== 0) out[id] = ms;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 let state: AppState = initialState;
 const listeners = new Set<Listener>();
@@ -94,6 +128,19 @@ function switchTo(current: AppState, cursor: number): AppState {
     },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
   };
+}
+
+/**
+ * 播放行为配置的入口净化（P0-15）。KV 里可能是旧版/手改的字符串，
+ * 只认这两个值，其余一律按默认 `skip`。
+ */
+export function sanitizePlaybackConfig(raw: string | null): PlaybackConfig {
+  try {
+    const parsed = raw ? (JSON.parse(raw) as { onError?: unknown }) : null;
+    return { onError: parsed?.onError === "pause" ? "pause" : "skip" };
+  } catch {
+    return { onError: "skip" };
+  }
 }
 
 function reduce(current: AppState, intent: Intent): AppState {
@@ -168,6 +215,14 @@ function reduce(current: AppState, intent: Intent): AppState {
     }
 
     case "player/ended": {
+      // 睡眠定时到点了、且勾了「播完再停」（P0-24）：就停在这儿，不切下一首、不循环
+      if (current.sleep.pending) {
+        return {
+          ...current,
+          sleep: { ...current.sleep, pending: false },
+          player: { ...player, status: "paused", positionMs: 0 },
+        };
+      }
       if (queue.mode === "repeat-one") {
         return { ...current, player: { ...player, status: "playing", positionMs: 0 } };
       }
@@ -180,7 +235,14 @@ function reduce(current: AppState, intent: Intent): AppState {
 
     case "player/error": {
       if (player.status === "error" && player.error === intent.code) return current;
-      return { ...current, player: { ...player, status: "error", error: intent.code } };
+      return { ...current, player: { ...player, status: "error", error: intent.code, buffering: false } };
+    }
+
+    case "player/buffering": {
+      // 只有"正在播"才有缓冲可言：暂停/加载态收到迟到的 waiting 不算
+      if (player.status !== "playing" && intent.on) return current;
+      if (player.buffering === intent.on) return current;
+      return { ...current, player: { ...player, buffering: intent.on } };
     }
 
     case "player/cue": {
@@ -190,6 +252,9 @@ function reduce(current: AppState, intent: Intent): AppState {
           ...player,
           status: "loading",
           trackId: intent.trackId,
+          // 标题与在线标识一起落，别留着上一首的（P0-13：恢复后顶栏要显示歌名而不是直链）
+          trackTitle: intent.trackTitle ?? null,
+          remote: intent.remote ?? null,
           positionMs: Math.max(0, intent.positionMs ?? 0),
           error: null,
         },
@@ -220,14 +285,15 @@ function reduce(current: AppState, intent: Intent): AppState {
             positionMs: 0,
             remote: null,
           },
-          queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [] },
+          // 换了一整条队列：上一批的失败标记作废（标记是"这一条队列里哪几首坏了"）
+          queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [], failed: [] },
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
       const staged: AppState = {
         ...current,
         player,
-        queue: { ...queue, items, cursor, context: intent.context ?? items, history: [] },
+        queue: { ...queue, items, cursor, context: intent.context ?? items, history: [], failed: [] },
       };
       return switchTo(staged, cursor);
     }
@@ -244,9 +310,13 @@ function reduce(current: AppState, intent: Intent): AppState {
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
       // byUser=true：用户主动点「下一首」，单曲循环也照常切（自然结束那条路走 player/ended）
       const next = stepForward(order, queue.cursor, queue.mode, true);
+      // 用户自己点了下一首：睡眠定时的"等这首播完"到此为止，别在他换的歌上突然停
+      const base: AppState = current.sleep.pending
+        ? { ...current, sleep: { ...current.sleep, pending: false } }
+        : current;
       return next < 0
-        ? { ...current, player: { ...player, status: "ended", positionMs: 0 } }
-        : switchTo(current, next);
+        ? { ...base, player: { ...base.player, status: "ended", positionMs: 0 } }
+        : switchTo(base, next);
     }
 
     case "queue/prev": {
@@ -269,21 +339,50 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "queue/remove": {
       const at = intent.index;
       if (at < 0 || at >= queue.items.length) return current;
+      const removed = queue.items[at];
       const items = [...queue.items];
       items.splice(at, 1);
+      // 删掉的歌不该还留着"播放失败"标记（P0-16），否则同一 id 重新入队就带着旧标记
+      const failed = queue.failed.filter((id) => id !== removed);
 
       // 删的是当前之后的：光标不动，后面整体前移一格
-      if (at > queue.cursor) return { ...current, queue: { ...queue, items } };
+      if (at > queue.cursor) return { ...current, queue: { ...queue, items, failed } };
       // 删的是当前之前的：光标记的"第几格"要减一，否则会指向下一首
-      if (at < queue.cursor) return { ...current, queue: { ...queue, items, cursor: queue.cursor - 1 } };
+      if (at < queue.cursor) return { ...current, queue: { ...queue, items, failed, cursor: queue.cursor - 1 } };
 
       // 删的就是正在播这首：接到同位置的下一条；删空了就结束（不假装还有歌）
       const nextCursor = at < items.length ? at : -1;
       const wasPlaying = player.status === "playing";
-      const switched = switchTo({ ...current, queue: { ...queue, items, cursor: nextCursor } }, nextCursor);
+      const switched = switchTo({ ...current, queue: { ...queue, items, failed, cursor: nextCursor } }, nextCursor);
       return wasPlaying && switched.player.trackId
         ? { ...switched, player: { ...switched.player, status: "playing" } }
         : switched;
+    }
+
+    case "queue/clear": {
+      // 空队列态是五个状态之一：真实置空，别留个"ended + 有光标"的假空
+      return {
+        ...current,
+        player: {
+          ...player,
+          status: "idle",
+          trackId: null,
+          trackTitle: null,
+          positionMs: 0,
+          error: null,
+          remote: null,
+        },
+        queue: { ...queue, items: [], cursor: -1, context: [], history: [], failed: [] },
+      };
+    }
+
+    case "queue/fail": {
+      const has = queue.failed.includes(intent.trackId);
+      if (intent.failed === has) return current;
+      const failed = intent.failed
+        ? [...queue.failed, intent.trackId]
+        : queue.failed.filter((id) => id !== intent.trackId);
+      return { ...current, queue: { ...queue, failed } };
     }
 
     case "queue/move": {
@@ -312,26 +411,50 @@ function reduce(current: AppState, intent: Intent): AppState {
 
     case "queue/restore": {
       const restored = intent.state;
-      return { ...current, queue: { ...restored, cursor: clampCursor(restored.items, restored.cursor) } };
+      return {
+        ...current,
+        // 老快照没有 failed 字段：按空数组补，别让 undefined 漏进真相
+        queue: {
+          ...restored,
+          failed: Array.isArray(restored.failed) ? restored.failed : [],
+          cursor: clampCursor(restored.items, restored.cursor),
+        },
+      };
     }
 
     /* ---- 睡眠定时（A-23）：状态里只有截止时刻，倒计时与触发都在 UI ---- */
 
     case "sleep/set": {
       if (!Number.isFinite(intent.endsAt)) return current;
-      if (current.sleep.endsAt === intent.endsAt) return current;
-      return { ...current, sleep: { endsAt: intent.endsAt } };
+      const waitEnd = intent.waitEnd ?? current.sleep.waitEnd;
+      if (current.sleep.endsAt === intent.endsAt && current.sleep.waitEnd === waitEnd) return current;
+      // 重新定时 = 重新开始：上一次"等这首播完"的挂起必须一起清掉
+      return { ...current, sleep: { endsAt: intent.endsAt, waitEnd, pending: false } };
+    }
+
+    case "sleep/setWaitEnd": {
+      if (current.sleep.waitEnd === intent.waitEnd) return current;
+      const next: AppState = { ...current, sleep: { ...current.sleep, waitEnd: intent.waitEnd } };
+      // 已经挂起（等到点了一直在等这首放完），这时取消勾选 = "别等了"，立刻停
+      if (current.sleep.pending && !intent.waitEnd && player.status === "playing") {
+        return { ...next, sleep: { ...next.sleep, pending: false }, player: { ...player, status: "paused" } };
+      }
+      return next;
     }
 
     case "sleep/clear": {
-      if (current.sleep.endsAt === null) return current;
-      return { ...current, sleep: { endsAt: null } };
+      if (current.sleep.endsAt === null && !current.sleep.pending) return current;
+      return { ...current, sleep: { ...current.sleep, endsAt: null, pending: false } };
     }
 
     case "sleep/expire": {
       // 没设定时就不该有"到点"——迟到的计时器直接忽略
       if (current.sleep.endsAt === null) return current;
-      const cleared: AppState = { ...current, sleep: { endsAt: null } };
+      // 播完再停（P0-24）：不暂停，挂个 pending，等 player/ended 那一刻再停
+      if (current.sleep.waitEnd) {
+        return { ...current, sleep: { ...current.sleep, endsAt: null, pending: true } };
+      }
+      const cleared: AppState = { ...current, sleep: { ...current.sleep, endsAt: null, pending: false } };
       // 到点只暂停：不退出、不清队列、不动播放位置（A-23 验收）
       if (player.status !== "playing") return cleared;
       return { ...cleared, player: { ...player, status: "paused" } };
@@ -358,8 +481,16 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, audio: { ...current.audio, crossfadeSec: sec } };
     }
 
+    case "audio/setOutput": {
+      // 空串就是"跟随系统默认"，不做白名单：设备 id 是浏览器给的，kernel 不认识它
+      const id = typeof intent.id === "string" ? intent.id : "";
+      if (current.audio.outputId === id) return current;
+      return { ...current, audio: { ...current.audio, outputId: id } };
+    }
+
     case "audio/restore": {
       const config = intent.config;
+      const outputId = typeof config.outputId === "string" ? config.outputId : "";
       // 段数必须与当前一致：老存档/外来配置的迁移在 capability/audio/eq.ts 做，
       // kernel 不认识频段，只能守住"长度不变"这条不变式
       if (config.eq.length !== current.audio.eq.length) {
@@ -369,18 +500,63 @@ function reduce(current: AppState, intent: Intent): AppState {
         const untouched =
           preampDb === current.audio.preampDb &&
           crossfadeSec === current.audio.crossfadeSec &&
+          outputId === current.audio.outputId &&
           eq.every((v, i) => v === current.audio.eq[i]);
-        return untouched ? current : { ...current, audio: { preampDb, eq, crossfadeSec } };
+        return untouched ? current : { ...current, audio: { preampDb, eq, crossfadeSec, outputId } };
       }
       if (
         config.preampDb === current.audio.preampDb &&
         config.crossfadeSec === current.audio.crossfadeSec &&
+        outputId === current.audio.outputId &&
         config.eq.length === current.audio.eq.length &&
         config.eq.every((v, i) => v === current.audio.eq[i])
       ) {
         return current;
       }
-      return { ...current, audio: config };
+      // 展开 current.audio 而不是直接拿 config：config 是外部来的，字段可能缺
+      return { ...current, audio: { ...current.audio, ...config, outputId } };
+    }
+
+    /* ---- 歌词校准（P0-18）：按曲记，±10 秒封顶，0 就删键（不留一堆 0 把存档撑大） ---- */
+    case "lyric/nudgeOffset": {
+      const { trackId } = intent;
+      if (!trackId) return current;
+      const prev = current.lyrics.offsets[trackId] ?? 0;
+      const next = clampLyricOffset(prev + intent.deltaMs);
+      if (next === prev) return current;
+      const offsets = { ...current.lyrics.offsets };
+      if (next === 0) delete offsets[trackId];
+      else offsets[trackId] = next;
+      return { ...current, lyrics: { offsets } };
+    }
+
+    case "lyric/resetOffset": {
+      const { trackId } = intent;
+      if (!(trackId in current.lyrics.offsets)) return current;
+      const offsets = { ...current.lyrics.offsets };
+      delete offsets[trackId];
+      return { ...current, lyrics: { offsets } };
+    }
+
+    case "lyric/restoreOffsets": {
+      // 外部数据（KV）：只认有限数字并夹到范围内，坏条目直接丢，不整份作废
+      const offsets: Record<string, number> = {};
+      for (const [id, value] of Object.entries(intent.offsets ?? {})) {
+        const ms = clampLyricOffset(value);
+        if (id && ms !== 0) offsets[id] = ms;
+      }
+      return { ...current, lyrics: { offsets } };
+    }
+
+    /* ---- 播放行为（P0-15）：只有一个开关，两种来源同一套净化 ---- */
+    case "playback/setOnError":
+    case "playback/restore": {
+      const onError =
+        (intent.type === "playback/setOnError" ? intent.onError : intent.config.onError) === "pause"
+          ? "pause"
+          : "skip";
+      if (current.playback.onError === onError) return current;
+      return { ...current, playback: { onError } };
     }
 
     case "stage/setPreset": {
