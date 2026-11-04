@@ -15,7 +15,9 @@ function fakeApi(routes, { loggedIn = true, uid = 42 } = {}) {
     profile: async () => ({ loggedIn, nick: loggedIn ? "tester" : null, uid: loggedIn ? String(uid) : null }),
     call: async (ns, method, params) => {
       calls.push({ ns, method, params });
-      if (method === "login_status") return loggedIn ? { profile: { userId: uid } } : { code: 301 };
+      // 真实环境里 login_status 只回 { data }，**没有 profile.userId**（2026-11-04 实测）。
+      // 故意按真实形状造：谁再从这里取 uid，测试立刻红。
+      if (method === "login_status") return loggedIn ? { data: { code: 200 } } : { code: 301 };
       const route = routes[method];
       if (typeof route === "function") return route(params);
       return route ?? {};
@@ -84,6 +86,13 @@ test("账号红心：likelist 带 uid（来自 login_status），id 一律转字
   const like = api.calls.find((c) => c.method === "likelist");
   assert.equal(like.params.uid, 42, "uid 必须从登录态取，不能让调用方传");
   assert.deepEqual(ids, ["1", "2", "3"]);
+});
+
+test("uid 取不到就 auth-required，不许猜一个（猜错会把别人的红心读进来）", async () => {
+  const api = fakeApi({ likelist: { ids: [1] } });
+  api.profile = async () => ({ loggedIn: true, nick: "x", uid: null });
+  const p = createNeteaseProvider(api);
+  await assert.rejects(() => p.account.likedIds(), (e) => e.code === "auth-required");
 });
 
 test("收藏：like 接口认字符串 'true'/'false'（传布尔值会被包当成「收藏」）", async () => {

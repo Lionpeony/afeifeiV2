@@ -75,11 +75,19 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     return (body?.ids ?? []).map((id) => String(id));
   }
 
-  /** uid 从登录态取（login_status 的 profile.userId），不要求调用方传。 */
+  /**
+   * uid 只从主进程的登录档案取。
+   *
+   * **不能用 `login_status`**：真实环境里它只回 `{ data }`，没有 `profile.userId`
+   * （2026-11-04 真实账号实测：红心/听歌排行全报「先登录」，接口本身却是通的）。
+   * `api.profile` 走 `user_account`，还顺带处理了「匿名账号 id 有值但不算登录」这个坑。
+   */
   async function requireUid(): Promise<number> {
-    const st = await ncm<{ profile?: { userId?: number } }>("login_status");
-    const uid = st?.profile?.userId;
-    if (!uid) throw err("auth-required", "先登录后才能用这项");
+    const profile = await api.profile("netease");
+    const uid = Number(profile.uid);
+    if (!profile.loggedIn || !Number.isFinite(uid) || uid <= 0) {
+      throw err("auth-required", "先登录后才能用这项");
+    }
     return uid;
   }
 
@@ -159,10 +167,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     },
 
     async listPlaylists() {
-      // uid 从登录态取（login_status 的 profile.userId），不要求调用方传
-      const st = await ncm<{ profile?: { userId?: number }; code?: number }>("login_status");
-      const uid = st?.profile?.userId;
-      if (!uid) throw err("auth-required", "先登录后才能看歌单");
+      // 同一个坑：login_status 里没有 profile.userId，统一走 requireUid
+      const uid = await requireUid();
 
       const body = await ncm<{ playlist?: Record<string, unknown>[] }>("user_playlist", {
         uid,
