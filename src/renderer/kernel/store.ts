@@ -1,5 +1,5 @@
 import type { AppState, DownloadItem, Intent } from "../../contracts/index.js";
-import { clampCursor, orderOf, prevAction, pushHistory, stepBackward, stepForward } from "./queue.js";
+import { clampCursor, nextShuffleSeed, orderOf, prevAction, pushHistory, stepBackward, stepForward } from "./queue.js";
 
 /**
  * 单写者 store（I2）。全应用只有 dispatch 一个写入口。
@@ -218,9 +218,18 @@ function reduce(current: AppState, intent: Intent): AppState {
       return switchTo(staged, cursor);
     }
 
+    case "queue/add": {
+      // 追加到队尾：不打断当前播放，光标不动（唱完这几首才会轮到）
+      const add = intent.items.filter((id) => typeof id === "string" && id.length > 0);
+      if (add.length === 0) return current;
+      const items = [...queue.items, ...add];
+      return { ...current, queue: { ...queue, items } };
+    }
+
     case "queue/next": {
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
-      const next = stepForward(order, queue.cursor, queue.mode);
+      // byUser=true：用户主动点「下一首」，单曲循环也照常切（自然结束那条路走 player/ended）
+      const next = stepForward(order, queue.cursor, queue.mode, true);
       return next < 0
         ? { ...current, player: { ...player, status: "ended", positionMs: 0 } }
         : switchTo(current, next);
@@ -233,12 +242,14 @@ function reduce(current: AppState, intent: Intent): AppState {
         return { ...current, player: { ...player, positionMs: 0 } };
       }
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
-      return switchTo(current, stepBackward(order, queue.cursor, queue.mode));
+      return switchTo(current, stepBackward(order, queue.cursor, queue.mode, true));
     }
 
     case "queue/mode": {
       if (queue.mode === intent.mode) return current;
-      return { ...current, queue: { ...queue, mode: intent.mode } };
+      // 切到随机必须换种子：种子不变 = 每次进随机都是同一个排列（用户看到"随机没生效"）
+      const seed = intent.mode === "shuffle" ? nextShuffleSeed(queue.shuffleSeed) : queue.shuffleSeed;
+      return { ...current, queue: { ...queue, mode: intent.mode, shuffleSeed: seed } };
     }
 
     case "queue/remove": {

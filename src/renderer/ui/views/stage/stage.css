@@ -824,6 +824,10 @@
 .st-immer.narrow .im-top {
   align-self: stretch;
 }
+/* 降级文案默认不显示；窄屏由媒体查询点亮（视口宽度是浏览器的事实，JS 的 resize 可能迟到） */
+.im-narrow {
+  display: none;
+}
 .im-top {
   display: flex;
   align-items: flex-start;
@@ -1243,10 +1247,16 @@
   animation: none;
 }
 
-/* 沉浸态窄窗：三栏挤不下，整页只留降级提示（b2 稿的 ≥900px 线） */
+/* 沉浸态窄窗：三栏挤不下，整页只留降级提示（b2 稿的 ≥900px 线）。
+   判定归 CSS（媒体查询是视口宽度的权威），JS 的 .narrow 类只做语义标记。 */
 @media (max-width: 899px) {
-  .st-immer:not(.narrow) .im-body,
-  .st-immer:not(.narrow) .im-foot {
+  .st-immer .im-narrow {
+    display: block;
+    text-align: center;
+    margin: auto;
+  }
+  .st-immer .im-body,
+  .st-immer .im-foot {
     display: none;
   }
 }

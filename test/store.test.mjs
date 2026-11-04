@@ -72,6 +72,35 @@ function reset(items = ["a", "b", "c", "d"], startAt = 1) {
   dispatch({ type: "player/play", trackId: items[startAt] });
 }
 
+/* ---------- 「添加到队列」：追加不打断 ---------- */
+
+test("queue/add：追加到队尾，光标与当前播放都不动", () => {
+  reset(["a", "b"], 0);
+  dispatch({ type: "queue/add", items: ["x", "y"] });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["a", "b", "x", "y"]);
+  assert.equal(s.queue.cursor, 0);
+  assert.equal(s.player.trackId, "a");
+});
+
+test("queue/add：空数组与空串不产生新状态", () => {
+  reset(["a"], 0);
+  const before = getState();
+  dispatch({ type: "queue/add", items: [] });
+  dispatch({ type: "queue/add", items: [""] });
+  assert.equal(getState(), before);
+});
+
+test("单曲循环下用户点下一首仍切歌（自然结束才重播本曲）", () => {
+  // 抄 lx 的 isAutoToggle 双路径：手动切歌按列表走，单曲循环只约束 ended
+  reset(["a", "b", "c"], 0);
+  dispatch({ type: "queue/mode", mode: "repeat-one" });
+  dispatch({ type: "queue/next" });
+  const s = getState();
+  assert.equal(s.queue.cursor, 1);
+  assert.equal(s.player.trackId, "b");
+});
+
 test("删当前之前的：光标减一，播放曲目不变", () => {
   reset();
   dispatch({ type: "queue/remove", index: 0 });

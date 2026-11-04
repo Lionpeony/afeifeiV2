@@ -26,6 +26,8 @@ export interface LibraryViewProps {
   onPlay(index: number): void;
   /** 分组视图的播放：队列 = 该专辑/歌手的曲目（M10-1）。 */
   onPlayGroup(tracks: Track[], startAt: number): void;
+  /** 「加入队列」：追加到队尾，不打断当前播放。 */
+  onAddToQueue(ids: string[]): void;
   onScan(): void;
   scanning: boolean;
   scanNote: string;
@@ -41,7 +43,15 @@ type View = "list" | "albums" | "artists";
  * 虚拟化是硬要求不是优化：5000 行全渲染时，滚动会让 React 每帧协调 5000 个节点。
  * 这里只渲染可见区间（约 30 行），其余交给 translateY 和总高撑滚动条。
  */
-export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, cover }: LibraryViewProps) {
+export function LibraryView({
+  onPlay,
+  onPlayGroup,
+  onAddToQueue,
+  onScan,
+  scanning,
+  scanNote,
+  cover,
+}: LibraryViewProps) {
   const [rows, setRows] = useState<Track[]>(getFiltered());
   const [keyword, setKeyword] = useState(getQuery());
   const [total, setTotal] = useState(getTracks().length);
@@ -172,17 +182,32 @@ export function LibraryView({ onPlay, onPlayGroup, onScan, scanning, scanNote, c
                       <span className="lib-artist">{track.artist}</span>
                       <span className="lib-album">{track.album}</span>
                       <span className="lib-dur">{fmtDuration(track.durationMs)}</span>
-                      <button
-                        type="button"
-                        className={`lib-like${isLiked(track.id) ? " on" : ""}`}
-                        aria-label={isLiked(track.id) ? "取消收藏" : "收藏"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleLike(track.id);
-                        }}
-                      >
-                        ♥
-                      </button>
+                      {/* 两个操作挤在同一格：表头是 6 列，多一个元素就会错位 */}
+                      <span className="lib-ops">
+                        <button
+                          type="button"
+                          className={`lib-like${isLiked(track.id) ? " on" : ""}`}
+                          aria-label={isLiked(track.id) ? "取消收藏" : "收藏"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleLike(track.id);
+                          }}
+                        >
+                          ♥
+                        </button>
+                        <button
+                          type="button"
+                          className="lib-addq"
+                          aria-label="加入队列（不打断当前播放）"
+                          title="加入队列（不打断当前播放）"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToQueue([track.id]);
+                          }}
+                        >
+                          ≡
+                        </button>
+                      </span>
                     </div>
                   ))}
                 </div>

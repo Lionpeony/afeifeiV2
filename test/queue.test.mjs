@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   clampCursor,
+  nextShuffleSeed,
   orderOf,
   positionOf,
   prevAction,
@@ -47,8 +48,20 @@ test("空队列与单元素队列的投影", () => {
   assert.deepEqual(orderOf(["x"], "shuffle", 1), [0]);
 });
 
-/* ---------- positionOf ---------- */
+/* ---------- nextShuffleSeed：切到随机要换种子 ---------- */
 
+test("nextShuffleSeed：每次都不一样（不然随机没生效）", () => {
+  const s1 = nextShuffleSeed(1);
+  const s2 = nextShuffleSeed(s1);
+  assert.notEqual(s1, 1);
+  assert.notEqual(s2, s1);
+});
+
+test("nextShuffleSeed：同起点可复现（纯函数，不是随机数）", () => {
+  assert.equal(nextShuffleSeed(7), nextShuffleSeed(7));
+});
+
+/* ---------- positionOf ---------- */
 test("positionOf 找到下标位置", () => {
   assert.equal(positionOf([2, 0, 3, 1], 3), 2);
 });
@@ -73,6 +86,16 @@ test("前进：repeat-all 到末尾绕回第一个", () => {
 
 test("前进：repeat-one 原地不动", () => {
   assert.equal(stepForward([0, 1, 2, 3], 2, "repeat-one"), 2);
+});
+
+test("前进：repeat-one 下用户手动点下一首要切歌（byUser=true）", () => {
+  // 单曲循环只约束「自然结束」；手动切歌照常切（抄 lx 的 isAutoToggle 双路径：
+  // src\renderer\core\player\action.ts 的 playNext，手动时强制按 listLoop 语义）
+  assert.equal(stepForward([0, 1, 2, 3], 2, "repeat-one", true), 3);
+});
+
+test("前进：repeat-one 下用户手动切到队尾后按 order 停（不回绕）", () => {
+  assert.equal(stepForward([0, 1, 2, 3], 3, "repeat-one", true), -1);
 });
 
 test("前进：空队列返回 -1", () => {
@@ -105,6 +128,10 @@ test("后退：repeat-all 在头部绕到末尾", () => {
 
 test("后退：repeat-one 原地不动", () => {
   assert.equal(stepBackward([0, 1, 2, 3], 2, "repeat-one"), 2);
+});
+
+test("后退：repeat-one 下用户手动点上一首要切歌（byUser=true）", () => {
+  assert.equal(stepBackward([0, 1, 2, 3], 2, "repeat-one", true), 1);
 });
 
 test("后退：空队列返回 -1", () => {

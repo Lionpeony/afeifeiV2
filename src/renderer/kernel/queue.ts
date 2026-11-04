@@ -34,6 +34,19 @@ export function orderOf(items: TrackId[], mode: PlayMode, seed: number): number[
   return out;
 }
 
+/**
+ * 下一个 shuffle 种子（LCG 递进，纯函数）。
+ *
+ * 为什么不用 Math.random：kernel 不碰不确定性来源（Date.now / Math.random 都不该进来，
+ * 见 sleep/set 的约定）。递进式同样是"每次不同"，而且给定起点可复现。
+ *
+ * 为什么需要它：切到随机模式时必须换种子 —— 种子不变 = 每次进随机都是同一个排列，
+ * 用户看到的就是"随机没生效"（而且某些队列长度下排列可能与原序完全一样）。
+ */
+export function nextShuffleSeed(seed: number): number {
+  return (Math.imul(seed >>> 0, 1103515245) + 12345) >>> 0;
+}
+
 /** order 里 cursor 处于第几个位置（-1 表示不在队列里）。 */
 export function positionOf(order: number[], cursor: number): number {
   return order.indexOf(cursor);
@@ -42,22 +55,40 @@ export function positionOf(order: number[], cursor: number): number {
 /**
  * 前进一格。
  * 返回 -1 表示"队列到头且不循环"，调用方据此停播（不要自作聪明回头）。
+ *
+ * `byUser` 区分两条路径（抄 lx-music-desktop `src\renderer\core\player\action.ts`
+ * 的 `isAutoToggle` 双路径：手动切歌时强制按 listLoop 语义）：
+ * - false = 自然播放结束（ended）：单曲循环 → 重播本曲；
+ * - true  = 用户主动点「下一首」：单曲循环也照常切下一首（Spotify / Apple Music 的通行行为）。
  */
-export function stepForward(order: number[], cursor: number, mode: PlayMode): number {
+export function stepForward(
+  order: number[],
+  cursor: number,
+  mode: PlayMode,
+  byUser = false,
+): number {
   if (order.length === 0) return -1;
   const pos = positionOf(order, cursor);
   if (pos < 0) return order[0];
-  if (mode === "repeat-one") return cursor;
+  if (mode === "repeat-one" && !byUser) return cursor;
   if (pos === order.length - 1) return mode === "repeat-all" ? order[0] : -1;
   return order[pos + 1];
 }
 
-/** 后退一格。队列头后退：order 模式停在原地，repeat-all 绕到末尾。 */
-export function stepBackward(order: number[], cursor: number, mode: PlayMode): number {
+/**
+ * 后退一格。队列头后退：order 模式停在原地，repeat-all 绕到末尾。
+ * `byUser` 语义同 stepForward：用户主动点「上一首」时，单曲循环也照常切上一首。
+ */
+export function stepBackward(
+  order: number[],
+  cursor: number,
+  mode: PlayMode,
+  byUser = false,
+): number {
   if (order.length === 0) return -1;
   const pos = positionOf(order, cursor);
   if (pos < 0) return order[0];
-  if (mode === "repeat-one") return cursor;
+  if (mode === "repeat-one" && !byUser) return cursor;
   if (pos === 0) return mode === "repeat-all" ? order[order.length - 1] : cursor;
   return order[pos - 1];
 }

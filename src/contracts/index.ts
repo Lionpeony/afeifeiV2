@@ -146,6 +146,8 @@ export type Intent =
   | { type: "player/ended" }
   | { type: "player/error"; code: ErrorCode }
   | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }
+  /** 追加到队尾（"添加到队列"）：不打断当前播放，cursor 不动。 */
+  | { type: "queue/add"; items: TrackId[] }
   | { type: "queue/next" }
   /** atPositionMs 由 UI 带上来：store 不追实时位置，但 3 秒规则要用它 */
   | { type: "queue/prev"; atPositionMs?: number }

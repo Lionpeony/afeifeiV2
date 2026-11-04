@@ -3,3 +3,8 @@
  * 不准直接 import ./store.js —— 出口只有一个，写入口才收得住。
  */
 export { getState, subscribe, dispatch } from "./store.js";
+/**
+ * 队列纯函数也从这里出：UI 要按**播放序**显示「接下来」
+ * （shuffle 是投影，显示的必须是真会播的那几首），但不能直接摸 store.js。
+ */
+export { orderOf, positionOf } from "./queue.js";

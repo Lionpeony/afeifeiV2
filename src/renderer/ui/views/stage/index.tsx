@@ -5,7 +5,7 @@ import { getProvider } from "../../../capability/registry.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { lineStartMs } from "../../../domain/lyrics/cursor.js";
-import { dispatch } from "../../../kernel/index.js";
+import { dispatch, orderOf, positionOf } from "../../../kernel/index.js";
 import { onTick } from "../../compositor.js";
 import { lyricState, subscribeLyric } from "../../lyric-source.js";
 import { PageHead } from "../../PageHead.js";
@@ -121,13 +121,34 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
     return `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
   }, []);
 
-  const upNext = queue.items.slice(queue.cursor + 1, queue.cursor + 1 + UP_NEXT);
+  /**
+   * 「接下来」按**播放序**取 —— shuffle 是投影，显示的必须是真会播的那几首
+   * （以前按 items 原顺序排，随机模式下看到的下一首和真播的对不上）。
+   * 两套下标不能混：显示编号用播放序位次，操作（播 / 移 / 删）用 items 下标。
+   */
+  const playOrder = useMemo(
+    () => orderOf(queue.items, queue.mode, queue.shuffleSeed),
+    [queue.items, queue.mode, queue.shuffleSeed],
+  );
+  const cursorPos = positionOf(playOrder, queue.cursor);
+  const upNextIdx = useMemo((): number[] => {
+    if (cursorPos < 0) return playOrder.slice(0, UP_NEXT);
+    const rest = playOrder.slice(cursorPos + 1);
+    // 列表循环：接下来会绕回队头
+    if (queue.mode === "repeat-all") {
+      return rest.concat(playOrder.slice(0, cursorPos + 1)).slice(0, UP_NEXT);
+    }
+    return rest.slice(0, UP_NEXT);
+    // playOrder / cursorPos 都是上面算出来的派生值
+  }, [playOrder, cursorPos, queue.mode]);
+  const upNext = upNextIdx.map((i) => queue.items[i]);
   const upNextKey = upNext.join("|");
 
   /* 队列行（普通右栏与沉浸态共用）：A-20 可点播、可上移、可删，下标一律用 items 下标 */
   const nxRows = (): React.ReactNode =>
-    upNext.map((id, i) => {
-      const at = queue.cursor + 1 + i;
+    upNextIdx.map((at) => {
+      const id = queue.items[at];
+      const no = playOrder.indexOf(at) + 1; // 播放序位次（显示用，与操作用的 items 下标不是一回事）
       return (
         <div className="st-nx" key={id}>
           <button
@@ -142,7 +163,7 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
               })
             }
           >
-            <i className="no">{pad2(at + 1)}</i>
+            <i className="no">{pad2(no)}</i>
             <span className="art" style={queueCovers[id] ? { backgroundImage: `url("${queueCovers[id]}")` } : undefined} />
             <span className="tx">
               {tracksMap.get(id)?.title ?? fileOf(id)}
@@ -456,7 +477,11 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
               <b>
                 SIDE A · {today} · {sourceName}
               </b>
-              <span>{queue.items.length > 0 ? `QUEUE ${pad2(queue.cursor + 1)} / ${queue.items.length}` : "QUEUE —"}</span>
+              <span>
+                {queue.items.length > 0
+                  ? `QUEUE ${pad2(Math.max(1, cursorPos + 1))} / ${queue.items.length}`
+                  : "QUEUE —"}
+              </span>
               <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
                 视图
               </button>
@@ -641,7 +666,9 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
       ) : null}
 
       {/* b2 沉浸态（stage-v10 b2「刻纹现场」）：全屏覆盖层，Esc 退出，<900px 降级为提示。
-          巨字标题 + 封套相纸 + 黑胶盘（暂停即停转）+ 大词 + 队列 + 底部走带 */}
+          巨字标题 + 封套相纸 + 黑胶盘（暂停即停转）+ 大词 + 队列 + 底部走带。
+          窄屏判定由 CSS 媒体查询做主（视口宽度是浏览器的事实，JS 的 resize 事件可能迟到），
+          JS 只补一个 .narrow 类做语义标记。 */}
       {immersive ? (
         <div className={`st-immer${immerNarrow ? " narrow" : ""}`} role="dialog" aria-label="沉浸播放">
           <header className="im-top">
@@ -656,11 +683,9 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
             </div>
           </header>
 
-          {immerNarrow ? (
-            <p className="im-narrow">沉浸播放需要更宽的窗口（≥ 900px）　按 Esc 退回普通播放页</p>
-          ) : (
-            <>
-              <div className="im-body">
+          <p className="im-narrow">沉浸播放需要更宽的窗口（≥ 900px）　按 Esc 退回普通播放页</p>
+
+          <div className="im-body">
                 <div className="im-lead">
                   {/* 字号跟着曲名长度走（docs/17 POSTER 的真实工程问题：长曲名定字号必爆版） */}
                   <h2 className={`im-title${nowTitle.length > 20 ? " long" : nowTitle.length > 10 ? " mid" : ""}`}>
@@ -793,8 +818,6 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme, du
                   按 Esc 退回
                 </p>
               </footer>
-            </>
-          )}
         </div>
       ) : null}
     </section>
