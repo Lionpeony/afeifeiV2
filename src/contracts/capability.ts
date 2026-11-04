@@ -115,6 +115,8 @@ export type { LyricDoc } from "./lyric.js";
 export interface AccountCapability {
   dailySongs(): Promise<RemoteTrack[]>;
   likedIds(): Promise<string[]>;
+  /** 红心曲目的**详情**（标题/时长/封面）。likedIds 只有 id，列表页渲染不了。 */
+  likedSongs(): Promise<RemoteTrack[]>;
   setLiked(songId: string, liked: boolean): Promise<void>;
   listeningHistory(range: "week" | "all"): Promise<RemoteTrack[]>;
   personalFm(): Promise<RemoteTrack[]>;

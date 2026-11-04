@@ -22,6 +22,9 @@ interface ApiError extends Error {
   code: string;
 }
 
+/** song_detail 一次带多少个 id。实测 200 稳；再大 URL 会变长，eapi 那边也没必要。 */
+const LIKED_BATCH = 200;
+
 function err(code: string, message: string): ApiError {
   return Object.assign(new Error(message), { code }) as ApiError;
 }
@@ -65,6 +68,12 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
   }
 
   /* ---------- 账号身份 ---------- */
+
+  /** 红心 id 列表（likelist 必须带 uid）。likedIds 与 likedSongs 共用。 */
+  async function likedIdList(): Promise<string[]> {
+    const body = await ncm<{ ids?: (number | string)[] }>("likelist", { uid: await requireUid() });
+    return (body?.ids ?? []).map((id) => String(id));
+  }
 
   /** uid 从登录态取（login_status 的 profile.userId），不要求调用方传。 */
   async function requireUid(): Promise<number> {
@@ -252,8 +261,23 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       },
 
       async likedIds(): Promise<string[]> {
-        const body = await ncm<{ ids?: (number | string)[] }>("likelist", { uid: await requireUid() });
-        return (body?.ids ?? []).map((id) => String(id));
+        return likedIdList();
+      },
+
+      /** 红心详情：likelist 只给 id，列表页要标题/时长/封面，必须再发 song_detail。 */
+      async likedSongs(): Promise<RemoteTrack[]> {
+        const ids = await likedIdList();
+        const out: RemoteTrack[] = [];
+        // song_detail 一次吃一批 id（实测 200 个没问题）：500 首红心 = 3 次请求，不是 500 次
+        for (let i = 0; i < ids.length; i += LIKED_BATCH) {
+          const chunk = ids.slice(i, i + LIKED_BATCH);
+          const body = await ncm<{ songs?: Record<string, unknown>[] }>("song_detail", { ids: chunk.join(",") });
+          for (const song of body?.songs ?? []) {
+            const track = toTrack(song);
+            if (track) out.push(track);
+          }
+        }
+        return out;
       },
 
       async setLiked(songId: string, liked: boolean): Promise<void> {

@@ -152,6 +152,8 @@ export interface Services {
   accountDailySongs(sourceId: string): Promise<RemoteTrack[]>;
   /** 账号红心的 songId 列表。**不是**本地曲库那套 trackId。 */
   accountLikedIds(sourceId: string): Promise<string[]>;
+  /** 账号红心的曲目详情（批量取，不是 N 次单曲请求）。 */
+  accountLikedSongs(sourceId: string): Promise<RemoteTrack[]>;
   /** 收藏 / 取消（账号级）。 */
   accountSetLiked(sourceId: string, songId: string, liked: boolean): Promise<void>;
   /** 听歌排行：week 近一周 / all 全部。 */

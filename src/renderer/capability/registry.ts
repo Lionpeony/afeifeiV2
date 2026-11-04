@@ -15,7 +15,14 @@ import {
 const providers = new Map<string, SourceProvider>();
 
 /** AccountCapability 的五件事，缺一个就在启动时炸（见 assertCapabilities）。 */
-const ACCOUNT_METHODS = ["dailySongs", "likedIds", "setLiked", "listeningHistory", "personalFm"] as const;
+const ACCOUNT_METHODS = [
+  "dailySongs",
+  "likedIds",
+  "likedSongs",
+  "setLiked",
+  "listeningHistory",
+  "personalFm",
+] as const;
 
 export class CapabilityError extends Error {
   constructor(message: string) {

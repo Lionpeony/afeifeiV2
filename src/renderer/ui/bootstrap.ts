@@ -522,6 +522,7 @@ export async function bootstrap(): Promise<Services> {
     canAccount: (sourceId) => Boolean(getProvider(sourceId)?.account),
     accountDailySongs: (sourceId) => runAccount(sourceId, (acc) => acc.dailySongs()),
     accountLikedIds: (sourceId) => runAccount(sourceId, (acc) => acc.likedIds()),
+    accountLikedSongs: (sourceId) => runAccount(sourceId, (acc) => acc.likedSongs()),
     accountSetLiked: (sourceId, songId, liked) =>
       runAccount(sourceId, (acc) => acc.setLiked(songId, liked)),
     accountHistory: (sourceId, range) => runAccount(sourceId, (acc) => acc.listeningHistory(range)),

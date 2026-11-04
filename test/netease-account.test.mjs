@@ -118,6 +118,33 @@ test("听歌排行：week → type 1 取 weekData，all → type 0 取 allData�
   assert.equal(all[1].title, "搁浅");
 });
 
+test("红心详情：likelist 拿 id → song_detail 分批取详情（不是 N 次单曲请求）", async () => {
+  const ids = Array.from({ length: 250 }, (_, i) => i + 1);
+  const api = fakeApi({
+    likelist: { ids },
+    song_detail: (params) => {
+      const wanted = String(params.ids).split(",").map(Number);
+      return { songs: wanted.map((id) => rawSong(id, `第${id}首`)) };
+    },
+  });
+  const p = createNeteaseProvider(api);
+  const songs = await p.account.likedSongs();
+
+  const detailCalls = api.calls.filter((c) => c.method === "song_detail");
+  assert.equal(detailCalls.length, 2, `250 首应分 2 批，实际 ${detailCalls.length} 次`);
+  assert.equal(detailCalls[0].params.ids.split(",").length, 200);
+  assert.equal(detailCalls[1].params.ids.split(",").length, 50);
+  assert.equal(songs.length, 250);
+  assert.equal(songs[249].title, "第250首");
+});
+
+test("红心详情：一首都没有时不发 song_detail（省一次请求）", async () => {
+  const api = fakeApi({ likelist: { ids: [] } });
+  const p = createNeteaseProvider(api);
+  assert.deepEqual(await p.account.likedSongs(), []);
+  assert.equal(api.calls.filter((c) => c.method === "song_detail").length, 0);
+});
+
 test("个人 FM：取 data，未登录给 auth-required", async () => {
   const ok = createNeteaseProvider(fakeApi({ personal_fm: { data: [rawSong(11, "半岛铁盒")] } }));
   const songs = await ok.account.personalFm();
