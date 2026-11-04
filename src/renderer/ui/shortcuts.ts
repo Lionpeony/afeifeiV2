@@ -14,6 +14,7 @@ import {
   type ShortcutAction,
   type ShortcutBinding,
 } from "../domain/shortcuts/index.js";
+import { createTriggerGate } from "../domain/shortcuts/trigger-gate.js";
 
 export interface ShortcutStatus {
   action: ShortcutAction;
@@ -51,6 +52,12 @@ export function createShortcuts(api: ShortcutsApi, onAction: (action: ShortcutAc
   let status: ShortcutStatus[] = [];
   const listeners = new Set<(s: ShortcutStatus[]) => void>();
 
+  /**
+   * 长按不重复（P0-23）：系统级注册没有 keyup，按住方向键会被 key repeat 反复回调，
+   * 5 秒一步的 seek 直接飙到底。同一条动作 250ms 内只放行一次。
+   */
+  const gate = createTriggerGate();
+
   const publish = (): void => {
     for (const cb of listeners) cb(status);
   };
@@ -60,6 +67,7 @@ export function createShortcuts(api: ShortcutsApi, onAction: (action: ShortcutAc
   };
 
   api.onGlobalShortcut((action) => {
+    if (!gate(action)) return; // 长按产生的重复回调
     onAction(action as ShortcutAction);
   });
 
