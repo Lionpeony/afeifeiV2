@@ -3,6 +3,11 @@ import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { getLikes, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
+import {
+  getAccountLikes,
+  isAccountLiked,
+  subscribe as subscribeAccountLikes,
+} from "../../../domain/account-likes/index.js";
 import { AccountBlock } from "../../AccountBlock.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
@@ -33,6 +38,23 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
   const [byAlbum, setByAlbum] = useState(false);
   const bump = (): void => setRev((r) => r + 1);
   const acct = useAccountBundle(account);
+
+  /*
+   * 账号红心的**唯一事实源**是域（播放条那颗心读的也是它）：
+   * 页面只负责把域里的 id 套在详情上，取消红心后域一变，行自己就没了。
+   * 域还没读完时不过滤——否则会把整页清空，闪一下再回来。
+   */
+  const [, setLikeRev] = useState(0);
+  useEffect(() => subscribeAccountLikes(() => setLikeRev((r) => r + 1)), []);
+  const likeState = getAccountLikes();
+  const acctRows =
+    likeState.status === "ready"
+      ? {
+          ...acct,
+          songs: acct.songs.filter((t) => isAccountLiked(t.sourceId)),
+          error: acct.error ?? (likeState.error ?? null),
+        }
+      : { ...acct, error: acct.error ?? (likeState.status === "error" ? likeState.error : null) };
 
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeLikes(bump), []);
@@ -67,8 +89,12 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
       <AccountBlock
         title="账号红心"
         note="来自当前登录的网易云账号。点行末那颗心可从账号移除（会同步到网易云 App）。"
-        state={acct}
-        empty="这个账号还没有红心，或者今天红心接口没返回。"
+        state={acctRows}
+        empty={
+          likeState.countedEmpty
+            ? "这个账号确实还没有红心（平台确认 0 首）。"
+            : "这一栏是空的：要么刚把红心都取消了，要么还没读到。"
+        }
         onPlay={onPlayRemote}
         onUnlike={onUnlike}
       />

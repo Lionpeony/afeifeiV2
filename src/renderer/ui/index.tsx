@@ -17,7 +17,17 @@ import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
 import { clearLyric, loadLyric, setManualLyric, setUserOffset } from "./lyric-source.js";
 import { lyricBindKey } from "../domain/lyrics/bindings.js";
-import { toggleLike } from "../domain/likes/index.js";
+import { isLiked, subscribe as subscribeLikes, toggleLike } from "../domain/likes/index.js";
+import {
+  beginAccount,
+  getAccountLikes,
+  isAccountLiked,
+  pressAccountLike,
+  readLiked,
+  shouldRefreshOnFocus,
+  subscribe as subscribeAccountLikes,
+  type AccountLikesPort,
+} from "../domain/account-likes/index.js";
 import { SEEK_STEP_MS } from "./input/keymap.js";
 import { browserNetEnv, createNetStatus } from "./net-status.js";
 import { phaseLabel, phaseOf } from "./playback-phase.js";
@@ -162,6 +172,13 @@ function App() {
       startMiniBridge(s);
       startLyricBridge(s);
 
+      // 启动就把账号红心读一次：底栏那颗心不能等用户点进「喜欢的音乐」才有状态
+      void (async () => {
+        const { id } = await findAccountSource();
+        if (!alive || !id) return;
+        ensureAccount(id);
+      })();
+
       // 更新提示（M8）：一条线，不弹窗不打断播放
       s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
       // 上次异常退出：提示一次，之后不再烦
@@ -179,6 +196,12 @@ function App() {
 
   const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+  /*
+   * 底栏那颗心的状态：
+   * 在线曲目看账号红心域（songId），本地曲目看本机红心（trackId）。
+   * 两套 id 空间，A 方案的延伸——不合并，但同一个小按钮按载体分流。
+   */
+  const likedNow = remote ? isAccountLiked(remote.songId) : trackId ? isLiked(trackId) : false;
   // P0-26：解码中（status=loading）与缓冲中（playing + waiting）是两个词
   const phase = phaseOf(status, state.player.buffering);
   const sleepEndsAt = state.sleep.endsAt;
@@ -605,12 +628,8 @@ function App() {
         volumeBy: (delta) =>
           dispatch({ type: "player/setVolume", volume: getState().player.volume + delta }),
         mute: () => dispatch({ type: "player/setMuted", muted: !getState().player.muted }),
-        like: () => {
-          const p = getState().player;
-          // 在线曲目的 trackId 是直链，换了直链就是另一首 —— 红心只记本地曲目
-          if (!p.trackId || p.remote) return;
-          toggleLike(p.trackId);
-        },
+        // 在线曲目走账号红心（R1），本地曲目走本机红心；两者 id 空间不同，不混
+        like: () => likeActionRef.current?.(),
       }),
     [page],
   );
@@ -636,26 +655,36 @@ function App() {
    * 选第一个「有账号能力且已登录」的源；没有就把「有账号能力但没登录」这句话带回去——
    * 不带的话用户只看得到本地数据，永远不知道自己登录后这里是另一份。
    */
-  const accountBundle = async (kind: AccountKind): Promise<DailyBundle> => {
+  /** 找「有账号能力且已登录」的那个源。sawAccount 用来区分「没有此能力」和「有但没登录」。 */
+  const findAccountSource = async (): Promise<{ id: string | null; sawAccount: boolean }> => {
     const svc = services.current;
-    if (!svc) return { sourceId: "", songs: [], hint: null };
+    if (!svc) return { id: null, sawAccount: false };
     let sawAccount = false;
     for (const s of svc.sources()) {
       if (!s.canAccount) continue;
       sawAccount = true;
       const st = await svc.loginStatus(s.id).catch(() => ({ loggedIn: false, nick: null }));
-      if (!st.loggedIn) continue;
-      const songs =
-        kind === "daily"
-          ? await svc.accountDailySongs(s.id)
-          : kind === "liked"
-            ? await svc.accountLikedSongs(s.id)
-            : kind === "week"
-              ? await svc.accountHistory(s.id, "week")
-              : await svc.accountPersonalFm(s.id);
-      return { sourceId: s.id, songs, hint: null };
+      if (st.loggedIn) return { id: s.id, sawAccount: true };
     }
-    return { sourceId: "", songs: [], hint: sawAccount ? ACCOUNT_HINT[kind] : null };
+    return { id: null, sawAccount };
+  };
+
+  const accountBundle = async (kind: AccountKind): Promise<DailyBundle> => {
+    const svc = services.current;
+    if (!svc) return { sourceId: "", songs: [], hint: null };
+    const { id, sawAccount } = await findAccountSource();
+    if (!id) return { sourceId: "", songs: [], hint: sawAccount ? ACCOUNT_HINT[kind] : null };
+    const songs =
+      kind === "daily"
+        ? await svc.accountDailySongs(id)
+        : kind === "liked"
+          ? await svc.accountLikedSongs(id)
+          : kind === "week"
+            ? await svc.accountHistory(id, "week")
+            : await svc.accountPersonalFm(id);
+    // 任何一次成功的账号调用都顺手确认一下域绑的是这个账号（幂等）
+    ensureAccount(id);
+    return { sourceId: id, songs, hint: null };
   };
 
   /** 在线曲目播放带错误提示（四个入口共用，别各写一遍 catch）。 */
@@ -669,17 +698,94 @@ function App() {
    * 取消账号红心。照 folia `handleLike` 的三条：提示先答、失败说一次、失败要把状态放回去。
    * 这里是 `throw` 给 AccountBlock 的：它负责让行回到可用状态（reject = 没成功）。
    */
-  const unlikeAccount = async (sourceId: string, songId: string): Promise<void> => {
+  /** 当前登录的账号源；底栏红心与 focus 重读都靠它 */
+  const accountSource = useRef("");
+  /*
+   * 两套红心任一变化就重渲染：底栏那颗心读的是 isAccountLiked() / isLiked()，
+   * 都不是本地 state —— 不订阅就等于点了不亮（smoke 的「底栏红心」这条抓到过）。
+   */
+  const [, setLikeRev] = useState(0);
+  useEffect(() => subscribeAccountLikes(() => setLikeRev((r) => r + 1)), []);
+  useEffect(() => subscribeLikes(() => setLikeRev((r) => r + 1)), []);
+
+  /** 域不持有 port：每次现取。账号换了也不会把请求发到旧账号上。 */
+  const portOf = (sourceId: string): AccountLikesPort => {
     const svc = services.current;
     if (!svc) throw new Error("服务还没准备好");
+    return {
+      likedIds: () => svc.accountLikedIds(sourceId),
+      likedTotal: () => svc.accountLikedTotal(sourceId),
+      setLiked: (songId, liked) => svc.accountSetLiked(sourceId, songId, liked),
+    };
+  };
+
+  const unlikeAccount = async (sourceId: string, songId: string): Promise<void> => {
     try {
-      await svc.accountSetLiked(sourceId, songId, false);
+      await pressAccountLike(portOf(sourceId), songId, false);
       setNotice({ text: "已从账号红心移除" });
     } catch (err) {
       setNotice({ text: err instanceof Error ? err.message : "取消红心失败，已恢复" });
       throw err;
     }
   };
+
+  /** 底栏那颗心：在线曲目走账号红心，本地曲目走本机红心——两套 id，A 方案的延伸。 */
+  const toggleCurrentLike = (): void => {
+    const p = getState().player;
+    if (!p.trackId) return;
+    if (!p.remote) {
+      toggleLike(p.trackId);
+      return;
+    }
+    const songId = p.remote.songId;
+    void (async () => {
+      let id = accountSource.current;
+      if (!id) {
+        // 启动那一刻 services 可能还没就绪、或者用户没进过账号页：点的时候再找一次
+        const found = await findAccountSource();
+        if (found.id) {
+          ensureAccount(found.id);
+          id = found.id;
+        }
+      }
+      if (!id) {
+        setNotice({ text: "登录后才能红心在线曲目" });
+        return;
+      }
+      const wanted = !isAccountLiked(songId);
+      try {
+        await pressAccountLike(portOf(id), songId, wanted);
+        setNotice({ text: wanted ? "已加入账号红心" : "已从账号红心移除" });
+      } catch (err) {
+        setNotice({ text: err instanceof Error ? err.message : "红心没改成" });
+      }
+    })();
+  };
+  // 快捷键注册在依赖 [page] 的 effect 里，闭包会吃到旧值；用 ref 拿最新的这一份
+  const likeActionRef = useRef(toggleCurrentLike);
+  likeActionRef.current = toggleCurrentLike;
+
+  /** 绑定当前账号并读一次红心。重复调用同一个账号是空操作。 */
+  const ensureAccount = (id: string): void => {
+    if (accountSource.current === id) return;
+    accountSource.current = id;
+    beginAccount(id);
+    void readLiked(portOf(id)).catch(() => undefined);
+  };
+
+  /*
+   * 窗口重新获得焦点：在网易云 App 里改过红心，切回来要跟上。
+   * folia 的 readMoments.ts 做的是同一件事（它更细：按时间窗+歌单计数决定要不要读）。
+   */
+  useEffect(() => {
+    const onFocus = (): void => {
+      const id = accountSource.current;
+      if (!id || !shouldRefreshOnFocus()) return;
+      void readLiked(portOf(id)).catch(() => undefined);
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
@@ -1081,6 +1187,17 @@ function App() {
         </div>
 
         <div className="tools">
+          <button
+            type="button"
+            className={likedNow ? "like on" : "like"}
+            aria-label={likedNow ? "取消红心" : "加红心"}
+            aria-pressed={likedNow}
+            disabled={!trackId}
+            title={remote ? "账号红心（同步到网易云）" : "本机红心"}
+            onClick={toggleCurrentLike}
+          >
+            ♥
+          </button>
           <button
             type="button"
             title={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}

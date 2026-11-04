@@ -463,6 +463,18 @@ async function main() {
     await press("m"); // 复原，别把静音态带给后面的阶段
     console.log("  键位 OK：↑/↓ 音量、M 静音");
 
+    /* 底栏红心（R1）：本地曲目走本机红心，点一下就切换，再点回去 */
+    const heartBefore = await app2.evaluate(`document.querySelector(".tools .like")?.className ?? ""`);
+    await app2.evaluate(`document.querySelector(".tools .like")?.click()`);
+    await sleep(250);
+    const heartAfter = await app2.evaluate(`document.querySelector(".tools .like")?.className ?? ""`);
+    await app2.evaluate(`document.querySelector(".tools .like")?.click()`);
+    assert.ok(
+      heartBefore.includes("on") !== heartAfter.includes("on"),
+      `底栏红心应可切换：${heartBefore} → ${heartAfter}`,
+    );
+    console.log("  底栏红心 OK：本地曲目点一下就亮，再点回去");
+
     /* 账号每日推荐（R1）：未登录时必须说清「这是本地算的」，不能假装是账号的 */
     await app2.evaluate(`document.querySelector('[data-page="home"]')?.click()`);
     assert.ok(await app2.waitFor(`!!document.querySelector(".bill-end")`, 3000), "首页应有推荐节目单");

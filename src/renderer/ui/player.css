@@ -897,6 +897,32 @@ button.primary:hover:not(:disabled) {
   color: var(--accent);
 }
 
+/* ---- 底栏那颗心（R1）：在线曲目 = 账号红心，本地曲目 = 本机红心 ---- */
+.tools .like {
+  color: var(--accent);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.3;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.tools .like.on {
+  opacity: 1;
+}
+
+.tools .like:hover:not(:disabled),
+.tools .like:focus-visible {
+  opacity: 1;
+  transform: scale(1.12);
+  outline: none;
+}
+
+.tools .like:disabled {
+  opacity: 0.1;
+}
+
 /* ---- 账号数据区块（R1）：喜欢的音乐 / 最近播放的上半栏 ---- */
 .acct {
   margin: 0 0 18px;
