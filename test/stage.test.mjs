@@ -13,10 +13,12 @@ import {
   LAYER_KEYS,
   PRESETS,
   STAGE_TOKEN_KEYS,
+  VISUAL_MODES,
   assertPresetComplete,
   sanitizeStageConfig,
   sanitizeThemeTokens,
 } from "../dist-test/stage-presets.mjs";
+import { carouselFaces, ringGeom } from "../dist-test/stage-visuals.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
 /** 一份可控的测试 LyricDoc：只有 contracts/lyric.ts 一种模型（毫秒，逐字行内相对）。 */
@@ -227,6 +229,54 @@ test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", 
   assert.equal(sanitizeStageConfig({ preset: "paper" }).translation, true, "老存档没有这个字段=当时译文常显");
   assert.equal(sanitizeStageConfig({ translation: false }).translation, false);
   assert.equal(sanitizeStageConfig({ translation: "no" }).translation, true, "非布尔值不当成 false");
+});
+
+/* ---- C-13 视觉模式与封面轮播 ---- */
+
+test("C-13 visualMode：白名单外的回落 bars，老存档缺字段也是 bars", () => {
+  assert.deepEqual(VISUAL_MODES, ["bars", "wave", "ring"]);
+  assert.equal(sanitizeStageConfig(null).visualMode, "bars");
+  assert.equal(sanitizeStageConfig({ visualMode: "cube" }).visualMode, "bars", "不在白名单回落");
+  assert.equal(sanitizeStageConfig({ visualMode: "wave" }).visualMode, "wave");
+  assert.equal(sanitizeStageConfig({ visualMode: 1 }).visualMode, "bars", "非字符串回落");
+});
+
+test("C-13 coverCarousel：缺字段按关，只有显式 true 才开", () => {
+  assert.equal(sanitizeStageConfig(null).coverCarousel, false);
+  assert.equal(sanitizeStageConfig({ coverCarousel: true }).coverCarousel, true);
+  assert.equal(sanitizeStageConfig({ coverCarousel: "yes" }).coverCarousel, false);
+});
+
+test("C-13 stage/setVisualMode / setCarousel：切换生效且幂等", () => {
+  const s0 = getState().stage;
+  dispatch({ type: "stage/setVisualMode", mode: s0.visualMode });
+  assert.equal(getState().stage, s0, "值没变不产生新状态");
+  dispatch({ type: "stage/setVisualMode", mode: "ring" });
+  assert.equal(getState().stage.visualMode, "ring");
+  dispatch({ type: "stage/setCarousel", on: !s0.coverCarousel });
+  assert.equal(getState().stage.coverCarousel, !s0.coverCarousel);
+  dispatch({ type: "stage/setCarousel", on: s0.coverCarousel });
+  dispatch({ type: "stage/setVisualMode", mode: s0.visualMode });
+});
+
+test("C-13 carouselFaces：当前封面在前、去重、上限 6；不足两张给空数组", () => {
+  assert.deepEqual(carouselFaces(null, []), [], "没封面不硬转");
+  assert.deepEqual(carouselFaces("a", ["a"]), [], "只有一张不硬转");
+  assert.deepEqual(carouselFaces("a", ["a", "b"]), ["a", "b"], "重复的当前封面去重");
+  assert.deepEqual(carouselFaces(null, ["a", "b", "a", "c"]), ["a", "b", "c"]);
+  const many = ["1", "2", "3", "4", "5", "6", "7", "8"];
+  assert.equal(carouselFaces(null, many).length, 6, "上限 6");
+  assert.deepEqual(carouselFaces("cur", many)[0], "cur", "当前封面排第一");
+});
+
+test("C-13 ringGeom：内半径与柱长上限，画布太扁 lenMax=0", () => {
+  const g = ringGeom(480, 120);
+  assert.equal(g.cx, 240);
+  assert.equal(g.cy, 60);
+  assert.equal(g.r0, 60 * 0.35);
+  assert.ok(g.lenMax > 0, "120px 高画得出环形");
+  const tiny = ringGeom(480, 4);
+  assert.equal(tiny.lenMax, 0, "太扁就整圈不画");
 });
 
 test("stage/setTranslation：切换生效且幂等", () => {

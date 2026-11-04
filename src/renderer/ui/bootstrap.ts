@@ -511,6 +511,9 @@ export async function bootstrap(): Promise<Services> {
   // 睡眠定时偏好（P0-24）：只恢复"播完再停"这个勾选，不恢复定时本身
   dispatch({ type: "sleep/setWaitEnd", waitEnd: (await kv.read("sleep-wait-end")) === "1" });
 
+  // 首次使用引导（C-16）：KV 缺失 = 还没看过，App 挂载后弹一次
+  const onboarded = (await kv.read("onboarded")) !== null;
+
   // 歌词缓存：坏条目在 parseLyricCache 里逐条丢掉，不让一条烂数据清空整份
   lyricCache = parseLyricCache(await kv.read("lyric-cache"));
   // 手动换词绑定（P0-19）：同款逐条校验
@@ -951,6 +954,11 @@ export async function bootstrap(): Promise<Services> {
     removeLibraryRoot: (dir) => api.removeLibraryRoot(dir),
     autoLaunch: () => api.autoLaunch(),
     setAutoLaunch: (on) => api.setAutoLaunch(on),
+
+    onboarded,
+    async markOnboarded() {
+      await kv.write("onboarded", "1").catch(() => undefined);
+    },
 
     lyricFilters: () => Promise.resolve(rulesToText(getFilters())),
     async setLyricFilters(text) {

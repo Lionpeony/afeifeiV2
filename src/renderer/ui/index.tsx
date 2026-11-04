@@ -14,6 +14,7 @@ import { StageView } from "./views/stage/index.js";
 import { ChartsView } from "./views/charts/index.js";
 import { PlaylistsView } from "./views/playlists/index.js";
 import { StatsView } from "./views/stats/index.js";
+import { Onboarding } from "./views/onboarding.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -110,6 +111,7 @@ function App() {
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [theme, setThemeState] = useState<Theme>("light");
   const [libraryRoots, setLibraryRoots] = useState<string[]>([]);
+  const [onboarding, setOnboarding] = useState(false);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [lyricFiltersText, setLyricFiltersText] = useState("");
   const [globalTokenCount, setGlobalTokenCount] = useState(0);
@@ -178,6 +180,8 @@ function App() {
       syncPosition();
       startMiniBridge(s);
       startLyricBridge(s);
+      // 首次使用引导（C-16）：KV 里没看过就弹一次
+      if (!s.onboarded) setOnboarding(true);
 
       // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
       // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
@@ -1472,6 +1476,16 @@ function App() {
         <span className="stamp">入场券 · ADMIT ONE</span>
       </footer>
       <Toaster />
+
+      {/* 首次使用引导（C-16）：完成/跳过都写 KV，之后不再弹 */}
+      {onboarding ? (
+        <Onboarding
+          onDone={() => {
+            setOnboarding(false);
+            void services.current?.markOnboarded();
+          }}
+        />
+      ) : null}
 
       {fxOpen && (
         <div className="fx-panel" role="dialog" aria-label="音效设置">

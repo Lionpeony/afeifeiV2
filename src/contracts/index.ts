@@ -121,12 +121,22 @@ export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
 /** 四个歌词渲染器（50 §7.4）。加第五个必须先删一个。 */
 export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 
+/**
+ * C1 视觉层的呈现模式（C-13）。三种共用同一份 analyser 数据（I3 不破）：
+ * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。加第四种先问反目标 #2。
+ */
+export type VisualMode = "bars" | "wave" | "ring";
+
 export interface StageConfig {
   preset: StagePreset;
   /** 动效档位。0 时也必须好看 —— 这是设计的试金石。 */
   intensity: 0 | 1 | 2;
   layers: Record<StageLayer, boolean>;
   lyricRenderer: LyricRenderer;
+  /** C1 视觉模式（C-13）。默认 bars = 原频谱柱。 */
+  visualMode: VisualMode;
+  /** C2 封面 3D 轮播（C-13）。封面少于两张时自动退回单封面。 */
+  coverCarousel: boolean;
   /** 歌词译文是否并排显示（A-03）。关掉只留原文，译文数据仍在 doc 里不丢。 */
   translation: boolean;
   /** 导入的主题包对场景层 token 的覆盖。null = 没有导入。键必须登记过。 */
@@ -283,6 +293,10 @@ export type Intent =
   | { type: "stage/setLyricRenderer"; renderer: LyricRenderer }
   /** 译文并排开关（A-03）。只切显示，不改 doc —— 切回来不用重新取词。 */
   | { type: "stage/setTranslation"; on: boolean }
+  /** C1 视觉模式（C-13）。入口侧已 sanitize。 */
+  | { type: "stage/setVisualMode"; mode: VisualMode }
+  /** C2 封面 3D 轮播开关（C-13）。 */
+  | { type: "stage/setCarousel"; on: boolean }
   /** 主题包覆盖（入口侧已 sanitize）。null = 清除主题包。 */
   | { type: "stage/setTheme"; tokens: Record<string, string> | null }
   | { type: "stage/restore"; config: StageConfig }

@@ -186,6 +186,54 @@ app.whenReady().then(async () => {
     return true;
   };
 
+  // 首次使用引导（C-16）：临时 profile 每次都是新 KV，引导必须出现。
+  // 三步走完（判据：步进文案 + 第三步「开始用」），拍两张，关掉 —— 不挡后面的页面截图。
+  const ob1 = await win.webContents.executeJavaScript(
+    `(() => {
+      const veil = document.querySelector(".ob-veil");
+      if (!veil) return null;
+      return {
+        title: veil.querySelector("h2")?.textContent ?? "",
+        steps: veil.querySelectorAll(".ob-dots i").length,
+        skip: [...veil.querySelectorAll("button")].some((b) => b.textContent === "跳过引导"),
+      };
+    })()`,
+    true,
+  );
+  if (!ob1) throw new Error("首次启动没有出现使用引导（.ob-veil）");
+  if (ob1.steps !== 3 || !ob1.skip) throw new Error(`引导结构不对：${JSON.stringify(ob1)}`);
+  if (ob1.title !== "先把歌放进来") throw new Error(`引导第一步不对：${ob1.title}`);
+  await shoot("page-onboarding.png");
+  for (const label of ["下一步", "下一步"]) {
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === ${JSON.stringify(label)})?.click()`,
+      true,
+    );
+    await sleep(250);
+  }
+  const ob3 = await win.webContents.executeJavaScript(
+    `(() => ({
+      title: document.querySelector(".ob-card h2")?.textContent ?? "",
+      buttons: [...document.querySelectorAll(".ob-foot button")].map((b) => b.textContent.trim()),
+    }))()`,
+    true,
+  );
+  if (ob3.title !== "播放页随便换看法" || !ob3.buttons.includes("开始用")) {
+    throw new Error(`引导没走到第三步：${JSON.stringify(ob3)}`);
+  }
+  await shoot("page-onboarding-last.png");
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === "开始用")?.click()`,
+    true,
+  );
+  await sleep(250);
+  const obGone = await win.webContents.executeJavaScript(`!document.querySelector(".ob-veil")`, true);
+  if (!obGone) throw new Error("引导关掉后还挂着");
+  const obFlag = path.join(PROFILE, "store-onboarded.json");
+  if (!fs.existsSync(obFlag) || fs.readFileSync(obFlag, "utf8").trim() !== "1") {
+    throw new Error("引导完成标记没写进 KV");
+  }
+
   for (const [label, id] of PAGES) {
     const ok = await win.webContents.executeJavaScript(
       `(() => {
@@ -690,6 +738,42 @@ app.whenReady().then(async () => {
     throw new Error(`歌词时间轴控件不对：${JSON.stringify(timeline)}`);
   }
   await shoot("page-stage-timeline.png");
+
+  // 视觉模式（C-13）：切「声纹」「环形」必须落 data-mode；fixture 无真封面，
+  // 轮播开关只断言"打开但 <2 张封面时退回单封面"（不硬转）。
+  const clickMenuBtn = (name) =>
+    win.webContents.executeJavaScript(
+      `[...document.querySelectorAll(".st-menu button")].find((b) => b.textContent === ${JSON.stringify(name)})?.click()`,
+      true,
+    );
+  const readMode = () =>
+    win.webContents.executeJavaScript(`document.querySelector(".st-spectrum")?.getAttribute("data-mode")`, true);
+  await clickMenuBtn("声纹");
+  await sleep(200);
+  if ((await readMode()) !== "wave") throw new Error(`切声纹没生效：${await readMode()}`);
+  await clickMenuBtn("环形");
+  await sleep(200);
+  if ((await readMode()) !== "ring") throw new Error(`切环形没生效：${await readMode()}`);
+  await shoot("page-stage-visual-ring.png");
+  await clickMenuBtn("频谱");
+  await sleep(200);
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"))?.querySelector("input")?.click()`,
+    true,
+  );
+  await sleep(250);
+  const caro = await win.webContents.executeJavaScript(
+    `(() => {
+      const label = [...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"));
+      return {
+        checked: label?.querySelector("input")?.checked ?? null,
+        caro: !!document.querySelector(".st-caro"),
+      };
+    })()`,
+    true,
+  );
+  if (caro.checked !== true) throw new Error(`封面轮播开关没勾上：${JSON.stringify(caro)}`);
+  if (caro.caro) throw new Error("无封面 fixture 却渲染了轮播（应退回单封面）");
 
   app.quit();
 });

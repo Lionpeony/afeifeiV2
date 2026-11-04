@@ -10,8 +10,9 @@ import { onTick } from "../../compositor.js";
 import { lyricState, subscribeLyric } from "../../lyric-source.js";
 import { PageHead } from "../../PageHead.js";
 import { activeLine, karaokeState, litCount } from "./lyric-state.js";
-import { LAYER_KEYS, PRESETS } from "./presets.js";
+import { LAYER_KEYS, PRESETS, VISUAL_MODE_NAMES, VISUAL_MODES } from "./presets.js";
 import { barHeights } from "./spectrum.js";
+import { carouselFaces, ringGeom } from "./visuals.js";
 import { sampleCoverTint } from "./tint-client.js";
 
 const SPECTRUM_BARS = 48; // 电影感预设的频谱柱数（50 §9.2）
@@ -354,7 +355,7 @@ export function StageView({
             if (imStatRef.current && imStatRef.current.textContent !== stat) imStatRef.current.textContent = stat;
           }
         }
-        // 频谱（C1）：四套预设都能看，开关就是图层里的「频谱」（A-07 低端机可关）。
+        // 视觉（C1，C-13 三模式）：共用同一份 analyser 数据，开关就是图层里的「频谱」。
         // 静音/暂停时 barHeights 给全 0，屏幕上真的空 —— 不画假波形
         if (stage.layers.visual) {
           const canvas = rootRef.current?.querySelector<HTMLCanvasElement>(".st-spectrum");
@@ -367,21 +368,56 @@ export function StageView({
             const ink = spectrumColor.current;
             if (!ink) return;
             ctx.fillStyle = ink;
+            ctx.strokeStyle = ink;
             ctx.globalAlpha = 0.55;
             const w = width / SPECTRUM_BARS;
-            for (let i = 0; i < bars.length; i += 1) {
-              const h = bars[i];
-              if (h <= 0) continue;
-              ctx.fillRect(i * w + 1, height - h, w - 2, h);
+            if (stage.visualMode === "ring") {
+              // 环形：柱从内半径向外伸，48 根绕一圈。画布太扁（lenMax=0）就整圈不画
+              const g = ringGeom(width, height);
+              if (g.lenMax > 0) {
+                ctx.lineWidth = Math.max(1.5, w * 0.6);
+                const cap90 = height * 0.9; // barHeights 的封顶值（见 spectrum.ts）
+                for (let i = 0; i < bars.length; i += 1) {
+                  const len = (bars[i] / cap90) * g.lenMax;
+                  if (len <= 0) continue;
+                  const a = (i / bars.length) * Math.PI * 2 - Math.PI / 2;
+                  const cos = Math.cos(a);
+                  const sin = Math.sin(a);
+                  ctx.beginPath();
+                  ctx.moveTo(g.cx + cos * g.r0, g.cy + sin * g.r0);
+                  ctx.lineTo(g.cx + cos * (g.r0 + len), g.cy + sin * (g.r0 + len));
+                  ctx.stroke();
+                }
+              }
+            } else if (stage.visualMode === "wave") {
+              // 声纹波：同一份柱高以中轴镜像，读作波形
+              for (let i = 0; i < bars.length; i += 1) {
+                const h = bars[i];
+                if (h <= 0) continue;
+                ctx.fillRect(i * w + 1, (height - h) / 2, w - 2, h);
+              }
+            } else {
+              for (let i = 0; i < bars.length; i += 1) {
+                const h = bars[i];
+                if (h <= 0) continue;
+                ctx.fillRect(i * w + 1, height - h, w - 2, h);
+              }
             }
             ctx.globalAlpha = 1;
           }
         }
       }),
-    [doc, renderer, stage.preset, stage.layers.visual, stage.intensity, spectrum, durationMs],
+    [doc, renderer, stage.preset, stage.layers.visual, stage.visualMode, stage.intensity, spectrum, durationMs],
   );
 
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
+
+  /* C-13 轮播面：当前封面 + 队列封面去重；<2 张给空数组（退回单封面，不硬转）。
+     依赖用 upNextKey（3+ 首 id 的稳定串），数组每帧换引用会把 memo 打穿 */
+  const caroFaces = useMemo(
+    () => (stage.coverCarousel ? carouselFaces(coverUrl, upNext.map((id) => queueCovers[id])) : []),
+    [stage.coverCarousel, coverUrl, upNextKey, queueCovers],
+  );
 
   /* 台词本：一屏 12 句，当前句往前留 4 句（歌词几百行也不铺满整页） */
   const scriptStart = doc
@@ -477,8 +513,9 @@ export function StageView({
         <div className={`st-wallpaper ${preset.wallpaperFromCover ? "from-cover" : ""}`} />
       ) : null}
 
-      {/* C1 视觉：频谱（A-07）。关掉=不渲染 canvas，每帧绘制直接不跑 —— 低端机就靠这个 */}
-      {stage.layers.visual ? <canvas className="st-spectrum" width={480} height={120} /> : null}
+      {/* C1 视觉（A-07 / C-13）：三模式共用这一个 canvas，data-mode 给截图桩与调试用。
+          关掉=不渲染 canvas，每帧绘制直接不跑 —— 低端机就靠这个 */}
+      {stage.layers.visual ? <canvas className="st-spectrum" width={480} height={120} data-mode={stage.visualMode} /> : null}
 
       <div className="st-page">
         <PageHead
@@ -549,7 +586,19 @@ export function StageView({
                 className={coverUrl ? "art" : "art no-cover"}
                 data-side={nowTrack ? `SIDE A · ${pad2(queue.cursor + 1)}` : "SIDE A"}
               >
-                {coverUrl ? <img ref={coverRef} className="st-cover-img" src={coverUrl} alt="" /> : null}
+                {/* C-13 轮播：≥2 张封面才转，否则退回单封面（caroFaces 空数组就是这个信号）。
+                    aria-hidden：轮播是装饰，曲名/歌手在下面的 cap 里都有语义 */}
+                {caroFaces.length >= 2 ? (
+                  <div className="st-caro" aria-hidden="true">
+                    <div className="st-caro-ring" style={{ "--st-caro-n": caroFaces.length } as React.CSSProperties}>
+                      {caroFaces.map((url, i) => (
+                        <img key={url} src={url} alt="" style={{ "--st-caro-i": i } as React.CSSProperties} />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  coverUrl ? <img ref={coverRef} className="st-cover-img" src={coverUrl} alt="" /> : null
+                )}
                 <div className="cap">
                   <b>{nowTitle}</b>
                   <span>{nowDur > 0 ? fmt(nowDur) : "--:--"}</span>
@@ -706,6 +755,35 @@ export function StageView({
                 {k === "wallpaper" ? "壁纸" : k === "visual" ? "频谱" : "歌词"}
               </label>
             ))}
+          </div>
+          {/* C-13 视觉模式：频谱层开着才有意义，关着时三个按钮一起禁用 */}
+          <div className="st-menu-row">
+            <span className="lbl">视觉</span>
+            <div className="st-presets">
+              {VISUAL_MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={m === stage.visualMode ? "on" : ""}
+                  disabled={!stage.layers.visual}
+                  onClick={() => dispatch({ type: "stage/setVisualMode", mode: m })}
+                >
+                  {VISUAL_MODE_NAMES[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* C-13 封面轮播：当前 + 队列封面不足两张时自动退回单封面（视觉里看得出来） */}
+          <div className="st-menu-row">
+            <span className="lbl">封面</span>
+            <label>
+              <input
+                type="checkbox"
+                checked={stage.coverCarousel}
+                onChange={() => dispatch({ type: "stage/setCarousel", on: !stage.coverCarousel })}
+              />
+              3D 轮播
+            </label>
           </div>
           <div className="st-menu-row">
             <span className="lbl">动效</span>

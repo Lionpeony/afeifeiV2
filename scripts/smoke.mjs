@@ -232,6 +232,13 @@ async function main() {
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
+  // 首次使用引导（C-16）：独立 profile 首轮必弹；「跳过引导」落 KV，后续重启阶段不再弹
+  assert.ok(await app.waitFor(`!!document.querySelector(".ob-veil")`, 5000), "首次启动应出现使用引导");
+  await app.evaluate(
+    `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === "跳过引导")?.click()`,
+  );
+  assert.ok(await app.waitFor(`!document.querySelector(".ob-veil")`, 3000), "引导应能被跳过关掉");
+
   // 按钮数会随功能增长，所以断"关键按钮存在"而不是断总数
   // 走带按钮是图形（<i>），可读名在 aria-label 上 —— 取"可见文字，没有就取无障碍名"
   const labels = await app.evaluate(

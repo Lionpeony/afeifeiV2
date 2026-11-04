@@ -37,6 +37,9 @@ const initialState: AppState = {
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    // C1 视觉模式（C-13）：默认频谱柱；C2 封面轮播默认关
+    visualMode: "bars",
+    coverCarousel: false,
     // 有译文就并排显示（A-03 判据）；没有译文的曲目这一项不起作用
     translation: true,
     customTokens: null,
@@ -581,6 +584,16 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, stage: { ...current.stage, translation: intent.on } };
     }
 
+    case "stage/setVisualMode": {
+      if (current.stage.visualMode === intent.mode) return current;
+      return { ...current, stage: { ...current.stage, visualMode: intent.mode } };
+    }
+
+    case "stage/setCarousel": {
+      if (current.stage.coverCarousel === intent.on) return current;
+      return { ...current, stage: { ...current.stage, coverCarousel: intent.on } };
+    }
+
     case "stage/setLyricRenderer": {
       if (current.stage.lyricRenderer === intent.renderer) return current;
       return { ...current, stage: { ...current.stage, lyricRenderer: intent.renderer } };
@@ -606,6 +619,8 @@ function reduce(current: AppState, intent: Intent): AppState {
         c.intensity === current.stage.intensity &&
         c.lyricRenderer === current.stage.lyricRenderer &&
         c.translation === current.stage.translation &&
+        c.visualMode === current.stage.visualMode &&
+        c.coverCarousel === current.stage.coverCarousel &&
         (Object.keys(current.stage.layers) as (keyof typeof c.layers)[]).every(
           (k) => c.layers[k] === current.stage.layers[k],
         );

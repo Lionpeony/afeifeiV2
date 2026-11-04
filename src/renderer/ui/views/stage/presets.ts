@@ -6,7 +6,13 @@
  *
  * 参数来源：50 §9.2 的表，逐项照抄；暗色基底与设计稿的纸色差由场景层吸收。
  */
-import type { LyricRenderer, StageConfig, StageLayer, StagePreset } from "../../../../contracts/index.js";
+import type {
+  LyricRenderer,
+  StageConfig,
+  StageLayer,
+  StagePreset,
+  VisualMode,
+} from "../../../../contracts/index.js";
 
 export interface StagePresetDef {
   id: StagePreset;
@@ -171,6 +177,12 @@ export const PRESETS: StagePresetDef[] = [
 
 export const LAYER_KEYS: StageLayer[] = ["wallpaper", "visual", "cover", "lyric", "controls"];
 
+/** C1 视觉模式白名单（C-13）。与 contracts 的 VisualMode 一致，sanitize 用。 */
+export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring"];
+
+/** 模式显示名（视图浮层按钮）。 */
+export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形" };
+
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];
 
@@ -181,6 +193,8 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
+    visualMode: "bars",
+    coverCarousel: false,
     translation: true,
     customTokens: null,
   };
@@ -190,6 +204,8 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     intensity?: unknown;
     layers?: unknown;
     lyricRenderer?: unknown;
+    visualMode?: unknown;
+    coverCarousel?: unknown;
     translation?: unknown;
     customTokens?: unknown;
   };
@@ -207,6 +223,9 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     lyricRenderer: RENDERERS.includes(r.lyricRenderer as LyricRenderer)
       ? (r.lyricRenderer as LyricRenderer)
       : fallback.lyricRenderer,
+    // C-13：老存档没有这两个字段 = 那时候只有频谱柱、没有轮播，按默认值处理
+    visualMode: VISUAL_MODES.includes(r.visualMode as VisualMode) ? (r.visualMode as VisualMode) : fallback.visualMode,
+    coverCarousel: r.coverCarousel === true,
     // 老存档没有这个字段 = 那时候译文是常显的，所以缺字段按 true，只有显式 false 才关
     translation: r.translation !== false,
     customTokens: sanitizeThemeTokens(r.customTokens),

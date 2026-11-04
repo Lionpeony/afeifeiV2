@@ -144,6 +144,10 @@ export interface Services {
   /** 开机自启（M9）：状态以系统为准，返回生效值。 */
   autoLaunch(): Promise<boolean>;
   setAutoLaunch(on: boolean): Promise<boolean>;
+  /** 首次使用引导（C-16）：启动时读到的标记。false = 还没看过，该弹引导。 */
+  onboarded: boolean;
+  /** 写入引导完成标记。之后启动不再弹。 */
+  markOnboarded(): Promise<void>;
   /** 歌词正则过滤（B-2）：一行一条；返回写错了、已忽略的模式。改规则不重抓歌词。 */
   lyricFilters(): Promise<string>;
   setLyricFilters(text: string): Promise<string[]>;

@@ -1548,4 +1548,111 @@ span.notice {
   text-align: center;
 }
 
+/* ---------- 首次使用引导（C-16）：帘子复用 .dialog-mask，卡片纸面 + mono 顶标 ---------- */
+.ob-veil {
+  /* 引导只在首轮出现，出入场 200ms（与全站切换转场一致） */
+  animation: ob-veil-in 200ms ease-out;
+}
+.ob-card {
+  width: 380px;
+  padding: 26px 28px 22px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  border-left: 3px solid var(--accent);
+  text-align: left;
+  outline: none;
+  animation: ob-card-in 240ms ease-out;
+}
+.ob-hint {
+  margin: 0 0 10px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--fg-dim);
+}
+.ob-card h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+.ob-body {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-dim);
+}
+.ob-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ob-skip {
+  margin-right: auto;
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.ob-skip:hover {
+  color: var(--fg);
+}
+.ob-dots {
+  display: flex;
+  gap: 6px;
+  margin-right: 2px;
+}
+.ob-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--fg-dim);
+}
+.ob-dots i.past {
+  background: var(--fg-dim);
+}
+.ob-dots i.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.ob-foot button {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  cursor: pointer;
+  padding: 4px 12px;
+  font-size: 12px;
+}
+.ob-foot button:hover {
+  border-color: var(--fg);
+}
+.ob-next {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ob-next:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+@keyframes ob-veil-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ob-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ob-veil,
+  .ob-card {
+    animation: none;
+  }
+}
+
 /* ---------- 播放条 ---------- */

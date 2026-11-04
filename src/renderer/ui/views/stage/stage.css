@@ -599,6 +599,54 @@
   object-fit: cover;
   will-change: transform;
 }
+
+/* ---- C-13 封面 3D 轮播：相纸图区（bottom 让开 46px 说明白边）里转一圈封面 ---- */
+.st-caro {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 46px;
+  perspective: 700px;
+  pointer-events: none;
+}
+.st-caro-ring {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: st-caro-spin 24s linear infinite;
+}
+/* hover 停转：想看清哪张时按住它 */
+.st-caro:hover .st-caro-ring {
+  animation-play-state: paused;
+}
+.st-caro-ring img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  backface-visibility: visible;
+  outline: 1px solid color-mix(in srgb, var(--stage-fg) 24%, transparent);
+  transform: rotateY(calc(var(--st-caro-i) * (360deg / var(--st-caro-n)))) translateZ(90px);
+}
+@keyframes st-caro-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+/* 动效档位 0（50 §9.2 试金石）：轮播停成一张静止的多面拼贴，不留坏布局 */
+.fx-0 .st-caro-ring {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-caro-ring {
+    animation: none;
+  }
+}
 .st-photo .cap {
   position: absolute;
   left: 2px;
