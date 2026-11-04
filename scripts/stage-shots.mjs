@@ -362,6 +362,76 @@ app.whenReady().then(async () => {
     `A-07 OK：纸面预设也有频谱（在播 ${litPlaying} px → 暂停 0 px）· 关掉后 canvas 消失 · 再开恢复`,
   );
 
+  /*
+   * b2 沉浸态（fixture 回归烟测；权威判据在 real-shots 的真登录链路末尾）：
+   * 点「沉浸」→ 覆盖层出现 + 盘转 → 暂停停转（一个状态一个表现）→ Esc 退回；
+   * 再把窗口压到 800 宽验证降级文案（b2 稿的 ≥900px 线）。
+   */
+  const immerSpin = `(() => {
+    const disc = document.querySelector(".st-immer .im-disc .disc");
+    return disc ? disc.getAnimations().some((a) => a.playState === "running") : null;
+  })()`;
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('.st-viewbtn')].find((b) => b.textContent.trim() === '沉浸')?.click()`,
+    true,
+  );
+  await sleep(300);
+  let spinning = await win.webContents.executeJavaScript(immerSpin, true);
+  if (spinning !== true) throw new Error(`沉浸态盘没在转（${spinning}）：播放中旋转动画应 running`);
+  await shot("stage-immer.png");
+  await win.webContents.executeJavaScript(`document.querySelector('.st-immer .im-tb button.main')?.click()`, true);
+  await sleep(300);
+  const stalled = await win.webContents.executeJavaScript(
+    `(() => {
+      const d = document.querySelector(".st-immer .im-disc");
+      if (!d) return null;
+      const paused = d.classList.contains("stalled");
+      const anim = d.querySelector(".disc")?.getAnimations().every((a) => a.playState !== "running");
+      return paused && anim;
+    })()`,
+    true,
+  );
+  if (stalled !== true) throw new Error(`暂停后盘没停（stalled+动画=${stalled}）：暂停态表现不一致`);
+  await win.webContents.executeJavaScript(`document.querySelector('.st-immer .im-tb button.main')?.click()`, true); // 复原播放
+  await sleep(250);
+  await win.webContents.executeJavaScript(
+    `window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`,
+    true,
+  );
+  await sleep(250);
+  if ((await win.webContents.executeJavaScript(`document.querySelector('.st-immer') !== null`, true))) {
+    throw new Error("按 Esc 没有退出沉浸态");
+  }
+  console.log("b2 沉浸态 OK：覆盖层 · 盘转/停跟播放态 · Esc 退回");
+
+  // 窄窗降级（b2 稿 ≥900px 线）：800 宽下只留提示文案，正文与走带整块不渲染
+  const oldBounds = win.getBounds();
+  win.setBounds({ width: 800, height: oldBounds.height });
+  await sleep(350);
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll('.st-viewbtn')].find((b) => b.textContent.trim() === '沉浸')?.click()`,
+    true,
+  );
+  await sleep(300);
+  const narrow = await win.webContents.executeJavaScript(
+    `(() => {
+      const el = document.querySelector(".st-immer.narrow");
+      if (!el) return "no .narrow";
+      // 窄窗分支是条件渲染：.im-body 整个不输出（不是 display:none）
+      return el.textContent.includes("900px") && document.querySelector(".im-body") === null;
+    })()`,
+    true,
+  );
+  if (narrow !== true) throw new Error(`窄窗没有降级提示（${narrow}）：应有 .st-immer.narrow + 900px 文案 + 正文隐藏`);
+  await shot("stage-immer-narrow.png");
+  win.setBounds(oldBounds);
+  await sleep(250);
+  await win.webContents.executeJavaScript(
+    `window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`,
+    true,
+  );
+  console.log("b2 沉浸态窄窗 OK：800 宽降级为提示，正文隐藏");
+
   // 四套预设：先开「视图」浮层，再逐套点；轮询到高亮真的变了才拍
   await win.webContents.executeJavaScript(`document.querySelector('.st-viewbtn')?.click()`, true);
   await sleep(200);

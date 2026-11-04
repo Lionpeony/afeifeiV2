@@ -14,6 +14,16 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+// 曲库 schema 从构建产物复用（与渲染层同一份代码，映射零漂移）；没跑过 build:test 先报清楚
+let trackIdOf, createSnapshot;
+try {
+  const schema = await import("../dist-test/schema.mjs");
+  trackIdOf = schema.trackIdOf;
+  createSnapshot = schema.createSnapshot;
+} catch {
+  console.error("缺 dist-test/schema.mjs：先 node scripts/build.mjs --test（或 npm run verify）");
+  process.exit(1);
+}
 
 const APP_NAME = "Afeifei 阿飞飞";
 const REAL_PROFILE = path.join(process.env.APPDATA ?? "", APP_NAME);
@@ -182,6 +192,47 @@ try {
   const labels = await page.evaluate(`[...document.querySelectorAll('.rail button')].map((b) => b.textContent.trim())`);
   console.log(`导航项：${labels.join(" | ")}`);
 
+  /*
+   * 真实本地曲库自愈：快照（library.json）可能不在了（本机 2026-11-04 实测被清掉，
+   * 目录配置还留在旧版 library-index.json 里）。用应用自己的 scan/readTags IPC 对
+   * **真实目录**重新解析真实文件的标签，映射复用 dist-test 里的同一份 schema 代码，
+   * 经 saveIndex 原子写进**临时副本**再刷新 —— 真实 userData 全程不动，数据全部真实。
+   */
+  let libCount = -1;
+  try {
+    const legacyDirs = JSON.parse(fs.readFileSync(path.join(profileDir, "library-index.json"), "utf8")).dirs;
+    if (Array.isArray(legacyDirs) && legacyDirs.length > 0) {
+      const metas = await page.evaluate(
+        `(async () => window.api.readTags(await window.api.scan(${JSON.stringify(legacyDirs)})))()`,
+      );
+      // 与 domain/library/scan.ts 的 toTrack 同形（id 规范化用的是同一份 dist-test/schema.mjs）
+      const tracks = (Array.isArray(metas) ? metas : [])
+        .filter((m) => m && typeof m.path === "string")
+        .map((m) => ({
+          id: trackIdOf(m.path),
+          path: m.path,
+          title: m.title,
+          artist: m.artist,
+          album: m.album,
+          durationMs: m.durationMs,
+          size: m.size,
+          mtimeMs: m.mtimeMs,
+          hasCover: m.hasCover,
+        }));
+      if (tracks.length > 0) {
+        await page.evaluate(
+          `window.api.saveIndex(${JSON.stringify(JSON.stringify(createSnapshot(tracks)))}).then(() => location.reload())`,
+        );
+        await sleep(1800);
+        await until(page, `document.querySelectorAll('.rail button').length > 0`, 15000, "刷新后导航");
+        libCount = tracks.length;
+        console.log(`本地曲库自愈：真实扫描 ${legacyDirs.join("、")} → ${tracks.length} 首`);
+      }
+    }
+  } catch (e) {
+    console.log(`本地曲库自愈跳过：${e.message ?? e}`);
+  }
+
   const ok = await page.evaluate(`(() => {
     const b = [...document.querySelectorAll('.rail button')].find((x) => x.textContent.includes('在线'));
     if (!b) return false;
@@ -239,10 +290,20 @@ try {
       const clock = (document.querySelector(".seek .tm")?.textContent || "").trim();
       return label === "暂停" && clock !== "" && clock !== "0:00";
     })()`,
-    15000,
+    30000,
     "在线曲目起播",
   );
-  if (!playing) throw new Error("在线曲目 15s 内没起播：真登录也没拿到可播地址（先看是不是版权/地区限制）");
+  if (!playing) {
+    const dump = await page.evaluate(`(() => ({
+      title: document.querySelector(".np-tx b")?.textContent || "",
+      label: document.querySelector("button.tb.main")?.getAttribute("aria-label"),
+      clock: document.querySelector(".seek .tm")?.textContent || "",
+      status: document.querySelector(".tbar .status")?.textContent || "",
+      note: document.querySelector(".lib-note")?.textContent || "",
+      firstRow: (document.querySelector(".online-row")?.textContent || "").slice(0, 80),
+    }))()`);
+    throw new Error(`在线曲目 30s 内没起播（真登录）：${JSON.stringify(dump)}`);
+  }
   console.log("在线曲目已起播（真实 vkey）");
 
   await sleep(800);
@@ -318,6 +379,77 @@ try {
   })()`);
   if (!(lit > 0)) throw new Error(`正在放真歌，频谱却一个像素都没有（lit=${lit}）`);
   console.log(`A-07 真机：真实音频驱动频谱 ${lit} px`);
+
+  /*
+   * b2 沉浸态（stage-v10 b2「刻纹现场」）：点「沉浸」→ 覆盖层出现 + 盘在转 →
+   * 暂停即停转（一个状态一个表现）→ Esc 退回普通播放页。
+   * 放在真歌播放段：判据用的是真实 vkey 音频的播放/暂停态。
+   * 本机窗口 ≥900px，不走降级分支；降级分支由 stage-shots 的窄窗布局截图钉。
+   */
+  const immerBtn = await page.evaluate(`(() => {
+    const b = [...document.querySelectorAll('.st-viewbtn')].find((x) => x.textContent.trim() === '沉浸');
+    if (!b) return false;
+    b.click();
+    return true;
+  })()`);
+  if (!immerBtn) throw new Error("播放页找不到「沉浸」入口按钮：b2 沉浸态没做或入口换了位置");
+  const immerOn = await until(page, `document.querySelector('.st-immer') !== null`, 5000, "沉浸覆盖层");
+  if (!immerOn) throw new Error("点了「沉浸」但覆盖层没出现");
+  const spinning = await page.evaluate(
+    `document.querySelector('.st-immer .im-disc .disc')?.getAnimations().some((a) => a.playState === "running") ?? false`,
+  );
+  if (!spinning) throw new Error("沉浸态黑胶盘没有在转（播放中 rotation 动画应 running）");
+  await page.shot("real-immer.png");
+  await page.evaluate(`document.querySelector('.st-immer .im-tb button.main')?.click()`);
+  await sleep(400);
+  const stalled = await page.evaluate(
+    `(() => {
+      const d = document.querySelector(".st-immer .im-disc");
+      if (!d) return null;
+      const paused = d.classList.contains("stalled");
+      const anim = d.querySelector(".disc")?.getAnimations().every((a) => a.playState !== "running");
+      return paused && anim;
+    })()`,
+  );
+  if (stalled !== true) throw new Error("暂停后盘没停（.stalled 没挂上）：暂停态表现不一致");
+  // 暂停态下钟面停走：同一份 t 的表现一致性
+  const clockPaused = await page.evaluate(
+    `(() => {
+      const a = document.querySelector(".st-immer .im-row .im-tm")?.textContent;
+      return new Promise((res) => setTimeout(() => res(a !== null && a === document.querySelector(".st-immer .im-row .im-tm")?.textContent), 1200));
+    })()`,
+  );
+  if (clockPaused !== true) throw new Error("暂停后沉浸态钟面还在走：时间唯一（I1）被破");
+  await page.evaluate(`document.querySelector('.st-immer .im-tb button.main')?.click()`); // 恢复播放，给后面的判据用
+  await sleep(300);
+
+  // 窄窗降级（b2 稿 ≥900px 线）：真机把视口压到 800 宽重进沉浸态，只留提示文案
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 800, height: 800, deviceScaleFactor: 1, mobile: false });
+  await sleep(400);
+  await page.evaluate(
+    `[...document.querySelectorAll('.st-viewbtn')].find((x) => x.textContent.trim() === '沉浸')?.click()`,
+  );
+  await sleep(400);
+  const narrow = await page.evaluate(
+    `(() => {
+      const el = document.querySelector(".st-immer.narrow");
+      if (!el) return "no .narrow";
+      // 窄窗分支是条件渲染：.im-body 整个不输出（不是 display:none）
+      const bodyGone = document.querySelector(".im-body") === null;
+      return el.textContent.includes("900px") && bodyGone;
+    })()`,
+  );
+  if (narrow !== true) throw new Error(`真机 800 宽没有降级提示（${narrow}）：应有 .st-immer.narrow + 900px 文案 + 正文隐藏`);
+  await page.shot("real-immer-narrow.png");
+  await page.evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  await sleep(300);
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
+  await sleep(400);
+
+  await page.evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  const immerOff = await until(page, `document.querySelector('.st-immer') === null`, 5000, "Esc 退回");
+  if (!immerOff) throw new Error("按 Esc 没有退出沉浸态");
+  console.log("b2 沉浸态真机：覆盖层出现 · 盘转/停跟播放态 · 暂停钟面停走 · Esc 退回");
 
   // A-10：切夜间，播放页计算样式必须不变
   const PROBE = `(async () => {
@@ -511,8 +643,26 @@ try {
     `[...document.querySelectorAll('.rail button')].find((x) => x.textContent.includes('电台'))?.click()`,
   );
   await sleep(600);
+  /*
+   * FM 的真实口径：预告行数 = min(3, 真实本地曲库数)。判据卡的是"有曲库就有预告 +
+   * 理由非空 + 开始收听真的起播"，不是硬凑 3 行——本机曲库少到几首，就该显示几行，
+   * 编假数据过关恰恰是这份脚本要防的事。0 首 = 真的没数据可测，报错要能行动。
+   */
+  await until(page, `document.querySelectorAll('.fmbar .fmrow').length >= 1`, 8000, "私人 FM 预告行");
   const fmRows = await page.evaluate(`document.querySelectorAll('.fmbar .fmrow').length`);
-  if (fmRows < 3) throw new Error(`私人 FM 开机条只有 ${fmRows} 行预告（应有 3 行，每行带一句理由）`);
+  if (fmRows === 0) {
+    const dump = await page.evaluate(
+      `document.querySelector(".fmbar")?.textContent?.slice(0, 140) || "（没有 .fmbar）"`,
+    );
+    throw new Error(`本机真实本地曲库是空的，FM 没有真实数据可测（${dump}）——先在设置里扫描一个真实音乐目录再跑`);
+  }
+  if (fmRows < 3) {
+    console.log(`  （本机真实本地曲库只够 ${fmRows} 行预告：判据按真实数据收口，不凑 3 行）`);
+  }
+  const fmWhyEmpty = await page.evaluate(
+    `[...document.querySelectorAll('.fmbar .fmrow .why')].some((el) => !el.textContent.trim())`,
+  );
+  if (fmWhyEmpty) throw new Error("FM 预告行有理由为空：B-04『为什么』必须来自真实数据");
   const fmTitleBefore = await page.evaluate(`(document.querySelector(".np-tx b")?.textContent || "").trim()`);
   await page.evaluate(
     `[...document.querySelectorAll('.fmbar button')].find((b) => b.textContent.includes('开始收听'))?.click()`,

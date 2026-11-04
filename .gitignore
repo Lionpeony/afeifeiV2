@@ -5,6 +5,7 @@ data/
 release/
 *.log
 .DS_Store
+.tmp/
 
 # 参考实现（照抄用，不进版本控制）
 .ref/
