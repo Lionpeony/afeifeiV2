@@ -379,7 +379,12 @@ async function main() {
     const errored = await app4.waitFor(`(document.querySelector(".status")?.textContent ?? "").startsWith("error")`, 10000);
     const shown = await app4.evaluate(`document.querySelector(".status")?.textContent ?? "(无)"`);
     assert.ok(errored, `文件不存在时应进入 error 态，实际 ${shown}`);
-    assert.ok(shown.includes("track-missing"), `error 码应为 track-missing，实际 ${shown}`);
+    // 界面给的是人话（原始码用户看不懂），文案由 capability/errors.ts 一处对账：
+    // "这首歌找不到了" = track-missing
+    assert.ok(shown.includes("这首歌找不到了"), `error 应显示人话文案（track-missing），实际 ${shown}`);
+    // track-missing 不可重试（ERROR_INFO.retryable = false）→ 不该给重试按钮
+    const hasRetry = await app4.evaluate(`document.querySelectorAll(".retry-btn").length > 0`);
+    assert.ok(!hasRetry, `不可重试的错误不该出现重试按钮，实际 ${shown}`);
     console.log(`  文件被删 OK：界面落进 ${shown}`);
 
     await app4.close();

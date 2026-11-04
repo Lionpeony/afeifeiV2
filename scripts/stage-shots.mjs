@@ -415,10 +415,15 @@ app.whenReady().then(async () => {
   await sleep(300);
   const narrow = await win.webContents.executeJavaScript(
     `(() => {
-      const el = document.querySelector(".st-immer.narrow");
-      if (!el) return "no .narrow";
-      // 窄窗分支是条件渲染：.im-body 整个不输出（不是 display:none）
-      return el.textContent.includes("900px") && document.querySelector(".im-body") === null;
+      const el = document.querySelector(".st-immer");
+      if (!el) return "no .st-immer";
+      const tip = el.querySelector(".im-narrow");
+      const body = el.querySelector(".im-body");
+      const tipShown = tip ? getComputedStyle(tip).display !== "none" : false;
+      const bodyGone = body ? getComputedStyle(body).display === "none" : true;
+      return tipShown && bodyGone && (tip?.textContent || "").includes("900px")
+        ? true
+        : "tip=" + tipShown + " body=" + bodyGone;
     })()`,
     true,
   );
