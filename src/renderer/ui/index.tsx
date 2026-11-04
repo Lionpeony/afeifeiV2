@@ -62,6 +62,9 @@ const today = (): string => {
 /** 睡眠定时档位（A-23）。30 分钟是主档，验收就按它。 */
 const SLEEP_OPTIONS = [15, 30, 60];
 
+/** 倍速档位（抄 lx 的 0.5–2 限幅，取常用档位做按钮）。 */
+const RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
@@ -156,6 +159,9 @@ function App() {
   const playing = status === "playing";
   const sleepEndsAt = state.sleep.endsAt;
   const queueMode = state.queue.mode;
+  const playbackRate = state.player.playbackRate;
+  const preservesPitch = state.player.preservesPitch;
+  const [rateOpen, setRateOpen] = useState(false);
   /* 最新状态镜像：媒体会话的 handler 闭包里要读当前值，不能吃渲染那一刻的旧快照 */
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -878,6 +884,17 @@ function App() {
             睡眠
             {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setRateOpen(!rateOpen);
+              setVolOpen(false);
+              setSleepOpen(false);
+            }}
+            title={`播放速度：${playbackRate.toFixed(2)}x`}
+          >
+            {playbackRate.toFixed(2)}x
+          </button>
           <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
             词
           </button>
@@ -910,6 +927,30 @@ function App() {
           />
           <span className="vol-val">{Math.round(volume * 100)}</span>
         </div>
+        <div className="vol-pop rate-pop" role="dialog" aria-label="播放速度" hidden={!rateOpen}>
+          <p className="rate-title">播放速度</p>
+          <div className="rate-opts">
+            {RATE_OPTIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className={playbackRate === r ? "on" : ""}
+                onClick={() => dispatch({ type: "player/setPlaybackRate", rate: r })}
+              >
+                {r.toFixed(2)}x
+              </button>
+            ))}
+          </div>
+          <label className="rate-pitch">
+            <input
+              type="checkbox"
+              checked={preservesPitch}
+              onChange={(e) => dispatch({ type: "player/setPreservesPitch", on: e.target.checked })}
+            />
+            音调补偿（变速不变调）
+          </label>
+        </div>
+
         {sleepOpen && (
           <div className="vol-pop sleep-pop" role="dialog" aria-label="睡眠定时">
             <p className="sleep-now">{sleepEndsAt ? "定时中 · 到点自动暂停" : "到点只暂停，不退出"}</p>

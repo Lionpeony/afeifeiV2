@@ -303,6 +303,30 @@ export class AudioEngine {
     this.elB.muted = muted;
   }
 
+  /**
+   * 播放速度（倍速）。抄 lx-music-desktop 的 `src\renderer\plugins\player\index.ts`：
+   * **defaultPlaybackRate 与 playbackRate 都要写** —— 前者让新 src 继承，切歌不丢倍速。
+   * 两路元素都写（crossfade 的淡入那一路，否则切歌瞬间会变回 1x）。
+   */
+  setPlaybackRate(rate: number): void {
+    const r = Math.min(2, Math.max(0.5, rate));
+    for (const el of this.els) {
+      el.defaultPlaybackRate = r;
+      el.playbackRate = r;
+    }
+  }
+
+  /**
+   * 音调补偿：变速时保持音高。原生属性（抄 lx 的 setPreservesPitch），
+   * 老内核没有这个属性时忽略（不报错）。
+   */
+  setPreservesPitch(on: boolean): void {
+    for (const el of this.els) {
+      const media = el as HTMLAudioElement & { preservesPitch?: boolean };
+      if ("preservesPitch" in media) media.preservesPitch = on;
+    }
+  }
+
   /** 前置增益（dB）。图未建时暂存，建图后应用。 */
   setPreamp(db: number): void {
     this.pendingPreamp = db;

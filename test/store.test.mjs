@@ -101,6 +101,24 @@ test("单曲循环下用户点下一首仍切歌（自然结束才重播本曲�
   assert.equal(s.player.trackId, "b");
 });
 
+/* ---------- 倍速（A-15 的一半，抄 lx 的 usePlaybackRate） ---------- */
+
+test("倍速限幅在 0.5–2（抄 lx 的限幅）", () => {
+  dispatch({ type: "player/setPlaybackRate", rate: 3 });
+  assert.equal(getState().player.playbackRate, 2);
+  dispatch({ type: "player/setPlaybackRate", rate: 0.1 });
+  assert.equal(getState().player.playbackRate, 0.5);
+  dispatch({ type: "player/setPlaybackRate", rate: 1.25 });
+  assert.equal(getState().player.playbackRate, 1.25);
+});
+
+test("音调补偿是独立开关", () => {
+  dispatch({ type: "player/setPreservesPitch", on: false });
+  assert.equal(getState().player.preservesPitch, false);
+  dispatch({ type: "player/setPreservesPitch", on: true });
+  assert.equal(getState().player.preservesPitch, true);
+});
+
 test("删当前之前的：光标减一，播放曲目不变", () => {
   reset();
   dispatch({ type: "queue/remove", index: 0 });

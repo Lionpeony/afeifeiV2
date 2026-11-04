@@ -259,6 +259,9 @@ export async function bootstrap(): Promise<Services> {
     dispatch({ type: "queue/restore", state: snapshot.queue });
     dispatch({ type: "player/setVolume", volume: snapshot.volume });
     dispatch({ type: "player/setMuted", muted: snapshot.muted === true });
+    // 倍速与音调补偿：老快照没这两个字段时按 1 / true 处理
+    dispatch({ type: "player/setPlaybackRate", rate: snapshot.playbackRate ?? 1 });
+    dispatch({ type: "player/setPreservesPitch", on: snapshot.preservesPitch !== false });
     if (snapshot.trackId) {
       dispatch({ type: "player/cue", trackId: snapshot.trackId, positionMs: snapshot.positionMs });
     }
@@ -566,6 +569,10 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
 
   if (n.volume !== p.volume) engine.setVolume(n.volume);
   if (n.muted !== p.muted) engine.setMuted(n.muted);
+  // 倍速与音调补偿：跟音量一样直接落到引擎（抄 lx 的 defaultPlaybackRate + playbackRate 双写）
+  // 注意必须放在**换歌分支之外** —— 变速本身不换歌，放在里面就永远不生效。
+  if (n.playbackRate !== p.playbackRate) engine.setPlaybackRate(n.playbackRate);
+  if (n.preservesPitch !== p.preservesPitch) engine.setPreservesPitch(n.preservesPitch);
 
   // 音频配置与播放状态分开比较：调 EQ 不该碰播放链路，反之亦然。
   // p/n 是 player 域，audio 在 AppState 顶层，从 prev/next 取。

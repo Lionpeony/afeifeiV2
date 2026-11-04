@@ -15,6 +15,9 @@ interface Snapshot {
   volume: number;
   /** 老快照没有这个字段：读的时候按 false 处理，不为此升版本 */
   muted?: boolean;
+  /** 老快照没有这两个字段：读的时候按 1 / true 处理，不为此升版本 */
+  playbackRate?: number;
+  preservesPitch?: boolean;
   queue: AppState["queue"];
 }
 
@@ -36,6 +39,8 @@ export function createPersister(port: StoragePort, delayMs = 1000): Persister {
       positionMs: Math.round(positionOf()),
       volume: s.player.volume,
       muted: s.player.muted,
+      playbackRate: s.player.playbackRate,
+      preservesPitch: s.player.preservesPitch,
       queue: s.queue,
     };
     return JSON.stringify(snap);

@@ -37,6 +37,13 @@ export interface PlayerState {
   volume: number;
   /** 静音（A-17）。与 volume 分开存：取消静音要回到原来的音量。 */
   muted: boolean;
+  /**
+   * 播放速度（倍速）。全局一个值，不逐曲记忆（抄 lx-music-desktop：
+   * `src\renderer\store\player\playbackRate.ts` 单值 + `usePlaybackRate.ts` 限幅 0.5–2）。
+   */
+  playbackRate: number;
+  /** 音调补偿：变速时保持音高（原生 preservesPitch，默认开）。 */
+  preservesPitch: boolean;
   error: ErrorCode | null;
   /**
    * 在线曲目的音源内标识：歌词 / 封面用。本地曲目为 null。
@@ -143,6 +150,10 @@ export type Intent =
   | { type: "player/seek"; positionMs: number }
   | { type: "player/setVolume"; volume: number }
   | { type: "player/setMuted"; muted: boolean }
+  /** 播放速度（倍速）。限幅 0.5–2（抄 lx 的限幅）。 */
+  | { type: "player/setPlaybackRate"; rate: number }
+  /** 音调补偿开关（原生 preservesPitch）。 */
+  | { type: "player/setPreservesPitch"; on: boolean }
   | { type: "player/ended" }
   | { type: "player/error"; code: ErrorCode }
   | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }

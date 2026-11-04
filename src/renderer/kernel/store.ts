@@ -18,6 +18,8 @@ const initialState: AppState = {
     positionMs: 0,
     volume: 0.8,
     muted: false,
+    playbackRate: 1,
+    preservesPitch: true,
     error: null,
     remote: null,
   },
@@ -151,6 +153,18 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "player/setMuted": {
       if (player.muted === intent.muted) return current;
       return { ...current, player: { ...player, muted: intent.muted } };
+    }
+
+    case "player/setPlaybackRate": {
+      // 限幅 0.5–2（抄 lx-music-desktop 的 usePlaybackRate.ts）
+      const rate = Math.min(2, Math.max(0.5, intent.rate));
+      if (player.playbackRate === rate) return current;
+      return { ...current, player: { ...player, playbackRate: rate } };
+    }
+
+    case "player/setPreservesPitch": {
+      if (player.preservesPitch === intent.on) return current;
+      return { ...current, player: { ...player, preservesPitch: intent.on } };
     }
 
     case "player/ended": {
