@@ -896,3 +896,124 @@ button.primary:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+/* ---- 账号数据区块（R1）：喜欢的音乐 / 最近播放的上半栏 ---- */
+.acct {
+  margin: 0 0 18px;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-raised);
+}
+
+.acct-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.acct-head h3 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+.acct-meta {
+  font-size: 11px;
+  color: var(--brass);
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-note {
+  margin: 0;
+  padding: 8px 14px 0;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.acct-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 14px;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.acct-state.err {
+  color: var(--danger);
+}
+
+.acct-state.hint {
+  color: var(--brass);
+}
+
+.acct-rows {
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+
+.acct-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1.4fr) minmax(0, 0.8fr) 54px;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 14px;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+}
+
+.acct-row:hover,
+.acct-row:focus-visible {
+  background: var(--row-hover);
+  outline: none;
+}
+
+.acct-row .no {
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-row .tx {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.acct-row .tx b {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-row .tx span,
+.acct-row .tag,
+.acct-row .du {
+  font-size: 12px;
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-row .tx span {
+  flex: none;
+}
+
+.acct-row .du {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-div {
+  height: 1px;
+  margin: 0 0 18px;
+  background: var(--line);
+}
