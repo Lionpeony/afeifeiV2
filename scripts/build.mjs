@@ -31,6 +31,7 @@ if (TEST) {
       projection: "src/renderer/projection/library.ts",
       cover: "src/renderer/domain/library/cover.ts",
       likes: "src/renderer/domain/likes/index.ts",
+  "account-likes": "src/renderer/domain/account-likes/index.ts",
       playlists: "src/renderer/domain/playlists/index.ts",
       history: "src/renderer/domain/history/index.ts",
       "capability-registry": "src/renderer/capability/registry.ts",
