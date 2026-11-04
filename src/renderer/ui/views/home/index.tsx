@@ -13,6 +13,7 @@ import {
   recentPlayed,
 } from "../../../domain/recommend/index.js";
 import { bumpSalt, getSalt, subscribe as subscribeSalt } from "../../../domain/recommend/salt.js";
+import type { AccountBundle } from "../../account-data.js";
 import { onTick } from "../../compositor.js";
 import type { PageId } from "../../pages.js";
 import { PageHead } from "../../PageHead.js";
@@ -24,12 +25,7 @@ import { fmtDuration } from "../library/rows.js";
  * - 本地（降级）：没登录 / 这个源没有账号能力时，用红心 + 最近播放 + 曲库洗牌。
  * 两份数据形状不同（RemoteTrack vs Track），所以 bill 行分两处渲染，不硬凑一个模型。
  */
-export interface DailyBundle {
-  sourceId: string;
-  songs: RemoteTrack[];
-  /** 有账号能力但没登录时的一句话；没有就 null */
-  hint: string | null;
-}
+export type DailyBundle = AccountBundle;
 
 export interface HomeViewProps {
   onPlayGroup(tracks: Track[], startAt: number): void;

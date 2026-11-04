@@ -28,6 +28,16 @@ import { currentTheme, type Theme } from "./theme.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
 import { HomeView, type DailyBundle } from "./views/home/index.js";
+
+/** 四个账号数据入口。文案分开写：用户看到的「登录后会变成什么」各不相同。 */
+type AccountKind = "daily" | "liked" | "week" | "fm";
+
+const ACCOUNT_HINT: Record<AccountKind, string> = {
+  daily: "登录网易云后，这里换成你账号的每日推荐",
+  liked: "登录网易云后，这里显示账号的红心（与 App 同步）",
+  week: "登录网易云后，这里显示账号的听歌排行",
+  fm: "登录网易云后，漫游改用账号的个人 FM",
+};
 import { LikedView } from "./views/liked/index.js";
 import { RadioView } from "./views/radio/index.js";
 import { RecentView } from "./views/recent/index.js";
@@ -622,11 +632,11 @@ function App() {
   };
 
   /**
-   * 首页的账号每日推荐（R1）。
-   * 选第一个「有账号能力且已登录」的源；都没有就把「有账号能力但没登录」这句话带回去——
-   * 不带的话用户只看得到本地推荐，永远不知道自己登录后这里是另一份。
+   * 账号数据入口（R1）：首页每日推荐 / 喜欢 / 最近播放 / 漫游共用。
+   * 选第一个「有账号能力且已登录」的源；没有就把「有账号能力但没登录」这句话带回去——
+   * 不带的话用户只看得到本地数据，永远不知道自己登录后这里是另一份。
    */
-  const dailyForHome = async (): Promise<DailyBundle> => {
+  const accountBundle = async (kind: AccountKind): Promise<DailyBundle> => {
     const svc = services.current;
     if (!svc) return { sourceId: "", songs: [], hint: null };
     let sawAccount = false;
@@ -635,13 +645,24 @@ function App() {
       sawAccount = true;
       const st = await svc.loginStatus(s.id).catch(() => ({ loggedIn: false, nick: null }));
       if (!st.loggedIn) continue;
-      return { sourceId: s.id, songs: await svc.accountDailySongs(s.id), hint: null };
+      const songs =
+        kind === "daily"
+          ? await svc.accountDailySongs(s.id)
+          : kind === "liked"
+            ? await svc.accountLikedSongs(s.id)
+            : kind === "week"
+              ? await svc.accountHistory(s.id, "week")
+              : await svc.accountPersonalFm(s.id);
+      return { sourceId: s.id, songs, hint: null };
     }
-    return {
-      sourceId: "",
-      songs: [],
-      hint: sawAccount ? "登录网易云后，这里换成你账号的每日推荐" : null,
-    };
+    return { sourceId: "", songs: [], hint: sawAccount ? ACCOUNT_HINT[kind] : null };
+  };
+
+  /** 在线曲目播放带错误提示（四个入口共用，别各写一遍 catch）。 */
+  const playRemoteSafe = (sourceId: string, track: RemoteTrack): void => {
+    void playRemote(sourceId, track).catch((err: unknown) => {
+      setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
+    });
   };
 
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
@@ -665,18 +686,26 @@ function App() {
             onPlayGroup={onPlayGroup}
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
             onGo={setPage}
-            daily={dailyForHome}
-            onPlayRemote={(sourceId, track) => {
-              void playRemote(sourceId, track).catch((err: unknown) => {
-                setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
-              });
-            }}
+            daily={() => accountBundle("daily")}
+            onPlayRemote={playRemoteSafe}
           />
         );
       case "liked":
-        return <LikedView onPlayGroup={onPlayGroup} />;
+        return (
+          <LikedView
+            onPlayGroup={onPlayGroup}
+            account={() => accountBundle("liked")}
+            onPlayRemote={playRemoteSafe}
+          />
+        );
       case "recent":
-        return <RecentView onPlayGroup={onPlayGroup} />;
+        return (
+          <RecentView
+            onPlayGroup={onPlayGroup}
+            account={() => accountBundle("week")}
+            onPlayRemote={playRemoteSafe}
+          />
+        );
       case "radio":
         return (
           <RadioView
@@ -693,6 +722,8 @@ function App() {
           <RoamView
             onPlayGroup={onPlayGroup}
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+            account={() => accountBundle("fm")}
+            onPlayRemote={playRemoteSafe}
           />
         );
       case "settings":

@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
+import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { clearHistory, getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
+import { AccountBlock } from "../../AccountBlock.js";
+import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
 import { fmtDuration } from "../library/rows.js";
 import { isLiked, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
 
 export interface RecentViewProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
+  /** 账号听歌排行（A 方案：账号在上、本机记录在下） */
+  account(): Promise<AccountBundle>;
+  onPlayRemote(sourceId: string, track: RemoteTrack): void;
 }
 
 interface Line {
@@ -34,9 +40,10 @@ const dayOf = (at: number): string => {
  * 历史（domain/history）是「每首只留最后一次」的去重表，所以这里是"最近听过的 N 首"，
  * 不是逐次流水——文案照实说，不假装有完整播放流水账。
  */
-export function RecentView({ onPlayGroup }: RecentViewProps) {
+export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewProps) {
   const [, setRev] = useState(0);
   const bump = (): void => setRev((r) => r + 1);
+  const acct = useAccountBundle(account);
 
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeHistory(bump), []);
@@ -61,9 +68,19 @@ export function RecentView({ onPlayGroup }: RecentViewProps) {
     <section className="recent">
       <PageHead
         title="最近播放"
-        desc="每首只留最后一次听的记录，听过的顺序从新到旧。"
-        meta={`RECENT · ${lines.length}`}
+        desc="上栏是账号的听歌排行（跨设备，来自网易云）；下栏是本机记录，每首只留最后一次。"
+        meta={`RECENT · ${acct.songs.length + lines.length}`}
       />
+
+      <AccountBlock
+        title="账号听歌排行"
+        note="网易云按账号统计的播放次数排序；本机记录在下面，两者口径不同，所以分开放。"
+        state={acct}
+        empty="这个账号还没有播放记录。"
+        onPlay={onPlayRemote}
+      />
+
+      <div className="acct-div" />
 
       <div className="ops">
         <button type="button" className="btn primary" onClick={() => play(0)} disabled={lines.length === 0}>
