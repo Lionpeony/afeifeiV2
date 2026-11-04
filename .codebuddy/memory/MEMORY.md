@@ -1,0 +1,2 @@
+- [打包前必须固定 userData 路径](project_userdata_path.md) — dev=Electron 目录/打包=阿飞飞目录，登录态不互通
+- [先抄参考实现再自研](feedback_copy_first.md) — 接第三方能力先照抄 folia/lx 的实现跑通，再换架构；逐字符对拍
