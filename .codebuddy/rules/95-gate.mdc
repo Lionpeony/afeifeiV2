@@ -33,6 +33,8 @@ alwaysApply: true
 | 代码改动 | `node scripts/lint.mjs`、`npx tsc --noEmit`、相关测试的**真实输出**（不是"应该通过"） |
 | 涉及 DOM/选择器 | `page-shots.mjs` / `stage-shots.mjs` 的截图，证明没白屏 |
 
+**测试范围**（2026-11-04）：只测本次 diff 触及的功能，**不做全量回归**，不挨边的功能不跑也不报"已验证"。仅两种例外：改了公共函数→测被影响的调用点；改了 kernel 不变式→按 `docs/00` 测对应项。细则见 `testing-scope.mdc`。
+
 ## 迭代至少两轮
 
 输出前必须留下可读的迭代记录：
