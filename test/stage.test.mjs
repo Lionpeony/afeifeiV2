@@ -144,10 +144,10 @@ test("每个预设声明了一个歌词渲染器，且四套各不相同", () =>
   assert.equal(new Set(renderers).size, 4);
 });
 
-test("STAGE_TOKEN_KEYS 有 18 个场景层键（含 A-10 的 line/line-soft/raised/accent）", () => {
+test("STAGE_TOKEN_KEYS 有 20 个场景层键（含 A-10 的 line/line-soft/raised/accent 与 b2 的 disc）", () => {
   // 数量只是索引：真正的对账（键集合 ↔ tokens.css 声明）在 stage-theme.test.mjs 里做，
   // 那边扫源码，改成只数数字就退化成"改一处改两处"的复读
-  assert.equal(STAGE_TOKEN_KEYS.length, 18);
+  assert.equal(STAGE_TOKEN_KEYS.length, 20);
 });
 
 /* ---- A-04 逐字点亮：有数据按字，没数据按渲染器降级 ---- */

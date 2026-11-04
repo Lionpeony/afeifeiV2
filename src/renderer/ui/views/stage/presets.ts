@@ -27,6 +27,9 @@ export const STAGE_TOKEN_KEYS = [
   "--stage-line",
   "--stage-line-soft",
   "--stage-raised",
+  /* 黑胶盘实体色（b2 沉浸态）：盘是物理黑胶，不随纸面/影院换装，四套同值 */
+  "--stage-disc",
+  "--stage-disc-groove",
   "--stage-accent",
   "--stage-tint",
   "--stage-wallpaper",
@@ -54,6 +57,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-line": "rgba(23, 21, 15, 0.28)",
       "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
       "--stage-raised": "#ece9df",
+      "--stage-disc": "#191619",
+      "--stage-disc-groove": "#221e22",
       "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
@@ -84,6 +89,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-line": "rgba(23, 21, 15, 0.28)",
       "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
       "--stage-raised": "#ece9df",
+      "--stage-disc": "#191619",
+      "--stage-disc-groove": "#221e22",
       "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
@@ -112,6 +119,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-line": "rgba(23, 21, 15, 0.28)",
       "--stage-line-soft": "rgba(23, 21, 15, 0.12)",
       "--stage-raised": "#ece9df",
+      "--stage-disc": "#191619",
+      "--stage-disc-groove": "#221e22",
       "--stage-accent": "#d8341c",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）
       "--stage-tint": "transparent",
@@ -140,6 +149,8 @@ export const PRESETS: StagePresetDef[] = [
       "--stage-line": "rgba(243, 241, 234, 0.3)",
       "--stage-line-soft": "rgba(243, 241, 234, 0.14)",
       "--stage-raised": "#211e1a",
+      "--stage-disc": "#191619",
+      "--stage-disc-groove": "#221e22",
       // 暗底上朱砂提亮一档（与 tokens.css 夜间的取舍一致），否则发乌
       "--stage-accent": "#e0492f",
       // 未取到色就是 transparent：兜底成 accent 会把整屏染成粉墙（::after 18% 铺满）

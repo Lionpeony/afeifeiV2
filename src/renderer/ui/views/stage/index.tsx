@@ -27,6 +27,8 @@ export interface StageViewProps {
   exportTheme(): Promise<boolean>;
   /** 从文件导入主题包，返回覆盖值。取消返回 null。 */
   importTheme(): Promise<Record<string, string> | null>;
+  /** 引擎当前曲目总时长（沉浸态的剩余时间/进度上限用）。无曲目返回 0。 */
+  durationMs(): number;
 }
 
 const fmt = (ms: number): string => {
@@ -56,7 +58,7 @@ function fileOf(id: string): string {
  *   press 田字格整句落墨 / karaoke 田字格逐字点亮 / minimal 单行大字 / theatrical 三行提词器。
  * 每帧只写 class 与 transform；换预设仍只换场景层 token，控件不位移。
  */
-export function StageView({ state, cover, spectrum, exportTheme, importTheme }: StageViewProps) {
+export function StageView({ state, cover, spectrum, exportTheme, importTheme, durationMs }: StageViewProps) {
   const { player, stage } = state;
   const preset = PRESETS.find((p) => p.id === stage.preset) ?? PRESETS[0];
   const rootRef = useRef<HTMLDivElement>(null);
@@ -69,6 +71,17 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
   const parallaxCurrent = useRef({ x: 0, y: 0 });
   /* 频谱柱色：canvas 读不到 CSS 变量，换预设时把 .stage 的 color（= --stage-fg）解析成实值存这里 */
   const spectrumColor = useRef("");
+  /* b2 沉浸态：钟面/进度与页脚同一份 t，只写 DOM（I1 时间唯一）。
+     immersiveRef 让 onTick 免于每帧因闭包重建；tRef 存最近时刻给 queue/prev 用 */
+  const [immersive, setImmersive] = useState(false);
+  const [immerNarrow, setImmerNarrow] = useState(false);
+  const immersiveRef = useRef(false);
+  const imTimeRef = useRef<HTMLSpanElement>(null);
+  const imTotalRef = useRef<HTMLSpanElement>(null);
+  const imBarRef = useRef<HTMLInputElement>(null);
+  const imStatRef = useRef<HTMLParagraphElement>(null);
+  const imDragRef = useRef(false);
+  const tRef = useRef(0);
 
   const [rev, setRev] = useState(0);
   const [lineIdx, setLineIdx] = useState(-1);
@@ -80,6 +93,7 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
 
   const remote = player.remote;
   const renderer = stage.lyricRenderer;
+  const playing = player.status === "playing";
 
   /* 曲库元数据：队列行与台词本要标题/时长。在线曲目不在曲库里 → 走兜底，不编数据。 */
   useEffect(() => subscribeLibrary(() => setRev((r) => r + 1)), []);
@@ -109,6 +123,53 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
 
   const upNext = queue.items.slice(queue.cursor + 1, queue.cursor + 1 + UP_NEXT);
   const upNextKey = upNext.join("|");
+
+  /* 队列行（普通右栏与沉浸态共用）：A-20 可点播、可上移、可删，下标一律用 items 下标 */
+  const nxRows = (): React.ReactNode =>
+    upNext.map((id, i) => {
+      const at = queue.cursor + 1 + i;
+      return (
+        <div className="st-nx" key={id}>
+          <button
+            type="button"
+            className="st-nx-main"
+            title="播放这首"
+            onClick={() =>
+              dispatch({
+                type: "player/play",
+                trackId: id,
+                trackTitle: tracksMap.get(id)?.title ?? null,
+              })
+            }
+          >
+            <i className="no">{pad2(at + 1)}</i>
+            <span className="art" style={queueCovers[id] ? { backgroundImage: `url("${queueCovers[id]}")` } : undefined} />
+            <span className="tx">
+              {tracksMap.get(id)?.title ?? fileOf(id)}
+              <small>{tracksMap.get(id)?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small>
+            </span>
+            <time>{tracksMap.get(id) ? fmt(tracksMap.get(id)!.durationMs) : "--:--"}</time>
+          </button>
+          <span className="st-nx-ops">
+            <button
+              type="button"
+              aria-label="上移一位"
+              disabled={at === 0}
+              onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="从队列移除"
+              onClick={() => dispatch({ type: "queue/remove", index: at })}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      );
+    });
 
   /* ---- 预设 token + 主题包覆盖：只写场景层变量，写完就完，不触发任何重渲染 ---- */
   useEffect(() => {
@@ -187,10 +248,29 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
     return subscribeLyric(read);
   }, []);
 
+  /* ---- b2 沉浸态：Esc 退出；<900px 降级为提示文案（b2 稿的窄窗线，resize 实时重测） ---- */
+  useEffect(() => {
+    if (!immersive) return;
+    immersiveRef.current = true;
+    const measure = (): void => setImmerNarrow(window.innerWidth < 900);
+    measure();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") setImmersive(false);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", measure);
+    return () => {
+      immersiveRef.current = false;
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", measure);
+    };
+  }, [immersive]);
+
   /* ---- 每帧：同一份 t 驱动歌词、活字点亮、视差与频谱；活动行没变就不碰 DOM ---- */
   useEffect(
     () =>
       onTick((t) => {
+        tRef.current = t;
         if (doc) {
           const idx = activeLine(doc.lines, t);
           if (idx !== lastActiveRef.current) {
@@ -226,6 +306,21 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
             if (img) img.style.transform = `translate(${cur.x.toFixed(2)}px, ${cur.y.toFixed(2)}px)`;
           }
         }
+        // 沉浸态钟面（b2）：与页脚同一份 t / durationMs，文本没变就不写 DOM 由浏览器 diff ——
+        // 这里每秒最多三次 textContent 赋值 + 一次 --fill，不触发 React 渲染
+        if (immersiveRef.current) {
+          const dur = durationMs();
+          if (imTimeRef.current && imTimeRef.current.textContent !== fmt(t)) imTimeRef.current.textContent = fmt(t);
+          if (imTotalRef.current && imTotalRef.current.textContent !== fmt(dur)) imTotalRef.current.textContent = fmt(dur);
+          if (imBarRef.current && !imDragRef.current) {
+            imBarRef.current.max = String(Math.max(1, Math.round(dur)));
+            imBarRef.current.value = String(Math.round(Math.min(t, dur || t)));
+            const pct = dur > 0 ? Math.min(100, (t / dur) * 100) : 0;
+            imBarRef.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+            const stat = dur > 0 ? `已播 ${Math.round(pct)}% · 剩余 ${fmt(dur - t)} · 按 Esc 退回` : "按 Esc 退回";
+            if (imStatRef.current && imStatRef.current.textContent !== stat) imStatRef.current.textContent = stat;
+          }
+        }
         // 频谱（C1）：四套预设都能看，开关就是图层里的「频谱」（A-07 低端机可关）。
         // 静音/暂停时 barHeights 给全 0，屏幕上真的空 —— 不画假波形
         if (stage.layers.visual) {
@@ -250,7 +345,7 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
           }
         }
       }),
-    [doc, renderer, stage.preset, stage.layers.visual, stage.intensity, spectrum],
+    [doc, renderer, stage.preset, stage.layers.visual, stage.intensity, spectrum, durationMs],
   );
 
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
@@ -365,6 +460,10 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
               <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>
                 视图
               </button>
+              {/* 沉浸入口排在视图后面：真机判据用 querySelector('.st-viewbtn') 取「视图」，顺序不能反 */}
+              <button type="button" className="st-viewbtn" onClick={() => setImmersive(true)} title="沉浸播放（Esc 退出）">
+                沉浸
+              </button>
             </span>
           }
         />
@@ -397,51 +496,7 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
             {upNext.length === 0 ? (
               <p className="st-side-empty">队列里没有下一首</p>
             ) : (
-              upNext.map((id, i) => {
-                // A-20：可点（直接播）、可上移、可删。下标一律用 items 下标，不用播放序
-                const at = queue.cursor + 1 + i;
-                return (
-                  <div className="st-nx" key={id}>
-                    <button
-                      type="button"
-                      className="st-nx-main"
-                      title="播放这首"
-                      onClick={() =>
-                        dispatch({
-                          type: "player/play",
-                          trackId: id,
-                          trackTitle: tracksMap.get(id)?.title ?? null,
-                        })
-                      }
-                    >
-                      <i className="no">{pad2(at + 1)}</i>
-                      <span className="art" style={queueCovers[id] ? { backgroundImage: `url("${queueCovers[id]}")` } : undefined} />
-                      <span className="tx">
-                        {tracksMap.get(id)?.title ?? fileOf(id)}
-                        <small>{tracksMap.get(id)?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small>
-                      </span>
-                      <time>{tracksMap.get(id) ? fmt(tracksMap.get(id)!.durationMs) : "--:--"}</time>
-                    </button>
-                    <span className="st-nx-ops">
-                      <button
-                        type="button"
-                        aria-label="上移一位"
-                        disabled={at === 0}
-                        onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="从队列移除"
-                        onClick={() => dispatch({ type: "queue/remove", index: at })}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  </div>
-                );
-              })
+              nxRows()
             )}
 
             <div className="st-seal">
@@ -582,6 +637,164 @@ export function StageView({ state, cover, spectrum, exportTheme, importTheme }: 
               </button>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {/* b2 沉浸态（stage-v10 b2「刻纹现场」）：全屏覆盖层，Esc 退出，<900px 降级为提示。
+          巨字标题 + 封套相纸 + 黑胶盘（暂停即停转）+ 大词 + 队列 + 底部走带 */}
+      {immersive ? (
+        <div className={`st-immer${immerNarrow ? " narrow" : ""}`} role="dialog" aria-label="沉浸播放">
+          <header className="im-top">
+            <span className="im-brand">
+              <i />
+              AFEIFEI
+              <small>沉浸播放 · 按 Esc 退出</small>
+            </span>
+            <div className="st-seal im-seal">
+              <b>第 {pad2(queue.cursor + 1)} 场</b>
+              <small>ADMIT ONE</small>
+            </div>
+          </header>
+
+          {immerNarrow ? (
+            <p className="im-narrow">沉浸播放需要更宽的窗口（≥ 900px）　按 Esc 退回普通播放页</p>
+          ) : (
+            <>
+              <div className="im-body">
+                <div className="im-lead">
+                  {/* 字号跟着曲名长度走（docs/17 POSTER 的真实工程问题：长曲名定字号必爆版） */}
+                  <h2 className={`im-title${nowTitle.length > 20 ? " long" : nowTitle.length > 10 ? " mid" : ""}`}>
+                    {nowTitle}
+                    <i className="dot" />
+                  </h2>
+                  <p className="im-tech">
+                    {[nowArtist, nowAlbum].filter(Boolean).join(" · ") || "—"} · {sourceName}
+                  </p>
+                </div>
+
+                <div className="im-grid">
+                  {/* 左：封套相纸（无封面 = 素底虚线框，不编图） */}
+                  <figure className="st-photo im-sleeve">
+                    <div className="art" data-side={`SIDE A · ${pad2(queue.cursor + 1)}`}>
+                      {coverUrl ? <img className="st-cover-img" src={coverUrl} alt="" /> : null}
+                    </div>
+                    <figcaption className="im-sleeve-cap">
+                      <b>{nowTitle}</b>
+                      <span>{nowDur > 0 ? fmt(nowDur) : "--:--"}</span>
+                    </figcaption>
+                  </figure>
+
+                  {/* 中：黑胶盘 + 唱臂；暂停/加载/缓冲即停转（一个状态一个表现） */}
+                  <div className={`im-disc${playing ? "" : " stalled"}`}>
+                    <div className="tone" />
+                    <div className="disc">
+                      <div className="label">
+                        <b>SIDE A · {pad2(queue.cursor + 1)}</b>
+                        <span>{nowArtist || "—"}</span>
+                        <strong>{nowTitle}</strong>
+                        <small>33⅓ RPM · STEREO</small>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 右：SCRIPT 行 + 上句/当前句/下句 + 队列 */}
+                  <div className="im-right">
+                    <div className="st-kicker">
+                      <i />
+                      <span>{kicker}</span>
+                    </div>
+                    {doc && lineIdx >= 0 ? (
+                      <div className="im-lyric">
+                        <p className="im-line im-prev">{lineIdx > 0 ? doc.lines[lineIdx - 1].text : "—"}</p>
+                        <p className="im-line im-cur">{curLine?.text}</p>
+                        {stage.translation && transText() ? <p className="im-line im-trans">{transText()}</p> : null}
+                        <p className="im-line im-next">
+                          {lineIdx + 1 < doc.lines.length ? doc.lines[lineIdx + 1].text : "（本段终）"}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="im-line im-cur pure">{doc ? "—" : lyricNote || "纯音乐 · 这首歌没有歌词"}</p>
+                    )}
+                    <div className="im-queue">
+                      <div className="st-side-h">
+                        <b>接下来</b>
+                        <span>QUEUE · {upNext.length}</span>
+                      </div>
+                      {upNext.length === 0 ? (
+                        <p className="st-side-empty">队列里没有下一首</p>
+                      ) : (
+                        nxRows()
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <span className="im-vert" aria-hidden="true">
+                  ONE RECORD · ONE ROOM · NO.{pad2(queue.cursor + 1)}
+                </span>
+                <span className="im-no" aria-hidden="true">
+                  {pad2(queue.cursor + 1)}
+                </span>
+              </div>
+
+              <footer className="im-foot">
+                <div className="im-row">
+                  <span ref={imTimeRef} className="im-tm">
+                    0:00
+                  </span>
+                  <div className="im-tb">
+                    <button
+                      type="button"
+                      aria-label="上一首"
+                      onClick={() => dispatch({ type: "queue/prev", atPositionMs: tRef.current })}
+                    >
+                      <i className="tb-ic ic-prev">
+                        <i />
+                        <i />
+                      </i>
+                    </button>
+                    <button type="button" className="main" aria-label={playing ? "暂停" : "播放"} onClick={() => dispatch({ type: "player/toggle" })}>
+                      <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
+                        <i />
+                        {playing ? <i /> : null}
+                      </i>
+                    </button>
+                    <button type="button" aria-label="下一首" onClick={() => dispatch({ type: "queue/next" })}>
+                      <i className="tb-ic ic-next">
+                        <i />
+                        <i />
+                      </i>
+                    </button>
+                  </div>
+                  <input
+                    ref={imBarRef}
+                    className="im-bar"
+                    type="range"
+                    min={0}
+                    max={1000}
+                    defaultValue={0}
+                    aria-label="播放进度"
+                    onPointerDown={() => {
+                      imDragRef.current = true;
+                    }}
+                    onPointerUp={() => {
+                      imDragRef.current = false;
+                    }}
+                    onBlur={() => {
+                      imDragRef.current = false;
+                    }}
+                    onChange={(e) => dispatch({ type: "player/seek", positionMs: Number(e.target.value) })}
+                  />
+                  <span ref={imTotalRef} className="im-tm">
+                    0:00
+                  </span>
+                </div>
+                <p ref={imStatRef} className="im-stat">
+                  按 Esc 退回
+                </p>
+              </footer>
+            </>
+          )}
         </div>
       ) : null}
     </section>

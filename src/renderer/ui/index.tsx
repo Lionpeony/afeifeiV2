@@ -384,6 +384,7 @@ function App() {
             spectrum={(bins) => services.current?.spectrum(bins) ?? null}
             exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
             importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
+            durationMs={() => services.current?.engine.durationMs() ?? 0}
           />
         );
       case "home":

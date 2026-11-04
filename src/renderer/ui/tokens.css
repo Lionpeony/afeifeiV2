@@ -30,6 +30,8 @@
   --stage-line: rgba(23, 21, 15, 0.28); /* 场景自己的发丝线/表格线 */
   --stage-line-soft: rgba(23, 21, 15, 0.12); /* 场景的弱线/虚线 */
   --stage-raised: #ece9df; /* 相纸卡里掏空的槽位（无封面时的底） */
+  --stage-disc: #191619; /* 黑胶盘实体色（b2 沉浸态），物理黑胶不随预设换装 */
+  --stage-disc-groove: #221e22; /* 盘纹亮槽 */
   --stage-accent: #d8341c; /* 场景里的朱砂（正在唱 / 场次票） */
   --stage-tint: #d8341c;
   --stage-wallpaper: none; /* L-a：预设给背景（纹理 / 模糊图 / 纯色） */
