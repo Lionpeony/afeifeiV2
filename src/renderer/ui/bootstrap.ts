@@ -1,4 +1,4 @@
-import type { AppState, DownloadItem } from "../../contracts/index.js";
+import type { AppState, DownloadItem, ErrorCode } from "../../contracts/index.js";
 import type {
   DownloadPort,
   KeyValuePort,
@@ -41,10 +41,29 @@ import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/lik
 import { loadPlaylists, savePlaylists, subscribe as subscribePlaylists } from "../domain/playlists/index.js";
 import { loadSalt } from "../domain/recommend/salt.js";
 import { clock } from "../kernel/clock.js";
-import { dispatch, getState, subscribe } from "../kernel/index.js";
+import { decideFailure } from "../kernel/failure.js";
+import {
+  dispatch,
+  getState,
+  orderOf,
+  sanitizeLyricOffsets,
+  sanitizePlaybackConfig,
+  stepForward,
+  subscribe,
+} from "../kernel/index.js";
 import { createPersister } from "../kernel/persist.js";
 
 import { humanize, type Api, type NcmBody, type Services } from "./services.js";
+import { bindingToDoc, resolveLocalLyric } from "./local-lyric.js";
+import {
+  getLyricBinding,
+  lyricBindKey,
+  parseLyricBindings,
+  putLyricBinding,
+  serializeLyricBindings,
+  type LyricBindings,
+} from "../domain/lyrics/bindings.js";
+import { searchLrclib } from "../domain/lyrics/fetch-lrclib.js";
 import { applyTheme, isTheme, THEME_KEY, type Theme } from "./theme.js";
 
 declare global {
@@ -106,6 +125,12 @@ export async function bootstrap(): Promise<Services> {
     }, 1000);
   };
 
+  /**
+   * 手动换词绑定（P0-19）：一次点击写一次盘，量小；不走节流 ——
+   * 挑完词立刻关窗/退出是常态，攒着写就等于"挑了还不算数"。
+   */
+  let lyricBindings: LyricBindings = {};
+
   // 下载的系统调用面（M7）。进度事件：桥里单订阅，按 taskId 分发到进行中的 fetch
   const progressCbs = new Map<string, (received: number, total: number) => void>();
   api.onDownloadProgress((p) => progressCbs.get(p.taskId)?.(p.received, p.total));
@@ -163,13 +188,111 @@ export async function bootstrap(): Promise<Services> {
   const engine = new AudioEngine(media);
   const persister = createPersister(storage);
 
+  /* ---- 播放失败自愈（P0-14）。判定在 kernel/failure.ts，这里只做调度 ---- */
+  let retryCount = 0; // 当前这首已重试次数（换到下一首时清零）
+  let skipStreak = 0; // 已连续跳过几首（真的播起来 500ms 后清零）
+  let okTimer: ReturnType<typeof setTimeout> | null = null;
+  let skipTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const queueHasNext = (): boolean => {
+    const s = getState();
+    const order = orderOf(s.queue.items, s.queue.mode, s.queue.shuffleSeed);
+    return stepForward(order, s.queue.cursor, s.queue.mode, true) >= 0;
+  };
+
+  /**
+   * 真的播起来了才清零 —— 只认 `loadedmetadata` 会把"加载成功但解不了"的算成功，
+   * 那样坏文件永远清不掉计数（抄 SPlayer：播过 500ms 才 `failSkipCount = 0`）。
+   */
+  const armSuccessReset = (trackId: string): void => {
+    if (okTimer) clearTimeout(okTimer);
+    okTimer = setTimeout(() => {
+      okTimer = null;
+      const s = getState();
+      if (s.player.trackId === trackId && s.player.status === "playing") {
+        retryCount = 0;
+        skipStreak = 0;
+        // 真的放出来了：摘掉队列里的"播不了"标记（P0-16）。标记只为解释"刚才跳过了什么"而存在
+        dispatch({ type: "queue/fail", trackId, failed: false });
+      }
+    }, 500);
+  };
+
+  const handleFailure = (code: ErrorCode): void => {
+    const st = getState();
+    const decision = decideFailure({
+      code,
+      retryCount,
+      skipStreak,
+      hasNext: queueHasNext(),
+      autoSkip: st.playback.onError === "skip",
+    });
+
+    if (decision.action === "ignore") return;
+
+    // 先给这一首打标记（P0-16）：队列面板要能回答"刚才为什么跳过去了"。
+    // 摘标只发生在它真的播起来之后（armSuccessReset），不在这里撤。
+    if (st.player.trackId) dispatch({ type: "queue/fail", trackId: st.player.trackId, failed: true });
+
+    if (decision.action === "retry") {
+      retryCount = decision.retryCount;
+      // 先把错误露出来（用户看得见"在重试"），再重取源。重试从 0 开始放：
+      // 坏掉的流没有可信的续播点，续点会让进度条与声音对不上（I1）
+      dispatch({ type: "player/error", code });
+      void engine.reload().then((changed) => {
+        if (!changed) {
+          retryCount = 0; // 取源这步就失败了，停在错误态等用户（按钮由 isRetryable 决定）
+          return;
+        }
+        dispatch({ type: "player/seek", positionMs: 0 });
+        dispatch({ type: "player/play" });
+      });
+      return;
+    }
+
+    if (decision.action === "stop") {
+      retryCount = 0;
+      skipStreak = 0;
+      // 只有"连跳三首"值得换成一句总结；"没有下一首"照实报原码 ——
+      // 用户想知道的是"这首歌为什么放不了"，不是"队列空了"
+      dispatch({ type: "player/error", code: decision.reason === "exhausted" ? "too-many-failures" : code });
+      return;
+    }
+
+    // skip：先露错误态（否则用户不知道刚才跳过了什么），再按延迟切下一首
+    dispatch({ type: "player/error", code });
+    skipStreak = decision.skipStreak;
+    const failing = st.player.trackId;
+    if (skipTimer) clearTimeout(skipTimer);
+    skipTimer = setTimeout(() => {
+      skipTimer = null;
+      // 这 500ms 里用户自己切了歌：别替他再跳一次
+      if (getState().player.trackId !== failing) return;
+      dispatch({ type: "queue/next" });
+    }, decision.delayMs);
+  };
+
   engine.on({
     onReady: () => dispatch({ type: "player/ready" }),
     onEnded: () => dispatch({ type: "player/ended" }),
-    onError: (code) => dispatch({ type: "player/error", code }),
+    onError: (code) => handleFailure(code),
+    // 缓冲（P0-26）：开始后卡住才算缓冲，与"解码中"分开显示
+    onBuffering: (on) => dispatch({ type: "player/buffering", on }),
+    // 预取（P0-08）：剩余 10s 时把下一首装进待命元素，切歌省一次取源 + load。
+    // 单曲循环不预取：下一首就是自己，装进去只会把正在放的这首挤掉。
+    onPreloadNext: () => {
+      const s = getState();
+      if (s.queue.mode === "repeat-one") return;
+      const order = orderOf(s.queue.items, s.queue.mode, s.queue.shuffleSeed);
+      const next = stepForward(order, s.queue.cursor, s.queue.mode);
+      if (next >= 0) void engine.preload(s.queue.items[next]);
+    },
     // crossfade（M9-3）：进窗口就切下一首；repeat-one 对自己淡入没有意义，走自然 ended
     onNearEnd: () => {
-      if (getState().queue.mode === "repeat-one") return;
+      const s = getState();
+      if (s.queue.mode === "repeat-one") return;
+      // 睡眠定时正等这首播完（P0-24）：不许在这里切，交给自然 ended 让它停
+      if (s.sleep.pending) return;
       dispatch({ type: "queue/next" });
     },
     onFadeStart: () => dispatch({ type: "player/began" }),
@@ -224,6 +347,26 @@ export async function bootstrap(): Promise<Services> {
     if (next.audio !== prev.audio) scheduleAudioSave();
     if (next.stage !== prev.stage) scheduleStageSave();
 
+    // 失败自愈的两个计数器（P0-14）：换歌清重试次数，真播起来 500ms 后清连跳数
+    if (next.player.trackId !== prev.player.trackId) {
+      retryCount = 0;
+      if (okTimer) {
+        clearTimeout(okTimer);
+        okTimer = null;
+      }
+    }
+    if (next.player.status === "playing" && prev.player.status !== "playing" && next.player.trackId) {
+      armSuccessReset(next.player.trackId);
+    }
+    // 失败策略是低频操作，直接写，不走节流
+    if (next.playback !== prev.playback) void kv.write("playback", JSON.stringify(next.playback));
+    // 歌词校准（P0-18）：一次 ±0.5s 一次写，量小；连续点时末次值就是终态
+    if (next.lyrics !== prev.lyrics) void kv.write("lyric-offsets", JSON.stringify(next.lyrics.offsets));
+    // 「播完再停」是偏好（P0-24）：只存这一个开关，定时本身不持久化（重启不该继续倒数）
+    if (next.sleep.waitEnd !== prev.sleep.waitEnd) {
+      void kv.write("sleep-wait-end", next.sleep.waitEnd ? "1" : "0");
+    }
+
     reconcile(prev, next, engine);
     prev = next;
     persistNow();
@@ -251,8 +394,19 @@ export async function bootstrap(): Promise<Services> {
   const savedStage = sanitizeStageConfig(await kv.read("stage-ui"));
   dispatch({ type: "stage/restore", config: savedStage });
 
+  // 失败策略（P0-15）：默认 skip；坏数据在 sanitize 里落回默认，不进真相
+  dispatch({ type: "playback/restore", config: sanitizePlaybackConfig(await kv.read("playback")) });
+
+  // 歌词校准表（P0-18）：坏条目逐条丢，一条烂数据不能清空整份校准
+  dispatch({ type: "lyric/restoreOffsets", offsets: sanitizeLyricOffsets(await kv.read("lyric-offsets")) });
+
+  // 睡眠定时偏好（P0-24）：只恢复"播完再停"这个勾选，不恢复定时本身
+  dispatch({ type: "sleep/setWaitEnd", waitEnd: (await kv.read("sleep-wait-end")) === "1" });
+
   // 歌词缓存：坏条目在 parseLyricCache 里逐条丢掉，不让一条烂数据清空整份
   lyricCache = parseLyricCache(await kv.read("lyric-cache"));
+  // 手动换词绑定（P0-19）：同款逐条校验
+  lyricBindings = parseLyricBindings(await kv.read("lyric-bindings"));
 
   const snapshot = await persister.restore();
   if (snapshot) {
@@ -263,7 +417,14 @@ export async function bootstrap(): Promise<Services> {
     dispatch({ type: "player/setPlaybackRate", rate: snapshot.playbackRate ?? 1 });
     dispatch({ type: "player/setPreservesPitch", on: snapshot.preservesPitch !== false });
     if (snapshot.trackId) {
-      dispatch({ type: "player/cue", trackId: snapshot.trackId, positionMs: snapshot.positionMs });
+      dispatch({
+        type: "player/cue",
+        trackId: snapshot.trackId,
+        positionMs: snapshot.positionMs,
+        // 老快照没有这两个字段：按 null 恢复，行为与升级前一致（P0-13）
+        trackTitle: snapshot.trackTitle ?? null,
+        remote: snapshot.remote ?? null,
+      });
     }
   }
 
@@ -355,7 +516,11 @@ export async function bootstrap(): Promise<Services> {
     },
 
     async lyric(sourceId, songId) {
-      // 先看本地缓存：同一首词第二次不该再打网络（A-03）
+      // 手动挑的那版最优先：用户的选择比任何自动匹配都权威（P0-19）
+      const bound = getLyricBinding(lyricBindings, lyricBindKey({ sourceId, songId }, null));
+      if (bound) return bindingToDoc(bound, `${sourceId}:${songId}`);
+
+      // 再看出本地缓存：同一首词第二次不该再打网络（A-03）
       const key = lyricCacheKey(sourceId, songId);
       const hit = getCachedLyric(lyricCache, key);
       if (hit) return hit;
@@ -375,6 +540,58 @@ export async function bootstrap(): Promise<Services> {
       } catch (err) {
         throw humanize(err);
       }
+    },
+
+    /**
+     * 本地曲目词（P0-20）：同名 .lrc → 内嵌标签 → LRCLIB。
+     * 与在线路径共用同一份缓存 —— 否则每次切回本地歌都要重读文件、重打一次 LRCLIB。
+     * 缓存的是**文件自带偏移**（`doc.offsetMs` 里没有用户校准），所以回读后 P0-18 仍能正确叠加。
+     */
+    async localLyric(track) {
+      if (!track?.path) throw new Error("纯音乐");
+      // 手动挑的那版最优先：本地文件里那版可能是错的，用户已经表过态了
+      const bound = getLyricBinding(lyricBindings, lyricBindKey(null, track.id));
+      if (bound) return bindingToDoc(bound, track.id, track.durationMs);
+
+      const key = lyricCacheKey("local", track.id);
+      const hit = getCachedLyric(lyricCache, key);
+      if (hit) return hit;
+
+      const doc = await resolveLocalLyric(track.path, track, {
+        read: (p) => api.localLyric(p),
+        http: { fetchJson: (url, options) => api.fetchJson(url, options) },
+      });
+      const next = putCachedLyric(lyricCache, key, doc, Date.now());
+      if (next !== lyricCache) {
+        lyricCache = next;
+        scheduleLyricCacheSave();
+      }
+      return doc;
+    },
+
+    /** 手动换词（P0-19）：搜 LRCLIB 候选。「歌名 歌手」整句发 q，让上游自己分词。 */
+    searchLyrics(query) {
+      const text = query.trim();
+      if (!text) return Promise.resolve([]);
+      return searchLrclib({ fetchJson: (url, options) => api.fetchJson(url, options) }, {
+        trackName: text,
+        q: text,
+      });
+    },
+
+    /**
+     * 存下用户挑的那版词并返回 doc。
+     * 读取顺序是"绑定 → 缓存 → 自动取词"，所以这里不用清缓存；
+     * 但**将来做"取消手动绑定"时必须回来清**，否则旧缓存会立刻接管，看起来像没取消掉。
+     */
+    bindLyric(key, trackId, text, totalMs) {
+      if (!key || !text.trim()) throw new Error("这版歌词是空的");
+      const next = putLyricBinding(lyricBindings, key, text, Date.now());
+      if (next !== lyricBindings) {
+        lyricBindings = next;
+        void kv.write("lyric-bindings", serializeLyricBindings(next));
+      }
+      return Promise.resolve(bindingToDoc(text, trackId, totalMs));
     },
 
     spectrum: (bins) => engine.spectrum(bins),
@@ -573,6 +790,9 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   // 注意必须放在**换歌分支之外** —— 变速本身不换歌，放在里面就永远不生效。
   if (n.playbackRate !== p.playbackRate) engine.setPlaybackRate(n.playbackRate);
   if (n.preservesPitch !== p.preservesPitch) engine.setPreservesPitch(n.preservesPitch);
+  // 单曲循环（P0-05）：交给元素的 loop，播完不重新 load（省一次取源，也不会断一拍）。
+  // 必须放在换歌分支之外 —— 换模式本身不换歌。
+  if (next.queue.mode !== prev.queue.mode) engine.setLoop(next.queue.mode === "repeat-one");
 
   // 音频配置与播放状态分开比较：调 EQ 不该碰播放链路，反之亦然。
   // p/n 是 player 域，audio 在 AppState 顶层，从 prev/next 取。
@@ -582,5 +802,7 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
     if (na.preampDb !== pa.preampDb) engine.setPreamp(na.preampDb);
     if (na.eq.some((v: number, i: number) => v !== pa.eq[i])) engine.setEq(na.eq);
     if (na.crossfadeSec !== pa.crossfadeSec) engine.setCrossfade(na.crossfadeSec);
+    // 输出设备（P0-09）：图还没建时 engine 会记住，第一次 play() 时补上
+    if (na.outputId !== pa.outputId) void engine.setOutputDevice(na.outputId);
   }
 }

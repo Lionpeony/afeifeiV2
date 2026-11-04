@@ -6,6 +6,8 @@ import type { AudioEngine } from "../capability/audio/engine.js";
 import type { LyricDoc, OnlinePlaylist, Quality, SearchResult, Toplist } from "../../contracts/capability.js";
 import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
+import type { Track } from "../domain/library/schema.js";
+import type { LrclibHit } from "../domain/lyrics/fetch-lrclib.js";
 import type { Theme } from "./theme.js";
 import { errorText, translateError } from "../capability/errors.js";
 
@@ -20,6 +22,17 @@ export interface Api {
   readTags(filePaths: string[]): Promise<unknown[]>;
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
   cover(filePath: string): Promise<string | null>;
+  /** 本地词原文（同名 .lrc → 内嵌标签）；没有返回 null。 */
+  localLyric(filePath: string): Promise<{ text: string; source: "local" | "embedded" } | null>;
+  /** 出站 HTTP（主进程发）：形状同 `HttpPort.fetchJson`，只给 LRCLIB 兜底用。 */
+  fetchJson(
+    url: string,
+    options?: {
+      method?: "GET" | "POST";
+      form?: Record<string, string | number | boolean>;
+      headers?: Record<string, string>;
+    },
+  ): Promise<{ status: number; json: unknown; setCookie: string[] }>;
   loadIndex(): Promise<string | null>;
   saveIndex(json: string): Promise<void>;
   readIndexLog(): Promise<string>;
@@ -124,6 +137,12 @@ export interface Services {
   playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
   /** 在线曲目歌词。错误已翻译成人话。 */
   lyric(sourceId: string, songId: string): Promise<LyricDoc>;
+  /** 本地曲目歌词（P0-20）：同名 lrc → 内嵌 → LRCLIB，带缓存；都没有抛「纯音乐」。 */
+  localLyric(track: Track | undefined): Promise<LyricDoc>;
+  /** 手动换词（P0-19）：按「歌名 歌手」搜 LRCLIB 候选。空查询返回空数组。 */
+  searchLyrics(query: string): Promise<LrclibHit[]>;
+  /** 存下用户挑的那版词（key 见 `lyricBindKey`）并返回 doc。 */
+  bindLyric(key: string, trackId: string, text: string, totalMs?: number): Promise<LyricDoc>;
   /** 频谱采样（0–1 的 bins 个桶）。没在播返回 null。 */
   spectrum(bins: number): number[] | null;
   /** 弹文件框选一个 .js 用户源，返回内容。取消返回 null。 */
