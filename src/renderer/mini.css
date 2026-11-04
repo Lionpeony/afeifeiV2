@@ -1,33 +1,123 @@
-/* 迷你窗：无边框小条。颜色只走 token（app.css 链入了 tokens.css，:root 变量在这里同样生效）。 */
+/* 迷你窗（P0-27）：无边框小条。颜色只走 token（app.css 链入了 tokens.css，:root 变量在这里同样生效）。
+   结构：封面（双击回主窗） | 标题 / 当前歌词 / 时间 + 可拖进度 | 控制按钮（悬停浮出） */
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg-raised); color: var(--fg); font: 12px/1.4 system-ui; user-select: none; }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-raised);
+  color: var(--fg);
+  font: 12px/1.4 var(--font-sans);
+  user-select: none;
+  overflow: hidden;
+}
 #root { height: 100%; }
 
 .mini {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   height: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  -webkit-app-region: drag; /* 整条可拖窗口 */
 }
-.mini-info { flex: 1; min-width: 0; }
+.mini button,
+.mini input,
+.mini-art { -webkit-app-region: no-drag; }
+
+/* 封面：56px，双击回主窗。无封面画刻纹，别留白 */
+.mini-art {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--line-soft);
+  background-color: var(--bg);
+  background-position: center;
+  background-size: cover;
+  cursor: default;
+}
+.mini-art.blank {
+  background-image: repeating-radial-gradient(
+    circle at 50% 50%,
+    var(--line-soft) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.mini-info { flex: 1 1 auto; min-width: 0; }
 .mini-title {
   margin: 0;
   font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mini-time { margin: 2px 0 4px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
-.mini-bar { height: 3px; background: var(--line); border-radius: 0; overflow: hidden; }
-.mini-bar-fill { height: 100%; background: var(--accent); transition: width 0.4s linear; }
-.mini-btns { display: flex; gap: 4px; }
+/* 当前歌词：一行，压暗；没词时只留一个省略号，不空出半行高度 */
+.mini-lyric {
+  margin: 1px 0 3px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-lyric.quiet { color: var(--fg-dim); }
+.mini-tr {
+  margin-left: 8px;
+  color: var(--fg-dim);
+}
+
+.mini-row { display: flex; align-items: center; gap: 6px; }
+.mini-time {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 可拖进度：细线 + 墨色填充（用 --fill 渐变，不用额外节点） */
+.mini-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 3px;
+  margin: 0;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0,
+    var(--accent) var(--fill, 0%),
+    var(--line) var(--fill, 0%),
+    var(--line) 100%
+  );
+  cursor: pointer;
+}
+.mini-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px;
+  height: 9px;
+  border: none;
+  border-radius: 0;
+  background: var(--fg);
+}
+
+/* 控制条：默认隐身，悬停才浮出（小窗里常驻四个按钮太吵） */
+.mini-btns {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.mini:hover .mini-btns,
+.mini-btns:focus-within { opacity: 1; }
 .mini-btns button {
   background: none;
-  border: 1px solid var(--line);
+  border: 1px solid transparent;
   border-radius: 0;
   color: var(--fg-dim);
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 4px 6px;
+  font-size: 12px;
 }
+.mini-btns button:hover { color: var(--fg); border-color: var(--line); }
 .mini-btns .mini-toggle { color: var(--fg); border-color: var(--accent); }
