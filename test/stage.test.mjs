@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   activeLine,
   compareRenderers,
+  currentWordIndex,
   karaokeState,
   litCount,
   minimalState,
@@ -124,6 +125,19 @@ test("karaoke：无逐字数据的行回落整行进度", () => {
 test("theatrical：distances 是各行到活动行的距离", () => {
   const st = theatricalState(SAMPLE, 8000);
   assert.deepEqual(st.distances, [2, 1, 0, 1]);
+});
+
+test("currentWordIndex：只在真实逐字时序中选择当前词，边界归属下一个词", () => {
+  const state = karaokeState(SAMPLE, 4750);
+  assert.equal(currentWordIndex(state), 0);
+  assert.equal(currentWordIndex(karaokeState(SAMPLE, 5000)), 1);
+  assert.equal(currentWordIndex(karaokeState(SAMPLE, 6000)), 2);
+});
+
+test("currentWordIndex：无逐字数据、空行或行未开始时不伪造活动词", () => {
+  assert.equal(currentWordIndex(karaokeState(SAMPLE, 8000)), -1, "只有行级时间时不能假装有词级同步");
+  assert.equal(currentWordIndex(karaokeState(SAMPLE, 3000)), -1, "当前行尚未开始");
+  assert.equal(currentWordIndex({ renderer: "karaoke", active: 0, text: "", progress: 0, chars: [] }), -1);
 });
 
 /* ---- 预设数据完整性（M4：缺 token 必须明确报错） ---- */

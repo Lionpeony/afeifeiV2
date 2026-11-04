@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 漫游 / 抽签亭</title>
+<style>
+/* hallmark: v2 · theme: custom · idea: "漫游是抽签亭——一张带撕口的票根，抽到谁、为什么是它，都印在票面上" · vibe: 冷纸票根 × 撕口 × 存根流水 */
+/* 功能映射（docs/24 §6/§10）：本地推荐+账号个人 FM+每日盐值；每张附「为什么是它」；不喜欢黑名单过滤漫游 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;min-width:340px;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-rows:44px auto minmax(0,1fr) 64px}
+.frame:before{content:"";position:absolute;top:8px;right:10px;width:14px;height:14px;z-index:4;opacity:.5;pointer-events:none;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.mast{grid-row:1;display:flex;align-items:center;gap:18px;padding:0 clamp(24px,3vw,44px);border-bottom:1.5px solid var(--ink);background:rgba(251,250,247,.9)}
+.mast .brand{display:flex;align-items:center;gap:10px}
+.mast .brand i{width:26px;height:26px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 8px/1.1 var(--mono)}
+.mast .brand b{font-size:13px;font-weight:650}
+.mast .brand small{font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.mast nav{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.mast nav::-webkit-scrollbar{display:none}
+.mast nav a{flex:none;padding:5px 10px;font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);text-decoration:none;cursor:pointer;white-space:nowrap}
+.mast nav a:hover{color:var(--accent)}
+.mast nav a.on{background:var(--accent);color:#fff}
+.mast .stat{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim);white-space:nowrap}
+.mast .stat b{color:var(--accent);font-weight:500}
+@media(max-width:1180px){.mast{gap:10px;padding:0 20px}.mast nav a{padding:5px 6px;letter-spacing:.08em}.mast .stat{display:none}}
+.pagehead{grid-row:2;display:flex;align-items:baseline;gap:14px;padding:14px clamp(24px,3vw,44px) 0}
+.pagehead h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.pagehead .lede{margin:0;font-size:12px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .stamp{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.14em;color:var(--ink-faint);white-space:nowrap}
+.booth{grid-row:3;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:10px clamp(24px,3vw,44px) 96px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px}
+.ticketcol{min-width:0}
+.ticket{position:relative;width:min(520px,100%);border:1.5px solid var(--ink);background:var(--paper-hi);box-shadow:8px 8px 0 rgba(17,19,27,.08)}
+.ticket .tear{position:absolute;top:64px;left:0;right:0;border-top:1.5px dashed var(--ink-faint)}
+.ticket .tear i{position:absolute;top:-8px;width:14px;height:14px;border:1.5px solid var(--ink);border-radius:50%;background:var(--paper)}
+.ticket .tear i:first-child{left:-8px;border-left-color:transparent}
+.ticket .tear i:last-child{right:-8px;border-right-color:transparent}
+.ticket .stub{padding:12px 18px;display:flex;align-items:center;gap:12px}
+.ticket .stub b{font:10px var(--mono);letter-spacing:.16em;color:var(--ink-dim)}
+.ticket .stub span{margin-left:auto;font:9px var(--mono);color:var(--ink-faint)}
+.ticket .main{padding:14px 18px 18px;display:flex;gap:16px}
+.ticket .cov{width:110px;height:110px;flex:none;overflow:hidden;display:grid;place-items:center;color:#fff;font:800 40px/1 var(--mono);border:1px solid rgba(17,19,27,.25);border-bottom:3px solid var(--ink)}
+.ticket .id{min-width:0;flex:1}
+.ticket .id strong{display:block;font-size:17px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket .id small{display:block;margin-top:4px;font:9px var(--mono);letter-spacing:.08em;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ticket .why{margin-top:10px;font-size:11px;color:var(--ink-soft);line-height:1.7;display:flex;gap:8px}
+.ticket .why i{flex:none;width:18px;height:2px;background:var(--accent);margin-top:8px}
+.ticket .why b{color:var(--ink)}
+.ticket .no{position:absolute;right:12px;top:20px;font:10px var(--mono);letter-spacing:.16em;color:var(--ink-faint)}
+.ticket .ops{padding:0 18px 16px;display:flex;gap:8px;flex-wrap:wrap}
+.ticket .ops button{height:34px;padding:0 14px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:10px var(--mono);cursor:pointer}
+.ticket .ops button.ghost{background:transparent;color:var(--accent)}
+.ticket .ops button:hover{background:var(--accent-deep,#1a2fc4);color:#fff}
+.ticket .ops button.ghost:hover{background:var(--accent-wash)}
+.drawcol{min-width:0}
+.drawcol h3{margin:0 0 10px;font:10px var(--mono);letter-spacing:.18em;color:var(--ink-dim)}
+.salt{display:flex;align-items:baseline;gap:8px;margin-bottom:14px;padding:10px 14px;border:1px solid var(--line);background:var(--paper-hi)}
+.salt b{font:11px var(--mono);color:var(--accent);white-space:nowrap}
+.salt span{font-size:10px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.salt .d{margin-left:auto;font:9px var(--mono);color:var(--ink-faint);white-space:nowrap}
+.record{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.record:hover strong{color:var(--accent)}
+.record .no{font:10px var(--mono);color:var(--ink-faint)}
+.record .t{min-width:0}
+.record .t strong{display:block;font-size:12px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .13s}
+.record .t small{display:block;margin-top:2px;font-size:9.5px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.record .kept{font:8px var(--mono);letter-spacing:.08em;border:1px solid var(--line);padding:2px 6px;color:var(--ink-soft);white-space:nowrap}
+.record .kept.yes{border-color:var(--accent);color:var(--accent)}
+.record .kept.no{border-color:var(--danger);color:var(--danger);border-style:dashed}
+.drawcol .foot{margin-top:12px;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-faint)}
+.console{grid-row:4;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:8px clamp(24px,3vw,44px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:38px;height:38px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:14px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:36px;height:36px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.1))}
+.toast{position:fixed;z-index:50;bottom:80px;left:50%;transform:translate(-50%,12px);padding:10px 14px;background:var(--ink);color:var(--paper);font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#switch{position:fixed;z-index:60;right:10px;bottom:10px;display:flex;gap:4px;padding:5px 6px;background:rgba(17,19,27,.92)}
+#switch small{color:#8b8f98;font:8px/2.4 var(--mono);letter-spacing:.1em;padding:0 4px}
+#switch button{border:1px solid #3a3f4d;background:transparent;color:#b8bcc2;font:9px var(--mono);padding:4px 7px;cursor:pointer}
+#switch button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty{display:none;min-height:300px;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 14px}
+[data-mode="empty"] .booth{display:none}
+[data-mode="empty"] .empty{display:flex}
+.empty .big{font:650 clamp(28px,3vw,44px)/1.05 var(--sans);letter-spacing:-.05em;font-variation-settings:"wght" 650}
+.empty .sub{font-size:12px;color:var(--ink-soft);max-width:460px;line-height:1.75}
+.empty button{height:38px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:12px;cursor:pointer}
+.empty button:hover{background:var(--accent);border-color:var(--accent)}
+.pre .ticket,.pre .record{opacity:0}
+.booted .ticket,.booted .record{opacity:1;transition:opacity .5s var(--ease-out);transition-delay:calc(var(--i,0)*30ms)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.pre .ticket,.pre .record{opacity:1}}
+@media(max-width:1100px){.booth{grid-template-columns:minmax(0,1fr)}.pagehead .lede{display:none}}
+</style>
+</head>
+<body data-mode="g">
+<div class="frame">
+<header class="mast">
+  <div class="brand"><i>AF</i><b>afeifei</b><small>阿飞飞</small></div>
+  <nav aria-label="主导航"><a data-toast="跳转首页">HOME 首页</a><a data-toast="跳转在线">WIRE 在线</a><a data-toast="跳转榜单">CHART 榜单</a><a data-toast="跳转电台">DIAL 电台</a><a class="on" data-toast="当前页：漫游">ROAM 漫游</a><a data-toast="跳转本地">INDEX 本地</a><a data-toast="跳转喜欢">LEDGER 喜欢</a><a data-toast="跳转最近">JOURNAL 最近</a><a data-toast="跳转下载">MANIFEST 下载</a><a data-toast="跳转设置">SPEC 设置</a></nav>
+  <div class="stat">21:47 · <b>PAUSED</b> · DEMO DATA</div>
+</header>
+<div class="pagehead">
+  <h1>漫游。</h1>
+  <p class="lede">从曲库和账号里抽一张——每张票根都印着「为什么是它」；不喜欢的永远不再出现。</p>
+  <span class="stamp">PAGE 05 · 11.05 THU · DEMO</span>
+</div>
+<main class="booth">
+  <div class="ticketcol">
+    <div class="ticket" style="--i:1">
+      <span class="no">TICKET 042 · 11.05</span>
+      <div class="tear"><i></i><i></i></div>
+      <div class="stub"><b>ROAM TICKET · 漫游签</b><span>来源 本地曲库 + 账号 FM</span></div>
+      <div class="main">
+        <div class="cov" style="background:linear-gradient(145deg,#2b2b3a,#4d4f8a 52%,#c8b46a)">老</div>
+        <div class="id"><strong>老人と海</strong><small>ヨルシカ · 盗作 · 5:21 · 320k</small>
+          <div class="why"><i></i><span><b>为什么是它：</b>你在 11-02 收进红心，最近两周只播过一次——按口味模型它该再出来一趟。</span></div>
+        </div>
+      </div>
+      <div class="ops"><button data-toast="播放这张签">▶ 播放这张</button><button class="ghost" data-toast="收进红心">♡ 收下</button><button class="ghost" data-toast="丢回签筒 · 换一张">↺ 换一张</button><button class="ghost" data-toast="加入不喜欢 · 漫游不再出现">✕ 不喜欢</button></div>
+    </div>
+    <p style="margin:12px 2px 0;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-faint)">抽签=推荐算法现场抽 1 首（红心加权 × 新鲜度 × 黑名单过滤），不建队列实体 · Space 播放 · L 收下</p>
+  </div>
+  <div class="drawcol">
+    <div class="salt"><b>盐值 82 / 100</b><span>今日互动与口味反馈累积 · 影响抽签新鲜度权重</span><span class="d">11.05 重置</span></div>
+    <h3>今日存根 · STUBS</h3>
+    <div class="record" tabindex="0" role="button" data-toast="播放存根：晴る" style="--i:2"><span class="no">041</span><div class="t"><strong>晴る</strong><small>ヨルシカ · 为什么是它：频段常客，14 天没出现 · 21:31</small></div><span class="kept yes">收下♡</span></div>
+    <div class="record" tabindex="0" role="button" data-toast="播放存根：Chinatown" style="--i:3"><span class="no">040</span><div class="t"><strong>Chinatown</strong><small>Le Bonbon · 为什么是它：写作 BGM 台常客 · 21:18</small></div><span class="kept">跳过</span></div>
+    <div class="record" tabindex="0" role="button" data-toast="播放存根：海底" style="--i:4"><span class="no">039</span><div class="t"><strong>海底</strong><small>一支榴莲 · 为什么是它：曲库补充 · 最近入库 · 20:56</small></div><span class="kept no">不喜欢✕</span></div>
+    <div class="record" tabindex="0" role="button" data-toast="播放存根：Ivory" style="--i:5"><span class="no">038</span><div class="t"><strong>Ivory</strong><small>ヨルシカ · 为什么是它：红心优先 · 20:41</small></div><span class="kept yes">收下♡</span></div>
+    <div class="record" tabindex="0" role="button" data-toast="播放存根：知我" style="--i:6"><span class="no">037</span><div class="t"><strong>知我</strong><small>国风堂 / 哦漏 · 为什么是它：曲库补充 · 20:12</small></div><span class="kept">跳过</span></div>
+    <p class="foot">存根只留今天 · 「不喜欢」进黑名单并同步过滤每日推荐与电台 · 账号 FM 需登录对应音源</p>
+  </div>
+  <div class="empty"><span class="big">签筒是空的。</span><span class="sub">漫游从本地曲库和账号里抽——曲库需要至少几首曲目；个人 FM 需要登录音源账号。</span><button data-toast="跳转本地页">去本地添加曲库</button></div>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶唱片"></div><div><strong>老人と海</strong><small>漫游签 · TICKET 042</small></div></div>
+  <div class="transport"><button aria-label="上一首" data-toast="上一首">|◀</button><button class="play" aria-label="暂停" data-toast="暂停">Ⅱ</button><button aria-label="下一首" data-toast="下一首">▶|</button></div>
+  <div class="seek"><span>1:04</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="321" aria-valuenow="64"><i></i></div><span>5:21</span></div>
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s);
+if(location.search.includes('rm'))document.documentElement.classList.add('rm');
+const toast=$('#toast');let t;
+const notify=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(t);t=setTimeout(()=>toast.classList.remove('show'),1700)};
+document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();notify(el.dataset.toast)}));
+document.querySelectorAll('.record').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();notify(el.dataset.toast)}}));
+document.querySelectorAll('#switch button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#switch button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.body.dataset.mode=b.dataset.v}));
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('pre','booted')));
+</script>
+</body>
+</html>

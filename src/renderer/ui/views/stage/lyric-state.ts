@@ -90,6 +90,12 @@ export function karaokeState(doc: LyricDoc, t: number): KaraokeState {
   return { renderer: "karaoke", active, text: line.text, progress, chars };
 }
 
+export function currentWordIndex(state: KaraokeState): number {
+  if (state.active < 0 || state.chars.length === 0) return -1;
+  const idx = state.chars.findIndex((char) => char.progress < 1);
+  return idx < 0 ? state.chars.length - 1 : idx;
+}
+
 export function theatricalState(doc: LyricDoc, t: number): TheatricalState {
   const active = cue(doc, t);
   const distances = doc.lines.map((_, i) => (active < 0 ? 999 : Math.abs(i - active)));

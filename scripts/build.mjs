@@ -206,6 +206,10 @@ const css = [
   "src/renderer/ui/views/pages.css",
   "src/renderer/ui/views/sheets.css",
   "src/renderer/ui/views/stage/stage.css",
+  "src/renderer/ui/views/stage/stage-queue.css",
+  "src/renderer/ui/views/stage/stage-panels.css",
+  "src/renderer/ui/views/stage/stage-immersive.css",
+  "src/renderer/ui/views/stage/stage-immersive-controls.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");

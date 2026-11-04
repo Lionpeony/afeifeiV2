@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 设置 / 规格表</title>
+<style>
+/* hallmark: v2 · theme: custom · idea: "设置是一本器材规格表——每行「参数 / 当前值 / 一个动作」，没有卡片没有分组框" · vibe: 冷纸规格表 × SPEC 编号 × 拨杆开关 */
+/* 功能映射（docs/24 §2/§9/§10/§12）：外观4配色+配色包导入导出；播放 EQ6段/前置增益/交叉淡入0-3-6/音调补偿/输出设备；桌面歌词/迷你窗；
+   系统 托盘/关窗行为/热键只读9项/更新检查；数据 曲库目录增删/备份导出导入/清空听歌记录。行格式「当前值+一个动作」，不出现未实现文案 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;--danger:#d23b2e;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;min-width:340px;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-rows:44px auto minmax(0,1fr) 64px}
+.frame:before{content:"";position:absolute;top:8px;right:10px;width:14px;height:14px;z-index:4;opacity:.5;pointer-events:none;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.mast{grid-row:1;display:flex;align-items:center;gap:18px;padding:0 clamp(24px,3vw,44px);border-bottom:1.5px solid var(--ink);background:rgba(251,250,247,.9)}
+.mast .brand{display:flex;align-items:center;gap:10px}
+.mast .brand i{width:26px;height:26px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 8px/1.1 var(--mono)}
+.mast .brand b{font-size:13px;font-weight:650}
+.mast .brand small{font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.mast nav{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.mast nav::-webkit-scrollbar{display:none}
+.mast nav a{flex:none;padding:5px 10px;font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);text-decoration:none;cursor:pointer;white-space:nowrap}
+.mast nav a:hover{color:var(--accent)}
+.mast nav a.on{background:var(--accent);color:#fff}
+.mast .stat{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim);white-space:nowrap}
+.mast .stat b{color:var(--accent);font-weight:500}
+@media(max-width:1180px){.mast{gap:10px;padding:0 20px}.mast nav a{padding:5px 6px;letter-spacing:.08em}.mast .stat{display:none}}
+.pagehead{grid-row:2;display:flex;align-items:baseline;gap:14px;padding:14px clamp(24px,3vw,44px) 0}
+.pagehead h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.pagehead .lede{margin:0;font-size:12px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .stamp{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.14em;color:var(--ink-faint);white-space:nowrap}
+.spec{grid-row:3;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:6px clamp(24px,3vw,44px) 96px}
+.spec .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 44px;align-items:start}
+.sec{border-top:1.5px solid var(--ink);padding-bottom:6px}
+.sec h2{margin:0;font:10px var(--mono);letter-spacing:.2em;color:var(--ink-dim);padding:10px 0 2px;display:flex;justify-content:space-between}
+.sec h2 span{color:var(--ink-faint);letter-spacing:.1em}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:11px 2px;border-bottom:1px solid var(--line-soft)}
+.row:hover{background:var(--accent-wash)}
+.row .k b{display:block;font-size:12.5px;font-weight:600}
+.row .k small{display:block;margin-top:2px;font-size:10px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .v{font:10px var(--mono);letter-spacing:.06em;color:var(--ink-soft);text-align:right;white-space:nowrap}
+.row .act{height:28px;padding:0 12px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);font:10px var(--mono);cursor:pointer;white-space:nowrap}
+.row .act:hover{border-color:var(--accent);color:var(--accent)}
+.row .act.pri{border-color:var(--accent);background:var(--accent);color:#fff}
+.row .act.pri:hover{background:var(--accent-deep,#1a2fc4)}
+.row .act.danger{border-color:var(--danger);color:var(--danger)}
+.row .act.danger:hover{background:var(--danger);color:#fff}
+/* 拨杆 */
+.toggle{width:38px;height:20px;border:1.5px solid var(--ink);background:var(--paper-lo);position:relative;cursor:pointer;padding:0}
+.toggle i{position:absolute;left:2px;top:2px;width:12px;height:12px;background:var(--ink);transition:left .18s var(--ease-out)}
+.toggle.on{background:var(--accent);border-color:var(--accent)}
+.toggle.on i{left:20px;background:#fff}
+/* 色样 */
+.swatches{display:flex;gap:0}
+.swatches button{width:34px;height:28px;border:1px solid var(--line);border-left-width:0;position:relative;cursor:pointer;display:grid;place-items:center;font:8px var(--mono);color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6)}
+.swatches button:first-child{border-left-width:1px}
+.swatches button.on{outline:2px solid var(--accent);outline-offset:-2px}
+/* EQ */
+.eq{display:flex;align-items:flex-end;gap:8px;height:64px;padding:6px 8px;border:1px solid var(--line);background:var(--paper-hi);width:100%}
+.eq label{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font:7.5px var(--mono);color:var(--ink-dim)}
+.eq input{writing-mode:vertical-lr;direction:rtl;width:6px;height:34px;accent-color:var(--accent)}
+/* 目录行 */
+.dirrow{display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--line-soft);font:10px var(--mono)}
+.dirrow strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dirrow span{color:var(--ink-dim);margin-left:auto;white-space:nowrap}
+.dirrow button{height:24px;padding:0 10px;border:1px solid var(--line);background:none;color:var(--ink-dim);font:9px var(--mono);cursor:pointer;flex:none}
+.dirrow button:hover{border-color:var(--danger);color:var(--danger)}
+/* 热键只读表 */
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:2px 24px;font:9.5px var(--mono);color:var(--ink-soft)}
+.keys div{display:flex;justify-content:space-between;gap:10px;padding:5px 2px;border-bottom:1px solid var(--line-soft);white-space:nowrap;overflow:hidden}
+.keys b{color:var(--ink);font-weight:500;flex:none}
+.console{grid-row:4;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:8px clamp(24px,3vw,44px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:38px;height:38px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:14px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:36px;height:36px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.08))}
+.toast{position:fixed;z-index:50;bottom:80px;left:50%;transform:translate(-50%,12px);padding:10px 14px;background:var(--ink);color:var(--paper);font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#switch{position:fixed;z-index:60;right:10px;bottom:10px;display:flex;gap:4px;padding:5px 6px;background:rgba(17,19,27,.92)}
+#switch small{color:#8b8f98;font:8px/2.4 var(--mono);letter-spacing:.1em;padding:0 4px}
+#switch button{border:1px solid #3a3f4d;background:transparent;color:#b8bcc2;font:9px var(--mono);padding:4px 7px;cursor:pointer}
+#switch button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pre .sec{opacity:0}
+.booted .sec{opacity:1;transition:opacity .5s var(--ease-out);transition-delay:calc(var(--i,0)*60ms)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.pre .sec{opacity:1}}
+@media(max-width:1100px){.spec .cols{grid-template-columns:minmax(0,1fr)}.pagehead .lede{display:none}.row{grid-template-columns:minmax(0,1fr) minmax(0,auto) auto}.row .v{overflow:hidden;text-overflow:ellipsis}}
+</style>
+</head>
+<body data-mode="g">
+<div class="frame">
+<header class="mast">
+  <div class="brand"><i>AF</i><b>afeifei</b><small>阿飞飞</small></div>
+  <nav aria-label="主导航"><a data-toast="跳转首页">HOME 首页</a><a data-toast="跳转在线">WIRE 在线</a><a data-toast="跳转榜单">CHART 榜单</a><a data-toast="跳转电台">DIAL 电台</a><a data-toast="跳转漫游">ROAM 漫游</a><a data-toast="跳转本地">INDEX 本地</a><a data-toast="跳转喜欢">LEDGER 喜欢</a><a data-toast="跳转最近">JOURNAL 最近</a><a data-toast="跳转下载">MANIFEST 下载</a><a class="on" data-toast="当前页：设置">SPEC 设置</a></nav>
+  <div class="stat">21:47 · <b>PAUSED</b> · DEMO DATA</div>
+</header>
+<div class="pagehead">
+  <h1>设置。</h1>
+  <p class="lede">一本规格表——每行只放「参数 / 当前值 / 一个动作」；没实现的功能不出现在纸上。</p>
+  <span class="stamp">PAGE 10 · 11.05 THU · DEMO</span>
+</div>
+<main class="spec">
+<div class="cols">
+  <div>
+    <section class="sec" style="--i:1"><h2>SPEC 01 · 外观 APPEARANCE<span>全局配色 · 4 档</span></h2>
+      <div class="row"><div class="k"><b>全局配色</b><small>结构层 token 整组切换 · 亮纸可白天用</small></div><div class="swatches"><button class="on" style="background:#f3f2ed;color:#11131b" data-toast="配色：日间">日间</button><button style="background:#171613;color:#f3f1ea" data-toast="配色：夜间">夜间</button><button style="background:#d8c9a8;color:#2b241a" data-toast="配色：棕褐">棕褐</button><button style="background:#1c2b22;color:#cfe4d4" data-toast="配色：森林">森林</button></div><button class="act" data-toast="跟随系统 · 开">跟随系统</button></div>
+      <div class="row"><div class="k"><b>配色包</b><small>JSON 只覆盖结构层 · 导入即刻生效</small></div><div class="v">当前 自定义包 ×0</div><div style="display:flex;gap:6px"><button class="act" data-toast="导入配色包 JSON">导入</button><button class="act" data-toast="导出当前配色为 JSON">导出</button></div></div>
+    </section>
+    <section class="sec" style="--i:3"><h2>SPEC 03 · 系统 SYSTEM<span>桌面集成</span></h2>
+      <div class="row"><div class="k"><b>托盘</b><small>关窗只隐藏不退出 · 托盘菜单可退出</small></div><div class="v">开</div><button class="toggle on" data-toast="托盘 开/关" aria-label="托盘开关"><i></i></button></div>
+      <div class="row"><div class="k"><b>关闭主窗行为</b><small>隐藏到托盘（当前）或直接退出</small></div><div class="v">隐藏</div><button class="act" data-toast="切换为 直接退出">改为退出</button></div>
+      <div class="row"><div class="k"><b>窗口快捷键</b><small>Space/←→/Shift+←→/↑↓/M/L/0-9/Ctrl+K/Ctrl+F</small></div><div class="v">9 类固定</div><button class="act" data-toast="快捷键固定 · 不开放改键">只读</button></div>
+      <div class="row"><div class="k"><b>全局快捷键</b><small>Ctrl+Alt+P/→/←/Shift+→/Shift+←/↑/↓/D/W · 撞键按优先级消重</small></div><div class="v">9 项可配置</div><button class="act" data-toast="打开全局热键表">查看</button></div>
+      <div class="row"><div class="k"><b>更新检查</b><small>启动后查一次 · 非静默安装</small></div><div class="v">上次 11-05 08:00</div><button class="act" data-toast="立即检查更新 · v2.6.0 已是最新">检查</button></div>
+    </section>
+    <section class="sec" style="--i:4"><h2>SPEC 04 · 数据 DATA<span>曲库与持久化</span></h2>
+      <div class="row" style="display:block;padding-bottom:4px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:2px"><div class="k"><b>曲库目录 · 3 个</b><small>索引快照+增量日志 · 扫描在本地页触发</small></div><button class="act pri" style="margin-left:auto" data-toast="添加曲库目录">＋ 添加</button></div>
+        <div class="dirrow"><strong>D:\Music</strong><span>1,102 首</span><button data-toast="移除目录（索引保留）">移除</button></div>
+        <div class="dirrow"><strong>D:\Music\2026 新碟</strong><span>158 首</span><button data-toast="移除目录（索引保留）">移除</button></div>
+        <div class="dirrow"><strong>E:\FLAC 古典</strong><span>24 首</span><button data-toast="移除目录（索引保留）">移除</button></div></div>
+      <div class="row"><div class="k"><b>备份</b><small>索引 / 红心 / 歌单 / 设置 打包导出·恢复</small></div><div class="v">上次 11-01</div><div style="display:flex;gap:6px"><button class="act" data-toast="导出备份包">导出</button><button class="act" data-toast="从备份包恢复">恢复</button></div></div>
+      <div class="row"><div class="k"><b>清空听歌记录</b><small>history 去重表全清 · 红心与歌单不受影响</small></div><div class="v">13 笔</div><button class="act danger" data-toast="清空听歌记录 · 需二次确认">清空</button></div>
+    </section>
+  </div>
+  <div>
+    <section class="sec" style="--i:2"><h2>SPEC 02 · 播放 PLAYBACK<span>单一音频图</span></h2>
+      <div class="row" style="display:block"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><div class="k"><b>均衡器 EQ</b><small>6 段 · 各 ±12 dB · 单一音频图内串联</small></div><div class="v">流行预设</div><button class="act" data-toast="重置 EQ 全部归零">重置</button></div>
+        <div class="eq"><label><input type="range" min="-12" max="12" value="3" aria-label="31Hz">31</label><label><input type="range" min="-12" max="12" value="2" aria-label="62Hz">62</label><label><input type="range" min="-12" max="12" value="0" aria-label="125Hz">125</label><label><input type="range" min="-12" max="12" value="-1" aria-label="250Hz">250</label><label><input type="range" min="-12" max="12" value="1" aria-label="500Hz">500</label><label><input type="range" min="-12" max="12" value="2" aria-label="1k">1k</label><label><input type="range" min="-12" max="12" value="3" aria-label="4k">4k</label><label><input type="range" min="-12" max="12" value="1" aria-label="8k">8k</label><label><input type="range" min="-12" max="12" value="0" aria-label="16k">16k</label></div></div>
+      <div class="row"><div class="k"><b>前置增益</b><small>±12 dB · 在 EQ 之前</small></div><div class="v">+0 dB</div><button class="act" data-toast="打开增益微调">调整</button></div>
+      <div class="row"><div class="k"><b>交叉淡入</b><small>双路引擎 · 0/3/6 秒</small></div><div class="v">3 s</div><button class="act" data-toast="切换 0 → 3 → 6">切换</button></div>
+      <div class="row"><div class="k"><b>音调补偿</b><small>倍速 0.5–2 时保持原生音高 · 默认开</small></div><div class="v">开</div><button class="toggle on" data-toast="音调补偿 开/关" aria-label="音调补偿开关"><i></i></button></div>
+      <div class="row"><div class="k"><b>输出设备</b><small>按 deviceId 记忆 · 拔掉自动回默认</small></div><div class="v">扬声器 (Realtek)</div><button class="act" data-toast="选择输出设备">切换</button></div>
+      <div class="row"><div class="k"><b>桌面歌词</b><small>独立窗口 · 可穿透/解锁 · 全局键 Ctrl+Alt+D</small></div><div class="v">关</div><button class="toggle" data-toast="桌面歌词 开/关" aria-label="桌面歌词开关"><i></i></button></div>
+      <div class="row"><div class="k"><b>迷你窗</b><small>贴边常驻控制条 · 展开两态见设计稿 mini</small></div><div class="v">关</div><button class="toggle" data-toast="迷你窗 开/关" aria-label="迷你窗开关"><i></i></button></div>
+    </section>
+  </div>
+</div>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶唱片"></div><div><strong>打上花火</strong><small>设置不响 · 但它可以响</small></div></div>
+  <div class="transport"><button aria-label="上一首" data-toast="上一首">|◀</button><button class="play" aria-label="暂停" data-toast="暂停">Ⅱ</button><button aria-label="下一首" data-toast="下一首">▶|</button></div>
+  <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="268" aria-valuenow="69"><i></i></div><span>4:28</span></div>
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s);
+if(location.search.includes('rm'))document.documentElement.classList.add('rm');
+const toast=$('#toast');let t;
+const notify=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(t);t=setTimeout(()=>toast.classList.remove('show'),1700)};
+document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();notify(el.dataset.toast)}));
+document.querySelectorAll('.toggle').forEach(el=>el.addEventListener('click',()=>{el.classList.toggle('on')}));
+document.querySelectorAll('.swatches button').forEach(el=>el.addEventListener('click',()=>{document.querySelectorAll('.swatches button').forEach(x=>x.classList.remove('on'));el.classList.add('on')}));
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('pre','booted')));
+</script>
+</body>
+</html>

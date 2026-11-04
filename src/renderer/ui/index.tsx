@@ -83,13 +83,6 @@ function baseName(p: string | null): string {
   return parts[parts.length - 1] || p;
 }
 
-/** 顶栏日期：设计稿是「2026.11.01 · SUN」这种票根式戳记。 */
-const today = (): string => {
-  const d = new Date();
-  const wd = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][d.getDay()];
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} · ${wd}`;
-};
-
 /** 睡眠定时档位（A-23）。30 分钟是主档，验收就按它。 */
 const SLEEP_OPTIONS = [15, 30, 60];
 
@@ -1132,12 +1125,13 @@ function App() {
         </h1>
         <span className="brand-cn">阿飞飞</span>
         <span className="sp" />
-        <span className="date">{today()}</span>
-        <span className="status" data-status={status} title={error ?? undefined}>
-          {status}
-          {/* 错误只给人话（原始码用户看不懂）；码与文案在 capability/errors.ts 一处对账 */}
-          {error ? ` · ${errorText(error)}` : ""}
-        </span>
+        {/* 状态徽标只在出错时出现：播放状态底部控制台已有（「已暂停/播放中」），常驻英文徽标是噪音 */}
+        {error ? (
+          <span className="status" data-status={status} title={error}>
+            {/* 错误只给人话（原始码用户看不懂）；码与文案在 capability/errors.ts 一处对账 */}
+            {errorText(error)}
+          </span>
+        ) : null}
         {/* 出错且可重试：给一个重试按钮（重试 = 重播当前这首） */}
         {error && isRetryable(error) ? (
           <button

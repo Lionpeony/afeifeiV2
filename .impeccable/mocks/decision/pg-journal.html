@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 最近 / 播放日志</title>
+<style>
+/* hallmark: v2 · theme: custom · idea: "最近是一本值班日志——左线右目，日期做章节戳，每首只记最后一次" · vibe: 冷纸日志 × 竖时间轴 × 去重流水 */
+/* 功能映射（docs/24 §10/§12）：history 是「每首只留最后一次」的去重表；文案照实说，不画逐次流水 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;min-width:340px;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-rows:44px auto minmax(0,1fr) 64px}
+.frame:before{content:"";position:absolute;top:8px;right:10px;width:14px;height:14px;z-index:4;opacity:.5;pointer-events:none;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.mast{grid-row:1;display:flex;align-items:center;gap:18px;padding:0 clamp(24px,3vw,44px);border-bottom:1.5px solid var(--ink);background:rgba(251,250,247,.9)}
+.mast .brand{display:flex;align-items:center;gap:10px}
+.mast .brand i{width:26px;height:26px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 8px/1.1 var(--mono)}
+.mast .brand b{font-size:13px;font-weight:650}
+.mast .brand small{font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.mast nav{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.mast nav::-webkit-scrollbar{display:none}
+.mast nav a{flex:none;padding:5px 10px;font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);text-decoration:none;cursor:pointer;white-space:nowrap}
+.mast nav a:hover{color:var(--accent)}
+.mast nav a.on{background:var(--accent);color:#fff}
+.mast .stat{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim);white-space:nowrap}
+.mast .stat b{color:var(--accent);font-weight:500}
+@media(max-width:1180px){.mast{gap:10px;padding:0 20px}.mast nav a{padding:5px 6px;letter-spacing:.08em}.mast .stat{display:none}}
+.pagehead{grid-row:2;display:flex;align-items:baseline;gap:14px;padding:14px clamp(24px,3vw,44px) 0}
+.pagehead h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.pagehead .lede{margin:0;font-size:12px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .stamp{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.14em;color:var(--ink-faint);white-space:nowrap}
+.journal{grid-row:3;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:6px clamp(24px,3vw,44px) 96px;position:relative}
+.journal:before{content:"";position:absolute;left:clamp(36px,3vw,58px);top:0;bottom:0;width:1px;background:var(--line)}
+.day{display:grid;grid-template-columns:clamp(44px,3vw,60px) minmax(0,1fr)}
+.daycap{position:relative;padding:18px 0 8px;text-align:right}
+.daycap b{position:absolute;right:14px;top:20px;font:11px var(--mono);letter-spacing:.1em;background:var(--paper);padding:2px 0;z-index:1}
+.daycap small{position:absolute;right:14px;top:40px;font:8px var(--mono);color:var(--ink-faint);background:var(--paper);padding:2px 0;z-index:1}
+.daycap:after{content:"";position:absolute;right:8px;top:26px;width:9px;height:9px;border:1.5px solid var(--accent);border-radius:50%;background:var(--paper);z-index:1}
+.day:first-child .daycap:after{background:var(--accent)}
+.entries{min-width:0;padding:6px 0 14px 26px}
+.jrow{display:grid;grid-template-columns:44px minmax(0,1.5fr) minmax(0,.9fr) 56px auto;gap:12px;align-items:center;height:46px;border-bottom:1px solid var(--line-soft);cursor:pointer;position:relative;transition:background .13s}
+.jrow:before{content:"";position:absolute;left:-30px;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform .18s var(--ease-out)}
+.jrow:hover{background:var(--accent-wash)}
+.jrow:hover:before{transform:scaleY(1)}
+.jrow:hover strong,.jrow:hover time.dur{color:var(--accent)}
+.jrow .tm{font:10px var(--mono);color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.jrow .t{min-width:0}
+.jrow .t strong{display:block;font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .13s}
+.jrow .t small{display:block;margin-top:2px;font-size:10px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jrow .alb{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jrow .dur{font:11px var(--mono);color:var(--ink-dim);text-align:right;font-variant-numeric:tabular-nums}
+.jrow .src{font:8px var(--mono);letter-spacing:.08em;color:var(--ink-soft);border:1px solid var(--line);padding:2px 6px;justify-self:end;white-space:nowrap}
+.journal .foot{margin-top:16px;padding-left:26px;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-faint)}
+.console{grid-row:4;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:8px clamp(24px,3vw,44px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:38px;height:38px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:14px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:36px;height:36px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.08))}
+.toast{position:fixed;z-index:50;bottom:80px;left:50%;transform:translate(-50%,12px);padding:10px 14px;background:var(--ink);color:var(--paper);font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#switch{position:fixed;z-index:60;right:10px;bottom:10px;display:flex;gap:4px;padding:5px 6px;background:rgba(17,19,27,.92)}
+#switch small{color:#8b8f98;font:8px/2.4 var(--mono);letter-spacing:.1em;padding:0 4px}
+#switch button{border:1px solid #3a3f4d;background:transparent;color:#b8bcc2;font:9px var(--mono);padding:4px 7px;cursor:pointer}
+#switch button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty{display:none;min-height:280px;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 14px}
+[data-mode="empty"] .journal{display:none}
+[data-mode="empty"] .empty{display:flex}
+.empty .big{font:650 clamp(28px,3vw,44px)/1.05 var(--sans);letter-spacing:-.05em;font-variation-settings:"wght" 650}
+.empty .sub{font-size:12px;color:var(--ink-soft);max-width:440px;line-height:1.75}
+.empty button{height:38px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:12px;cursor:pointer}
+.empty button:hover{background:var(--accent);border-color:var(--accent)}
+.pre .jrow{opacity:0}
+.booted .jrow{opacity:1;transition:opacity .5s var(--ease-out);transition-delay:calc(var(--i,0)*30ms)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.pre .jrow{opacity:1}}
+@media(max-width:1100px){.jrow{grid-template-columns:44px minmax(0,1.6fr) 56px auto}.jrow .alb{display:none}.pagehead .lede{display:none}}
+</style>
+</head>
+<body data-mode="g">
+<div class="frame">
+<header class="mast">
+  <div class="brand"><i>AF</i><b>afeifei</b><small>阿飞飞</small></div>
+  <nav aria-label="主导航"><a data-toast="跳转首页">HOME 首页</a><a data-toast="跳转在线">WIRE 在线</a><a data-toast="跳转榜单">CHART 榜单</a><a data-toast="跳转电台">DIAL 电台</a><a data-toast="跳转漫游">ROAM 漫游</a><a data-toast="跳转本地">INDEX 本地</a><a data-toast="跳转喜欢">LEDGER 喜欢</a><a class="on" data-toast="当前页：最近">JOURNAL 最近</a><a data-toast="跳转下载">MANIFEST 下载</a><a data-toast="跳转设置">SPEC 设置</a></nav>
+  <div class="stat">21:47 · <b>PAUSED</b> · DEMO DATA</div>
+</header>
+<div class="pagehead">
+  <h1>最近。</h1>
+  <p class="lede">播放日志——每首只记最后一次播放；同一首听十遍，日志里只留最新一笔。</p>
+  <span class="stamp">PAGE 08 · 11.05 THU · DEMO</span>
+</div>
+<main class="journal" aria-label="播放日志">
+  <section class="day">
+    <div class="daycap"><b>11.05</b><small>THU · 6 笔</small></div>
+    <div class="entries">
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：打上花火" style="--i:1"><time class="tm">21:44</time><div class="t"><strong>打上花火</strong><small>DAOKO × 米津玄師</small></div><span class="alb">打上花火</span><time class="dur">4:28</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：老人と海" style="--i:2"><time class="tm">21:39</time><div class="t"><strong>老人と海</strong><small>ヨルシカ</small></div><span class="alb">盗作</span><time class="dur">5:21</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：晴る" style="--i:3"><time class="tm">21:33</time><div class="t"><strong>晴る</strong><small>ヨルシカ</small></div><span class="alb">アルジャーノン</span><time class="dur">3:58</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：Chinatown" style="--i:4"><time class="tm">21:26</time><div class="t"><strong>Chinatown</strong><small>Le Bonbon</small></div><span class="alb">City Pop 选辑</span><time class="dur">3:24</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：Grand Escape" style="--i:5"><time class="tm">20:58</time><div class="t"><strong>Grand Escape</strong><small>RADWIMPS × 三浦透子</small></div><span class="alb">天気の子</span><time class="dur">4:52</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：Ivory" style="--i:6"><time class="tm">20:41</time><div class="t"><strong>Ivory</strong><small>ヨルシカ</small></div><span class="alb">盗作</span><time class="dur">4:03</time><span class="src">本地</span></div>
+    </div>
+  </section>
+  <section class="day">
+    <div class="daycap"><b>11.04</b><small>WED · 4 笔</small></div>
+    <div class="entries">
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：海底" style="--i:7"><time class="tm">23:12</time><div class="t"><strong>海底</strong><small>一支榴莲</small></div><span class="alb">海底</span><time class="dur">4:41</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：知我" style="--i:8"><time class="tm">22:47</time><div class="t"><strong>知我</strong><small>国风堂 / 哦漏</small></div><span class="alb">知我</span><time class="dur">4:37</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：Lay Down" style="--i:9"><time class="tm">22:02</time><div class="t"><strong>Lay Down</strong><small>Caravan</small></div><span class="alb">In the Land of Grey and Pink</span><time class="dur">3:27</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：Daisy" style="--i:10"><time class="tm">21:36</time><div class="t"><strong>Daisy</strong><small>Aimer</small></div><span class="alb">Dawn</span><time class="dur">4:44</time><span class="src">本地</span></div>
+    </div>
+  </section>
+  <section class="day">
+    <div class="daycap"><b>11.03</b><small>TUE · 3 笔</small></div>
+    <div class="entries">
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：ノーチラス" style="--i:11"><time class="tm">22:15</time><div class="t"><strong>ノーチラス</strong><small>ヨルシカ</small></div><span class="alb">ノーチラス</span><time class="dur">4:33</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：思想者" style="--i:12"><time class="tm">21:50</time><div class="t"><strong>思想者</strong><small>ヨルシカ</small></div><span class="alb">Elma</span><time class="dur">4:10</time><span class="src">本地</span></div>
+      <div class="jrow" tabindex="0" role="button" data-toast="播放：藍二乗" style="--i:13"><time class="tm">21:28</time><div class="t"><strong>藍二乗</strong><small>ヨルシカ</small></div><span class="alb">負け犬に後光的な</span><time class="dur">4:47</time><span class="src">本地</span></div>
+    </div>
+  </section>
+  <p class="foot">13 首 · 4 天　·　去重规则：每首只留最后一次播放　·　完整逐次流水不落盘（没有的数据不画）</p>
+  <div class="empty"><span class="big">日志第一页还没写。</span><span class="sub">播放过一首，这里就有第一笔。</span><button data-toast="跳转本地页">去曲库听点东西</button></div>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶唱片"></div><div><strong>打上花火</strong><small>播放日志 · 21:44</small></div></div>
+  <div class="transport"><button aria-label="上一首" data-toast="上一首">|◀</button><button class="play" aria-label="暂停" data-toast="暂停">Ⅱ</button><button aria-label="下一首" data-toast="下一首">▶|</button></div>
+  <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="268" aria-valuenow="69"><i></i></div><span>4:28</span></div>
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s);
+if(location.search.includes('rm'))document.documentElement.classList.add('rm');
+const toast=$('#toast');let t;
+const notify=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(t);t=setTimeout(()=>toast.classList.remove('show'),1700)};
+document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();notify(el.dataset.toast)}));
+document.querySelectorAll('.jrow').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();notify(el.dataset.toast)}}));
+document.querySelectorAll('#switch button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#switch button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.body.dataset.mode=b.dataset.v}));
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('pre','booted')));
+</script>
+</body>
+</html>

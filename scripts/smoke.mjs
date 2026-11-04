@@ -404,8 +404,10 @@ async function main() {
     }
 
     assert.equal(Number(await app2.evaluate(`document.querySelector(".volume input")?.value`)), 0.3, "音量应恢复成 30%");
-    const status0 = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
-    assert.ok(status0.startsWith("paused") || status0.startsWith("loading"), `恢复后应停在暂停态，实际 ${status0}`);
+    // 播放器状态读取口 = console 主按钮的 aria-label（「暂停」= 在播 /「播放」= 停着）。
+    // 顶栏不再常驻状态徽标（只出不出的错误提示），别再拿它当状态源。
+    const playLabel0 = await app2.evaluate(`document.querySelector(".tb.main")?.getAttribute("aria-label") ?? ""`);
+    assert.equal(playLabel0, "播放", `恢复后应停在暂停态（主按钮应为「播放」），实际 ${playLabel0}`);
     // 位置要轮询等：cue 之后引擎还要 load 才会 seek，读一次必然撞上还没锚定的 0
     const positionOk = await app2.waitFor(
       `Math.abs(Number(document.querySelector(".seek input")?.value ?? 0) - 2000) <= 1000`,
@@ -427,8 +429,8 @@ async function main() {
     for (let i = 1; i <= 20; i += 1) {
       await app2.evaluate(`${NEXT_BUTTON}.click()`);
       await sleep(200);
-      const status = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
-      assert.ok(!status.startsWith("error"), `第 ${i} 次切歌落进 error：${status}`);
+      const errored = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
+      assert.ok(!errored, `第 ${i} 次切歌落进 error：${errored}`);
       const track = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? ""`);
       seen.add(track);
       const bar = await app2.evaluate(
@@ -450,7 +452,7 @@ async function main() {
       assert.ok(await app2.evaluate(clickMode), "找不到播放模式按钮");
       await sleep(150);
       const st = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
-      assert.ok(!st.startsWith("error"), `切播放模式后不该进 error：${st}`);
+      assert.ok(!st, `切播放模式后不该进 error：${st}`);
     }
     console.log("  播放模式 OK：四档可切、不进 error");
 
@@ -589,7 +591,8 @@ async function main() {
     const app4 = await launch([]);
     current = app4;
 
-    const errored = await app4.waitFor(`(document.querySelector(".status")?.textContent ?? "").startsWith("error")`, 10000);
+    // 徽标只在出错时渲染（内容已是人话，不再带 "error" 前缀）：元素存在即 error
+    const errored = await app4.waitFor(`(document.querySelector(".status")?.textContent ?? "").length > 0`, 10000);
     const shown = await app4.evaluate(`document.querySelector(".status")?.textContent ?? "(无)"`);
     assert.ok(errored, `文件不存在时应进入 error 态，实际 ${shown}`);
     // 界面给的是人话（原始码用户看不懂），文案由 capability/errors.ts 一处对账：

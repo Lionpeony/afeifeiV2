@@ -33,14 +33,22 @@ html::after {
   box-sizing: border-box;
 }
 
-/* 标题栏：品牌 + 日期戳 + 状态 + 明暗开关。38px 是设计稿的票根高度，再高压页面 */
+/* 标题栏 = 无框窗口的拖拽区（main 无 titleBarStyle:hidden；右上三键由系统
+   titleBarOverlay 绘制，颜色经 win:overlayTheme 跟主题走）。
+   右侧 ~146px 让位给系统三键（Win11 每键 ~46px），拖拽区内的按钮一律 no-drag。
+   38px 是设计稿的票根高度，与 overlay.height 对齐。 */
 .tbar {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 0 12px 0 16px;
+  padding: 0 146px 0 16px;
   border-bottom: 1px solid var(--fg);
+  -webkit-app-region: drag;
+}
+.tbar button,
+.tbar .status {
+  -webkit-app-region: no-drag;
 }
 .brand {
   display: flex;
@@ -69,12 +77,6 @@ html::after {
 }
 .tbar .sp {
   flex: 1;
-}
-.date {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.14em;
-  color: var(--fg-dim);
 }
 
 /* 明暗切换（docs/09 B4）：月亮图形，夜间反色。只换 token 值，不做过渡 */

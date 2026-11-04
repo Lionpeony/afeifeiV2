@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
+import { registerWindowIpc } from "./ipc/window.js";
 import { startQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
 import { registerLyricIpc } from "./lyricWindow.js";
@@ -152,6 +153,7 @@ if (!locked) {
     registerIpc();
     registerMiniIpc();
     registerLyricIpc();
+    registerWindowIpc(() => mainWin);
     startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）
 
     const win = new BrowserWindow({
@@ -161,6 +163,12 @@ if (!locked) {
       // 宽度给到 960 是因为页头（标题 + 统计 + 5 个排序 chip + 扫描按钮）再窄就把按钮压成竖排
       minWidth: 960,
       minHeight: 620,
+      // 无框窗口：去掉「原生标题栏 + 应用内顶栏」叠两层的老样子。
+      // 右上三键由系统绘制（titleBarOverlay），颜色初始值 = tokens.css 日间 --bg/--fg，
+      // 主题切换后由渲染层经 win:overlayTheme 同步（主进程不存第二份色值）。
+      // 高度与 --tbar-h（38px）对齐，tbar 同时是拖拽区（app.css -webkit-app-region）。
+      titleBarStyle: "hidden",
+      titleBarOverlay: { color: "#f3f1ea", symbolColor: "#17150f", height: 38 },
       backgroundColor: "#0b0b0c",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),

@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("notify:show", payload),
   autoLaunch: (): Promise<boolean> => ipcRenderer.invoke("app:autoLaunch"),
   setAutoLaunch: (on: boolean): Promise<boolean> => ipcRenderer.invoke("app:setAutoLaunch", on),
+  // 无框窗口：系统三键（titleBarOverlay）颜色跟全局主题走；bg/fg 由渲染层现场从 token 读出
+  setWindowOverlayTheme: (bg: string, fg: string): Promise<boolean> =>
+    ipcRenderer.invoke("win:overlayTheme", bg, fg),
   readTags: (filePaths: string[]): Promise<unknown[]> => ipcRenderer.invoke("library:readTags", filePaths),
   statFiles: (filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]> =>
     ipcRenderer.invoke("library:statFiles", filePaths),

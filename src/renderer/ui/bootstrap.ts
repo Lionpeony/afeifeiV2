@@ -118,6 +118,19 @@ declare global {
 }
 
 /**
+ * 无框窗口的系统三键（titleBarOverlay）颜色同步：
+ * 现场从 DOM 读 --bg/--fg（此时主题与全局配色包都已落到 token），
+ * 主进程不存第二份色值。桥不可用（老包/测试环境）时静默跳过。
+ */
+function syncWindowOverlay(): void {
+  const css = getComputedStyle(document.documentElement);
+  const bg = css.getPropertyValue("--bg").trim();
+  const fg = css.getPropertyValue("--fg").trim();
+  // 截图工具等自建窗口的环境没注册 win:overlayTheme handler，失败静默——三键颜色只在真窗口有意义
+  if (bg && fg) window.api.setWindowOverlayTheme(bg, fg).catch(() => {});
+}
+
+/**
  * 装配层：把 preload 的桥适配成端口，把 store 的变化落到引擎上。
  *
  * 这是全应用**唯一**同时认识 store 与 engine 的地方。
@@ -487,6 +500,7 @@ export async function bootstrap(): Promise<Services> {
       /* 坏快照当没有 */
     }
   }
+  syncWindowOverlay(); // 无框窗口三键颜色 = 应用完全部主题 token 后的最终值
 
   // 歌词过滤规则（B-2）：装配层读回 KV，lyric-source 订阅着这份规则，改规则不重抓词
   setFilters(parseFilters(await kv.read("lyric-filters")));
@@ -594,6 +608,7 @@ export async function bootstrap(): Promise<Services> {
     setTheme(next) {
       applyTheme(next);
       void kv.write(THEME_KEY, next);
+      syncWindowOverlay(); // 系统三键跟着换色，夜间下右侧不挂白条
       return next;
     },
     pick: () => media.pickFiles(),

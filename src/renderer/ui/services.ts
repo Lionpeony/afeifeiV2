@@ -34,6 +34,8 @@ export interface Api {
   notify(payload: { title: string; body: string }): Promise<boolean>;
   autoLaunch(): Promise<boolean>;
   setAutoLaunch(on: boolean): Promise<boolean>;
+  /** 无框窗口：系统三键（titleBarOverlay）颜色跟全局主题走；bg/fg 现场从 DOM token 读。 */
+  setWindowOverlayTheme(bg: string, fg: string): Promise<boolean>;
   readTags(filePaths: string[]): Promise<unknown[]>;
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
   cover(filePath: string): Promise<string | null>;

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 电台 / 频段刻度盘</title>
+<style>
+/* hallmark: v2 · theme: custom · idea: "电台是一台收音机——频段刻度盘上每个够 3 首的艺人占一个站台，我的频路是时刻表" · vibe: 冷纸刻度盘 × 站台游标 × 规则台时刻表 */
+/* 功能映射（docs/24 §6）：电台=本地曲库+推荐算法（不依赖音源电台）；频段墙=够 3 首的艺人；我的频路=5 条规则台 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;min-width:340px;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-rows:44px auto minmax(0,1fr) 64px}
+.frame:before{content:"";position:absolute;top:8px;right:10px;width:14px;height:14px;z-index:4;opacity:.5;pointer-events:none;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.mast{grid-row:1;display:flex;align-items:center;gap:18px;padding:0 clamp(24px,3vw,44px);border-bottom:1.5px solid var(--ink);background:rgba(251,250,247,.9)}
+.mast .brand{display:flex;align-items:center;gap:10px}
+.mast .brand i{width:26px;height:26px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 8px/1.1 var(--mono)}
+.mast .brand b{font-size:13px;font-weight:650;letter-spacing:-.02em}
+.mast .brand small{font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.mast nav{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.mast nav::-webkit-scrollbar{display:none}
+.mast nav a{flex:none;padding:5px 10px;font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);text-decoration:none;cursor:pointer;white-space:nowrap}
+.mast nav a:hover{color:var(--accent)}
+.mast nav a.on{background:var(--accent);color:#fff}
+.mast .stat{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim);white-space:nowrap}
+.mast .stat b{color:var(--accent);font-weight:500}
+@media(max-width:1180px){.mast{gap:10px;padding:0 20px}.mast nav a{padding:5px 6px;letter-spacing:.08em}.mast .stat{display:none}}
+.pagehead{grid-row:2;display:flex;align-items:baseline;gap:14px;padding:14px clamp(24px,3vw,44px) 0}
+.pagehead h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.pagehead .lede{margin:0;font-size:12px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .stamp{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.14em;color:var(--ink-faint);white-space:nowrap}
+.dialwrap{grid-row:3;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:0 clamp(24px,3vw,44px) 96px}
+.dial-cap{display:flex;align-items:baseline;justify-content:space-between;margin:12px 0 4px}
+.dial-cap h2{margin:0;font:10px var(--mono);letter-spacing:.18em;color:var(--ink-dim)}
+.dial-cap span{font:9px var(--mono);color:var(--ink-faint)}
+.dial{position:relative;height:132px;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);overflow:hidden}
+.dial .scale{position:absolute;left:0;right:0;top:64px;height:2px;background:var(--ink)}
+.dial .tick{position:absolute;top:56px;width:1px;height:18px;background:var(--ink-faint)}
+.dial .freq{position:absolute;top:78px;font:8px var(--mono);color:var(--ink-faint);transform:translateX(-50%)}
+.stations{position:absolute;inset:0}
+.station{position:absolute;top:0;bottom:0;transform:translateX(-50%);cursor:pointer;text-align:center;width:120px}
+.station i{position:absolute;left:50%;top:52px;width:2px;height:24px;background:var(--ink-dim);transform:translateX(-50%)}
+.station b{position:absolute;left:50%;top:8px;transform:translateX(-50%);font-size:11px;font-weight:600;white-space:nowrap;max-width:112px;overflow:hidden;text-overflow:ellipsis}
+.station small{position:absolute;left:50%;top:24px;transform:translateX(-50%);font:8px var(--mono);color:var(--ink-dim);white-space:nowrap}
+.station:hover i,.station:hover b{color:var(--accent)}
+.station:hover i{background:var(--accent)}
+.station.on i{background:var(--accent);height:40px;top:36px}
+.station.on b{color:var(--accent)}
+.station.on:after{content:"TUNED ▾";position:absolute;left:50%;top:88px;transform:translateX(-50%);font:8px var(--mono);letter-spacing:.14em;color:var(--accent);white-space:nowrap}
+.tuned{margin-top:14px;border:1px solid var(--line);background:var(--paper-hi);padding:14px 16px}
+.tuned header{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.tuned header b{font-size:14px;font-weight:650}
+.tuned header span{font:9px var(--mono);color:var(--ink-dim);letter-spacing:.1em}
+.tuned header button{margin-left:auto;height:28px;padding:0 14px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:10px var(--mono);cursor:pointer}
+.tuned .now{display:flex;align-items:center;gap:12px;margin-top:12px}
+.tuned .now .cov{width:56px;height:56px;flex:none;overflow:hidden;display:grid;place-items:center;color:#fff;font:800 22px/1 var(--mono);border:1px solid rgba(17,19,27,.25)}
+.tuned .now div{min-width:0;flex:1}
+.tuned .now strong{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tuned .now small{display:block;margin-top:3px;font:9px var(--mono);color:var(--ink-dim);letter-spacing:.08em}
+.tuned .why{margin-top:8px;font-size:10px;color:var(--ink-soft);display:flex;gap:8px;align-items:center}
+.tuned .why i{flex:none;width:18px;height:2px;background:var(--accent)}
+.routes-cap{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 4px}
+.routes-cap h2{margin:0;font:10px var(--mono);letter-spacing:.18em;color:var(--ink-dim)}
+.routes-cap span{font:9px var(--mono);color:var(--ink-faint)}
+.route{display:grid;grid-template-columns:44px minmax(0,1.2fr) minmax(0,1fr) auto 66px;gap:14px;align-items:center;height:54px;border-bottom:1px solid var(--line-soft);cursor:pointer;position:relative;transition:background .13s}
+.route:before{content:"";position:absolute;left:-8px;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform .18s var(--ease-out)}
+.route:hover{background:var(--accent-wash)}
+.route:hover:before{transform:scaleY(1)}
+.route .sym{font:800 16px/1 var(--mono);color:var(--ink-faint);text-align:center}
+.route .t b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route .t small{display:block;margin-top:2px;font-size:10px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route .rule{font:9px var(--mono);color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.route .cnt{font:10px var(--mono);color:var(--ink-soft);text-align:right}
+.route .go{height:30px;padding:0 12px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:10px var(--mono);cursor:pointer;justify-self:end}
+.route:hover .go,.route .go:hover{background:var(--accent);color:#fff}
+.route.on{background:var(--accent-wash)}
+.route.on:before{transform:scaleY(1)}
+.console{grid-row:4;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:8px clamp(24px,3vw,44px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:38px;height:38px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:14px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:36px;height:36px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.2))}
+.toast{position:fixed;z-index:50;bottom:80px;left:50%;transform:translate(-50%,12px);padding:10px 14px;background:var(--ink);color:var(--paper);font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#switch{position:fixed;z-index:60;right:10px;bottom:10px;display:flex;gap:4px;padding:5px 6px;background:rgba(17,19,27,.92)}
+#switch small{color:#8b8f98;font:8px/2.4 var(--mono);letter-spacing:.1em;padding:0 4px}
+#switch button{border:1px solid #3a3f4d;background:transparent;color:#b8bcc2;font:9px var(--mono);padding:4px 7px;cursor:pointer}
+#switch button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.empty{display:none;min-height:300px;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 14px}
+[data-mode="empty"] .dialwrap{display:none}
+[data-mode="empty"] .empty{display:flex}
+.empty .big{font:650 clamp(28px,3vw,44px)/1.05 var(--sans);letter-spacing:-.05em;font-variation-settings:"wght" 650}
+.empty .sub{font-size:12px;color:var(--ink-soft);max-width:440px;line-height:1.75}
+.empty button{height:38px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:12px;cursor:pointer}
+.empty button:hover{background:var(--accent);border-color:var(--accent)}
+.pre .station,.pre .route{opacity:0}
+.booted .station,.booted .route{opacity:1;transition:opacity .5s var(--ease-out);transition-delay:calc(var(--i,0)*30ms)}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.pre .station,.pre .route{opacity:1}}
+@media(max-width:1100px){.route{grid-template-columns:34px minmax(0,1.4fr) auto 66px}.route .rule{display:none}.pagehead .lede{display:none}.dial .freq{display:none}}
+</style>
+</head>
+<body data-mode="g">
+<div class="frame">
+<header class="mast">
+  <div class="brand"><i>AF</i><b>afeifei</b><small>阿飞飞</small></div>
+  <nav aria-label="主导航"><a data-toast="跳转首页">HOME 首页</a><a data-toast="跳转在线">WIRE 在线</a><a data-toast="跳转榜单">CHART 榜单</a><a class="on" data-toast="当前页：电台">DIAL 电台</a><a data-toast="跳转漫游">ROAM 漫游</a><a data-toast="跳转本地">INDEX 本地</a><a data-toast="跳转喜欢">LEDGER 喜欢</a><a data-toast="跳转最近">JOURNAL 最近</a><a data-toast="跳转下载">MANIFEST 下载</a><a data-toast="跳转设置">SPEC 设置</a></nav>
+  <div class="stat">21:47 · <b>PAUSED</b> · DEMO DATA</div>
+</header>
+<div class="pagehead">
+  <h1>电台。</h1>
+  <p class="lede">频段来自你的本地曲库——够 3 首的艺人各占一个站台；不依赖任何音源电台接口。</p>
+  <span class="stamp">PAGE 04 · 11.05 THU · DEMO</span>
+</div>
+<main class="dialwrap">
+  <div class="dial-cap"><h2>频段刻度盘 · STATION DIAL</h2><span>14 个站台 · 按艺人名首字母排布 · 点击调谐</span></div>
+  <div class="dial" aria-label="频段刻度盘" role="listbox">
+    <div class="scale"></div>
+    <i class="tick" style="left:4%"></i><i class="tick" style="left:14%"></i><i class="tick" style="left:24%"></i><i class="tick" style="left:34%"></i><i class="tick" style="left:44%"></i><i class="tick" style="left:54%"></i><i class="tick" style="left:64%"></i><i class="tick" style="left:74%"></i><i class="tick" style="left:84%"></i><i class="tick" style="left:94%"></i>
+    <span class="freq" style="left:4%">088</span><span class="freq" style="left:14%">094</span><span class="freq" style="left:24%">100</span><span class="freq" style="left:34%">106</span><span class="freq" style="left:44%">112</span><span class="freq" style="left:54%">118</span><span class="freq" style="left:64%">124</span><span class="freq" style="left:74%">130</span><span class="freq" style="left:84%">136</span><span class="freq" style="left:94%">142</span>
+    <div class="stations">
+      <div class="station" tabindex="0" role="option" data-toast="调谐：Aimer 频段 · 6 首" style="left:8%;--i:1"><i></i><b>Aimer</b><small>6 首</small></div>
+      <div class="station on" tabindex="0" role="option" data-toast="调谐：ヨルシカ 频段 · 28 首" style="left:23%;--i:2"><i></i><b>ヨルシカ</b><small>28 首</small></div>
+      <div class="station" tabindex="0" role="option" data-toast="调谐：陈绮贞 频段 · 18 首" style="left:37%;--i:3"><i></i><b>陈绮贞</b><small>18 首</small></div>
+      <div class="station" tabindex="0" role="option" data-toast="调谐：邓丽君 频段 · 22 首" style="left:50%;--i:4"><i></i><b>邓丽君</b><small>22 首</small></div>
+      <div class="station" tabindex="0" role="option" data-toast="调谐：RADWIMPS 频段 · 34 首" style="left:64%;--i:5"><i></i><b>RADWIMPS</b><small>34 首</small></div>
+      <div class="station" tabindex="0" role="option" data-toast="调谐：一支榴莲 频段 · 7 首" style="left:78%;--i:6"><i></i><b>一支榴莲</b><small>7 首</small></div>
+      <div class="station" tabindex="0" role="option" data-toast="调谐：DAOKO 频段 · 6 首" style="left:90%;--i:7"><i></i><b>DAOKO</b><small>6 首</small></div>
+    </div>
+  </div>
+  <div class="tuned">
+    <header><b>ヨルシカ 频段</b><span>TUNED · 28 首 · 推荐算法顺播 · 艺人≤3 专辑≤2</span><button data-toast="播放频段 · 顺序推荐">▶ 收听</button></header>
+    <div class="now"><div class="cov" style="background:linear-gradient(145deg,#2b2b3a,#4d4f8a 52%,#c8b46a)">老</div><div><strong>老人と海</strong><small>ヨルシカ · 盗作 · 5:21 · 下一首：Ivory</small></div></div>
+    <div class="why"><i></i><span>同频段还有 27 首 · 推荐算法现场顺播，不建播放队列实体</span></div>
+  </div>
+  <div class="routes-cap"><h2>我的频路 · MY ROUTES</h2><span>5 条规则台 · 按规则现场抽取</span></div>
+  <div class="route" tabindex="0" role="button" data-toast="收听规则台：深夜公路" style="--i:8"><span class="sym">01</span><div class="t"><b>深夜公路</b><small>22:00-02:00 播放密度最高 · 收藏 12 首</small></div><span class="rule">时段 × 曲风(City Pop/Synth)</span><span class="cnt">36 首</span><button class="go" data-toast="收听：深夜公路">▶</button></div>
+  <div class="route on" tabindex="0" role="button" data-toast="收听规则台：写作 BGM" style="--i:9"><span class="sym">02</span><div class="t"><b>写作 BGM</b><small>无人声 · 低起伏 · 正在收听</small></div><span class="rule">无人声关键词过滤</span><span class="cnt">58 首</span><button class="go" data-toast="收听：写作 BGM">▶</button></div>
+  <div class="route" tabindex="0" role="button" data-toast="收听规则台：红心回顾" style="--i:10"><span class="sym">03</span><div class="t"><b>红心回顾</b><small>把红心重新洗一遍 · 收藏 12 首</small></div><span class="rule">红心集合 × 随机种子</span><span class="cnt">12 首</span><button class="go" data-toast="收听：红心回顾">▶</button></div>
+  <div class="route" tabindex="0" role="button" data-toast="收听规则台：新歌发现" style="--i:11"><span class="sym">04</span><div class="t"><b>新歌发现</b><small>最近 14 天入库 · 收藏 3 首</small></div><span class="rule">addedAt ≥ -14d</span><span class="cnt">3 首</span><button class="go" data-toast="收听：新歌发现">▶</button></div>
+  <div class="route" tabindex="0" role="button" data-toast="收听规则台：整张过一遍" style="--i:12"><span class="sym">05</span><div class="t"><b>整张过一遍</b><small>按专辑连续听 · 收藏 9 张</small></div><span class="rule">专辑完整度 ≥ 80%</span><span class="cnt">9 张</span><button class="go" data-toast="收听：整张过一遍">▶</button></div>
+  <div class="empty"><span class="big">这台收音机还没电。</span><span class="sub">频段按「够 3 首的艺人」划分——本地曲库还太少。去本地页扫几个文件夹回来。</span><button data-toast="跳转本地页">去本地添加曲库</button></div>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶唱片"></div><div><strong>老人と海</strong><small>电台 · ヨルシカ 频段</small></div></div>
+  <div class="transport"><button aria-label="上一首" data-toast="上一首">|◀</button><button class="play" aria-label="暂停" data-toast="暂停">Ⅱ</button><button aria-label="下一首" data-toast="下一首">▶|</button></div>
+  <div class="seek"><span>1:04</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="321" aria-valuenow="64"><i></i></div><span>5:21</span></div>
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s);
+if(location.search.includes('rm'))document.documentElement.classList.add('rm');
+const toast=$('#toast');let t;
+const notify=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(t);t=setTimeout(()=>toast.classList.remove('show'),1700)};
+document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();notify(el.dataset.toast)}));
+document.querySelectorAll('.station,.route').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();notify(el.dataset.toast)}}));
+document.querySelectorAll('.station').forEach(st=>st.addEventListener('click',()=>{document.querySelectorAll('.station').forEach(x=>x.classList.remove('on'));st.classList.add('on')}));
+document.querySelectorAll('#switch button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#switch button').forEach(x=>x.classList.remove('on'));b.classList.add('on');document.body.dataset.mode=b.dataset.v}));
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('pre','booted')));
+</script>
+</body>
+</html>

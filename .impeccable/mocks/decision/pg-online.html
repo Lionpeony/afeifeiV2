@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 在线 / 电报台</title>
+<style>
+/* hallmark: v2 · theme: custom · idea: "在线检索是一张电报台：报头下拍发关键词，结果带着源标邮戳回来" · vibe: 冷纸电报台 × 源标邮戳 × 批量提货 */
+/* 功能映射（docs/24 §6/§3）：搜索×4源、音质 128/320、登录（网易/QQ 扫码）、歌单下钻、我的歌单（网易）、
+   批量下载、源标邮戳（网易云·本机）、无结果→去本地搜；页头刊带替代侧边栏——横排 mono 导航 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;--paper-cold:#e8ebf1;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;--danger:#d23b2e;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;min-width:340px;min-height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+[hidden]{display:none!important}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-rows:44px auto auto minmax(0,1fr) 64px}
+.frame:before{content:"";position:absolute;top:8px;right:10px;width:14px;height:14px;z-index:4;opacity:.5;pointer-events:none;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+/* ── 刊头：报头式横排导航（替代侧边栏） ── */
+.mast{grid-row:1;display:flex;align-items:center;gap:18px;padding:0 clamp(24px,3vw,44px);border-bottom:1.5px solid var(--ink);background:rgba(251,250,247,.9)}
+.mast .brand{display:flex;align-items:center;gap:10px}
+.mast .brand i{width:26px;height:26px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 8px/1.1 var(--mono)}
+.mast .brand b{font-size:13px;font-weight:650;letter-spacing:-.02em}
+.mast .brand small{font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.mast nav{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.mast nav::-webkit-scrollbar{display:none}
+.mast nav a{flex:none;padding:5px 10px;font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);text-decoration:none;cursor:pointer;white-space:nowrap}
+.mast nav a:hover{color:var(--accent)}
+.mast nav a.on{background:var(--accent);color:#fff}
+.mast .stat{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim);white-space:nowrap}
+.mast .stat b{color:var(--accent);font-weight:500}
+@media(max-width:1180px){.mast{gap:10px;padding:0 20px}.mast nav a{padding:5px 6px;letter-spacing:.08em}.mast .stat{display:none}}
+/* ── 页名行 ── */
+.pagehead{grid-row:2;display:flex;align-items:baseline;gap:14px;padding:14px clamp(24px,3vw,44px) 0}
+.pagehead h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.pagehead .lede{margin:0;font-size:12px;color:var(--ink-soft);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pagehead .stamp{margin-left:auto;flex:none;font:9px var(--mono);letter-spacing:.14em;color:var(--ink-faint);white-space:nowrap}
+/* ── 检索带 ── */
+.wire{grid-row:3;display:flex;align-items:center;gap:10px;margin:10px clamp(24px,3vw,44px) 0;flex-wrap:wrap}
+.wire .search{flex:1;min-width:260px;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;background:var(--paper-hi);border:1px solid var(--line)}
+.wire .search input{flex:1;min-width:0;border:0;background:none;font:13px var(--sans);color:var(--ink);outline:none}
+.wire .search input::placeholder{color:var(--ink-faint)}
+.wire .search kbd{font:8px var(--mono);letter-spacing:.1em;color:var(--ink-dim);border:1px solid var(--line);padding:2px 4px}
+.srcs{display:flex;gap:0}
+.srcs button{height:40px;padding:0 12px;border:1px solid var(--line);border-left-width:0;background:transparent;color:var(--ink-soft);font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
+.srcs button:first-child{border-left-width:1px}
+.srcs button.on{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.qual{display:flex;gap:0}
+.qual button{height:40px;padding:0 10px;border:1px solid var(--line);border-left-width:0;background:transparent;color:var(--ink-soft);font:10px var(--mono);cursor:pointer}
+.qual button:first-child{border-left-width:1px}
+.qual button.on{background:var(--ink);border-color:var(--ink);color:var(--signal)}
+.wire .login{height:40px;padding:0 14px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:10px var(--mono);letter-spacing:.12em;cursor:pointer}
+.wire .login:hover{background:var(--accent);color:#fff}
+/* ── 主区：结果流 + 歌单台 ── */
+.desk{grid-row:4;display:grid;grid-template-columns:minmax(0,1fr) 300px;min-height:0;padding:0 clamp(24px,3vw,44px)}
+.results{min-width:0;min-height:0;overflow-y:auto;scrollbar-width:thin;padding:8px 14px 96px 0}
+.rrow{display:grid;grid-template-columns:30px minmax(0,1.5fr) minmax(0,.9fr) 44px 92px 86px;gap:12px;align-items:center;height:48px;border-bottom:1px solid var(--line-soft);cursor:pointer;position:relative;transition:background .13s,color .13s}
+.rrow:before{content:"";position:absolute;left:-8px;top:0;bottom:0;width:3px;background:var(--accent);transform:scaleY(0);transition:transform .18s var(--ease-out)}
+.rrow:hover{background:var(--accent-wash)}
+.rrow:hover:before{transform:scaleY(1)}
+.rrow:hover .no,.rrow:hover strong,.rrow:hover time{color:var(--accent)}
+.rrow .no{font:11px var(--mono);color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.rrow .t{min-width:0}
+.rrow .t strong{display:block;font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .t small{display:block;margin-top:2px;font-size:10px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow time{font:11px var(--mono);color:var(--ink-dim);text-align:right;font-variant-numeric:tabular-nums}
+.stamp-src{justify-self:start;font:8px var(--mono);letter-spacing:.08em;color:var(--ink-soft);border:1px solid var(--line);padding:2px 6px;white-space:nowrap}
+.stamp-src.local{border-style:dashed;color:var(--accent)}
+.acts{display:flex;gap:2px;justify-content:flex-end}
+.acts button{width:26px;height:26px;border:0;background:none;color:var(--ink-dim);cursor:pointer;font-size:12px}
+.acts button:hover{color:var(--accent)}
+.results .foot{padding:12px 0 0;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-faint)}
+/* 批量条 */
+.bulk{position:sticky;bottom:0;display:flex;align-items:center;gap:14px;padding:9px 12px;background:var(--ink);color:var(--paper);font:10px var(--mono);letter-spacing:.1em}
+.bulk b{color:var(--signal);font-weight:500}
+.bulk button{margin-left:auto;height:28px;padding:0 14px;border:1px solid var(--signal);background:transparent;color:var(--signal);font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
+.bulk button:hover{background:var(--signal);color:var(--ink)}
+/* 歌单台 */
+.plays{border-left:1.5px solid var(--ink);padding:14px 0 96px 18px;min-width:0;min-height:0;overflow-y:auto;scrollbar-width:thin}
+.plays h3{margin:0 0 10px;font:10px var(--mono);letter-spacing:.18em;color:var(--ink-dim)}
+.plays .pl{display:flex;justify-content:space-between;align-items:center;gap:8px;height:36px;border-bottom:1px solid var(--line-soft);cursor:pointer;font-size:11.5px}
+.plays .pl:hover{color:var(--accent)}
+.plays .pl span{font:9px var(--mono);color:var(--ink-dim)}
+.import{margin:14px 0 0;border:1px solid var(--line);background:var(--paper-hi);padding:10px 12px}
+.import label{display:block;font:8px var(--mono);letter-spacing:.14em;color:var(--ink-dim);margin-bottom:6px}
+.import input{width:100%;height:30px;border:1px solid var(--line);background:var(--paper);padding:0 8px;font:11px var(--mono);color:var(--ink);outline:none}
+.import input:focus{border-color:var(--accent)}
+.import button{margin-top:6px;width:100%;height:30px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:10px var(--mono);letter-spacing:.1em;cursor:pointer}
+.plays .sec{margin-top:18px}
+/* ── console ── */
+.console{grid-row:5;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:8px clamp(24px,3vw,44px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:38px;height:38px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:15px;height:15px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:14px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:36px;height:36px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.08))}
+/* ── 覆盖态 ── */
+.nores{display:none;min-height:260px;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px;padding:0 14px}
+[data-mode="noresult"] .results,[data-mode="noresult"] .plays{display:none}
+[data-mode="noresult"] .nores{display:flex}
+.nores .q{font:11px var(--mono);color:var(--accent);letter-spacing:.1em}
+.nores .big{font:650 clamp(28px,3vw,44px)/1.05 var(--sans);letter-spacing:-.05em;font-variation-settings:"wght" 650}
+.nores .sub{font-size:12px;color:var(--ink-soft);max-width:440px;line-height:1.75}
+.nores button{height:38px;padding:0 18px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);font-size:12px;cursor:pointer}
+.nores button:hover{background:var(--accent);border-color:var(--accent)}
+/* 未登录横条：QQ 音源需要登录才能取播放地址 */
+.loginbar{display:none;align-items:center;gap:12px;margin:10px 14px 0;padding:8px 12px;border:1px solid var(--accent);background:var(--accent-wash);font:10px var(--mono);letter-spacing:.08em;color:var(--ink-soft)}
+[data-mode="needlogin"] .loginbar{display:flex}
+.loginbar b{color:var(--accent);font-weight:500}
+.loginbar button{margin-left:auto;height:26px;padding:0 12px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:9px var(--mono);cursor:pointer}
+.toast{position:fixed;z-index:50;bottom:80px;left:50%;transform:translate(-50%,12px);padding:10px 14px;background:var(--ink);color:var(--paper);font-size:11px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+#switch{position:fixed;z-index:60;right:10px;bottom:10px;display:flex;gap:4px;padding:5px 6px;background:rgba(17,19,27,.92);flex-wrap:wrap;max-width:420px}
+#switch small{color:#8b8f98;font:8px/2.4 var(--mono);letter-spacing:.1em;padding:0 4px}
+#switch button{border:1px solid #3a3f4d;background:transparent;color:#b8bcc2;font:9px var(--mono);padding:4px 7px;cursor:pointer}
+#switch button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.pre .rrow,.pre .plays .pl,.pre .import{opacity:0}
+.booted .rrow,.booted .plays .pl,.booted .import{opacity:1;transition:opacity .5s var(--ease-out);transition-delay:calc(var(--i,0)*30ms)}
+@media(max-width:1100px){.desk{grid-template-columns:minmax(0,1fr)}.plays{display:none}.rrow{grid-template-columns:30px minmax(0,1.6fr) 44px 92px 86px}.rrow .alb{display:none}.pagehead .lede{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.pre .rrow,.pre .plays .pl,.pre .import{opacity:1}}
+</style>
+</head>
+<body data-mode="g">
+<div class="frame">
+<header class="mast">
+  <div class="brand"><i>AF</i><b>afeifei</b><small>阿飞飞</small></div>
+  <nav aria-label="主导航"><a href="#" data-toast="跳转首页">HOME 首页</a><a class="on" data-toast="当前页：在线">WIRE 在线</a><a data-toast="跳转榜单">CHART 榜单</a><a data-toast="跳转电台">DIAL 电台</a><a data-toast="跳转漫游">ROAM 漫游</a><a data-toast="跳转本地">INDEX 本地</a><a data-toast="跳转喜欢">LEDGER 喜欢</a><a data-toast="跳转最近">JOURNAL 最近</a><a data-toast="跳转下载">MANIFEST 下载</a><a data-toast="跳转设置">SPEC 设置</a></nav>
+  <div class="stat">21:47 · <b>PAUSED</b> · DEMO DATA</div>
+</header>
+<div class="pagehead">
+  <h1>在线。</h1>
+  <p class="lede">四路音源一栏检索——结果带源标邮戳，可直接播放、入队或转下载。</p>
+  <span class="stamp">PAGE 02 · 11.05 THU · DEMO</span>
+</div>
+<div class="wire">
+  <label class="search"><span aria-hidden="true" style="font-size:13px;color:var(--ink-dim)">⌕</span><input placeholder="检索歌曲 / 歌手 / 专辑 — 结果带源标" aria-label="在线检索" value="ヨルシカ"><kbd>CTRL F</kbd></label>
+  <div class="srcs" role="group" aria-label="音源"><button class="on" data-toast="音源：网易云">网易云</button><button data-toast="音源：QQ 音乐 · 播放地址需登录">QQ</button><button data-toast="音源：用户脚本 · 隔离进程">脚本</button><button data-toast="音源：demo">DEMO</button></div>
+  <div class="qual" role="group" aria-label="音质"><button data-toast="音质 128k">128</button><button class="on" data-toast="音质 320k">320</button></div>
+  <button class="login" data-toast="登录：网易云扫码 · QQ 扫码 · 登录态存主进程 cookie">登录音源</button>
+</div>
+<div class="desk">
+  <section class="results" aria-label="检索结果">
+    <div class="loginbar"><b>QQ 音乐</b>播放地址需要登录后获取——其余音源不受影响<button data-toast="打开登录窗 · 扫码">扫码登录</button></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：老人と海 · 网易云" style="--i:1"><span class="no">01</span><div class="t"><strong>老人と海</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">盗作</span><time>5:21</time><span class="stamp-src">网易云</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：打上花火 · 网易云" style="--i:2"><span class="no">02</span><div class="t"><strong>打上花火</strong><small>DAOKO × 米津玄師</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">打上花火</span><time>4:28</time><span class="stamp-src local">本机已有</span><div class="acts"><button aria-label="播放" data-toast="播放本地版本">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="本机已有 · 无需下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：晴る · QQ 音乐" style="--i:3"><span class="no">03</span><div class="t"><strong>晴る</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">アルジャーノン</span><time>3:58</time><span class="stamp-src">QQ 音乐</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：思想者 · 用户脚本" style="--i:4"><span class="no">04</span><div class="t"><strong>思想者</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">Elma</span><time>4:10</time><span class="stamp-src">脚本</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：ノーチラス · 网易云" style="--i:5"><span class="no">05</span><div class="t"><strong>ノーチラス</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">ノーチラス</span><time>4:33</time><span class="stamp-src">网易云</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：藍二乗 · QQ 音乐" style="--i:6"><span class="no">06</span><div class="t"><strong>藍二乗</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">負け犬に後光的な</span><time>4:47</time><span class="stamp-src">QQ 音乐</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：雨とカプチーノ · 网易云" style="--i:7"><span class="no">07</span><div class="t"><strong>雨とカプチーノ</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">負け犬に後光的な</span><time>3:41</time><span class="stamp-src">网易云</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="rrow" tabindex="0" role="button" data-toast="播放：第一夜 · demo 源" style="--i:8"><span class="no">08</span><div class="t"><strong>第一夜</strong><small>ヨルシカ</small></div><span class="alb" style="font-size:11px;color:var(--ink-soft)">だから僕は音楽を辞めた</span><time>4:22</time><span class="stamp-src">DEMO</span><div class="acts"><button aria-label="播放" data-toast="播放">▶</button><button aria-label="入队" data-toast="加入队列">＋</button><button aria-label="下载" data-toast="转入下载">⇣</button></div></div>
+    <div class="bulk"><span>已选 <b>3</b> 首 · 320k · 下载至 D:\Downloads</span><button data-toast="批量下载 3 首 · 入队并发 3">批量下载 ⇣</button></div>
+    <p class="foot">结果 1–8 / 47　·　源标=曲目实际可播来源　·　点击行=播放，⇣=转下载</p>
+    <div class="nores"><span class="q">QUERY · "xyzzy" · 网易云 / QQ / 脚本</span><span class="big">四路都没有回电。</span><span class="sub">没有匹配「xyzzy」的在线曲目。它可能在你的本地曲库里——去本地页用同一关键词再搜一次。</span><button data-toast="跳转本地页 · 同关键词检索">去本地搜</button></div>
+  </section>
+  <aside class="plays" aria-label="歌单台">
+    <h3>我的歌单 · 网易云</h3>
+    <div class="pl" tabindex="0" role="button" data-toast="下钻歌单：深夜公路 · 36 首" style="--i:9"><span>深夜公路</span><b style="font:9px var(--mono);color:var(--ink-dim)">36</b></div>
+    <div class="pl" tabindex="0" role="button" data-toast="下钻歌单：写作 BGM · 58 首" style="--i:10"><span>写作 BGM</span><b style="font:9px var(--mono);color:var(--ink-dim)">58</b></div>
+    <div class="pl" tabindex="0" role="button" data-toast="下钻歌单：City Pop 整理中 · 21 首" style="--i:11"><span>City Pop 整理中</span><b style="font:9px var(--mono);color:var(--ink-dim)">21</b></div>
+    <div class="sec"><h3>歌单下钻</h3></div>
+    <div class="import"><label>歌单链接 / ID（网易云 · QQ · 分享链接）</label><input placeholder="https://… 或 歌单 ID" aria-label="歌单链接"><button data-toast="导入歌单 · 解析后可选批量下载">导入并下钻</button></div>
+    <div class="sec"><h3>说明</h3></div>
+    <p style="margin:0;font-size:10px;color:var(--ink-dim);line-height:1.8">账号级能力（每日推荐 / 红心同步 / 个人 FM）需要对应音源登录；脚本音源跑在隔离进程里，失败不影响其他源。</p>
+  </aside>
+</div>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶唱片"></div><div><strong>打上花火</strong><small>在线检索 · 网易云</small></div></div>
+  <div class="transport"><button aria-label="上一首" data-toast="上一首">|◀</button><button class="play" aria-label="暂停" data-toast="暂停">Ⅱ</button><button aria-label="下一首" data-toast="下一首">▶|</button></div>
+  <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="268" aria-valuenow="69"><i></i></div><span>4:28</span></div>
+</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+const $=s=>document.querySelector(s);
+if(location.search.includes('rm'))document.documentElement.classList.add('rm');
+const toast=$('#toast');let t;
+const notify=m=>{toast.textContent=m;toast.classList.add('show');clearTimeout(t);t=setTimeout(()=>toast.classList.remove('show'),1700)};
+document.querySelectorAll('[data-toast]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();notify(el.dataset.toast)}));
+document.querySelectorAll('.rrow,.plays .pl').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();notify(el.dataset.toast)}}));
+$$('#switch button').forEach(b=>b.addEventListener('click',()=>{
+  $$('#switch button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  document.body.dataset.mode=b.dataset.v;
+}));
+requestAnimationFrame(()=>requestAnimationFrame(()=>document.body.classList.add('pre','booted')));
+</script>
+</body>
+</html>

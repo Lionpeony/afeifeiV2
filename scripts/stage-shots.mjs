@@ -231,7 +231,7 @@ function registerMinimalIpc() {
 }
 
 const PRESETS = ["paper", "vinyl", "minimal", "cinema"];
-const PRESET_NAMES = ["纸面剧场", "黑胶唱机", "极简留白", "电影感"];
+const PRESET_NAMES = ["纸面剧场", "夜航唱机", "极简留白", "演后余光"];
 
 app.whenReady().then(async () => {
   fs.mkdirSync(PROFILE, { recursive: true });

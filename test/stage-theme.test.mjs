@@ -37,10 +37,20 @@ function stripScope(css) {
   return css.replace(/\/\* stage-scope:begin \*\/[\s\S]*?\/\* stage-scope:end \*\//, "");
 }
 
-test("stage.css 只用场景层变量（剪掉 stage-scope 块后不得出现结构层/材质层）", () => {
-  const css = stripScope(readSrc(`${STAGE_DIR}stage.css`));
-  for (const name of FORBIDDEN) {
-    assert.ok(!css.includes(`var(${name})`), `stage.css 直接读了 ${name}：切夜间会把播放页一起翻黑`);
+const STAGE_FILES = [
+  "../src/renderer/ui/views/stage/stage.css",
+  "../src/renderer/ui/views/stage/stage-queue.css",
+  "../src/renderer/ui/views/stage/stage-panels.css",
+  "../src/renderer/ui/views/stage/stage-immersive.css",
+  "../src/renderer/ui/views/stage/stage-immersive-controls.css",
+];
+
+test("stage 样式（拆分后的每个文件）只用场景层变量（剪掉 stage-scope 块后不得出现结构层/材质层）", () => {
+  for (const file of STAGE_FILES) {
+    const css = stripScope(readSrc(file));
+    for (const name of FORBIDDEN) {
+      assert.ok(!css.includes(`var(${name})`), `${file.slice(file.indexOf("stage/") + 6)} 直接读了 ${name}：切夜间会把播放页一起翻黑`);
+    }
   }
 });
 
