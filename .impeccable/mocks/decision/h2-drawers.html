@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 首页候选三 / 档案抽屉</title>
+<style>
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;--danger:#d23b2e;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-columns:76px minmax(0,1fr)}
+.rail{background:rgba(251,250,247,.92);border-right:1px solid var(--line-strong);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:20px;z-index:5}
+.mark{width:38px;height:38px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 10px/1.1 var(--mono);letter-spacing:-.08em}
+.nav{display:grid;gap:6px}
+.nav button{width:42px;height:42px;border:0;background:transparent;color:var(--ink-dim);display:grid;place-items:center;cursor:pointer;font-size:16px;position:relative}
+.nav button span{font-size:9px;position:absolute;top:30px}
+.nav button.active{background:var(--accent);color:#fff}
+.rail-foot{margin-top:auto;color:var(--accent);font:10px var(--mono);writing-mode:vertical-rl;letter-spacing:.25em}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+/* ── 页头 ── */
+.head{padding:16px clamp(28px,3.4vw,52px) 0}
+.head h1{margin:0;font-size:clamp(22px,2vw,28px);letter-spacing:-.05em;font-weight:650;white-space:nowrap}
+.head .lede{margin:6px 0 0;font-size:12px;color:var(--ink-soft)}
+.head .lede b{color:var(--ink);font-weight:600}
+/* ── 抽屉行 ── */
+.drawer{border-top:1.5px solid var(--ink);cursor:pointer}
+.drawer:last-of-type{border-bottom:1.5px solid var(--ink)}
+.drawer-head{display:grid;grid-template-columns:218px minmax(0,1fr);align-items:center;min-height:64px;padding:0 clamp(28px,3.4vw,52px)}
+.drawer-head:hover{background:var(--accent-wash)}
+.dh-label b{display:block;font-size:15px;transition:color .13s}
+.drawer-head:hover .dh-label b{color:var(--accent)}
+.dh-label small{display:block;font:8px var(--mono);letter-spacing:.14em;color:var(--ink-dim);margin-top:2px}
+.dh-pull{margin-left:auto;font:10px var(--mono);letter-spacing:.12em;color:var(--accent);white-space:nowrap}
+/* 胶片条 */
+.film{display:flex;gap:14px;overflow-x:auto;padding:2px clamp(28px,3.4vw,52px) 16px;scrollbar-width:none}
+.film::-webkit-scrollbar{display:none}
+.fcard{flex:none;width:128px;cursor:pointer}
+.fcard .cov{aspect-ratio:1;border:1px solid rgba(17,19,27,.25);border-bottom:3px solid var(--ink);display:grid;place-items:center;color:#fff;font:800 22px/1 var(--mono);letter-spacing:-.06em;position:relative;transition:transform .18s var(--ease-out)}
+.fcard:hover .cov{transform:translateY(-3px)}
+.fcard .cov:after{content:attr(data-no);position:absolute;right:5px;bottom:5px;font:7.5px var(--mono);letter-spacing:.1em;color:rgba(255,255,255,.8)}
+.fcard strong{display:block;margin-top:6px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fcard small{display:block;margin-top:1px;font:8px var(--mono);letter-spacing:.06em;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* console（与 l5 同款） */
+.console{position:sticky;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:10px clamp(24px,3.4vw,46px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:40px;height:40px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:16px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:38px;height:38px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.36))}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="frame">
+<aside class="rail"><div class="mark">AF<br>04</div><nav class="nav" aria-label="主导航"><button class="active" title="首页">⌂<span>首页</span></button><button title="在线">⌕<span>在线</span></button><button title="榜单">▥<span>榜单</span></button><button title="本地">♫<span>本地</span></button><button title="播放页">▶<span>播放</span></button></nav><div class="rail-foot">A F E I F E I</div></aside>
+<main class="main">
+<header class="head"><h1>首页。</h1><p class="lede">今天为你的曲库排了 <b>4 个抽屉</b>——每日推荐、最近入库、本地电台、深夜漫游，横向拉开即播。</p></header>
+<!-- 抽屉一：每日推荐 -->
+<section class="drawer" aria-label="每日推荐">
+  <div class="drawer-head"><div class="dh-label"><b>第一抽屉 · 每日推荐</b><small>DAILY 30 · 06:00 更新</small></div><span class="dh-pull">30 首 · 拉开 ▸</span></div>
+  <div class="film">
+    <div class="fcard" tabindex="0"><div class="cov" data-no="001" style="background:linear-gradient(145deg,#232333,#40427d 46%,#ffbf43)">晴</div><strong>晴る</strong><small>ヨルシカ</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="002" style="background:linear-gradient(145deg,#3a3020,#8a7a4a 58%,#d9cfa0)">ネ</div><strong>ネスタ postal</strong><small>yuma · 新曲</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="003" style="background:linear-gradient(145deg,#4d3545,#8a6b7d 55%,#d9b8a0)">サ</div><strong>サンをさがす</strong><small>ヨルシカ</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="004" style="background:linear-gradient(145deg,#1f3a4d,#3d6b8a 58%,#7ab5c8)">老</div><strong>老人と海</strong><small>ヨルシカ</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="005" style="background:linear-gradient(145deg,#2f3a2f,#6b8a5a 58%,#c8d9a0)">言</div><strong>言え。のこと</strong><small>indigo la End</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="006" style="background:linear-gradient(145deg,#8f2f3a,#d97a6a 58%,#f2d9a0)">ア</div><strong>アポロ</strong><small>Bank Band</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="007" style="background:linear-gradient(145deg,#3c5a8f,#8fb3d9 60%,#e8d9a0)">花</div><strong>花に亡霊</strong><small>米津玄師</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="008" style="background:linear-gradient(145deg,#22303f,#4a6b8a 58%,#a0c0d9)">グ</div><strong>Grand Escape</strong><small>RADWIMPS</small></div>
+  </div>
+</section>
+<!-- 抽屉二：最近入库 -->
+<section class="drawer" aria-label="最近入库">
+  <div class="drawer-head"><div class="dh-label"><b>第二抽屉 · 最近入库</b><small>RECENT · 11-02 增量 +12</small></div><span class="dh-pull">按时间 ▸</span></div>
+  <div class="film">
+    <div class="fcard" tabindex="0"><div class="cov" data-no="11-02" style="background:linear-gradient(145deg,#4d3545,#8a6b7d 55%,#d9b8a0)">晴</div><strong>晴る</strong><small>D:\Music</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="11-02" style="background:linear-gradient(145deg,#2b2b3a,#4d4f8a 52%,#c8b46a)">ア</div><strong>アルジャーノン</strong><small>D:\Music</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="10-30" style="background:linear-gradient(145deg,#1f3a4d,#3d6b8a 58%,#7ab5c8)">海</div><strong>海底</strong><small>D:\Music</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="10-30" style="background:linear-gradient(145deg,#3a3020,#8a7a4a 58%,#d9cfa0)">l</div><strong>letitout.mp3</strong><small>无标签 · 可改</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="10-26" style="background:linear-gradient(145deg,#8f2f3a,#d97a6a 58%,#f2d9a0)">C</div><strong>Chinatown</strong><small>Le Bonbon</small></div>
+  </div>
+</section>
+<!-- 抽屉三：本地电台 -->
+<section class="drawer" aria-label="本地电台">
+  <div class="drawer-head"><div class="dh-label"><b>第三抽屉 · 本地电台</b><small>STATION · 不依赖在线</small></div><span class="dh-pull">3 档节目 ▸</span></div>
+  <div class="film">
+    <div class="fcard" tabindex="0"><div class="cov" data-no="24" style="background:linear-gradient(145deg,#22303f,#4a6b8a 58%,#a0c0d9)">▶</div><strong>通勤电台</strong><small>36 分钟配速</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="36" style="background:linear-gradient(145deg,#2f3a2f,#6b8a5a 58%,#c8d9a0)">▶</div><strong>深夜公路</strong><small>36 首 · 凌晨档</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="58" style="background:linear-gradient(145deg,#3a3020,#8a7a4a 58%,#d9cfa0)">▶</div><strong>写作 BGM</strong><small>58 首 · 器乐多</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="21" style="background:linear-gradient(145deg,#8f2f3a,#d97a6a 58%,#f2d9a0)">▶</div><strong>City Pop 整理中</strong><small>21 首</small></div>
+  </div>
+</section>
+<!-- 抽屉四：深夜漫游 -->
+<section class="drawer" aria-label="深夜漫游">
+  <div class="drawer-head"><div class="dh-label"><b>第四抽屉 · 深夜漫游</b><small>ROAM · 个人 FM · 00:00 档</small></div><span class="dh-pull">20 首 · 拉开 ▸</span></div>
+  <div class="film">
+    <div class="fcard" tabindex="0"><div class="cov" data-no="R01" style="background:linear-gradient(145deg,#1f3a4d,#3d6b8a 58%,#7ab5c8)">老</div><strong>老人と海</strong><small>为什么是它 →</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="R02" style="background:linear-gradient(145deg,#4d3545,#8a6b7d 55%,#d9b8a0)">Iv</div><strong>Ivory</strong><small>ヨルシカ</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="R03" style="background:linear-gradient(145deg,#2b2b3a,#4d4f8a 52%,#c8b46a)">知</div><strong>知我</strong><small>国风堂 / 哦漏</small></div>
+    <div class="fcard" tabindex="0"><div class="cov" data-no="R04" style="background:linear-gradient(145deg,#3a3020,#8a7a4a 58%,#d9cfa0)">D</div><strong>Dancin (Krono Remix)</strong><small>Aaron Smith</small></div>
+  </div>
+</section>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶"></div><div><strong>Grand Escape</strong><small>本地电台 · 通勤电台</small></div></div>
+  <div class="transport"><button aria-label="上一首">|◀</button><button class="play" aria-label="暂停">Ⅱ</button><button aria-label="下一首">▶|</button></div>
+  <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="292" aria-valuenow="69"><i></i></div><span>4:52</span></div>
+</footer>
+</div>
+</body>
+</html>

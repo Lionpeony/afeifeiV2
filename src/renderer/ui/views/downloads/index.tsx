@@ -3,6 +3,8 @@ import { dispatch, getState, subscribe } from "../../../kernel/index.js";
 import { downloadRows, fmtBytes, fmtSpeed, type DownloadRow } from "../../../projection/download.js";
 import type { Services } from "../../services.js";
 import { PageHead } from "../../PageHead.js";
+import { RoomBoard } from "../../live/RoomBoard.js";
+import { boardProgram } from "../../../projection/room-program.js";
 import { toast } from "../../toast.js";
 import { NAME_TEMPLATE_DEFAULT, NAME_TEMPLATE_HINT } from "../../../domain/download/naming.js";
 import {
@@ -76,6 +78,9 @@ export function DownloadsView({
     }
   };
 
+  // 看板只读：状态迁移看得见，操作仍在下面的表格
+  const board = boardProgram(rows.map((row) => ({ id: row.id, title: row.title, state: row.state })));
+
   return (
     <section className="library">
       <PageHead title="下载" meta="DOWNLOADS" />
@@ -136,6 +141,8 @@ export function DownloadsView({
         {concurrency > 3 ? " · 并发偏高，容易被上游限流" : ""}
         {settingsNote ? ` · ${settingsNote}` : ""}
       </p>
+
+      <RoomBoard program={board} note="看板只显示状态；暂停 / 继续 / 删除在最下面的任务表里。" />
 
       <div className="lib-list">
         <div className="lib-thead dl-thead">

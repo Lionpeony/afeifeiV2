@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
-import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
+import { getTracks, subscribe as subscribeLibrary, trackById } from "../../../domain/library/state.js";
 import { clearHistory, getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
 import { AccountBlock } from "../../AccountBlock.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
+import { TapeRail } from "../../live/TapeRail.js";
+import { tapeFromEntries } from "../../../projection/room-program.js";
 import { fmtDuration } from "../library/rows.js";
 import { isLiked, subscribe as subscribeLikes, toggleLike } from "../../../domain/likes/index.js";
 
@@ -50,15 +52,32 @@ export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewPro
   useEffect(() => subscribeLikes(bump), []);
 
   const tracks = getTracks();
-  const byId = new Map(tracks.map((t) => [t.id, t] as const));
   const lines: Line[] = [];
   let lost = 0;
   for (const entry of getHistory()) {
-    const track = byId.get(entry.trackId);
+    // 历史存的是原始播放路径（盘符大小写 / 反斜杠），曲库 id 是归一化后的；
+    // 直接按 id 相等查会把本机曲目全判成"不在曲库"
+    const track = trackById(entry.trackId);
     if (track) lines.push({ track, at: entry.at });
     else lost += 1; // 在线直链或已删除文件：不装成空行，统计里说一声
   }
   const totalMs = lines.reduce((sum, l) => sum + (l.track.durationMs || 0), 0);
+  const tape = lines.length
+    ? tapeFromEntries(
+        lines.map((line) => ({
+          item: {
+            id: line.track.id,
+            title: line.track.title,
+            sub: line.track.artist,
+            durationMs: line.track.durationMs,
+            cover: line.track.hasCover,
+          },
+          at: line.at,
+        })),
+        Date.now(),
+        "最近播放",
+      )
+    : null;
 
   const play = (at: number): void => {
     if (lines.length > 0) onPlayGroup(lines.map((l) => l.track), at);
@@ -68,19 +87,27 @@ export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewPro
     <section className="recent">
       <PageHead
         title="最近播放"
-        desc="上栏是账号的听歌排行（跨设备，来自网易云）；下栏是本机记录，每首只留最后一次。"
+        desc="上栏是当前账号的听歌排行（跨设备）；下栏是本机记录，每首只留最后一次。"
         meta={`RECENT · ${acct.songs.length + lines.length}`}
       />
 
       <AccountBlock
         title="账号听歌排行"
-        note="网易云按账号统计的播放次数排序；本机记录在下面，两者口径不同，所以分开放。"
+        note="平台按账号统计的播放次数排序；本机记录在下面，两者口径不同，所以分开放。"
         state={acct}
         empty="这个账号还没有播放记录。"
         onPlay={onPlayRemote}
       />
 
       <div className="acct-div" />
+
+      {tape ? (
+        <TapeRail
+          program={tape}
+          note="按播放时间归档 · 每首只留最后一次"
+          onPlay={(id) => play(lines.findIndex((line) => line.track.id === id))}
+        />
+      ) : null}
 
       <div className="ops">
         <button type="button" className="btn primary" onClick={() => play(0)} disabled={lines.length === 0}>

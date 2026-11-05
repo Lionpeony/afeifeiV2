@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { isTextTarget, isRangeTarget, isListTarget, resolveEsc } from "../dist-test/input-esc.mjs";
 import { COMMAND_LIMIT, filterCommands } from "../dist-test/input-commands.mjs";
-import { setTracks, searchTracks } from "../dist-test/library-state.mjs";
+import { setTracks, searchTracks, trackById } from "../dist-test/library-state.mjs";
 
 /** DOM 类判定用假对象：isTextTarget 只访问 tagName/type/isContentEditable。 */
 function fakeEl(tag, type, contentEditable = false) {
@@ -84,6 +84,26 @@ test("searchTracks：命中标题并截到上限，且不污染曲库全局搜�
   assert.equal(getQuery(), "", "searchTracks 不得改动全局搜索词");
   assert.equal(searchTracks("周杰伦").length <= 12, true);
   assert.equal(searchTracks("").length, 0, "空关键词不搜");
+});
+
+test("trackById：队列里存原始路径_归一化后仍能查到曲目", () => {
+  setTracks([
+    {
+      id: "c:/music/叶惠美/1.mp3",
+      path: "C:\\Music\\叶惠美\\1.mp3",
+      title: "以父之名",
+      artist: "周杰伦",
+      album: "叶惠美",
+      durationMs: 342000,
+      size: 1,
+      mtimeMs: 0,
+      hasCover: false,
+    },
+  ]);
+  // 队列/播放态放的是原始 path：盘符大写、反斜杠 —— 这是线上会走到的那条
+  assert.equal(trackById("C:\\Music\\叶惠美\\1.mp3")?.title, "以父之名");
+  assert.equal(trackById("c:/music/叶惠美/1.mp3")?.title, "以父之名", "已归一化的 id 也要能查");
+  assert.equal(trackById("D:/nope.mp3"), undefined);
 });
 
 /* ---- 命令过滤 ---- */

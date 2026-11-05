@@ -56,6 +56,31 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     };
   }
 
+  /* yakult 的账号路由把歌曲放在顶层 `songs`；旧路由可能在 `data.songs`，两种都收 */
+  function songsOf(body: unknown): Record<string, unknown>[] {
+    const b = body as { songs?: unknown; data?: { songs?: unknown } } | null;
+    const list = Array.isArray(b?.songs) ? b.songs : Array.isArray(b?.data?.songs) ? b.data.songs : [];
+    return list.filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null);
+  }
+
+  function tracksOf(body: unknown): RemoteTrack[] {
+    return songsOf(body)
+      .map(toTrack)
+      .filter((t): t is RemoteTrack => t !== null);
+  }
+
+  /** 红心分页：每页 100，最多 2000 首（与 folia 同一上限，避免大账号一次拉爆）。 */
+  async function likedAll(): Promise<Record<string, unknown>[]> {
+    const out: Record<string, unknown>[] = [];
+    for (let page = 0; page < 20 && out.length < 2000; page += 1) {
+      const body = await qq<{ songs?: unknown; more?: unknown }>("likedSongs", { offset: out.length, limit: 100 });
+      const songs = songsOf(body);
+      out.push(...songs);
+      if (!body?.more || songs.length === 0) break;
+    }
+    return out;
+  }
+
   interface QqSearchBody {
     code?: number;
     items?: Record<string, unknown>[];
@@ -109,6 +134,47 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     traits: {
       requiresAuth: false, // 搜索与歌词匿名可用；只有播放地址要登录
       qualities: ["128k", "320k"],
+    },
+
+    /*
+     * 账号级数据（2026-11-05 补）：与 folia 同一组后端路由。
+     * 听歌历史：qq-music-api 3.3 没有这个路由，如实报「不支持」，不拿本地记录冒充平台数据。
+     */
+    account: {
+      async dailySongs(): Promise<RemoteTrack[]> {
+        return tracksOf(await qq("daily"));
+      },
+      async likedIds(): Promise<string[]> {
+        return (await likedAll())
+          .map((song) => (typeof song.mid === "string" ? song.mid : ""))
+          .filter((mid) => mid.length > 0);
+      },
+      async likedSongs(): Promise<RemoteTrack[]> {
+        return (await likedAll())
+          .map(toTrack)
+          .filter((t): t is RemoteTrack => t !== null);
+      },
+      async likedTotal(): Promise<number> {
+        const body = await qq<{ total?: unknown }>("likedSongs", { offset: 0, limit: 1 });
+        const total = Number(body?.total);
+        return Number.isFinite(total) && total >= 0 ? total : 0;
+      },
+      async setLiked(songId: string, liked: boolean): Promise<void> {
+        if (!/^[0-9A-Za-z]{6,20}$/.test(songId)) throw err("track-missing", "QQ 歌曲标识不合法");
+        const info = await qq<Record<string, unknown>>("songInfo", { mid: songId });
+        const data = (info as { data?: Record<string, unknown>; track_info?: Record<string, unknown> } | null) ?? null;
+        const track = data?.track_info ?? data?.data ?? info;
+        const id = Number((track as { id?: unknown } | null)?.id);
+        if (!Number.isSafeInteger(id) || id <= 0) throw err("invalid-response", "QQ 没给出这首歌的数字 id");
+        const body = await qq<{ code?: number; data?: { liked?: boolean } }>("like", { mid: songId, id, liked });
+        if (body?.code !== undefined && body.code !== 200) throw err("unknown", "QQ 红心没写成");
+      },
+      async listeningHistory(): Promise<RemoteTrack[]> {
+        throw err("capability-missing", "QQ 音乐不提供听歌排行");
+      },
+      async personalFm(): Promise<RemoteTrack[]> {
+        return tracksOf(await qq("guessYouLike"));
+      },
     },
 
     async search(keyword: string, page = 0): Promise<SearchResult> {

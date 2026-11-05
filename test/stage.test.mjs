@@ -20,7 +20,6 @@ import {
   sanitizeThemeTokens,
 } from "../dist-test/stage-presets.mjs";
 import { carouselItems, ringGeom } from "../dist-test/stage-visuals.mjs";
-import { buildMachiTheme, spectrumPower, toFoliaLines } from "../dist-test/stage-machi-adapter.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
 /** 一份可控的测试 LyricDoc：只有 contracts/lyric.ts 一种模型（毫秒，逐字行内相对）。 */
@@ -249,7 +248,7 @@ test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", 
 /* ---- C-13 视觉模式与封面轮播 ---- */
 
 test("C-13 visualMode：白名单外的回落 bars，老存档缺字段也是 bars", () => {
-  assert.deepEqual(VISUAL_MODES, ["bars", "wave", "ring", "machi"]);
+  assert.deepEqual(VISUAL_MODES, ["bars", "wave", "ring"]);
   assert.equal(sanitizeStageConfig(null).visualMode, "bars");
   assert.equal(sanitizeStageConfig({ visualMode: "cube" }).visualMode, "bars", "不在白名单回落");
   assert.equal(sanitizeStageConfig({ visualMode: "wave" }).visualMode, "wave");
@@ -294,36 +293,6 @@ test("C-13 ringGeom：内半径与柱长上限，画布太扁 lenMax=0", () => {
   assert.ok(g.lenMax > 0, "120px 高画得出环形");
   const tiny = ringGeom(480, 4);
   assert.equal(tiny.lenMax, 0, "太扁就整圈不画");
-});
-
-/* ---- C-13 町景适配层 ---- */
-
-const fakeDoc = (lines) => ({ lines });
-
-test("C-13 町景 toFoliaLines：毫秒→秒、逐字行内偏移换绝对、空行映射间奏哨兵", () => {
-  const doc = fakeDoc([
-    { startMs: 1000, endMs: 3000, text: "hello", words: [{ startMs: 0, endMs: 2000, text: "hello" }] },
-    { startMs: 4000, endMs: 6000, text: "", words: [] },
-  ]);
-  const out = toFoliaLines(doc);
-  assert.equal(out[0].startTime, 1);
-  assert.equal(out[0].endTime, 3);
-  assert.equal(out[0].words[0].startTime, 1, "行内偏移 + 行起点");
-  assert.equal(out[1].fullText, "......", "空行当间奏（folia 哨兵）");
-  assert.deepEqual(out[1].words, []);
-});
-
-test("C-13 町景 spectrumPower：空谱 0、封顶 1、低频权重更高", () => {
-  assert.equal(spectrumPower([]), 0);
-  assert.equal(spectrumPower([0, 0, 0]), 0);
-  assert.equal(spectrumPower([2, 2, 2]), 1, "封顶");
-  assert.ok(spectrumPower([1, 0, 0]) > spectrumPower([0, 0, 1]), "同一值低频权重更大");
-});
-
-test("C-13 町景 buildMachiTheme：动效档位→folia 三档，空色回默认", () => {
-  assert.equal(buildMachiTheme({ bg: "#000", fg: "#fff", accent: "#c00", dim: "#888", line: "#444" }, 0).animationIntensity, "calm");
-  assert.equal(buildMachiTheme({ bg: "#000", fg: "#fff", accent: "#c00", dim: "#888", line: "#444" }, 2).animationIntensity, "chaotic");
-  assert.equal(buildMachiTheme({ bg: "", fg: "", accent: "", dim: "", line: "" }, 1).backgroundColor, "#0b0d12");
 });
 
 test("stage/setTranslation：切换生效且幂等", () => {

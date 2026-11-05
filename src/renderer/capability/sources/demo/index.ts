@@ -2,7 +2,7 @@ import type { LyricDoc, RemoteTrack, SearchResult, SourceProvider } from "../../
 import { parseLyrics } from "../../lyrics/index.js";
 
 /**
- * 示例音源：**走正式契约的假数据**，不联网。
+ * 测试夹具：**走正式契约的假数据**，不联网。**产品不注册这个源**（2026-11-05 起从注册表移除），只在单测里使用。
  *
  * 它的用途不是"给用户听歌"，而是：
  *   1. 证明契约本身是能实现、能跑通的（否则 M3 的契约只是纸面）；

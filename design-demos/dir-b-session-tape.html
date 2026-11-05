@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AFEIFEI · DIR B · 会话纸带</title>
+<style>
+/* 方向 B · 会话纸带：播放器是一台「声音登记机器」的具象化。
+   破格机制：右缘一条 168px 的活纸带，会话中发生的一切
+   （播放/喜欢/下载/推荐理由）实时「打印」上去——
+   可解释性有了物理载体；主区仍是冷纸编目，但骨架被纸带改写。
+   纸带 = 历史 + 为什么 + 状态，一卷带走（导出=撕下来）。 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);
+  --signal:#d9ef42;--danger:#d23b2e;
+  --line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden}
+button{font:inherit;color:inherit}
+.mono{font-family:var(--mono)}
+.frame{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 168px}
+/* ── 主区 ── */
+.main{display:flex;flex-direction:column;min-width:0;padding:0 28px 24px 44px}
+.strip{display:flex;align-items:baseline;gap:16px;border-bottom:1.5px solid var(--ink);padding:14px 0 10px}
+.mark{font:700 11px/1 var(--mono);letter-spacing:-.06em;border:1px solid var(--ink);padding:4px 6px}
+.strip h1{margin:0;font-size:22px;letter-spacing:-.05em;font-weight:600}
+.strip .lede{font:10px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.strip .right{margin-left:auto;font:10px var(--mono);letter-spacing:.12em;color:var(--ink-soft)}
+.strip .right b{color:var(--accent);font-weight:500}
+/* 区块：登记簿页段 */
+.sec{margin-top:18px}
+.sec-h{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--ink);padding-bottom:6px}
+.sec-h h2{margin:0;font-size:14px;font-weight:600;letter-spacing:.02em}
+.sec-h .n{font:9px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.sec-h .more{margin-left:auto;font:9px var(--mono);letter-spacing:.12em;color:var(--ink-dim)}
+/* 目录行：编号 + 曲名 + mono 元注 */
+.row{display:grid;grid-template-columns:44px minmax(0,1fr) 118px 88px;gap:12px;align-items:baseline;padding:8px 2px;border-bottom:1px solid var(--line-soft)}
+.row .idx{font:9px var(--mono);letter-spacing:.1em;color:var(--ink-dim)}
+.row .t{font-size:12.5px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .t small{font-weight:400;color:var(--ink-soft);margin-left:8px;font-size:11px}
+.row .why{font:9px var(--mono);letter-spacing:.06em;color:var(--ink-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .why b{color:var(--accent);font-weight:500}
+.row .st{font:8.5px var(--mono);letter-spacing:.12em;color:var(--ink-soft);text-align:right}
+.row:hover{background:var(--accent-wash)}
+.row.playing{background:var(--accent-wash)}
+.row.playing .t{color:var(--accent)}
+/* ── 右缘纸带 ── */
+.tape{background:var(--paper-lo);border-left:1.5px solid var(--ink);position:relative;display:flex;flex-direction:column;
+  /* 左缘撕孔：打孔纸带 */
+  -webkit-mask:radial-gradient(4px at 0 50%,transparent 97%,#000) 0 0/100% 22px;
+}
+.tape-h{padding:12px 12px 8px;border-bottom:1px solid var(--ink)}
+.tape-h .cap{font:8.5px var(--mono);letter-spacing:.18em;color:var(--ink-dim)}
+.tape-h .sn{font:700 12px var(--mono);letter-spacing:.06em;margin-top:2px}
+.tape-h .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--danger);margin-right:5px;animation:blink 1.4s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.tp{padding:9px 12px 10px;border-bottom:1px dashed var(--line-soft);font:9px/1.7 var(--mono);letter-spacing:.06em;color:var(--ink-soft)}
+.tp .tm{color:var(--ink-faint);display:block}
+.tp .ev{display:block;color:var(--ink);font-size:9.5px;margin-top:1px}
+.tp .ev b{color:var(--accent);font-weight:500}
+.tp .bar{display:block;color:var(--ink-faint);margin-top:2px}
+.tp .bar i{font-style:normal;color:var(--accent)}
+.tp.scan{border-bottom:none;flex:0}
+.scanline{height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);background-size:120px 100%;background-repeat:no-repeat;animation:scan 1.1s linear infinite;margin:8px 10px}
+@keyframes scan{from{background-position:-120px 0}to{background-position:100% 0}}
+.tp.tear{border:none;margin-top:auto;color:var(--ink-faint);letter-spacing:.3em;text-align:center;font-size:8px;padding-bottom:6px}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="main">
+    <header class="strip">
+      <span class="mark">AF·04</span>
+      <h1>首页。</h1>
+      <span class="lede">声音登记机器 · 会话 #041 正在打印</span>
+      <span class="right">⌕ 检索 F · <b>▶ 3:22 / 5:44</b></span>
+    </header>
+
+    <section class="sec">
+      <div class="sec-h"><h2>今日推荐</h2><span class="n">REC · 06</span><span class="more">为什么是它们 →</span></div>
+      <div class="row"><span class="idx">R-01</span><span class="t">山雀<small>万能青年旅店</small></span><span class="why">why · <b>你把《冀西南林路行》循环了 3 天</b></span><span class="st">网易云 320k</span></div>
+      <div class="row"><span class="idx">R-02</span><span class="t">平壤<small>低苦艾</small></span><span class="why">why · 与 R-01 同厂牌系谱</span><span class="st">网易云 320k</span></div>
+      <div class="row"><span class="idx">R-03</span><span class="t">Field Below<small>Fenne Lily</small></span><span class="why">why · 你最近偏慢速人声</span><span class="st">LRCLIB 有词</span></div>
+      <div class="row"><span class="idx">R-04</span><span class="t">秦皇岛<small>万能青年旅店</small></span><span class="why">why · 当前曲同专辑下一轨</span><span class="st">已在队列</span></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-h"><h2>最近播放</h2><span class="n">LOG · 今日 12</span><span class="more">全部 →</span></div>
+      <div class="row playing"><span class="idx">▶</span><span class="t">杀死那个石家庄人<small>万能青年旅店</small></span><span class="why">from · 本地曲库 · 你点了「电台」</span><span class="st">3:22 / 5:44</span></div>
+      <div class="row"><span class="idx">L-11</span><span class="t">New Boy<small>朴树</small></span><span class="why">from · 昨日队列恢复</span><span class="st">14:02 播完</span></div>
+      <div class="row"><span class="idx">L-10</span><span class="t">岁月的童话主题曲<small>平野妃菜</small></span><span class="why">from · 电台 · 少推这首可改善</span><span class="st">13:47 跳过</span></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-h"><h2>下载</h2><span class="n">DL · 2 并发 / 上限 6</span><span class="more">任务 →</span></div>
+      <div class="row"><span class="idx">D-01</span><span class="t">山雀<small>万能青年旅店 · flac</small></span><span class="why"><b>▮▮▮▮▮▮▮▮▮▮▮▮</b>▯▯▯▯▯▯ 62% · 2.4 MB/s</span><span class="st">退避重试 ×0</span></div>
+      <div class="row"><span class="idx">D-02</span><span class="t">平壤<small>低苦艾 · 320k</small></span><span class="why">排队中 · 队列位 2</span><span class="st">.part 保留</span></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-h"><h2>本地电台</h2><span class="n">RADIO · 基于曲库 · 不依赖音源</span><span class="more">开听 →</span></div>
+      <div class="row"><span class="idx">▶</span><span class="t">晚间慢速电台<small>按「慢速人声 41%」调制</small></span><span class="why">seed · Field Below → Fenne Lily 系谱</span><span class="st">12 首/轮</span></div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-h"><h2>本周</h2><span class="n">WEEK · 47</span><span class="more">报告 →</span></div>
+      <div class="row"><span class="idx">S-01</span><span class="t">听歌 18.4 小时<small>较上周 +12%</small></span><span class="why">top · 万能青年旅店 9 次 · 慢速人声 41%</span><span class="st">周报已就绪</span></div>
+      <div class="row"><span class="idx">S-02</span><span class="t">新增曲目 34<small>本地扫描 + 在线收藏</small></span><span class="why">峰值时段 · 22:00–24:00</span><span class="st">24h 图可看</span></div>
+    </section>
+  </div>
+
+  <!-- 右缘活纸带 -->
+  <aside class="tape">
+    <div class="tape-h">
+      <span class="cap">SESSION TAPE</span>
+      <div class="sn"><span class="live-dot"></span>#041</div>
+    </div>
+    <div class="tp"><span class="tm">14:32</span><span class="ev">▶ <b>正在播放</b> 杀死那个石家庄人</span><span class="bar"><i>▮▮▮▮▮▮▮▮▮▮▮▮</i>▯▯▯▯▯▯▯ 62%</span></div>
+    <div class="tp"><span class="tm">14:26</span><span class="ev">♥ 喜欢 《New Boy》 — 已同步红心</span></div>
+    <div class="tp"><span class="tm">14:19</span><span class="ev">⤓ 下载完成 山雀.flac · 44.1k/16bit</span></div>
+    <div class="tp"><span class="tm">14:12</span><span class="ev">☁ 网易云登录 · 同步 1,204 红心</span></div>
+    <div class="tp"><span class="tm">14:02</span><span class="ev">▶ 播完 New Boy · 计入周报</span></div>
+    <div class="tp"><span class="tm">13:47</span><span class="ev">✕ 跳过 岁月的童话主题曲</span></div>
+    <div class="scanline"></div>
+    <div class="tp tear">✂ - - - - - - - - - - - -</div>
+  </aside>
+</div>
+</body>
+</html>

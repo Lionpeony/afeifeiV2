@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
+
 import type { AppState } from "../../contracts/index.js";
 import { getFiltered, searchTracks } from "../domain/library/state.js";
 import { EQ_BANDS, EQ_DEFAULT, EQ_PRESETS, PREAMP_DEFAULT, sameGains } from "../capability/audio/eq.js";
@@ -14,7 +15,6 @@ import { StageView } from "./views/stage/index.js";
 import { ChartsView } from "./views/charts/index.js";
 import { PlaylistsView } from "./views/playlists/index.js";
 import { StatsView } from "./views/stats/index.js";
-import { Onboarding } from "./views/onboarding.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -38,35 +38,50 @@ import { FindLyric } from "./FindLyric.js";
 import { registerCommand, runCommand } from "./input/commands.js";
 import { commandIdFor } from "./input/media.js";
 import { currentTheme, type Theme } from "./theme.js";
+import { getActiveSource, setActiveSource, subscribeActiveSource } from "./active-source.js";
+import { AccountMenu, type AccountProfile } from "./live/AccountMenu.js";
+import { LoginDialog } from "./views/online/LoginDialog.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
-import { HomeView, type DailyBundle } from "./views/home/index.js";
+import type { DailyBundle } from "./views/home/index.js";
+import { StationRuler } from "./live/StationRuler.js";
+import { LiveHome } from "./live/LiveHome.js";
 
-/** 四个账号数据入口。文案分开写：用户看到的「登录后会变成什么」各不相同。 */
+
+/** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。 */
 type AccountKind = "daily" | "liked" | "week" | "fm";
 
-const ACCOUNT_HINT: Record<AccountKind, string> = {
-  daily: "登录网易云后，这里换成你账号的每日推荐",
-  liked: "登录网易云后，这里显示账号的红心（与 App 同步）",
-  week: "登录网易云后，这里显示账号的听歌排行",
-  fm: "登录网易云后，漫游改用账号的个人 FM",
+const accountHint = (kind: AccountKind, sourceName: string): string => {
+  switch (kind) {
+    case "daily":
+      return `登录${sourceName}后，这里换成你账号的每日推荐`;
+    case "liked":
+      return `登录${sourceName}后，这里显示账号的红心（与 App 同步）`;
+    case "week":
+      return `登录${sourceName}后，这里显示账号的听歌排行`;
+    case "fm":
+      return `登录${sourceName}后，漫游改用账号的个人 FM`;
+  }
 };
+
+/** 当前音源本身没有账号能力（例如 QQ 音乐）：不拿别的账号顶替，直接说清。 */
+const noAccountHint = (sourceName: string): string =>
+  `${sourceName} 没有账号数据；切到支持账号的音源（如网易云音乐）再看这里`;
 import { LikedView } from "./views/liked/index.js";
 import { RadioView } from "./views/radio/index.js";
 import { RecentView } from "./views/recent/index.js";
 import { RoamView } from "./views/roam/index.js";
 import { SettingsView } from "./views/settings/index.js";
-import { getTracks } from "../domain/library/state.js";
+import { getTracks, trackById } from "../domain/library/state.js";
 import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
-import { NavIcon } from "./icons.js";
-import { NAV_FOOT, NAV_MAIN, NAV_MINE, PAGE_LABEL, type PageId } from "./pages.js";
+import { PAGE_LABEL, type PageId } from "./pages.js";
 import { createMediaSession, type MediaSessionController } from "./media-session.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
 import { QueuePanel } from "./QueuePanel.js";
 import { pushPanel } from "./input/panels.js";
-import { errorText, isRetryable } from "../capability/errors.js";
+import { errorText } from "../capability/errors.js";
 import { createShortcuts, type ShortcutStatus, type ShortcutsController } from "./shortcuts.js";
 import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
 
@@ -93,8 +108,41 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  const [page, setPage] = useState<PageId>("local");
+  // 外壳只有不夜台直播带一种；开机即首页直播面
+  const [page, setPage] = useState<PageId>("home");
+  const lastRoom = useRef<PageId>("home");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountProfiles, setAccountProfiles] = useState<Record<string, AccountProfile | undefined>>({});
+  const [loginFor, setLoginFor] = useState<string | null>(null);
+
+  /** 读所有可登录源的头像/昵称（站尺账号区 + 面板共用）。 */
+  const refreshAccountProfiles = (): void => {
+    const svc = services.current;
+    if (!svc) return;
+    const list = svc.sources().filter((source) => source.canAuth);
+    void Promise.all(
+      list.map(async (source) => {
+        try {
+          const status = await svc.loginStatus(source.id);
+          return [source.id, { loggedIn: status.loggedIn, nick: status.nick, avatarUrl: status.avatarUrl }] as const;
+        } catch {
+          return [source.id, { loggedIn: false, nick: null, avatarUrl: null }] as const;
+        }
+      }),
+    ).then((rows) => setAccountProfiles(Object.fromEntries(rows)));
+  };
+
+  // 账号状态不会主动推送：切源、窗口重新聚焦、打开面板时各读一次
+  useEffect(() => {
+    const onFocus = (): void => refreshAccountProfiles();
+    window.addEventListener("focus", onFocus);
+    const off = subscribeActiveSource(refreshAccountProfiles);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      off();
+    };
+  }, []);
   const [fxOpen, setFxOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
@@ -104,12 +152,22 @@ function App() {
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [theme, setThemeState] = useState<Theme>("light");
   const [libraryRoots, setLibraryRoots] = useState<string[]>([]);
-  const [onboarding, setOnboarding] = useState(false);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [lyricFiltersText, setLyricFiltersText] = useState("");
   const [globalTokenCount, setGlobalTokenCount] = useState(0);
   const [npCover, setNpCover] = useState<string | null>(null);
   const services = useRef<Services | null>(null);
+  /*
+   * 装配完成的信号。首页在首帧就挂载，早于 bootstrap 完成；
+   * 账号请求不能在 services 还没就绪时发出去（拿回空列表后就再也不会重试）。
+   */
+  const servicesReady = useRef<Promise<Services> | null>(null);
+  const resolveServices = useRef<((svc: Services) => void) | null>(null);
+  if (!servicesReady.current) {
+    servicesReady.current = new Promise<Services>((resolve) => {
+      resolveServices.current = resolve;
+    });
+  }
   const timeEl = useRef<HTMLSpanElement>(null);
   const totalEl = useRef<HTMLSpanElement>(null);
   const barEl = useRef<HTMLInputElement>(null);
@@ -165,63 +223,86 @@ function App() {
 
   useEffect(() => {
     let alive = true;
-    void bootstrap().then((s) => {
-      if (!alive) return;
-      services.current = s;
-      setSources(s.sources());
-      setThemeState(s.theme);
-      syncPosition();
-      startMiniBridge(s);
-      startLyricBridge(s);
-      // 首次使用引导（C-16）：KV 里没看过就弹一次
-      if (!s.onboarded) setOnboarding(true);
+    let started = false;
+    let frames = 0;
+    let offFrame: (() => void) | null = null;
+    let fallback = 0;
 
-      // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
-      // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
-      void s
-        .libraryRoots()
-        .then((roots) => {
-          if (alive) setLibraryRoots(roots);
-        })
-        .catch(() => undefined);
-      void s
-        .autoLaunch()
-        .then((on) => {
-          if (alive) setAutoLaunch(on);
-        })
-        .catch(() => undefined);
-      void s
-        .lyricFilters()
-        .then((text) => {
-          if (alive) setLyricFiltersText(text);
-        })
-        .catch(() => undefined);
-      void s
-        .globalTokens()
-        .then((tokens) => {
-          if (alive) setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
-        })
-        .catch(() => undefined);
-
-      // 启动就把账号红心读一次：底栏那颗心不能等用户点进「喜欢的音乐」才有状态
-      void (async () => {
-        const { id } = await findAccountSource();
-        if (!alive || !id) return;
-        ensureAccount(id);
-      })();
-
-      // 更新提示（M8）：一条线，不弹窗不打断播放
-      s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
-      // 上次异常退出：提示一次，之后不再烦
-      void s.lastCrash().then((c) => {
-        if (c) {
-          setNotice({ text: `上次异常退出（${c.kind}），详情见 ${c.file}` });
-          void s.markCrashSeen(c.file);
-        }
+    // 首帧优先：装配会发起一串 IPC（先读曲库索引）。如果挤进首次样式/布局的同一个任务，
+    // 回包要等整段 50–70ms 长任务跑完，恢复耗时会随机翻倍。等两帧再启动装配
+    //（compositor 的帧循环是全应用唯一的 rAF）；窗口被遮挡时帧循环不跑，
+    // 用定时器兜底，别让后台启动永远不装配。
+    const start = (): void => {
+      if (started || !alive) return;
+      started = true;
+      clearTimeout(fallback);
+      offFrame?.();
+      offFrame = null;
+      void bootstrap().then((s) => {
+        if (!alive) return;
+        services.current = s;
+        resolveServices.current?.(s);
+        setSources(s.sources());
+        refreshAccountProfiles();
+        setThemeState(s.theme);
+        syncPosition();
+        startMiniBridge(s);
+        startLyricBridge(s);
+  
+        // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
+        // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
+        void s
+          .libraryRoots()
+          .then((roots) => {
+            if (alive) setLibraryRoots(roots);
+          })
+          .catch(() => undefined);
+        void s
+          .autoLaunch()
+          .then((on) => {
+            if (alive) setAutoLaunch(on);
+          })
+          .catch(() => undefined);
+        void s
+          .lyricFilters()
+          .then((text) => {
+            if (alive) setLyricFiltersText(text);
+          })
+          .catch(() => undefined);
+        void s
+          .globalTokens()
+          .then((tokens) => {
+            if (alive) setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
+          })
+          .catch(() => undefined);
+  
+        // 启动就把账号红心读一次：底栏那颗心不能等用户点进「喜欢的音乐」才有状态
+        void (async () => {
+          const { id } = await resolveAccountSource();
+          if (!alive || !id) return;
+          ensureAccount(id);
+        })();
+  
+        // 更新提示（M8）：一条线，不弹窗不打断播放
+        s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
+        // 上次异常退出：提示一次，之后不再烦
+        void s.lastCrash().then((c) => {
+          if (c) {
+            setNotice({ text: `上次异常退出（${c.kind}），详情见 ${c.file}` });
+            void s.markCrashSeen(c.file);
+          }
+        });
       });
+    };
+    offFrame = onFrame(() => {
+      frames += 1;
+      if (frames >= 2) start();
     });
+    fallback = window.setTimeout(start, 250);
     return () => {
       alive = false;
+      offFrame?.();
+      clearTimeout(fallback);
     };
   }, []);
 
@@ -292,7 +373,7 @@ function App() {
         const st = stateRef.current;
         const id = st.player.trackId;
         if (!id) return null;
-        const track = getTracks().find((t) => t.id === id);
+        const track = trackById(id);
         return {
           title: st.player.trackTitle ?? baseName(id),
           artist: track?.artist ?? "",
@@ -604,7 +685,7 @@ function App() {
     }
     // 本地曲目（P0-20）：同名 .lrc → 内嵌标签 → LRCLIB，都没有就是「纯音乐」。
     // 取词与缓存都在 bootstrap 的 services 里，这里只挑曲目。
-    const track = getTracks().find((t) => t.id === trackId);
+    const track = trackById(trackId);
     void loadLyric("local", trackId, () => {
       const svc = services.current;
       return svc ? svc.localLyric(track) : Promise.reject(new Error("还没准备好，请稍后再试"));
@@ -622,7 +703,7 @@ function App() {
   }, [lyricOffset, lyricKey]);
 
   /* 换词弹窗（P0-19）的初始查询：本地「歌名 歌手」，在线用标题（那里已经是「歌名 — 歌手」）。 */
-  const findTrack = findOpen && !remote && trackId ? getTracks().find((t) => t.id === trackId) : undefined;
+  const findTrack = findOpen && !remote && trackId ? trackById(trackId) : undefined;
   const findQuery = remote
     ? (trackTitle ?? "")
     : findTrack
@@ -682,29 +763,36 @@ function App() {
   };
 
   /**
-   * 账号数据入口（R1）：首页每日推荐 / 喜欢 / 最近播放 / 漫游共用。
-   * 选第一个「有账号能力且已登录」的源；没有就把「有账号能力但没登录」这句话带回去——
-   * 不带的话用户只看得到本地数据，永远不知道自己登录后这里是另一份。
+   * 当前账号（单账号模型）：只认全局当前音源，**不回退**到别的已登录源。
+   *  - 当前源支持账号且已登录 → 用它
+   *  - 支持账号但未登录     → 「登录X后…」
+   *  - 不支持账号（QQ / demo）→ 「X 没有账号数据…」
    */
-  /** 找「有账号能力且已登录」的那个源。sawAccount 用来区分「没有此能力」和「有但没登录」。 */
-  const findAccountSource = async (): Promise<{ id: string | null; sawAccount: boolean }> => {
-    const svc = services.current;
-    if (!svc) return { id: null, sawAccount: false };
-    let sawAccount = false;
-    for (const s of svc.sources()) {
-      if (!s.canAccount) continue;
-      sawAccount = true;
-      const st = await svc.loginStatus(s.id).catch(() => ({ loggedIn: false, nick: null }));
-      if (st.loggedIn) return { id: s.id, sawAccount: true };
+  const resolveAccountSource = async (): Promise<{
+    id: string | null;
+    hint: (kind: AccountKind) => string | null;
+  }> => {
+    const svc = services.current ?? (await servicesReady.current);
+    if (!svc) return { id: null, hint: () => null };
+    const active = getActiveSource();
+    const src = svc.sources().find((s) => s.id === active);
+    if (!src) return { id: null, hint: () => null };
+    if (!src.canAccount) {
+      return { id: null, hint: () => noAccountHint(src.name) };
     }
-    return { id: null, sawAccount };
+    const st = await svc.loginStatus(src.id).catch(() => ({ loggedIn: false, nick: null }));
+    if (!st.loggedIn) {
+      return { id: null, hint: (kind) => accountHint(kind, src.name) };
+    }
+    return { id: src.id, hint: () => null };
   };
 
   const accountBundle = async (kind: AccountKind): Promise<DailyBundle> => {
-    const svc = services.current;
+    const svc = services.current ?? (await servicesReady.current);
     if (!svc) return { sourceId: "", songs: [], hint: null };
-    const { id, sawAccount } = await findAccountSource();
-    if (!id) return { sourceId: "", songs: [], hint: sawAccount ? ACCOUNT_HINT[kind] : null };
+    const resolved = await resolveAccountSource();
+    if (!resolved.id) return { sourceId: "", songs: [], hint: resolved.hint(kind) };
+    const id = resolved.id;
     const songs =
       kind === "daily"
         ? await svc.accountDailySongs(id)
@@ -773,14 +861,15 @@ function App() {
       let id = accountSource.current;
       if (!id) {
         // 启动那一刻 services 可能还没就绪、或者用户没进过账号页：点的时候再找一次
-        const found = await findAccountSource();
+        const found = await resolveAccountSource();
         if (found.id) {
           ensureAccount(found.id);
           id = found.id;
         }
       }
       if (!id) {
-        setNotice({ text: "登录后才能红心在线曲目" });
+        const resolved = await resolveAccountSource();
+        setNotice({ text: resolved.hint("liked") ?? "登录后才能红心在线曲目" });
         return;
       }
       const wanted = !isAccountLiked(songId);
@@ -805,6 +894,31 @@ function App() {
   };
 
   /*
+   * 切音源 = 切账号：当前源没有账号能力（或没登录）就先清绑，
+   * 绝不把上一个账号的红心挂在新音源的界面上；有账号且已登录则重新绑定并读一次。
+   */
+  useEffect(
+    () =>
+      subscribeActiveSource(() => {
+        void (async () => {
+          const svc = services.current;
+          if (!svc) return;
+          const src = svc.sources().find((s) => s.id === getActiveSource());
+          const clear = (): void => {
+            if (!accountSource.current) return;
+            accountSource.current = "";
+            beginAccount("");
+          };
+          if (!src?.canAccount) return clear();
+          const st = await svc.loginStatus(src.id).catch(() => ({ loggedIn: false, nick: null }));
+          if (st.loggedIn) ensureAccount(src.id);
+          else clear();
+        })();
+      }),
+    [],
+  );
+
+  /*
    * 窗口重新获得焦点：在网易云 App 里改过红心，切回来要跟上。
    * folia 的 readMoments.ts 做的是同一件事（它更细：按时间窗+歌单计数决定要不要读）。
    */
@@ -818,8 +932,26 @@ function App() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  /* ---- 外壳切换：直播带 ⇄ 旧标签页 ---- */
+  useEffect(() => {
+    if (page !== "stage") lastRoom.current = page;
+  }, [page]);
+
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
+    if (page === "home") {
+      return (
+        <LiveHome
+          account={() => accountBundle("daily")}
+          accountName={sources.find((s) => s.id === getActiveSource())?.name ?? ""}
+          onPlayRemote={(sourceId, track) => playRemoteSafe(sourceId, track)}
+          onAccount={() => {
+            setAccountOpen(true);
+            refreshAccountProfiles();
+          }}
+        />
+      );
+    }
     switch (page) {
       case "stage":
         return (
@@ -831,16 +963,8 @@ function App() {
             importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
             durationMs={() => services.current?.engine.durationMs() ?? 0}
             findLyric={() => setFindOpen(true)}
-          />
-        );
-      case "home":
-        return (
-          <HomeView
-            onPlayGroup={onPlayGroup}
-            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
-            onGo={setPage}
-            daily={() => accountBundle("daily")}
-            onPlayRemote={playRemoteSafe}
+            onBack={() => setPage(lastRoom.current)}
+            live
           />
         );
       case "liked":
@@ -1096,76 +1220,84 @@ function App() {
     }
   };
 
-  const navBtn = (item: (typeof NAV_MAIN)[number]): ReactNode => (
-    <button
-      type="button"
-      key={item.id}
-      data-page={item.id}
-      className={`it${item.small ? " sm" : ""}${page === item.id ? " on" : ""}`}
-      onClick={() => setPage(item.id)}
-      title={item.label}
-    >
-      <NavIcon name={item.icon} />
-      <span>{item.label}</span>
-    </button>
-  );
-
   return (
-    <main className={offline ? "shell offline" : "shell"}>
+    <main className={`shell live${offline ? " offline" : ""}`}>
       {/* 离线态（P0-25）：常驻横幅，不用 toast —— 断网期间 toast 会反复刷屏 */}
       {offline ? (
         <div className="net-banner" role="status" aria-live="polite">
           离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
         </div>
       ) : null}
-      <header className="tbar">
-        <h1 className="brand">
-          <i />
-          afeifei
-        </h1>
-        <span className="brand-cn">阿飞飞</span>
-        <span className="sp" />
-        {/* 状态徽标只在出错时出现：播放状态底部控制台已有（「已暂停/播放中」），常驻英文徽标是噪音 */}
-        {error ? (
-          <span className="status" data-status={status} title={error}>
-            {/* 错误只给人话（原始码用户看不懂）；码与文案在 capability/errors.ts 一处对账 */}
-            {errorText(error)}
-          </span>
-        ) : null}
-        {/* 出错且可重试：给一个重试按钮（重试 = 重播当前这首） */}
-        {error && isRetryable(error) ? (
-          <button
-            type="button"
-            className="retry-btn"
-            title={`重试：${errorText(error)}`}
-            onClick={() => {
-              const id = trackId;
-              if (!id) return;
-              dispatch({ type: "player/play", trackId: id, trackTitle: trackTitle ?? null });
-            }}
-          >
-            重试
-          </button>
-        ) : null}
-        <button type="button" className="theme-toggle" onClick={toggleTheme} title="日间 / 夜间（只换 token 值）">
-          <i className="moon" />
-        </button>
-      </header>
+      <StationRuler
+        page={page}
+        onGo={setPage}
+        onToggleTheme={toggleTheme}
+        account={{
+          nick: accountProfiles[getActiveSource()]?.nick ?? null,
+          avatarUrl: accountProfiles[getActiveSource()]?.avatarUrl ?? null,
+          sourceName: sources.find((s) => s.id === getActiveSource())?.name ?? getActiveSource(),
+          loggedIn: accountProfiles[getActiveSource()]?.loggedIn ?? false,
+        }}
+        onAccount={() => {
+          setAccountOpen((open) => !open);
+          refreshAccountProfiles();
+        }}
+      />
+
+      <AccountMenu
+        open={accountOpen}
+        sources={sources.filter((s) => s.canAuth).map((s) => ({ id: s.id, name: s.name, canAuth: s.canAuth }))}
+        active={getActiveSource()}
+        profiles={accountProfiles}
+        onClose={() => setAccountOpen(false)}
+        onSwitch={(id) => {
+          setActiveSource(id);
+          setAccountOpen(false);
+        }}
+        onLogin={(id) => {
+          setLoginFor(id);
+          setAccountOpen(false);
+        }}
+        onLogout={(id) => {
+          void (async () => {
+            await services.current?.logout(id).catch(() => undefined);
+            if (getActiveSource() === id) {
+              accountSource.current = "";
+              beginAccount("");
+            }
+            refreshAccountProfiles();
+          })();
+        }}
+      />
+
+      {loginFor ? (
+        <LoginDialog
+          start={async (ch) => {
+            const svc = services.current;
+            if (!svc) throw new Error("还没准备好，请稍后再试");
+            const result = await svc.startLogin(loginFor, ch);
+            if (!("key" in result) || typeof result.key !== "string" || typeof result.qrImage !== "string") {
+              throw new Error("获取二维码失败");
+            }
+            return { key: result.key, qrImage: result.qrImage };
+          }}
+          poll={(key) =>
+            services.current?.pollLogin(key) ?? Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" })
+          }
+          scanHint={loginFor === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          sendCaptcha={loginFor === "netease" ? (phone) => services.current!.sendCaptcha(phone) : undefined}
+          loginByCaptcha={loginFor === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
+          onSuccess={() => {
+            const id = loginFor;
+            setLoginFor(null);
+            if (id) setActiveSource(id);
+            refreshAccountProfiles();
+          }}
+          onClose={() => setLoginFor(null)}
+        />
+      ) : null}
 
       <div className="body">
-        <nav className="rail">
-          {NAV_MAIN.map(navBtn)}
-          <span className="sp" />
-          <div className="grp">
-            <i />
-            <span>我的</span>
-            <i />
-          </div>
-          {NAV_MINE.map(navBtn)}
-          <div className="rule" />
-          {NAV_FOOT.map(navBtn)}
-        </nav>
-
         <section className="main">
           {notice ? (
             notice.url ? (
@@ -1185,7 +1317,15 @@ function App() {
               <span className="notice">{notice.text}</span>
             )
           ) : null}
-          {renderPage()}
+          {page === "home" ? (
+            <div className="live-bleed">{renderPage()}</div>
+          ) : page === "stage" ? (
+            <div className="live-plate">
+              <div className="live-plate-body">{renderPage()}</div>
+            </div>
+          ) : (
+            <div className="live-room">{renderPage()}</div>
+          )}
         </section>
       </div>
 
@@ -1198,7 +1338,14 @@ function App() {
           />
           <span className="np-tx">
             <b>{trackTitle ?? baseName(trackId)}</b>
-            <span>{phaseLabel(phase, !!remote)}</span>
+            {/* 直播壳没有顶栏：错误徽标挂在控制台副行，否则播放错误看不见 */}
+            {error ? (
+              <span className="status" data-status={status} title={error}>
+                {errorText(error)}
+              </span>
+            ) : (
+              <span>{phaseLabel(phase, !!remote)}</span>
+            )}
           </span>
         </button>
 
@@ -1471,16 +1618,6 @@ function App() {
       </footer>
       <Toaster />
 
-      {/* 首次使用引导（C-16）：完成/跳过都写 KV，之后不再弹 */}
-      {onboarding ? (
-        <Onboarding
-          onDone={() => {
-            setOnboarding(false);
-            void services.current?.markOnboarded();
-          }}
-        />
-      ) : null}
-
       {fxOpen && (
         <div className="fx-panel" role="dialog" aria-label="音效设置">
           <div className="fx-head">
@@ -1603,7 +1740,7 @@ function App() {
             const svc = services.current;
             if (!svc) throw new Error("还没准备好，请稍后再试");
             const text = hit.syncedLyrics?.trim() || hit.plainLyrics?.trim() || "";
-            const libTrack = getTracks().find((t) => t.id === trackId);
+            const libTrack = trackById(trackId);
             // 线上按 sourceId:songId 绑，本地按曲目 id 绑 —— 见 lyricBindKey
             const doc = await svc.bindLyric(
               lyricBindKey(remote, trackId) ?? "",

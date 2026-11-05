@@ -46,6 +46,9 @@ function chunk<T>(list: T[], size: number): T[][] {
  * **这条路必须是毫秒级的** —— 5000 首绝不重新读标签，否则二次启动就是几十秒。
  */
 export async function restoreLibrary(port: LibraryPort): Promise<number> {
+  // 打点只包读盘 + 解析 + 合并：发布曲库会同步触发首页排台等重渲染，
+  // 不该算进"二次启动恢复索引"的预算里（否则同一份代码会随调度在 30–94ms 间摆）。
+  performance.mark("afeifei:restore-start");
   const rawIndex = await port.loadIndex();
 
   let snapshot = null;
@@ -59,6 +62,8 @@ export async function restoreLibrary(port: LibraryPort): Promise<number> {
 
   const logText = await port.readLog();
   const merged = replay(snapshot ?? createSnapshot([]), parseLog(logText));
+  performance.mark("afeifei:restore-end");
+  performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
 
   setTracks(merged.tracks);
   return merged.tracks.length;

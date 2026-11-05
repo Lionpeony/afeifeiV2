@@ -27,8 +27,8 @@ import {
   type UserManifest,
 } from "../capability/sources/user/index.js";
 import { getProvider, listProviders, registerProvider } from "../capability/registry.js";
+import { getActiveSource, initActiveSource, setActiveSource, subscribeActiveSource } from "./active-source.js";
 
-import { demoProvider } from "../capability/sources/demo/index.js";
 import {
   createNeteaseProvider,
   pollQrLogin,
@@ -44,7 +44,7 @@ import {
   serializeFilters,
   setFilters,
 } from "../domain/lyrics/filter.js";
-import { getMetaOverrides, getTracks, setMetaOverrides } from "../domain/library/state.js";
+import { getMetaOverrides, getTracks, setMetaOverrides, trackById } from "../domain/library/state.js";
 import { parseMetaOverrides, patchMeta, serializeMetaOverrides } from "../domain/library/meta.js";
 import { restoreLibrary, scanLibrary } from "../domain/library/scan.js";
 import { startDownloadRunner } from "../domain/download/runner.js";
@@ -213,7 +213,6 @@ export async function bootstrap(): Promise<Services> {
   };
 
   // 注册音源：注册即触发启动断言（声明 ↔ 实现一一对应）
-  registerProvider(demoProvider);
   registerProvider(createNeteaseProvider(localApi));
   registerProvider(createQqProvider(localApi));
 
@@ -430,7 +429,7 @@ export async function bootstrap(): Promise<Services> {
     const playing = next.player.status === "playing";
     const wasPlaying = prev.player.status === "playing";
     if (playing && next.player.trackId && (!wasPlaying || next.player.trackId !== prev.player.trackId)) {
-      const local = getTracks().find((t) => t.id === next.player.trackId);
+      const local = trackById(next.player.trackId);
       beginListening(next.player.trackId, {
         title: next.player.trackTitle ?? local?.title ?? "",
         artist: local?.artist ?? "",
@@ -467,12 +466,9 @@ export async function bootstrap(): Promise<Services> {
     persistNow();
   });
 
-  // 曲库恢复走快照 + 日志回放，毫秒级；不在这里扫描目录
-  // 打点留在生产代码里：perf 脚本读它，用户也能在 DevTools 里看到这条
-  performance.mark("afeifei:restore-start");
+  // 曲库恢复走快照 + 日志回放，毫秒级；不在这里扫描目录。
+  // 打点在 restoreLibrary 内部：只量读盘/解析/合并，发布曲库（触发 UI 重渲染）不算。
   await restoreLibrary(library);
-  performance.mark("afeifei:restore-end");
-  performance.measure("afeifei:restore", "afeifei:restore-start", "afeifei:restore-end");
 
   // 元数据覆盖（M11）：文件标签不动，只在索引之上盖一层；坏数据当没有
   setMetaOverrides(parseMetaOverrides(await kv.read("library-meta")));
@@ -485,6 +481,26 @@ export async function bootstrap(): Promise<Services> {
     loadHistory(kv),
     loadLog(kv),
   ]);
+
+  /*
+   * 当前音源（账号模型）：恢复上次选的；没有就默认第一个支持账号的源。
+   * 账号级数据全部读它，切源即切账号，不从别的已登录源偷偷回退。
+   */
+  {
+    const registered = listProviders();
+    const storedActive = await kv.read("active-source");
+    if (storedActive && registered.some((p) => p.id === storedActive)) {
+      setActiveSource(storedActive);
+    } else {
+      const firstAccount = registered.find((p) => p.account);
+      if (firstAccount) initActiveSource(firstAccount.id);
+      else if (registered[0]) initActiveSource(registered[0].id);
+    }
+    subscribeActiveSource(() => {
+      const id = getActiveSource();
+      if (id) void kv.write("active-source", id);
+    });
+  }
 
   // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排
   const storedTheme = await kv.read(THEME_KEY);
@@ -524,9 +540,6 @@ export async function bootstrap(): Promise<Services> {
 
   // 睡眠定时偏好（P0-24）：只恢复"播完再停"这个勾选，不恢复定时本身
   dispatch({ type: "sleep/setWaitEnd", waitEnd: (await kv.read("sleep-wait-end")) === "1" });
-
-  // 首次使用引导（C-16）：KV 缺失 = 还没看过，App 挂载后弹一次
-  const onboarded = (await kv.read("onboarded")) !== null;
 
   // 歌词缓存：坏条目在 parseLyricCache 里逐条丢掉，不让一条烂数据清空整份
   lyricCache = parseLyricCache(await kv.read("lyric-cache"));
@@ -923,7 +936,7 @@ export async function bootstrap(): Promise<Services> {
     },
     loginStatus: async (sourceId) => {
       const profile = await localApi.profile(sourceId);
-      return { loggedIn: profile.loggedIn, nick: profile.nick };
+      return { loggedIn: profile.loggedIn, nick: profile.nick, avatarUrl: profile.avatarUrl };
     },
     logout: (sourceId) => localApi.logout(sourceId),
 
@@ -969,11 +982,6 @@ export async function bootstrap(): Promise<Services> {
     removeLibraryRoot: (dir) => api.removeLibraryRoot(dir),
     autoLaunch: () => api.autoLaunch(),
     setAutoLaunch: (on) => api.setAutoLaunch(on),
-
-    onboarded,
-    async markOnboarded() {
-      await kv.write("onboarded", "1").catch(() => undefined);
-    },
 
     lyricFilters: () => Promise.resolve(rulesToText(getFilters())),
     async setLyricFilters(text) {

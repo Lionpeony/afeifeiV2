@@ -11,6 +11,8 @@ import {
 import { AccountBlock } from "../../AccountBlock.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
+import { TapeRail } from "../../live/TapeRail.js";
+import { tapeProgram } from "../../../projection/room-program.js";
 import { fmtDuration } from "../library/rows.js";
 
 export interface LikedViewProps {
@@ -73,6 +75,8 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
   const rows = byAlbum
     ? [...kept].sort((a, b) => a.album.localeCompare(b.album, "zh-Hans-CN") || a.artist.localeCompare(b.artist))
     : [...kept].sort((a, b) => a.mtimeMs - b.mtimeMs);
+  // 喜欢只存 id 集合，没有收藏时间；归档带按文件入库时间说，口径写在带子下面
+  const tape = kept.length ? tapeProgram(kept, Date.now(), "喜欢的音乐") : null;
 
   const play = (at: number): void => {
     if (rows.length > 0) onPlayGroup(rows, at);
@@ -82,13 +86,13 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
     <section className="liked">
       <PageHead
         title="喜欢的音乐"
-        desc="上栏是账号的红心（与网易云同一份），下栏是本机曲库的红心——两套 id 不混在一起。"
+        desc="上栏是当前账号的红心（与平台 App 同一份），下栏是本机曲库的红心——两套 id 不混在一起。"
         meta={`KEEPINGS · ${acct.songs.length + kept.length}`}
       />
 
       <AccountBlock
         title="账号红心"
-        note="来自当前登录的网易云账号。点行末那颗心可从账号移除（会同步到网易云 App）。"
+        note="来自当前登录的账号。点行末那颗心可从账号移除（会同步到平台 App）。"
         state={acctRows}
         empty={
           likeState.countedEmpty
@@ -100,6 +104,14 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
       />
 
       <div className="acct-div" />
+
+      {tape ? (
+        <TapeRail
+          program={tape}
+          note="按入库时间归档（红心本身没有记录收藏时间）"
+          onPlay={(id) => play(rows.findIndex((track) => track.id === id))}
+        />
+      ) : null}
 
       <div className="ledger">
         <div className="keep">

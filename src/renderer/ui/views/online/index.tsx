@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { PageHead } from "../../PageHead.js";
 import { Segmented } from "../../Segmented.js";
+import { useActiveSource } from "../../use-active-source.js";
 import { toast } from "../../toast.js";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import { LoginDialog } from "./LoginDialog.js";
@@ -63,7 +64,7 @@ export function OnlineView({
   loginByCaptcha,
   logout,
 }: OnlineViewProps) {
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [sourceId, setSourceId] = useActiveSource(sources);
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
   /** 批量下载的多选（B-10）：存 sourceId，换一批搜索结果后自动清空 */
@@ -80,9 +81,6 @@ export function OnlineView({
   const canLogin = currentSource?.canAuth === true;
   const sourceName = currentSource?.name ?? sourceId;
 
-  useEffect(() => {
-    if (!sourceId && sources[0]) setSourceId(sources[0].id);
-  }, [sources, sourceId]);
 
   const refreshLogin = (): void => {
     if (!sourceId) return;
@@ -282,6 +280,24 @@ export function OnlineView({
 
       {note ? <p className="lib-note">{note}</p> : null}
       {slow ? <p className="lib-note dim">还在搜——这个音源的上游响应比较慢，再等几秒。</p> : null}
+
+      {/* 结果带：搜完先给一眼能点的横排，精确选择仍看下面的表 */}
+      {!busy && rows.length > 0 ? (
+        <div className="result-rail" aria-label="搜索结果">
+          {rows.slice(0, 12).map((track) => (
+            <button
+              key={track.sourceId}
+              type="button"
+              className="result-cell"
+              onClick={() => void play(track)}
+              title={`${track.title} — ${track.artist}`}
+            >
+              <b>{track.title}</b>
+              <span>{track.artist}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="lib-list">
         <div className={`lib-thead online-thead${currentSource?.canDownload ? " with-btn" : ""}`}>

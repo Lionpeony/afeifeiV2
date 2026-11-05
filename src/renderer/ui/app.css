@@ -23,61 +23,14 @@ html::after {
   mix-blend-mode: var(--grain-blend);
 }
 
-/* 骨架（ref pages-v11/shell.css）：38px 票根标题栏 / 96px 图标导航 + 内容 / 104px 票根控制台。
-   grid 三行两列，页面各自滚动，shell 不滚。 */
+/* 骨架：只有不夜台单列三行（站尺 / 内容 / 控制台），行列模板在 live/live.css。 */
 .shell {
   display: grid;
-  grid-template-columns: var(--nav-w) minmax(0, 1fr);
-  grid-template-rows: var(--tbar-h) minmax(0, 1fr) var(--console-h);
   height: 100%;
   box-sizing: border-box;
 }
 
-/* 标题栏 = 无框窗口的拖拽区（main 无 titleBarStyle:hidden；右上三键由系统
-   titleBarOverlay 绘制，颜色经 win:overlayTheme 跟主题走）。
-   右侧 ~146px 让位给系统三键（Win11 每键 ~46px），拖拽区内的按钮一律 no-drag。
-   38px 是设计稿的票根高度，与 overlay.height 对齐。 */
-.tbar {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 146px 0 16px;
-  border-bottom: 1px solid var(--fg);
-  -webkit-app-region: drag;
-}
-.tbar button,
-.tbar .status {
-  -webkit-app-region: no-drag;
-}
-.brand {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-disp);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--fg);
-}
-.brand i {
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  background: var(--accent);
-}
-/* 中文副名拆到 h1 外：h1 只留拉丁主名（冒烟断言 textContent 即产品名） */
-.brand-cn {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: var(--fg-dim);
-}
-.tbar .sp {
-  flex: 1;
-}
+/* 标题栏 / 品牌字 / 侧栏已随旧外壳拆除：外壳只剩不夜台站尺（见 live/live.css）。 */
 
 /* 明暗切换（docs/09 B4）：月亮图形，夜间反色。只换 token 值，不做过渡 */
 .theme-toggle {
@@ -151,105 +104,13 @@ html::after {
 }
 
 .body {
-  /* tbar / console 都跨两列，body 也必须跨——不然会落进 96px 的导航列 */
   grid-column: 1 / -1;
   display: flex;
   min-height: 0;
   overflow: hidden;
 }
 
-/* 左导航 96px（ref pages-v11/shell.css）：图标在上、名称在下。
-   比纯文字栏贵 24px，换来「图标先被看见、文字做确认」的可扫读性。 */
-.rail {
-  width: var(--nav-w);
-  flex: none;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 0 10px;
-  border-right: 1px solid var(--line-soft);
-  overflow: hidden;
-}
-.rail .it {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  height: 50px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: none;
-  color: var(--fg-dim);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-}
-.rail .it svg {
-  display: block;
-  width: 15px;
-  height: 15px;
-}
-.rail .it:hover {
-  background: none;
-  border-color: transparent;
-  color: var(--fg);
-}
-.rail .it.on {
-  color: var(--fg);
-  font-weight: 600;
-}
-.rail .it.on svg {
-  stroke-width: 1.5;
-}
-/* 当前项：左缘 3px 朱砂立标（旧仓是右缘墨短线，这次按 v11 稿改到左缘） */
-.rail .it.on::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  background: var(--accent);
-}
-.rail .sp {
-  flex: 1;
-}
-.rail .grp {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 6px 12px 4px;
-}
-.rail .grp i {
-  flex: 1;
-  height: 1px;
-  background: var(--line-soft);
-}
-.rail .grp span {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.3em;
-  text-indent: 0.3em;
-  color: var(--fg-dim);
-}
-.rail .it.sm {
-  height: 42px;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-}
-.rail .it.sm svg {
-  width: 11px;
-  height: 11px;
-}
-.rail .rule {
-  height: 1px;
-  margin: 5px 16px 6px;
-  background: var(--line-soft);
-}
+/* 旧侧栏（.rail）已随直白模式拆除，导航全部交给顶部站尺。 */
 
 /* 内容区：页面自带滚动，这里只做定位 */
 .main {
@@ -1548,113 +1409,6 @@ span.notice {
   border: 1px dashed var(--line);
   color: var(--fg-dim);
   text-align: center;
-}
-
-/* ---------- 首次使用引导（C-16）：帘子复用 .dialog-mask，卡片纸面 + mono 顶标 ---------- */
-.ob-veil {
-  /* 引导只在首轮出现，出入场 200ms（与全站切换转场一致） */
-  animation: ob-veil-in 200ms ease-out;
-}
-.ob-card {
-  width: 380px;
-  padding: 26px 28px 22px;
-  border: 1px solid var(--line);
-  background: var(--bg-raised);
-  border-left: 3px solid var(--accent);
-  text-align: left;
-  outline: none;
-  animation: ob-card-in 240ms ease-out;
-}
-.ob-hint {
-  margin: 0 0 10px;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  color: var(--fg-dim);
-}
-.ob-card h2 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-}
-.ob-body {
-  margin: 0 0 18px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--fg-dim);
-}
-.ob-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.ob-skip {
-  margin-right: auto;
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  font-size: 12px;
-  padding: 2px 0;
-}
-.ob-skip:hover {
-  color: var(--fg);
-}
-.ob-dots {
-  display: flex;
-  gap: 6px;
-  margin-right: 2px;
-}
-.ob-dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  border: 1px solid var(--fg-dim);
-}
-.ob-dots i.past {
-  background: var(--fg-dim);
-}
-.ob-dots i.on {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.ob-foot button {
-  background: none;
-  border: 1px solid var(--line);
-  color: var(--fg);
-  cursor: pointer;
-  padding: 4px 12px;
-  font-size: 12px;
-}
-.ob-foot button:hover {
-  border-color: var(--fg);
-}
-.ob-next {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.ob-next:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-@keyframes ob-veil-in {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes ob-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ob-veil,
-  .ob-card {
-    animation: none;
-  }
 }
 
 /* ---------- 播放条 ---------- */

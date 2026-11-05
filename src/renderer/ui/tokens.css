@@ -30,7 +30,7 @@
   --stage-line: rgba(23, 21, 15, 0.28); /* 场景自己的发丝线/表格线 */
   --stage-line-soft: rgba(23, 21, 15, 0.12); /* 场景的弱线/虚线 */
   --stage-raised: #ece9df; /* 相纸卡里掏空的槽位（无封面时的底） */
-  --stage-disc: #191619; /* 黑胶盘实体色（b2 沉浸态），物理黑胶不随预设换装 */
+  --stage-disc: #191619; /* 黑胶盘实体色，物理黑胶不随预设换装 */
   --stage-disc-groove: #221e22; /* 盘纹亮槽 */
   --stage-accent: #d8341c; /* 场景里的朱砂（正在唱 / 场次票） */
   --stage-tint: #d8341c;
@@ -66,6 +66,23 @@
   --tbar-h: 38px;
   --nav-w: 96px;
   --console-h: 104px;
+
+  /* ④ 直播带（不夜台）：夜间控制室是固定色，不跟明暗主题翻转。
+     只给 .shell.live 消费；其余三层继续服务普通房间与播放页。 */
+  --live-bg: #0a0e13;
+  --live-panel: #121820;
+  --live-panel-2: #0d131a;
+  --live-fg: #f2eee6; /* 暖白 */
+  --live-fg-dim: #8b96a3;
+  --live-fg-faint: #55606d;
+  --live-line: rgba(143, 224, 192, 0.16); /* 磷光青弱线 */
+  --live-line-strong: rgba(242, 238, 230, 0.26);
+  --live-onair: #e4483f;
+  --live-amber: #e8a34a;
+  --live-phosphor: #8fe0c0;
+  --live-paper: #f3f2ed; /* 锁定页冷纸 */
+  --live-ink: #14171a;
+  --live-ruler-h: 44px;
 
   color-scheme: light;
 }

@@ -80,11 +80,18 @@ function connect(url) {
 
 /**
  * 起一个实例并挂上 CDP。
- * @param {{port:number, profile:string, extraArgs?:string[], reloadFirst?:boolean}} opts
+ * `profile` 传 null 时不加 --user-data-dir：走应用真实的 userData（真实登录态）。
+ * @param {{port:number, profile:string|null, extraArgs?:string[], reloadFirst?:boolean}} opts
  */
 export async function launch({ port, profile, extraArgs = [], reloadFirst = true }) {
   const exe = requireElectron();
-  const child = spawn(exe, ["dist/main.js", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, ...extraArgs], {
+  const args = [
+    "dist/main.js",
+    `--remote-debugging-port=${port}`,
+    ...(profile ? [`--user-data-dir=${profile}`] : []),
+    ...extraArgs,
+  ];
+  const child = spawn(exe, args, {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -122,9 +129,16 @@ export async function launch({ port, profile, extraArgs = [], reloadFirst = true
     return false;
   };
 
+  /** 页面截图（PNG Buffer）。给真实账号截图用，不依赖窗口焦点。 */
+  const screenshot = async () => {
+    const msg = await client.send("Page.captureScreenshot", { format: "png" });
+    return Buffer.from(msg.result.data, "base64");
+  };
+
   return {
     evaluate,
     waitFor,
+    screenshot,
     events: () => client.events,
     log: () => log,
     async close({ hard = false } = {}) {

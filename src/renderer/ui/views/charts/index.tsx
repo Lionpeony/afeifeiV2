@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { RemoteTrack, Toplist } from "../../../../contracts/capability.js";
 import { PageHead } from "../../PageHead.js";
 import { Segmented } from "../../Segmented.js";
+import { useActiveSource } from "../../use-active-source.js";
 
 export interface ChartsViewProps {
   /** 只传 canGetToplist 为 true 的源（过滤在宿主做，本组件不做能力判断） */
@@ -31,7 +32,7 @@ function fmtDuration(ms: number): string {
  * 榜单不需要登录（网易云 toplist 匿名可读），未登录也能看——这是它和"我的歌单"的区别。
  */
 export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: ChartsViewProps) {
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [sourceId, setSourceId] = useActiveSource(sources);
   const [lists, setLists] = useState<Toplist[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [tracks, setTracks] = useState<RemoteTrack[]>([]);
@@ -39,9 +40,6 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (!sourceId && sources[0]) setSourceId(sources[0].id);
-  }, [sources, sourceId]);
 
   useEffect(() => {
     if (!sourceId) return;
@@ -102,7 +100,7 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
   }
 
   return (
-    <section className="library">
+    <section className="library charts-page">
       <PageHead title="榜单" meta={`CHARTS · ${lists.length} LISTS`} />
       <div className="lib-head">
         <Segmented
@@ -116,28 +114,28 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
 
       {note ? <p className="lib-note">{note}</p> : null}
 
-      <div className="pl-wrap">
-        <div className="pl-list">
-          {lists.map((l) => (
+      {/* 榜单带：先横着挑榜，再在下面看曲目；不把"选榜"藏进左侧窄列表 */}
+      {lists.length > 0 ? (
+        <div className="chart-rail" aria-label="榜单列表">
+          {lists.map((list) => (
             <button
               type="button"
-              key={l.id}
-              className={`pl-item chart-item ${l.id === selected ? "on" : ""}`}
-              onClick={() => void open(l)}
-              title={l.name}
+              key={list.id}
+              className={`chart-cell${selected === list.id ? " on" : ""}`}
+              onClick={() => void loadTracks(list.id, 1)}
+              title={list.name}
             >
-              <span
-                className="chart-cover"
-                style={l.coverUrl ? { backgroundImage: `url("${l.coverUrl}")` } : undefined}
-              />
-              <span className="chart-tx">
-                <span className="pl-name">{l.name}</span>
-                <span className="pl-count">{l.count} 首</span>
-              </span>
+              {list.coverUrl ? (
+                <i className="chart-dot" style={{ backgroundImage: `url("${list.coverUrl}")` }} aria-hidden="true" />
+              ) : null}
+              <b>{list.name}</b>
+              <span>{list.count > 0 ? `${list.count} 首` : "—"}</span>
             </button>
           ))}
         </div>
+      ) : null}
 
+      <div className="pl-wrap">
         <div className="lib-list">
           <div className="lib-thead online-thead">
             <span className="th-title">TITLE</span>

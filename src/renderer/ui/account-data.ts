@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { RemoteTrack } from "../../contracts/capability.js";
+import { subscribeActiveSource } from "./active-source.js";
 
 /**
  * 账号数据的一次性加载（三个视图共用）。
@@ -74,6 +75,9 @@ export function useAccountBundle(load: () => Promise<AccountBundle>): AccountSta
       alive = false;
     };
   }, [tick]);
+
+  // 切音源 = 切账号：当前账号变了，页面上的账号数据必须跟着重拉
+  useEffect(() => subscribeActiveSource(() => setTick((t) => t + 1)), []);
 
   return {
     ...state,

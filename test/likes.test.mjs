@@ -19,6 +19,14 @@ test("toggleLike：第一次加入收藏", () => {
   assert.equal(isLiked("a"), true);
 });
 
+test("红心 id 归一：原始路径与小写正斜杠视为同一首", () => {
+  setLikes([]);
+  toggleLike("C:\\Music\\A.mp3");
+  assert.equal(isLiked("c:/music/a.mp3"), true, "原始路径点的心，用曲库 id 也要能查到");
+  assert.equal(toggleLike("c:/music/a.mp3"), false, "归一后是同一次切换");
+  assert.equal(getLikes().size, 0);
+});
+
 test("toggleLike：第二次取消收藏", () => {
   setLikes([]);
   toggleLike("a");

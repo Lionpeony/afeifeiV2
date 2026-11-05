@@ -12,3 +12,7 @@ release/
 
 # 运行时状态（设备指纹 / 扫码会话），不入库
 .auth-state/
+
+# 真实账号截图：含昵称/头像/个人歌单与听歌记录，只留本机，不入库
+# 需要时跑 node scripts/account-shots.mjs 重新生成
+docs/assets/mockups/real-*.png

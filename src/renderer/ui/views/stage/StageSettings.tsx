@@ -1,23 +1,24 @@
 import type { AppState, StageLayer } from "../../../../contracts/index.js";
 import type { StageViewProps } from "./types.js";
-import { LAYER_KEYS, PRESETS, VISUAL_MODES, VISUAL_MODE_NAMES } from "./presets.js";
+import { LAYER_KEYS, LIVE_PRESETS, PRESETS, VISUAL_MODES, VISUAL_MODE_NAMES } from "./presets.js";
 import { dispatch } from "../../../kernel/index.js";
 
 export function StageSettings({
   state,
+  live,
   exportTheme,
   importTheme,
   findLyric,
-}: Pick<StageViewProps, "exportTheme" | "importTheme" | "findLyric"> & { state: AppState }) {
+}: Pick<StageViewProps, "exportTheme" | "importTheme" | "findLyric"> & { state: AppState; live: boolean }) {
   const { player, stage } = state;
   const offset = state.lyrics.offsets[player.trackId ?? ""] ?? 0;
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
   return <div className="st-menu" role="dialog" aria-label="播放页视图设置">
-    <div className="st-menu-row"><span className="lbl">预设</span><div className="st-presets">
+    <div className="st-menu-row"><span className="lbl">{live ? "灯位" : "预设"}</span><div className="st-presets">
       {PRESETS.map((preset) => <button key={preset.id} type="button" className={preset.id === stage.preset ? "on" : ""} onClick={() => {
         dispatch({ type: "stage/setPreset", preset: preset.id });
         dispatch({ type: "stage/setLyricRenderer", renderer: preset.lyricRenderer });
-      }}>{preset.name}</button>)}
+      }}>{live ? LIVE_PRESETS[preset.id].name : preset.name}</button>)}
     </div></div>
     <div className="st-menu-row"><span className="lbl">歌词</span><select value={stage.lyricRenderer} onChange={(event) => dispatch({ type: "stage/setLyricRenderer", renderer: event.target.value as typeof stage.lyricRenderer })}>
       <option value="press">印刷</option><option value="karaoke">逐字</option><option value="minimal">单行</option><option value="theatrical">剧场</option>

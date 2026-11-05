@@ -3,6 +3,7 @@ import type { MediaPort } from "../../../contracts/ports.js";
 import { clock } from "../../kernel/clock.js";
 import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, type AudioGraph } from "./graph.js";
 import { fadeCurves } from "./crossfade.js";
+import { aggregateSpectrum } from "./spectrum-bins.js";
 import { streamSrcOf } from "./streamSrc.js";
 
 /** 播放淡入时长（秒）。folia 用 0.2s：短到听不出"渐入"，长到能盖住起播的爆音。 */
@@ -530,14 +531,7 @@ export class AudioEngine {
       this.spectrumBuf = new Uint8Array(count);
     }
     g.analyser.getByteFrequencyData(this.spectrumBuf);
-    const step = Math.max(1, Math.floor(count / bins));
-    const out: number[] = [];
-    for (let i = 0; i < bins; i += 1) {
-      let sum = 0;
-      for (let j = 0; j < step; j += 1) sum += this.spectrumBuf[i * step + j] ?? 0;
-      out.push(sum / step / 255);
-    }
-    return out;
+    return aggregateSpectrum(this.spectrumBuf, bins);
   }
 
   /** 当前媒体时长（毫秒），没加载时是 0。UI 的进度条上限用它——crossfade 中仍是出场曲的。 */

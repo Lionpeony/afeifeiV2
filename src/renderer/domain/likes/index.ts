@@ -1,9 +1,13 @@
 import type { TrackId } from "../../../contracts/index.js";
 import type { KeyValuePort } from "../../../contracts/ports.js";
+import { normalizePath } from "../library/schema.js";
 
 /**
  * 本机收藏（Ring 1）。一个 Set，一个写入口。
  * 收藏是"跟歌走"的数据：歌在不在磁盘上不影响它是不是被收藏过。
+ *
+ * id 一律按 normalizePath 归一：播放状态里存的是原始路径（盘符大小写 / 反斜杠），
+ * 曲库 id 是小写正斜杠，两套直接比会让"刚点的红心"在喜欢页消失。
  */
 
 const KEY = "likes";
@@ -12,7 +16,7 @@ let ids = new Set<TrackId>();
 const listeners = new Set<() => void>();
 
 export const getLikes = (): ReadonlySet<TrackId> => ids;
-export const isLiked = (id: TrackId): boolean => ids.has(id);
+export const isLiked = (id: TrackId): boolean => ids.has(normalizePath(id));
 
 export function subscribe(fn: () => void): () => void {
   listeners.add(fn);
@@ -27,14 +31,15 @@ function notify(): void {
 
 /** 唯一写入口。返回切换后的状态。 */
 export function toggleLike(id: TrackId): boolean {
-  if (ids.has(id)) ids.delete(id);
-  else ids.add(id);
+  const key = normalizePath(id);
+  if (ids.has(key)) ids.delete(key);
+  else ids.add(key);
   notify();
-  return ids.has(id);
+  return ids.has(key);
 }
 
 export function setLikes(next: Iterable<TrackId>): void {
-  ids = new Set(next);
+  ids = new Set([...next].map(normalizePath));
   notify();
 }
 

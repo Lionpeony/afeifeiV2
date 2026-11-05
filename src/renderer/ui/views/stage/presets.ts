@@ -33,7 +33,7 @@ export const STAGE_TOKEN_KEYS = [
   "--stage-line",
   "--stage-line-soft",
   "--stage-raised",
-  /* 黑胶盘实体色（b2 沉浸态）：盘是物理黑胶，不随纸面/影院换装，四套同值 */
+  /* 黑胶盘实体色：盘是物理黑胶，不随纸面/影院换装，四套同值 */
   "--stage-disc",
   "--stage-disc-groove",
   "--stage-accent",
@@ -177,10 +177,82 @@ export const PRESETS: StagePresetDef[] = [
 export const LAYER_KEYS: StageLayer[] = ["wallpaper", "visual", "cover", "lyric", "controls"];
 
 /** C1 视觉模式白名单（C-13）。与 contracts 的 VisualMode 一致，sanitize 用。 */
-export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring", "machi"];
+export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring"];
 
 /** 模式显示名（视图浮层按钮）。 */
-export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形", machi: "町景" };
+export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形" };
+
+/**
+ * 直播壳里的四套「灯位」：同一个引擎、同一组 token，只换控制室的灯。
+ *
+ * 纸面预设是给「白纸上的版式」配的色（浅底、墨字、朱砂），在 .shell.live 的
+ * 夜间控制室里会直接把人照瞎 —— 所以直播壳不套纸面色，另给一套暗底取值：
+ * 基底统一回到控制室，四套只保留各自的 accent 与结构差异（转速、壁纸）。
+ * 名字改叫「灯位」不是装饰：在这一壳里它们调的确实是灯，不再是纸。
+ *
+ * token 全部取自 STAGE_TOKEN_KEYS，customTokens（导入主题）仍排在最后、优先级最高。
+ */
+const LIVE_STAGE_BASE: Record<string, string> = {
+  "--stage-bg": "#0a0e13",
+  "--stage-fg": "#f2eee6",
+  "--stage-fg-dim": "#8b96a3",
+  "--stage-line": "rgba(242, 238, 230, 0.22)",
+  "--stage-line-soft": "rgba(143, 224, 192, 0.14)",
+  "--stage-raised": "#121820",
+  "--stage-disc": "#0a0d12",
+  "--stage-disc-groove": "#171f28",
+  "--stage-tint": "transparent",
+  "--stage-wallpaper": "none",
+  "--stage-cover-size": "260px",
+  "--stage-cover-radius": "0px",
+  "--stage-cover-frame": "1px solid rgba(242, 238, 230, 0.26)",
+  "--stage-cover-shadow": "none",
+  "--stage-cover-spin": "0s",
+  "--stage-lyric-size": "22px",
+  "--stage-lyric-weight": "600",
+  "--stage-dur": "200ms",
+  "--stage-ease": "ease-out",
+};
+
+export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<string, string> }> = {
+  paper: {
+    name: "冷白场",
+    tokens: {
+      ...LIVE_STAGE_BASE,
+      "--stage-accent": "#8fe0c0",
+      "--stage-wallpaper":
+        "radial-gradient(ellipse at 50% -12%, rgba(143, 224, 192, 0.09), transparent 58%)," +
+        "radial-gradient(ellipse at 12% 108%, rgba(232, 163, 74, 0.05), transparent 46%)",
+    },
+  },
+  vinyl: {
+    name: "琥珀台",
+    tokens: {
+      ...LIVE_STAGE_BASE,
+      "--stage-accent": "#e8a34a",
+      "--stage-cover-spin": "1.8s",
+      "--stage-wallpaper":
+        "radial-gradient(ellipse at 50% 0%, rgba(232, 163, 74, 0.08), transparent 55%)," +
+        "radial-gradient(ellipse at 50% 100%, rgba(143, 224, 192, 0.04), transparent 50%)",
+    },
+  },
+  minimal: {
+    name: "素净台",
+    tokens: {
+      ...LIVE_STAGE_BASE,
+      "--stage-accent": "#cfd8e3",
+    },
+  },
+  cinema: {
+    name: "余光台",
+    tokens: {
+      ...LIVE_STAGE_BASE,
+      "--stage-accent": "#e4483f",
+      // 壁纸由封面承担（wallpaperFromCover），这里只补一层暗红顶光
+      "--stage-wallpaper": "radial-gradient(ellipse at 50% 0%, rgba(228, 72, 63, 0.07), transparent 55%)",
+    },
+  },
+};
 
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];

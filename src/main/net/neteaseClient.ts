@@ -136,22 +136,23 @@ export async function isLoggedIn(): Promise<boolean> {
 }
 
 /** 登录态摘要，给界面显示昵称。 */
-export async function loginProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> {
+export async function loginProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }> {
   try {
     const body = await callNcm("user_account");
     const account = body.account as AccountNode | null;
-    const profile = body.profile as { nickname?: string } | null;
+    const profile = body.profile as { nickname?: string; avatarUrl?: string } | null;
 
     const loggedIn = Boolean(account?.id) && account?.anonimousUser !== true;
-    if (!loggedIn) return { loggedIn: false, nick: null, uid: null };
+    if (!loggedIn) return { loggedIn: false, nick: null, uid: null, avatarUrl: null };
 
     return {
       loggedIn: true,
       nick: profile?.nickname ?? account?.userName ?? null,
       uid: String(account?.id ?? ""),
+      avatarUrl: profile?.avatarUrl ?? null,
     };
   } catch {
-    return { loggedIn: false, nick: null, uid: null };
+    return { loggedIn: false, nick: null, uid: null, avatarUrl: null };
   }
 }
 

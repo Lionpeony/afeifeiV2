@@ -64,7 +64,8 @@ export function LibraryView({
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(600);
   const [mode, setMode] = useState<Mode>("all");
-  const [view, setView] = useState<View>("list");
+  // 首屏是书架（封面墙），曲目表退到第二个标签：打开本地页先看空间，不是先看表格
+  const [view, setView] = useState<View>("albums");
   const [likeTick, setLikeTick] = useState(0);
   const [lists, setLists] = useState(getPlaylists());
   const [newName, setNewName] = useState("");
@@ -136,6 +137,8 @@ export function LibraryView({
           onChange={(e) => {
             setKeyword(e.target.value);
             setQuery(e.target.value);
+            // 搜索要的是效率：一打字就回到行视图，书架留给浏览
+            if (e.target.value.trim()) setView("list");
           }}
         />
         <div className="lib-tabs">

@@ -2,23 +2,77 @@ import { PageHead } from "../../PageHead.js";
 import type { AppState, TrackId } from "../../../../contracts/index.js";
 import { dispatch } from "../../../kernel/index.js";
 import { lineStartMs } from "../../../domain/lyrics/cursor.js";
+import { onTick } from "../../compositor.js";
+import { useEffect, useRef } from "react";
 import type { LyricRenderer } from "./useStageLyrics.js";
 import { StageArtwork } from "./StageArtwork.js";
 import { StageQueuePanel, type QueueRowsProps } from "./StageQueue.js";
 import { LyricTimeHero } from "./LyricTimeHero.js";
 import { useStageData } from "./useStageData.js";
 import { useStageLyrics } from "./useStageLyrics.js";
-import { fmt } from "./types.js";
+import { fmt, pad2 } from "./types.js";
 export interface StageMainLayoutProps {
   state: AppState;
   data: ReturnType<typeof useStageData>;
   lyric: ReturnType<typeof useStageLyrics>;
+  /** 直播壳：换不夜台的播出条与提词器，纸面 PageHead 不进来。 */
+  live: boolean;
   menuOpen: boolean;
   onToggleMenu(): void;
-  onImmersive(): void;
 }
 
-export function StageMainLayout({ state, data, lyric, menuOpen, onToggleMenu, onImmersive }: StageMainLayoutProps) {
+/**
+ * 播出条：不夜台直播间的主标题不是「一篇文章的标题」，是导播台上的一行在播信息。
+ * 上排四格（ON AIR / 队列 / 行号 / 走带），下排曲名与出处，底边是整条走带进度。
+ * 时间与进度用 onTick 直接写 DOM，不把 60Hz 拉进 React。
+ */
+function AirHeader({
+  title,
+  sub,
+  queue,
+  line,
+  duration,
+  menuOpen,
+  onToggleMenu,
+}: {
+  title: string;
+  sub: string;
+  queue: string;
+  line: string;
+  duration: number;
+  menuOpen: boolean;
+  onToggleMenu(): void;
+}) {
+  const timeRef = useRef<HTMLSpanElement>(null);
+  const fillRef = useRef<HTMLElement>(null);
+  useEffect(() => onTick((time) => {
+    if (timeRef.current) {
+      const text = `${fmt(time)} / ${fmt(duration)}`;
+      if (timeRef.current.textContent !== text) timeRef.current.textContent = text;
+    }
+    if (fillRef.current) fillRef.current.style.width = duration > 0 ? `${Math.min(100, (time / duration) * 100).toFixed(2)}%` : "0%";
+  }), [duration]);
+  return (
+    <header className="st-air">
+      <div className="st-air-top">
+        <span className="st-air-badge"><i aria-hidden="true" />ON AIR</span>
+        <span className="st-air-slot">{queue}</span>
+        <span className="st-air-line">{line}</span>
+        <span className="st-air-clock tabnum" ref={timeRef}>0:00 / {fmt(duration)}</span>
+        <span className="st-air-tools">
+          <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+        </span>
+      </div>
+      <div className="st-air-main">
+        <h1>{title}</h1>
+        <p>{sub || "—"}</p>
+      </div>
+      <span className="st-air-progress" aria-hidden="true"><i ref={fillRef} /></span>
+    </header>
+  );
+}
+
+export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMenu }: StageMainLayoutProps) {
   const { player, stage, queue } = state;
   const renderer: LyricRenderer = stage.lyricRenderer;
   const rowProps: QueueRowsProps = {
@@ -71,18 +125,29 @@ export function StageMainLayout({ state, data, lyric, menuOpen, onToggleMenu, on
 
   return (
     <div className="st-page">
-      <PageHead
-        title={data.nowTitle}
-        meta="TYPE IS TIME"
-        desc={[data.nowArtist, data.nowAlbum, data.sourceName].filter(Boolean).join(" · ")}
-        extra={(
-          <span className="st-src">
-            <span>QUEUE {queue.items.length ? `${String(Math.max(1, data.cursorPosition + 1)).padStart(2, "0")} / ${queue.items.length}` : "—"}</span>
-            <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
-            <button type="button" className="st-viewbtn" onClick={onImmersive} title="沉浸播放（Esc 退出）">沉浸</button>
-          </span>
-        )}
-      />
+      {live ? (
+        <AirHeader
+          title={data.nowTitle}
+          sub={[data.nowArtist, data.nowAlbum, data.sourceName].filter(Boolean).join(" · ")}
+          queue={`QUEUE ${queue.items.length ? `${pad2(Math.max(1, data.cursorPosition + 1))} / ${queue.items.length}` : "—"}`}
+          line={lyric.doc && lyric.lineIndex >= 0 ? `LINE ${pad2(lyric.lineIndex + 1)} / ${lyric.doc.lines.length}` : "LINE —"}
+          duration={data.nowDuration}
+          menuOpen={menuOpen}
+          onToggleMenu={onToggleMenu}
+        />
+      ) : (
+        <PageHead
+          title={data.nowTitle}
+          meta="TYPE IS TIME"
+          desc={[data.nowArtist, data.nowAlbum, data.sourceName].filter(Boolean).join(" · ")}
+          extra={(
+            <span className="st-src">
+              <span>QUEUE {queue.items.length ? `${String(Math.max(1, data.cursorPosition + 1)).padStart(2, "0")} / ${queue.items.length}` : "—"}</span>
+              <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+            </span>
+          )}
+        />
+      )}
       <div className="st-body">
         <section className="st-lyr">{hero}</section>
         <aside className="st-side">
@@ -104,7 +169,7 @@ export function StageMainLayout({ state, data, lyric, menuOpen, onToggleMenu, on
       </div>
       {stage.layers.lyric && lyric.doc && lyric.scriptLines.length ? (
         <div className="st-script">
-          <div className="sh"><b>台词本</b><span>共 {lyric.doc.lines.length} 句 · 显示 {lyric.scriptStart + 1}–{lyric.scriptStart + lyric.scriptLines.length}</span></div>
+          <div className="sh"><b>{live ? "提词器" : "台词本"}</b><span>共 {lyric.doc.lines.length} 句 · 显示 {lyric.scriptStart + 1}–{lyric.scriptStart + lyric.scriptLines.length}</span></div>
           <div className="rows">
             {lyric.scriptLines.map((line, index) => {
               const absoluteIndex = lyric.scriptStart + index;

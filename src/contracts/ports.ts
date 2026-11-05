@@ -90,7 +90,7 @@ export interface DownloadPort {
 export interface LocalApiPort {
   call(namespace: string, method: string, params?: Record<string, unknown>): Promise<unknown>;
   /** 登录态摘要（昵称 / uid），登录判定只看接口返回 */
-  profile(namespace: string): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  profile(namespace: string): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }>;
   logout(namespace: string): Promise<void>;
 }
 

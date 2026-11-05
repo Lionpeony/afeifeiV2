@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 首页候选二 / 私人电台节目单</title>
+<style>
+/* h2 · 候选二「私人电台节目单」——打开播放器=打开自己的广播台。
+   骨架与 r4/l5 同构（76px rail + 108px console），主区=竖向时段节目单：
+   ON AIR 横带 + 时段节目块 + 右栏收听档案。隐喻来自电台，词汇仍是冷纸。 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;--danger:#d23b2e;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-columns:76px minmax(0,1fr)}
+.frame:before,.frame:after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;z-index:4;opacity:.5;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.frame:before{top:8px;right:10px}.frame:after{bottom:70px;left:86px}
+/* rail（与 l5 同款） */
+.rail{background:rgba(251,250,247,.92);border-right:1px solid var(--line-strong);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:20px;z-index:5}
+.mark{width:38px;height:38px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 10px/1.1 var(--mono);letter-spacing:-.08em}
+.nav{display:grid;gap:6px}
+.nav button{width:42px;height:42px;border:0;background:transparent;color:var(--ink-dim);display:grid;place-items:center;cursor:pointer;font-size:16px;position:relative}
+.nav button span{font-size:9px;position:absolute;top:30px}
+.nav button.active{background:var(--accent);color:#fff}
+.rail-foot{margin-top:auto;color:var(--accent);font:10px var(--mono);writing-mode:vertical-rl;letter-spacing:.25em}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+/* ── ON AIR 横带 ── */
+.onairband{display:flex;align-items:center;gap:16px;margin:18px clamp(28px,3.4vw,52px) 0;padding:13px 18px;border:1.5px solid var(--ink);background:var(--paper-hi)}
+.onairband .lamp{flex:none;display:flex;align-items:center;gap:8px;font:700 11px var(--mono);letter-spacing:.18em}
+.onairband .lamp i{width:9px;height:9px;background:var(--danger);flex:none;animation:blink 1.4s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.onairband .prog{min-width:0}
+.onairband .prog b{display:block;font-size:14px}
+.onairband .prog small{display:block;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-dim);margin-top:2px}
+.onairband .now{margin-left:auto;text-align:right;font:10px var(--mono);color:var(--ink-soft);white-space:nowrap}
+.onairband .now b{display:block;color:var(--ink);font-size:12px}
+/* ── 节目单：竖向时段时间轴 ── */
+.board{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 264px;gap:clamp(20px,2.4vw,36px);padding:18px clamp(28px,3.4vw,52px) 20px;min-height:0;overflow-y:auto;scrollbar-width:thin}
+.schedule{min-width:0}
+.schedule h2{margin:0 0 4px;font-size:clamp(22px,2vw,28px);font-weight:650;letter-spacing:-.05em}
+.schedule .cap{font:9px var(--mono);letter-spacing:.14em;color:var(--ink-dim);margin-bottom:14px}
+.slot{display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;padding:14px 0 16px;border-bottom:1px solid var(--line);cursor:pointer;position:relative}
+.slot:hover .st b{color:var(--accent)}
+.slot .hr{font:11px var(--mono);color:var(--ink-dim);font-variant-numeric:tabular-nums;text-align:right;padding-top:3px}
+.slot .st{min-width:0}
+.slot .st b{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;transition:color .13s}
+.slot .st b span{font:8px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.slot .st p{margin:5px 0 0;font-size:12px;color:var(--ink-soft);line-height:1.7}
+.slot .st p b{font-size:12px;color:var(--ink);font-weight:550}
+.slot .play-hint{position:absolute;left:40px;bottom:16px;font:9px var(--mono);letter-spacing:.1em;color:var(--accent);opacity:0;transition:opacity .15s}
+.slot:hover .play-hint{opacity:1}
+.slot.on{background:var(--accent-wash)}
+.slot.on:before{content:"";position:absolute;left:-12px;top:0;bottom:0;width:3px;background:var(--accent)}
+.slot.on .hr{color:var(--accent);font-weight:700}
+/* ── 右栏：收听档案 ── */
+.stats{border-left:1.5px solid var(--ink);padding:16px 0 0 18px;min-width:0}
+.stats h3{margin:0 0 10px;font-size:13px}
+.stats .num{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:14px}
+.stats .num div{background:var(--paper-hi);padding:10px 12px}
+.stats .num b{display:block;font:600 17px/1 var(--sans);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stats .num small{display:block;margin-top:3px;font:8px var(--mono);letter-spacing:.12em;color:var(--ink-dim)}
+.bar-row{display:grid;grid-template-columns:34px minmax(0,1fr) 34px;gap:8px;align-items:center;font:9px var(--mono);color:var(--ink-dim);padding:4px 0}
+.bar-row .bar{position:relative;height:5px;background:var(--paper-lo)}
+.bar-row .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--ink)}
+.bar-row.top .bar i{background:var(--accent)}
+.bar-row.top{color:var(--ink)}
+@media(max-width:1150px){.board{grid-template-columns:minmax(0,1fr)}.stats{display:none}}
+/* console（与 l5 同款） */
+.console{position:sticky;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:10px clamp(24px,3.4vw,46px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:40px;height:40px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:16px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:38px;height:38px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.36))}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="frame">
+<aside class="rail"><div class="mark">AF<br>04</div><nav class="nav" aria-label="主导航"><button class="active" title="首页">⌂<span>首页</span></button><button title="在线">⌕<span>在线</span></button><button title="榜单">▥<span>榜单</span></button><button title="本地">♫<span>本地</span></button><button title="播放页">▶<span>播放</span></button></nav><div class="rail-foot">A F E I F E I</div></aside>
+<main class="main">
+<!-- ON AIR 横带：正在广播什么 -->
+<header class="onairband">
+  <span class="lamp"><i aria-hidden="true"></i>ON AIR</span>
+  <div class="prog"><b>通勤电台 · 24 首</b><small>LOCAL STATION · 本地推荐序列</small></div>
+  <div class="now"><span>正在播 04 / 24</span><b>Grand Escape — RADWIMPS × 三浦透子</b></div>
+</header>
+<!-- 节目单 + 收听档案 -->
+<div class="board">
+  <section class="schedule">
+    <h2>今天，你的电台这样排。</h2>
+    <p class="cap">PROGRAM · 按时段轮播 · 点击时段即开始收听</p>
+    <div class="slot on" tabindex="0">
+      <span class="hr">06:00</span>
+      <div class="st"><b>晨间递送<span>MORNING · 每日推荐 30 首</span></b>
+        <p>首播 <b>晴る — ヨルシカ</b> · 头条曲先听为快，随后 29 首按你的口味排列。</p></div>
+      <span class="play-hint">点击收听 ▸</span>
+    </div>
+    <div class="slot" tabindex="0">
+      <span class="hr">12:00</span>
+      <div class="st"><b>午间唱片行<span>NOON · 最近入库</span></b>
+        <p>从 <b>11-02 新入库的 12 首</b>里顺时序放：晴る → アルジャーノン → 海底。</p></div>
+      <span class="play-hint">点击收听 ▸</span>
+    </div>
+    <div class="slot" tabindex="0">
+      <span class="hr">18:00</span>
+      <div class="st"><b>通勤电台<span>EVENING · 本地推荐 24 首</span></b>
+        <p>正在广播：Grand Escape。按你的通勤时长 <b>36 分钟</b>配的序列。</p></div>
+      <span class="play-hint">点击收听 ▸</span>
+    </div>
+    <div class="slot" tabindex="0">
+      <span class="hr">00:00</span>
+      <div class="st"><b>深夜漫游<span>LATE NIGHT · 个人 FM</span></b>
+        <p>只放你<b>整首听完过</b>的歌，慢歌优先，每次 20 首。</p></div>
+      <span class="play-hint">点击收听 ▸</span>
+    </div>
+  </section>
+  <aside class="stats">
+    <h3>收听档案</h3>
+    <div class="num">
+      <div><b>12.4h</b><small>本周收听</small></div>
+      <div><b>142</b><small>本周曲目</small></div>
+    </div>
+    <div class="bar-row top"><span>1</span><div class="bar"><i style="width:86%"></i></div><span>ヨルシカ</span></div>
+    <div class="bar-row"><span>2</span><div class="bar"><i style="width:52%"></i></div><span>RADWIMPS</span></div>
+    <div class="bar-row"><span>3</span><div class="bar"><i style="width:31%"></i></div><span>一支榴莲</span></div>
+    <div class="bar-row"><span>4</span><div class="bar"><i style="width:18%"></i></div><span>Le Bonbon</span></div>
+    <div class="bar-row"><span>5</span><div class="bar"><i style="width:11%"></i></div><span>国风堂</span></div>
+    <h3 style="margin-top:18px">本周曲线</h3>
+    <div class="num" style="grid-template-columns:1fr"><div><b>−8%</b><small>较上周 · 周四 22 点是你的峰值时段</small></div></div>
+  </aside>
+</div>
+</main>
+<footer class="console">
+  <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶"></div><div><strong>Grand Escape</strong><small>本地电台 · 通勤电台</small></div></div>
+  <div class="transport"><button aria-label="上一首">|◀</button><button class="play" aria-label="暂停">Ⅱ</button><button aria-label="下一首">▶|</button></div>
+  <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="292" aria-valuenow="69"><i></i></div><span>4:52</span></div>
+</footer>
+</div>
+</body>
+</html>

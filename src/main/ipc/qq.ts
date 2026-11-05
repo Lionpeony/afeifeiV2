@@ -30,7 +30,7 @@ function readableError(err: unknown): string {
  * —— 源侧 provider 走的是后者，qqClient 白名单没有这条，之前一调就炸
  * 「不允许调用 QQ 接口：profile」，getUrl 里靠它区分「没登录/没版权」的逻辑全部失效。
  */
-async function qqProfileInfo(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }> {
+async function qqProfileInfo(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }> {
   const s = (await callQq("status", {})) as { data?: { profile?: Record<string, unknown> } };
   const nested = s?.data?.profile;
   const profile: Record<string, unknown> =
@@ -49,7 +49,10 @@ async function qqProfileInfo(): Promise<{ loggedIn: boolean; nick: string | null
     str(info.str_musicid) ??
     (info.musicid != null ? String(info.musicid) : undefined) ??
     null;
-  return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid };
+  const avatarUrl =
+    str(profile.headurl) ?? str(profile.headUrl) ?? str(profile.avatar) ??
+    str(info.headurl) ?? str(info.headUrl) ?? str(info.avatar) ?? null;
+  return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid, avatarUrl: loggedIn ? avatarUrl : null };
 }
 
 export function registerQqIpc(): void {

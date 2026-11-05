@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AFEIFEI · 首页候选一 / 今日乐报</title>
+<style>
+/* h2 · 候选一「今日乐报」——首页即一份每天印一期的音乐日报。
+   骨架与 r4/l5 同构（76px rail + 108px console），主区=报纸版面：
+   刊头双线、头条巨题、栏间发丝线、mono 日期刊号。冷纸语言的自然延伸。 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --line-strong:var(--ink);--line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);--signal:#d9ef42;--danger:#d23b2e;
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:clip}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.frame{height:100vh;min-height:640px;display:grid;grid-template-columns:76px minmax(0,1fr)}
+.frame:before,.frame:after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;z-index:4;opacity:.5;
+  background:linear-gradient(var(--ink-dim),var(--ink-dim)) center/1px 100% no-repeat,linear-gradient(var(--ink-dim),var(--ink-dim)) center/100% 1px no-repeat}
+.frame:before{top:8px;right:10px}.frame:after{bottom:70px;left:86px}
+/* rail（与 l5 同款） */
+.rail{background:rgba(251,250,247,.92);border-right:1px solid var(--line-strong);display:flex;flex-direction:column;align-items:center;padding:14px 0 12px;gap:20px;z-index:5}
+.mark{width:38px;height:38px;border:1.5px solid var(--ink);display:grid;place-items:center;font:700 10px/1.1 var(--mono);letter-spacing:-.08em}
+.nav{display:grid;gap:6px}
+.nav button{width:42px;height:42px;border:0;background:transparent;color:var(--ink-dim);display:grid;place-items:center;cursor:pointer;font-size:16px;position:relative}
+.nav button span{font-size:9px;position:absolute;top:30px}
+.nav button.active{background:var(--accent);color:#fff}
+.rail-foot{margin-top:auto;color:var(--accent);font:10px var(--mono);writing-mode:vertical-rl;letter-spacing:.25em}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+/* ── 刊头：报纸报眉 ── */
+.masthead{padding:18px clamp(28px,3.4vw,52px) 0}
+.mh-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:baseline;gap:16px}
+.mh-row h1{margin:0;font-size:clamp(24px,2.2vw,32px);font-weight:700;letter-spacing:-.04em;white-space:nowrap}
+.mh-row h1 em{font-style:normal;color:var(--accent)}
+.mh-mid{font:10px var(--mono);letter-spacing:.14em;color:var(--ink-soft);white-space:nowrap}
+.mh-mid b{color:var(--ink)}
+.mh-right{font:10px var(--mono);letter-spacing:.1em;color:var(--ink-dim);text-align:right;white-space:nowrap}
+.mh-right .lamp{display:inline-block;width:7px;height:7px;background:var(--signal);margin-left:6px;vertical-align:1px}
+.rules{margin-top:10px;border-top:1.5px solid var(--ink);border-bottom:1px solid var(--ink);height:4px}
+/* ── 头版：头条 + 快讯 ── */
+.front{display:grid;grid-template-columns:minmax(0,1.7fr) 1px minmax(0,1fr);gap:0 clamp(22px,2.6vw,40px);padding:20px clamp(28px,3.4vw,52px) 22px}
+.headline{min-width:0;position:relative}
+.eyebrow{font:9px var(--mono);letter-spacing:.16em;color:var(--accent);display:flex;gap:14px;align-items:baseline}
+.eyebrow .no{color:var(--ink-dim)}
+.headline h2{margin:10px 0 6px;font-size:clamp(44px,4.6vw,72px);line-height:1.02;font-weight:650;letter-spacing:-.045em}
+.headline .deck{margin:0;font-size:13px;color:var(--ink-soft);letter-spacing:.02em}
+.deck b{color:var(--ink);font-weight:600}
+.lede{margin:14px 0 0;max-width:46ch;font-size:13px;line-height:1.9;color:var(--ink-soft)}
+.lede b{color:var(--ink);font-weight:550}
+.actions{display:flex;align-items:center;gap:14px;margin-top:20px}
+.play{width:42px;height:42px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;cursor:pointer;transition:background .15s}
+.play:hover{background:#1a2fc4}
+.act{border:0;background:none;color:var(--ink-soft);font-size:12px;cursor:pointer;padding:6px 2px}
+.act:hover{color:var(--accent)}
+.why{margin-left:auto;font:10px var(--mono);letter-spacing:.12em;color:var(--accent);cursor:pointer;white-space:nowrap}
+/* 头条右侧封面位：编号色块（封面目录内容） */
+.hcov{margin-top:16px;display:flex;gap:14px;align-items:center}
+.hcov .box{width:clamp(88px,8vw,120px);aspect-ratio:1;flex:none;border:1px solid rgba(17,19,27,.25);border-bottom:3px solid var(--ink);
+  background:linear-gradient(145deg,#232333,#40427d 46%,#ffbf43);display:grid;place-items:center;color:#fff;font:800 clamp(24px,2.4vw,36px)/1 var(--mono);letter-spacing:-.06em;position:relative}
+.hcov .box:after{content:"ALB 006";position:absolute;right:6px;bottom:6px;font:8px var(--mono);letter-spacing:.1em;color:rgba(255,255,255,.8)}
+.hcov small{font:8px var(--mono);letter-spacing:.12em;color:var(--ink-dim)}
+/* 快讯栏 */
+.bulletin{border-left:1px solid var(--line);padding-left:clamp(22px,2.6vw,40px);min-width:0;display:flex;flex-direction:column}
+.bulletin h3{margin:0 0 4px;font-size:14px;letter-spacing:-.01em}
+.bulletin .cap{font:8px var(--mono);letter-spacing:.16em;color:var(--ink-dim);margin-bottom:8px}
+.bn{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line-soft);cursor:pointer}
+.bn:hover{color:var(--accent)}
+.bn .n{font:10px var(--mono);color:var(--ink-dim)}
+.bn .m{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+.bn .m small{display:block;font:9px var(--mono);color:var(--ink-dim);margin-top:1px}
+.bn time{font:10px var(--mono);color:var(--ink-dim);font-variant-numeric:tabular-nums}
+/* ── 下半版：三栏（二版/三版/四版）── */
+.sections{flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1.5px solid var(--ink);min-height:0;overflow:hidden}
+.sec{padding:14px clamp(18px,2vw,28px);min-width:0;overflow:hidden}
+.sec+.sec{border-left:1px solid var(--line)}
+.sec h3{margin:0;font-size:14px;display:flex;justify-content:space-between;align-items:baseline}
+.sec h3 span{font:8px var(--mono);letter-spacing:.16em;color:var(--ink-dim)}
+.grp{margin-top:10px}
+.grp .d{font:9px var(--mono);letter-spacing:.12em;color:var(--accent);padding:5px 0 3px}
+.item{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:12px;cursor:pointer;min-width:0}
+.item:hover{color:var(--accent)}
+.item .t{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t small{color:var(--ink-dim);font-size:10px;margin-left:8px}
+.item time{font:10px var(--mono);color:var(--ink-dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+/* 电台节目块 */
+.onair{margin-top:10px;border:1px solid var(--line);background:var(--paper-hi);padding:12px 14px;position:relative}
+.onair .lamp{position:absolute;top:12px;right:12px;font:8px var(--mono);letter-spacing:.14em;color:var(--ink)}
+.onair .lamp i{display:inline-block;width:7px;height:7px;background:var(--signal);margin-right:5px;font-style:normal}
+.onair b{display:block;font-size:13px}
+.onair p{margin:4px 0 0;font:10px var(--mono);letter-spacing:.06em;color:var(--ink-dim)}
+/* 漫游「为什么是它」 */
+.whybox{margin-top:10px;border:1px solid var(--line);background:var(--paper-hi);padding:12px 14px}
+.whybox b{display:block;font-size:13px}
+.whybox p{margin:5px 0 0;font-size:11px;line-height:1.7;color:var(--ink-soft)}
+.whybox p b{display:inline;color:var(--accent);font-size:11px}
+/* console（与 l5 同款） */
+.console{position:sticky;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:18px;padding:10px clamp(24px,3.4vw,46px);background:rgba(250,249,245,.95);border-top:1.5px solid var(--ink)}
+.console-track{display:flex;align-items:center;gap:12px;min-width:0}
+.mini{width:40px;height:40px;flex:none;border-radius:50%;position:relative;border:1px solid rgba(17,19,27,.4);background:repeating-radial-gradient(circle at 50% 50%,#14161c 0 1.5px,#23262f 1.5px 3px);animation:spin 10s linear infinite}
+.mini:before{content:"";position:absolute;inset:0;margin:auto;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#ffbf43,#d9ef42)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.console-track div{min-width:0}
+.console-track strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.console-track small{display:block;margin-top:2px;font-size:9px;color:var(--ink-dim)}
+.transport{display:flex;align-items:center;gap:16px}
+.transport button{border:0;background:none;color:var(--ink-soft);cursor:pointer;font-size:14px;padding:3px}
+.transport .play{width:38px;height:38px;background:var(--accent);color:#fff;font-size:13px}
+.seek{display:flex;align-items:center;gap:8px;font:9px var(--mono);color:#59606b}
+.seek .bar{position:relative;flex:1;min-width:60px;height:10px;cursor:pointer}
+.seek .bar:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:var(--ink-faint)}
+.seek .bar i{position:absolute;left:0;top:4px;height:2px;width:100%;background:var(--accent);transform-origin:left;transform:scaleX(var(--pos,.36))}
+@media(max-width:1150px){.front{grid-template-columns:minmax(0,1fr)}.bulletin{border-left:0;padding-left:0}.sections{grid-template-columns:1fr 1fr}.sec:nth-child(3){display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="frame">
+<aside class="rail"><div class="mark">AF<br>04</div><nav class="nav" aria-label="主导航"><button class="active" title="首页">⌂<span>首页</span></button><button title="在线">⌕<span>在线</span></button><button title="榜单">▥<span>榜单</span></button><button title="本地">♫<span>本地</span></button><button title="播放页">▶<span>播放</span></button></nav><div class="rail-foot">A F E I F E I</div></aside>
+<main class="main">
+  <!-- 报眉 -->
+  <header class="masthead">
+    <div class="mh-row">
+      <h1>今日<em>乐报</em></h1>
+      <div class="mh-mid"><b>每日推荐</b> · 2026年11月5日 星期四</div>
+      <div class="mh-right">第 1,284 期 · 馆藏 96 张专辑<span class="lamp" aria-hidden="true"></span></div>
+    </div>
+    <div class="rules" aria-hidden="true"></div>
+  </header>
+  <!-- 头版 -->
+  <div class="front">
+    <article class="headline">
+      <div class="eyebrow"><span>今日头条 HEADLINE</span><span class="no">每日推荐 № 1 / 30</span></div>
+      <h2>晴る</h2>
+      <p class="deck">ヨルシカ · 专辑《盗作》· <b>3:58</b> · FLAC</p>
+      <p class="lede">这首歌来自你<b>循环过 14 次</b>的乐队——新专辑发行当天已加入馆藏。根据你的深夜收听习惯，把它放在今天的第一版：副歌那句「いつか雨上がりの空に」，和<b>你上周收藏的《打上花火》</b>共享同一种编曲走向。</p>
+      <div class="actions">
+        <button class="play" aria-label="播放头条曲目">▶</button>
+        <button class="act" aria-label="喜欢">♥ 喜欢</button>
+        <button class="act" aria-label="加入队列">＋ 队列</button>
+        <button class="why">为什么是它 →</button>
+      </div>
+      <div class="hcov" aria-hidden="true"><div class="box">晴</div><small>COVER · 本地已入库 · ALB 006</small></div>
+    </article>
+    <aside class="bulletin" aria-label="今晨快讯">
+      <h3>今晨快讯</h3><div class="cap">DAILY 30 · 账号每日歌曲</div>
+      <div class="bn" tabindex="0"><span class="n">02</span><div class="m">ネスタ postal<small>yuma · 新曲</small></div><time>3:22</time></div>
+      <div class="bn" tabindex="0"><span class="n">03</span><div class="m">サンをさがす<small>ヨルシカ</small></div><time>4:05</time></div>
+      <div class="bn" tabindex="0"><span class="n">04</span><div class="m">老人と海<small>ヨルシカ</small></div><time>5:21</time></div>
+      <div class="bn" tabindex="0"><span class="n">05</span><div class="m">言え。のこと<small>indigo la End</small></div><time>3:47</time></div>
+      <div class="bn" tabindex="0"><span class="n">06</span><div class="m">アポロ<small>Bank Band</small></div><time>5:12</time></div>
+      <div class="bn" tabindex="0"><span class="n">07</span><div class="m">花に亡霊<small>米津玄師</small></div><time>4:31</time></div>
+    </aside>
+  </div>
+  <!-- 下半版 -->
+  <div class="sections">
+    <section class="sec">
+      <h3>二版 · 最近入库<span>RECENT</span></h3>
+      <div class="grp"><div class="d">11-02</div>
+        <div class="item" tabindex="0"><span class="t">晴る<small>ヨルシカ</small></span><time>3:58</time></div>
+        <div class="item" tabindex="0"><span class="t">アルジャーノン<small>ヨルシカ</small></span><time>4:12</time></div>
+      </div>
+      <div class="grp"><div class="d">10-30</div>
+        <div class="item" tabindex="0"><span class="t">海底<small>一支榴莲</small></span><time>4:41</time></div>
+        <div class="item" tabindex="0"><span class="t">letitout.mp3<small>无标签</small></span><time>—:—</time></div>
+        <div class="item" tabindex="0"><span class="t">Chinatown<small>Le Bonbon</small></span><time>3:24</time></div>
+      </div>
+    </section>
+    <section class="sec">
+      <h3>三版 · 本地电台<span>STATION</span></h3>
+      <div class="onair"><span class="lamp"><i></i>ON AIR</span><b>通勤电台 · 24</b><p>正在播 04 · Grand Escape · 随后 盗作 → Ivory</p></div>
+      <div class="item" tabindex="0"><span class="t">深夜公路<small>36 首 · 凌晨档</small></span><time>▶</time></div>
+      <div class="item" tabindex="0"><span class="t">写作 BGM<small>58 首 · 器乐多</small></span><time>▶</time></div>
+      <div class="item" tabindex="0"><span class="t">City Pop 整理中<small>21 首</small></span><time>▶</time></div>
+    </section>
+    <section class="sec">
+      <h3>四版 · 漫游<span>ROAM</span></h3>
+      <div class="whybox"><b>老人と海 — ヨルシカ</b><p><b>为什么是它：</b>你在《盗作》里跳过了 2 次同一首，却在《花に亡霊》停留过整首——这首介于两者之间。</p></div>
+      <div class="item" tabindex="0"><span class="t">少推这首<small>黑名单 · 过滤每日推荐</small></span><time>−</time></div>
+      <div class="item" tabindex="0"><span class="t">换一档<small>重新掷一次漫游</small></span><time>↻</time></div>
+    </section>
+  </div>
+  <!-- console -->
+  <footer class="console">
+    <div class="console-track"><div class="mini" role="img" aria-label="正在播放的黑胶"></div><div><strong>Grand Escape</strong><small>本地电台 · 通勤电台</small></div></div>
+    <div class="transport"><button aria-label="上一首">|◀</button><button class="play" aria-label="暂停">Ⅱ</button><button aria-label="下一首">▶|</button></div>
+    <div class="seek"><span>1:09</span><div class="bar" role="slider" aria-label="播放进度" aria-valuemin="0" aria-valuemax="292" aria-valuenow="69"><i></i></div><span>4:52</span></div>
+  </footer>
+</main>
+</div>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import type { TrackId } from "../../../contracts/index.js";
 import { matchKey, scoreKey, searchKeyOf, type SearchKey } from "../search/pinyin.js";
 import type { Track } from "./schema.js";
+import { normalizePath } from "./schema.js";
 import { applyMeta, type MetaOverrides } from "./meta.js";
 
 /**
@@ -95,6 +96,8 @@ export function searchTracks(keyword: string, limit = 12): Track[] {
     .map((h) => h.track);
 }
 
+/** 按 id 查曲目：队列里存的是原始路径（Windows 盘符大写、反斜杠），先归一化再比。 */
 export function trackById(id: TrackId): Track | undefined {
-  return all.find((t) => t.id === id);
+  const want = normalizePath(id);
+  return all.find((t) => t.id === want);
 }

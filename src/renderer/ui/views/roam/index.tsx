@@ -89,7 +89,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
           artist: track.artist,
           album: track.album,
           durationMs: track.durationMs,
-          why: "网易云按你账号的口味推的，不是本地曲库抽的",
+          why: "当前账号按你的口味推的，不是本地曲库抽的",
           kept: false,
           remote: { sourceId: acct.sourceId, track },
         },
@@ -193,7 +193,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
         title="漫游"
         desc={
           onlineMode
-            ? "牌堆来自账号的个人 FM——网易云按你的口味推的流，这里一张一张翻。"
+            ? "牌堆来自当前账号的个人 FM——按你的口味推的流，这里一张一张翻。"
             : "让机器挑，你只负责点头或摇头。抽的是什么，卡片上写清为什么是它。"
         }
         meta={`DRAWN · ${draws.length}`}
@@ -251,7 +251,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
               </div>
               {dislikeNote ? <p className="deck-empty">{dislikeNote}</p> : null}
               {onlineMode && drawnOnline >= fm.length ? (
-                <p className="deck-empty">这一批抽完了，点「再要一批」让网易云再推一轮。</p>
+                <p className="deck-empty">这一批抽完了，点「再要一批」让当前账号再推一轮。</p>
               ) : null}
             </>
           ) : (
@@ -265,7 +265,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
               <p className="why">
                 <b>怎么抽</b>
                 {onlineMode
-                  ? "网易云按你账号的口味给一批，这里按顺序一张一张翻；收下就直接播。"
+                  ? "当前账号按你的口味给一批，这里按顺序一张一张翻；收下就直接播。"
                   : "今天的推荐单洗成一副牌，一张一张翻；翻完一轮才重洗。红心曲目在牌堆里更靠前。"}
               </p>
               <div className="acts">

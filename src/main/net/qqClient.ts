@@ -79,6 +79,11 @@ const ALLOWED = new Set([
   "logout",
   "toplists", // A-14：榜单清单（/recommend/toplists，匿名可读）
   "toplist", // A-14：单榜曲目（/recommend/toplist，注意榜单不是歌单，接口不同）
+  "daily", // 账号：每日推荐（/user/daily-songs，需登录）
+  "likedSongs", // 账号：红心曲目分页（/user/liked-songs）
+  "guessYouLike", // 账号：猜你喜欢（/user/guess-you-like，个人 FM 的替代）
+  "songInfo", // 红心写入前取数字 songId（/getSongInfo/:songmid）
+  "like", // 账号：红心写入（POST /user/song/like）
 ]);
 
 export async function callQq(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
@@ -98,11 +103,24 @@ export async function callQq(method: string, params: Record<string, unknown> = {
       return qqStatus();
     case "logout":
       saveToken(""); // 会话作废，本地 token 一并清掉
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+      lastRefreshAt = 0;
       return callApi("/logout");
     case "toplists":
       return qqToplists();
     case "toplist":
       return qqToplist(params);
+    case "daily":
+      return qqDaily();
+    case "likedSongs":
+      return qqLikedSongs(params);
+    case "guessYouLike":
+      return qqGuessYouLike();
+    case "songInfo":
+      return qqSongInfo(params);
+    case "like":
+      return qqLike(params);
     default:
       throw new Error(`QQ 接口未实现：${method}`);
   }
@@ -221,6 +239,88 @@ async function qqQrPoll(params: Record<string, unknown>): Promise<unknown> {
 
 /* ---------- 登录态 ---------- */
 
+/*
+ * 会话续期（照 folia `qqSessionRefresh`）：stored 后端在同一个 token 下静默续期，
+ * 但只在"离到期不到 6 小时、又正好有请求"时才续——不主动问，会话到期就被删，
+ * 表现就是「登录过几次之后登录态自己丢了」。这里启动时问一次，之后每小时问一次。
+ */
+const REFRESH_MS = 60 * 60 * 1000;
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let lastRefreshAt = 0;
+
+async function qqRefresh(): Promise<void> {
+  const body = (await callApi("/login/refresh")) as { data?: { rotated?: unknown; token?: unknown } } | null;
+  const data = body?.data;
+  const token = typeof data?.token === "string" ? data.token.trim() : "";
+  if (data?.rotated === true && token && !/[;\s]/.test(token)) saveToken(token);
+}
+
+function keepSessionFresh(): void {
+  if (refreshTimer) return;
+  refreshTimer = setInterval(() => {
+    void qqRefresh().catch(() => undefined);
+  }, REFRESH_MS);
+  refreshTimer.unref?.();
+}
+
 async function qqStatus(): Promise<unknown> {
+  const token = await loadToken();
+  if (token) {
+    keepSessionFresh();
+    if (Date.now() - lastRefreshAt >= REFRESH_MS) {
+      lastRefreshAt = Date.now();
+      await qqRefresh().catch(() => undefined);
+    }
+  }
   return callApi("/login/status");
+}
+
+/* ---------- 账号级数据（每日 / 红心 / 猜你喜欢） ----------
+ * 与 Folia 同一组后端路由（qq-music-api 3.3）：
+ *   /user/daily-songs、/user/liked-songs、/user/guess-you-like、/user/song/like。
+ * 听歌历史这个包没有提供路由——不做假数据，provider 那边如实报不支持。
+ */
+
+interface QqSongsBody {
+  code?: number;
+  songs?: Record<string, unknown>[];
+  total?: unknown;
+  more?: unknown;
+}
+
+async function qqDaily(): Promise<unknown> {
+  return callApi<QqSongsBody>("/user/daily-songs");
+}
+
+async function qqLikedSongs(params: Record<string, unknown>): Promise<unknown> {
+  const offset = Math.max(0, Math.floor(Number(params.offset ?? 0) || 0));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(params.limit ?? 100) || 100)));
+  return callApi<QqSongsBody>(`/user/liked-songs?offset=${offset}&limit=${limit}`);
+}
+
+async function qqGuessYouLike(): Promise<unknown> {
+  return callApi<QqSongsBody>("/user/guess-you-like");
+}
+
+/** 红心写入要「数字 songId + songmid + type:0」三件套；mid 拿不到数字 id 就不写。 */
+async function qqSongInfo(params: Record<string, unknown>): Promise<unknown> {
+  const mid = String(params.mid ?? "");
+  if (!/^[0-9A-Za-z]{6,20}$/.test(mid)) throw new Error("非法 songmid");
+  return callApi(`/getSongInfo/${encodeURIComponent(mid)}`);
+}
+
+async function qqLike(params: Record<string, unknown>): Promise<unknown> {
+  const mid = String(params.mid ?? "");
+  const id = Number(params.id);
+  const liked = params.liked === true;
+  if (!/^[0-9A-Za-z]{6,20}$/.test(mid)) throw new Error("非法 songmid");
+  if (!Number.isSafeInteger(id) || id <= 0) throw new Error("QQ 红心缺数字 songId");
+  const token = await loadToken();
+  const sep = token ? `?cookie=${encodeURIComponent(`qqmusic_session=${token}`)}` : "";
+  const { json } = await fetchJson(`${qqApiUrl()}/user/song/like${sep}`, {
+    method: "POST",
+    json: { song: { id, mid, type: 0 }, liked },
+    timeoutMs: 20000,
+  });
+  return json;
 }

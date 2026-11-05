@@ -139,14 +139,17 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
 
     // 顺序要紧：folia 的坑 —— 先 setPositionState 再换 metadata，反了 Chromium 会清会话
     const duration = snap.durationMs > 0 ? snap.durationMs / 1000 : 0;
+    // 时长还没从音频读出来时 duration=0；此时 Chromium 只接受 position=0，
+    // 带任何进度都会抛 "position cannot be greater than duration"。等下一次快照即可。
+    if (duration === 0) return;
     try {
       session.setPositionState({
         duration,
-        position: Math.min(snap.positionMs / 1000, duration || snap.positionMs / 1000),
+        position: Math.min(Math.max(snap.positionMs, 0) / 1000, duration),
         playbackRate: 1,
       });
     } catch (err) {
-      // duration 为 0 或 position 越界时 Chromium 会抛：忽略，下一帧再来
+      // position 越界时 Chromium 也会抛：忽略，下一帧再来
       console.error("[media-session] setPositionState 失败", err);
     }
   };

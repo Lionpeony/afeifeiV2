@@ -3,20 +3,18 @@ import type { StagePreset } from "../../../../contracts/index.js";
 import { onTick } from "../../compositor.js";
 import { barHeights } from "./spectrum.js";
 import { ringGeom } from "./visuals.js";
-import { spectrumPower } from "./machi/adapter.js";
 
 const SPECTRUM_BARS = 48;
 
 export function useStageVisuals({
-  rootRef, enabled, mode, preset, intensity, spectrum, machi,
+  rootRef, enabled, mode, preset, intensity, spectrum,
 }: {
   rootRef: React.RefObject<HTMLElement | null>;
   enabled: boolean;
-  mode: "bars" | "wave" | "ring" | "machi";
+  mode: "bars" | "wave" | "ring";
   preset: StagePreset;
   intensity: 0 | 1 | 2;
   spectrum(bins: number): number[] | null;
-  machi?: { setTime(value: number): void; setPower(value: number): void };
 }) {
   const target = useRef({ x: 0, y: 0 });
   const current = useRef({ x: 0, y: 0 });
@@ -37,11 +35,6 @@ export function useStageVisuals({
       }
     }
     if (!enabled) return;
-    if (mode === "machi") {
-      machi?.setTime(time / 1000);
-      machi?.setPower(spectrumPower(spectrum(24) ?? []));
-      return;
-    }
     const canvas = rootRef.current?.querySelector<HTMLCanvasElement>(".st-spectrum");
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
@@ -73,7 +66,7 @@ export function useStageVisuals({
       });
     }
     context.globalAlpha = 1;
-  }), [enabled, mode, preset, intensity, spectrum, machi]);
+  }), [enabled, mode, preset, intensity, spectrum]);
 
   const onMouseMove = (event: React.MouseEvent<HTMLElement>): void => {
     if (preset !== "cinema" || intensity === 0) return;

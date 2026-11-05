@@ -60,7 +60,7 @@ export interface Api {
 
   // 音源本地通道（主进程内嵌 SDK）
   ncmCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
-  ncmProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  ncmProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }>;
   ncmLogout(): Promise<void>;
   qqCall(method: string, params?: Record<string, unknown>): Promise<unknown>;
   importUserSource(): Promise<{ name: string; code: string } | null>;
@@ -68,7 +68,7 @@ export interface Api {
   callUserSource(sourceId: string, method: string, params?: unknown): Promise<unknown>;
   qqLogin(channel?: string): Promise<{ key: string; qrImage: string }>;
   qqPoll(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
-  qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null }>;
+  qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }>;
   qqLogout(): Promise<void>;
   openMini(): Promise<void>;
   pushMiniState(json: string): void;
@@ -146,10 +146,6 @@ export interface Services {
   /** 开机自启（M9）：状态以系统为准，返回生效值。 */
   autoLaunch(): Promise<boolean>;
   setAutoLaunch(on: boolean): Promise<boolean>;
-  /** 首次使用引导（C-16）：启动时读到的标记。false = 还没看过，该弹引导。 */
-  onboarded: boolean;
-  /** 写入引导完成标记。之后启动不再弹。 */
-  markOnboarded(): Promise<void>;
   /** 歌词正则过滤（B-2）：一行一条；返回写错了、已忽略的模式。改规则不重抓歌词。 */
   lyricFilters(): Promise<string>;
   setLyricFilters(text: string): Promise<string[]>;
@@ -282,7 +278,7 @@ export interface Services {
   /** 轮询扫码结果（key 前缀 qq: 走 QQ）。qrImage 有值 = 页面刷新了二维码，UI 要更新。 */
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string; qrImage?: string }>;
   /** 查询某音源的登录态（只看账号接口 / cookie，不看凭据字段） */
-  loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
+  loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null; avatarUrl: string | null }>;
   /** 手机号登录：发短信验证码（仅网易云） */
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
   /** 手机号登录：用验证码换登录态（仅网易云） */

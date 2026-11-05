@@ -124,10 +124,8 @@ export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 /**
  * C1 视觉层的呈现模式（C-13）。前三种共用同一份 analyser 数据（I3 不破）：
  * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。
- * machi 町景是 folia 三维场景（three.js，自带渲染循环，见 views/stage/machi/），
- * 不走 2D canvas 管线——它是显式搬代码的例外（THIRD-PARTY-NOTICES.md）。
  */
-export type VisualMode = "bars" | "wave" | "ring" | "machi";
+export type VisualMode = "bars" | "wave" | "ring";
 
 export interface StageConfig {
   preset: StagePreset;
@@ -227,6 +225,19 @@ export type Intent =
   /** 等数据中（P0-26）：`playing` 但在 `waiting`。与"解码中"分开显示。 */
   | { type: "player/buffering"; on: boolean }
   | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }
+  /**
+   * 加入直播：队列、当前曲目、曲内偏移一次写入。
+   * 拆成 queue/set + player/seek 会在异步 load 完成时用切换瞬间的 0 覆盖偏移，
+   * 所以插播/接驳必须走这一条原子 intent。
+   */
+  | {
+      type: "player/joinLive";
+      items: TrackId[];
+      context?: TrackId[];
+      startAt?: number;
+      positionMs: number;
+      trackTitle?: string | null;
+    }
   /** 追加到队尾（"添加到队列"）：不打断当前播放，cursor 不动。 */
   | { type: "queue/add"; items: TrackId[] }
   | { type: "queue/next" }

@@ -3,6 +3,7 @@ import type { OnlinePlaylist, RemoteTrack } from "../../../../contracts/capabili
 import type { SavedPlaylistView } from "../../services.js";
 import { PageHead } from "../../PageHead.js";
 import { Segmented } from "../../Segmented.js";
+import { useActiveSource } from "../../use-active-source.js";
 
 export interface PlaylistViewProps {
   /** 只传 canPlaylists 为 true 的源（过滤在宿主做，本组件不做能力判断） */
@@ -58,7 +59,7 @@ export function PlaylistsView({
   importPlaylist,
   removePlaylist,
 }: PlaylistViewProps) {
-  const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
+  const [sourceId, setSourceId] = useActiveSource(sources);
   const [saved, setSaved] = useState<SavedPlaylistView[]>([]);
   const [playlists, setPlaylists] = useState<OnlinePlaylist[]>([]);
   const [selected, setSelected] = useState<Selection | null>(null);
@@ -68,9 +69,6 @@ export function PlaylistsView({
   const [busy, setBusy] = useState(false);
   const [ref, setRef] = useState("");
 
-  useEffect(() => {
-    if (!sourceId && sources[0]) setSourceId(sources[0].id);
-  }, [sources, sourceId]);
 
   useEffect(() => {
     let alive = true;
@@ -204,23 +202,24 @@ export function PlaylistsView({
 
       {note ? <p className="lib-note">{note}</p> : null}
 
-      <div className="pl-wrap">
-        <div className="pl-list">
-          {saved.length > 0 ? <p className="pl-sect">我收藏的 · {saved.length}</p> : null}
+      {/* 收藏歌单一进页面就是封面墙：这是"我的收藏"的主视觉，列表只留给账号歌单 */}
+      {saved.length > 0 ? (
+        <div className="pl-shelf" aria-label="我收藏的歌单">
           {saved.map((p) => (
-            <div className="pl-line" key={`${p.sourceId}:${p.id}`}>
+            <div className="pl-card-wrap" key={`${p.sourceId}:${p.id}`}>
               <button
                 type="button"
-                className={`pl-item ${isOn(p.sourceId, p.id) ? "on" : ""}`}
+                className={`pl-card${isOn(p.sourceId, p.id) ? " on" : ""}`}
                 onClick={() => open(p.sourceId, p.id)}
                 title={`${p.name}（${p.sourceId}）`}
               >
-                <span className="pl-name">{p.name}</span>
-                <span className="pl-count">{p.count > 0 ? `${p.count} 首` : "—"}</span>
+                {p.coverUrl ? <img src={p.coverUrl} alt="" loading="lazy" /> : <span className="pl-card-empty" />}
+                <b>{p.name}</b>
+                <span>{p.count > 0 ? `${p.count} 首` : "—"}</span>
               </button>
               <button
                 type="button"
-                className="pl-x"
+                className="pl-card-x"
                 aria-label={`取消收藏 ${p.name}`}
                 title="取消收藏（只是从本机列表移除，不删远端歌单）"
                 onClick={() => void drop(p)}
@@ -229,7 +228,11 @@ export function PlaylistsView({
               </button>
             </div>
           ))}
+        </div>
+      ) : null}
 
+      <div className="pl-wrap">
+        <div className="pl-list">
           <p className="pl-sect">账号歌单 · {sources.find((s) => s.id === sourceId)?.name ?? sourceId}</p>
           {playlists.map((p) => (
             <div className="pl-line" key={p.id}>

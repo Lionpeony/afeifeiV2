@@ -41,8 +41,6 @@ const STAGE_FILES = [
   "../src/renderer/ui/views/stage/stage.css",
   "../src/renderer/ui/views/stage/stage-queue.css",
   "../src/renderer/ui/views/stage/stage-panels.css",
-  "../src/renderer/ui/views/stage/stage-immersive.css",
-  "../src/renderer/ui/views/stage/stage-immersive-controls.css",
 ];
 
 test("stage 样式（拆分后的每个文件）只用场景层变量（剪掉 stage-scope 块后不得出现结构层/材质层）", () => {

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AFEIFEI · DIR A · 声路图</title>
+<style>
+/* 方向 A · 声路图：整页是一张接好线的声路示意图。
+   破格机制：页面不是「列表堆」，而是一张信号接线图——
+   音源站 → 队列枢纽 → 输出站，导线是真实布局的一部分；
+   正在播放的那条线用蓝色实心流动虚线，流速跟进度走。
+   冷纸 token 与 docs/26 同源；蓝只标当前/活跃导线，无渐变无光晕。 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);
+  --signal:#d9ef42;--danger:#d23b2e;
+  --line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden}
+button{font:inherit;color:inherit}
+.mono{font-family:var(--mono)}
+.frame{position:relative;height:100vh;padding:0 44px 40px;display:flex;flex-direction:column}
+/* 顶条：AF 标记 + 页名 + 检索，mono 索引带语言 */
+.strip{display:flex;align-items:baseline;gap:16px;border-bottom:1.5px solid var(--ink);padding:14px 0 10px}
+.mark{font:700 11px/1 var(--mono);letter-spacing:-.06em;border:1px solid var(--ink);padding:4px 6px}
+.strip h1{margin:0;font-size:22px;letter-spacing:-.05em;font-weight:600}
+.strip .lede{font:10px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.strip .right{margin-left:auto;display:flex;gap:18px;align-items:baseline;font:10px var(--mono);letter-spacing:.12em;color:var(--ink-soft)}
+.strip .right .now{color:var(--accent)}
+/* 主图区：接线图画布 */
+.map{position:relative;flex:1;min-height:0;margin-top:6px}
+svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.wire{fill:none;stroke:var(--ink-faint);stroke-width:1.25}
+.wire.dash{stroke-dasharray:3 4}
+.wire.live{stroke:var(--accent);stroke-width:1.75;stroke-dasharray:6 5;animation:flow 1.2s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-11}}
+/* 站点：方框 + mono 名牌，四角 L 标 */
+.station{position:absolute;background:var(--paper-hi);border:1px solid var(--ink);padding:10px 12px 9px;min-width:168px}
+.station:before,.station:after{content:"";position:absolute;width:7px;height:7px;border-color:var(--ink);border-style:solid}
+.station:before{top:-1px;left:-1px;border-width:1.5px 0 0 1.5px}
+.station:after{bottom:-1px;right:-1px;border-width:0 1.5px 1.5px 0}
+.station .cap{font:8.5px var(--mono);letter-spacing:.18em;color:var(--ink-dim);margin-bottom:4px}
+.station .name{font-size:13px;font-weight:600;letter-spacing:-.01em}
+.station .sub{margin-top:3px;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-soft)}
+.station.live{border-color:var(--accent)}
+.station.live .cap{color:var(--accent)}
+/* 队列枢纽：圆点节点串 */
+.hub{position:absolute;width:14px;height:14px;border:1.5px solid var(--ink);border-radius:50%;background:var(--paper-hi)}
+.hub.live{border-color:var(--accent);background:var(--accent)}
+.hub i{position:absolute;inset:3px;border-radius:50%;background:var(--ink)}
+.hub.live i{background:var(--paper)}
+/* 队列链条节点：非列表，是挂在主线上的短横站 */
+.node{position:absolute;display:flex;align-items:baseline;gap:9px;background:var(--paper);padding:4px 8px 4px 6px;border-left:2px solid var(--line);white-space:nowrap}
+.node .idx{font:9px var(--mono);letter-spacing:.1em;color:var(--ink-dim)}
+.node .t{font-size:12.5px;font-weight:550}
+.node .a{font-size:10.5px;color:var(--ink-soft)}
+.node .src{font:8.5px var(--mono);letter-spacing:.12em;color:var(--ink-dim);border:1px solid var(--line);padding:1px 4px}
+.node.past{opacity:.45}
+.node.live{border-left:2px solid var(--accent);background:var(--accent-wash)}
+.node.live .t{color:var(--accent)}
+/* 导线注记 */
+.wirenote{position:absolute;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-soft);background:var(--paper);padding:1px 5px}
+.wirenote b{color:var(--accent);font-weight:500}
+/* 底部图例行 */
+.legend{border-top:1px solid var(--line);padding-top:8px;display:flex;gap:22px;align-items:center;font:8.5px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.legend .sw{display:inline-block;width:18px;height:0;border-top:1.75px solid var(--accent);vertical-align:middle;margin-right:6px}
+.legend .sw.d{border-top:1.25px dashed var(--ink-faint)}
+.legend .sw.s{border-top:1.25px solid var(--ink-faint)}
+.legend .demo{margin-left:auto;color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="strip">
+    <span class="mark">AF·04</span>
+    <h1>声路。</h1>
+    <span class="lede">SESSION WIRING · 每个决定都画在线上</span>
+    <span class="right"><span>⌕ 检索 F</span><span class="now">▶ 杀死那个石家庄人 3:22 / 5:44</span><span>62%</span></span>
+  </header>
+
+  <div class="map">
+    <svg class="wires" viewBox="0 0 1352 700" preserveAspectRatio="none">
+      <!-- 音源 → 队列枢纽 -->
+      <path class="wire live" d="M212,88 L212,150 L560,150 L560,323"/>
+      <path class="wire"    d="M676,92 L676,150 L560,150"/>
+      <path class="wire dash" d="M1140,92 L1140,150 L560,150"/>
+      <!-- 枢纽 → 队列链（链挂在主干右侧） -->
+      <path class="wire live" d="M560,337 L560,540"/>
+      <!-- 当前曲 → 输出站 -->
+      <path class="wire live" d="M846,392 L1088,392 L1088,470"/>
+      <!-- 候选虚线 → 枢纽 -->
+      <path class="wire dash" d="M1146,278 L1146,330 L574,330"/>
+      <!-- 主干 → 历史（回放，不在线上） -->
+      <path class="wire dash" d="M560,586 L318,586"/>
+    </svg>
+
+    <!-- 音源站（上排） -->
+    <div class="station" style="left:60px;top:24px">
+      <div class="cap">SRC·01 本地曲库</div>
+      <div class="name">Library</div>
+      <div class="sub">1,284 首 · 62 专辑 · 89 歌手</div>
+    </div>
+    <div class="station live" style="left:590px;top:30px">
+      <div class="cap">SRC·02 网易云 · 已登录</div>
+      <div class="name">Netease</div>
+      <div class="sub">每日推荐 06 · FM 可用</div>
+    </div>
+    <div class="station" style="left:1054px;top:30px">
+      <div class="cap">SRC·03 QQ 音乐 · 未登录</div>
+      <div class="name">QQ Music</div>
+      <div class="sub">播放地址需登录 → 登录</div>
+    </div>
+
+    <!-- 队列枢纽 -->
+    <div class="hub live" style="left:553px;top:323px"><i></i></div>
+    <div class="wirenote" style="left:584px;top:318px">QUEUE HUB · <b>07 待播</b></div>
+
+    <!-- 队列链（挂在主干右侧，右缘对齐主干） -->
+    <div class="node past"   style="left:568px;top:246px"><span class="idx">Q-01</span><span class="t">杀死那个石家庄人</span><span class="a">万能青年旅店</span><span class="src">本地</span></div>
+    <div class="node live"   style="left:568px;top:378px"><span class="idx">Q-02</span><span class="t">秦皇岛</span><span class="a">万能青年旅店</span><span class="src">网易云</span></div>
+    <div class="node"        style="left:568px;top:430px"><span class="idx">Q-03</span><span class="t">夜空中最亮的星</span><span class="a">逃跑计划</span><span class="src">QQ</span></div>
+    <div class="node"        style="left:568px;top:482px"><span class="idx">Q-04</span><span class="t">New Boy</span><span class="a">朴树</span><span class="src">本地</span></div>
+
+    <!-- 候选站：每日推荐，虚线接入 -->
+    <div class="station" style="left:1060px;top:206px;min-width:236px">
+      <div class="cap">CAND · 每日推荐 · 候选</div>
+      <div class="name">山雀</div>
+      <div class="sub">为什么：你把《冀西南林路行》整张循环过 3 天</div>
+    </div>
+
+    <!-- 输出站 -->
+    <div class="station live" style="left:1002px;top:470px">
+      <div class="cap">OUT · 输出</div>
+      <div class="name">Speakers (Realtek)</div>
+      <div class="sub">EQ 6 段 · 交叉淡入 3s · 音量 80</div>
+    </div>
+    <div class="wirenote" style="left:860px;top:372px">正在演奏 · <b>62%</b></div>
+
+    <!-- 候选 2/3（右侧堆叠） -->
+    <div class="node" style="left:1060px;top:320px"><span class="idx">C-02</span><span class="t">平壤</span><span class="a">低苦艾</span></div>
+    <div class="node" style="left:1060px;top:358px"><span class="idx">C-03</span><span class="t">Field Below</span><span class="a">Fenne Lily</span></div>
+
+    <!-- 历史站：不在线上，只登记 -->
+    <div class="station" style="left:60px;top:520px;min-width:250px">
+      <div class="cap">LOG · 最近播放 · 已脱机</div>
+      <div class="sub" style="margin-top:6px">14:02 New Boy · 播完</div>
+      <div class="sub">13:47 岁月的童话主题曲 · 跳过</div>
+      <div class="sub">13:20 电台 · 个人 FM 第 3 轮</div>
+    </div>
+    <div class="wirenote" style="left:328px;top:578px">回放 · 不占声路</div>
+  </div>
+
+  <footer class="legend">
+    <span><i class="sw"></i>正在演奏的线</span>
+    <span><i class="sw s"></i>已接线音源</span>
+    <span><i class="sw d"></i>候选 / 未接线（点击接入）</span>
+    <span>CTRL+K 命令面板</span>
+    <span class="demo">DEMO DATA · 演示数据</span>
+  </footer>
+</div>
+</body>
+</html>

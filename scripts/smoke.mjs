@@ -232,12 +232,27 @@ async function main() {
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
-  // 首次使用引导（C-16）：独立 profile 首轮必弹；「跳过引导」落 KV，后续重启阶段不再弹
-  assert.ok(await app.waitFor(`!!document.querySelector(".ob-veil")`, 5000), "首次启动应出现使用引导");
-  await app.evaluate(
-    `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === "跳过引导")?.click()`,
+  // 外壳（C-17）：开机落在不夜台首页直播面；站尺替代顶栏/侧栏
+  assert.ok(await app.waitFor(`!!document.querySelector(".ruler")`, 5000), "直播壳站尺没出来");
+  assert.ok(await app.waitFor(`!!document.querySelector(".live-home")`, 5000), "首页直播面没出来");
+
+  // 旧外壳（顶栏 / 侧栏）已拆除：只剩站尺 + 内容 + 控制台
+  assert.ok(
+    await app.evaluate(`!document.querySelector(".tbar") && !document.querySelector(".rail")`),
+    "旧外壳（顶栏 / 侧栏）不该再出现",
   );
-  assert.ok(await app.waitFor(`!document.querySelector(".ob-veil")`, 3000), "引导应能被跳过关掉");
+
+  // 后续断的是本地页控件：从首页直播面切过去
+  await app.evaluate(
+    `[...document.querySelectorAll("button")].find((b) => b.textContent === "本地")?.click()`,
+  );
+  assert.ok(
+    await app.waitFor(
+      `[...document.querySelectorAll("button")].some((b) => (b.textContent || "").trim() === "扫描目录")`,
+      5000,
+    ),
+    "本地页没出来",
+  );
 
   // 按钮数会随功能增长，所以断"关键按钮存在"而不是断总数
   // 走带按钮是图形（<i>），可读名在 aria-label 上 —— 取"可见文字，没有就取无障碍名"
@@ -285,11 +300,13 @@ async function main() {
   assert.ok(sourceOptions.length > 0, "音源分段是空的（注册表没接上）");
 
   /* ---- 明暗主题（docs/09 B4）：切一次再切回，data-theme 是唯一开关 ---- */
+  // 开关在站尺右端；直播壳本身用固定夜间 token，明暗作用于各房间页
+  assert.ok(await app.waitFor(`!!document.querySelector(".ruler .theme-toggle")`, 3000), "站尺缺明暗按钮");
   const beforeTheme = await app.evaluate(`document.documentElement.dataset.theme ?? "(未设)"`);
-  await app.evaluate(`document.querySelector(".theme-toggle")?.click()`);
+  await app.evaluate(`document.querySelector(".ruler .theme-toggle")?.click()`);
   const flippedTheme = await app.evaluate(`document.documentElement.dataset.theme`);
   assert.notEqual(flippedTheme, beforeTheme, "点明暗按钮后 data-theme 没变");
-  await app.evaluate(`document.querySelector(".theme-toggle")?.click()`);
+  await app.evaluate(`document.querySelector(".ruler .theme-toggle")?.click()`);
   const backTheme = await app.evaluate(`document.documentElement.dataset.theme`);
   assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
   console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
@@ -334,30 +351,20 @@ async function main() {
   );
   console.log("  全局快捷键 OK：9 项含 seek，键位不撞车");
 
-  // 回到在线页：下一步要用它的搜索框（刚才 在线页 的那段断言在前）
+  // 回到在线页：确认产品音源列表（示例音源已于 2026-11-05 移除）
   await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
   await sleep(200);
   console.log(`  输出设备 OK：下拉 ${outputOpts.length} 项，setSinkId 可用`);
 
-  await app.evaluate(`(() => {
-    const input = document.querySelector(".search");
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
-    setter.call(input, "示例");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-  })()`);
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "搜索")?.click()`);
-  assert.ok(await app.waitFor(`document.querySelectorAll(".online-row").length > 0`, 5000), "在线搜索没出结果");
-
-  // 点第一条：示例源声明了 canGetUrl 但实现里明确拒绝，界面必须给中文人话而不是错误码
-  await app.evaluate(`document.querySelector(".online-row")?.click()`);
-  assert.ok(await app.waitFor(`(document.querySelector(".lib-note")?.textContent ?? "").length > 0`, 5000), "点击后没有提示");
-  const noteText = await app.evaluate(`document.querySelector(".lib-note")?.textContent ?? ""`);
-  assert.ok(
-    /不支持|问题|失败|有点慢/.test(noteText),
-    `提示应是中文人话，实际：${noteText}`,
+  const segs = await app.evaluate(
+    `[...document.querySelectorAll(".seg button")].map((b) => (b.textContent || "").trim())`,
   );
-  assert.ok(!/capability-missing|Error:/.test(noteText), `不该把错误码或原始异常漏给界面：${noteText}`);
-  console.log(`  在线链路 OK：${sourceOptions.length} 个音源，点击后提示「${noteText}」`);
+  assert.ok(
+    segs.includes("网易云音乐") && segs.includes("QQ 音乐"),
+    `在线音源列表不对，实际：${segs.join("/")}`,
+  );
+  assert.ok(!segs.includes("示例音源"), "示例音源不该再出现在产品里");
+  console.log("  在线音源 OK：网易云 / QQ，示例音源已移除");
 
   if (hasAudio) {
     const token = await app.evaluate(`window.api.grant(${JSON.stringify(samples[0])})`);
@@ -397,6 +404,8 @@ async function main() {
     const app2 = await launch([]);
     current = app2;
 
+    // 重启后外壳仍是不夜台：旧壳（直白模式）已删除，没有别的落点
+    assert.ok(await app2.waitFor(`!!document.querySelector(".ruler")`, 5000), "重启后没回到不夜台外壳");
     if (!(await app2.waitFor(`document.querySelector(".np-tx b")?.textContent === ${JSON.stringify(first)}`, 10000))) {
       const shown = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);
@@ -484,18 +493,7 @@ async function main() {
     );
     console.log("  底栏红心 OK：本地曲目点一下就亮，再点回去");
 
-    /* 账号每日推荐（R1）：未登录时必须说清「这是本地算的」，不能假装是账号的 */
-    await app2.evaluate(`document.querySelector('[data-page="home"]')?.click()`);
-    assert.ok(await app2.waitFor(`!!document.querySelector(".bill-end")`, 3000), "首页应有推荐节目单");
-    const billEnd = await app2.evaluate(`document.querySelector(".bill-end")?.textContent ?? ""`);
-    await app2.evaluate(`document.querySelector('[data-page="library"]')?.click()`); // 回到曲库，别影响后面阶段
-    assert.ok(
-      /登录|账号/.test(billEnd) || /END OF DAILY/.test(billEnd),
-      `首页推荐要能看出数据来源：${billEnd}`,
-    );
-    console.log(`  账号推荐 OK：未登录时首页给本地推荐 + 提示（${billEnd.slice(0, 20)}…）`);
-
-    /* 账号数据接入（R1）：喜欢 / 最近两页各挂一块账号区（未登录给提示，不是空白） */
+    /* 账号区块（R1）：喜欢 / 最近两页各挂一块账号区（未登录给提示，不是空白） */
     for (const [page, want] of [
       ["liked", "账号红心"],
       ["recent", "账号听歌排行"],

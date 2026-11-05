@@ -104,16 +104,10 @@ if (ctxTotal > 1) {
 }
 
 /* ---------- 规则 3：时间唯一 ---------- */
-// gate:（2026-11-04，原值：ui/projection 全禁 setInterval → 新值：另豁免 vendored 的
-// createMachiRuntime.ts 一个文件）。folia machi 引擎自带渲染循环（clockTimer 用 setInterval
-// 推环境钟、wake() 用 rAF 自节流），不改它的循环 = 不改 folia 的语义。该文件只在町景模式
-// 挂载时存在，卸载即 destroy()；除它之外 machi/ 目录仍受全部规则约束。
-const VENDORED_MACHI = "src/renderer/ui/views/stage/machi/createMachiRuntime.ts";
 
 for (const file of code) {
   const me = layerOf(file);
   if (!me || (me.name !== "ui" && me.name !== "projection")) continue;
-  if (norm(file) === VENDORED_MACHI) continue;
   const src = stripComments(read(file));
   if (/\baudio\s*\.\s*currentTime\b/.test(src)) {
     fail(`${norm(file)}: ${me.name} 层不许读 audio.currentTime，时间只能来自 kernel/clock（I1）`);
@@ -125,9 +119,7 @@ for (const file of code) {
 
 /* ---------- 规则 4：rAF 唯一 ---------- */
 for (const file of code) {
-  if (norm(file) === COMPOSITOR) continue;
-  if (norm(file) === VENDORED_MACHI) continue; // 同上，gate: 豁免
-  if (/\brequestAnimationFrame\s*\(/.test(stripComments(read(file)))) {
+  if (norm(file) === COMPOSITOR) continue;  if (/\brequestAnimationFrame\s*\(/.test(stripComments(read(file)))) {
     fail(`${norm(file)}: requestAnimationFrame 只准出现在 ${COMPOSITOR}（50 §9.1）`);
   }
 }

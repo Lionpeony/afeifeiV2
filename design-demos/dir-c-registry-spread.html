@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>AFEIFEI · DIR C · 对开登记簿</title>
+<style>
+/* 方向 C · 对开登记簿：整页是一本摊开的登记簿。
+   破格机制：① 中缝——左右页之间的双线沟槽里走一根「演奏线」，
+   纵向填充长度 = 当前曲进度，全站唯一进度载体，任意页可见可点；
+   ② 右页全部是注记（为什么/状态/来源），左页全是条目——
+   内容与解释强制分栏，可解释性成为版面结构而不是附注。
+   与锁定的播放页（演奏尺）血缘一致：线即歌的横向线 → 全站纵向线。 */
+:root{
+  --paper:#f3f2ed;--paper-hi:#faf9f5;--paper-lo:#e9e7df;
+  --ink:#11131b;--ink-soft:#4a4f5a;--ink-dim:#8b8f98;--ink-faint:#b9bcc3;
+  --accent:#233ff2;--accent-wash:rgba(35,63,242,.07);
+  --signal:#d9ef42;--danger:#d23b2e;
+  --line:rgba(17,19,27,.18);--line-soft:rgba(17,19,27,.09);
+  --mono:"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  --sans:"Segoe UI Variable Display","Segoe UI Variable","Microsoft YaHei UI","Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--sans);overflow:hidden}
+button{font:inherit;color:inherit}
+.mono{font-family:var(--mono)}
+.book{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 72px minmax(0,1fr);position:relative}
+/* ── 中缝 ── */
+.gutter{position:relative;border-left:1px solid var(--ink);border-right:1px solid var(--ink);background:var(--paper-lo);
+  background-image:repeating-linear-gradient(0deg,transparent 0 22px,var(--line-soft) 22px 23px)}
+/* 演奏线：纵向，填充=进度，整条可点=seek */
+.thread{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--paper-hi);outline:1px solid var(--line)}
+.thread .fill{position:absolute;top:0;left:0;right:0;height:62%;background:var(--accent)}
+.thread .head{position:absolute;top:62%;left:50%;transform:translate(-50%,-50%);width:9px;height:9px;background:var(--accent)}
+.gt-lab{position:absolute;left:50%;transform:translateX(-50%);font:8.5px var(--mono);letter-spacing:.12em;color:var(--ink-soft);background:var(--paper-lo);padding:2px 4px;white-space:nowrap}
+.gt-top{top:14px}.gt-mid{top:calc(62% + 22px);color:var(--accent)}.gt-bot{bottom:14px}
+/* ── 页公共 ── */
+.page{position:relative;display:flex;flex-direction:column;min-width:0;padding:0 40px 46px}
+.page.left{padding-left:44px}.page.right{padding-right:44px}
+.folio{position:absolute;bottom:12px;font:9px var(--mono);letter-spacing:.2em;color:var(--ink-dim)}
+.page.left .folio{left:44px}.page.right .folio{right:44px}
+.state{display:flex;justify-content:space-between;gap:10px;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-soft);padding:7px 2px;border-bottom:1px solid var(--line-soft)}
+.state b{color:var(--ink);font-weight:500}
+.state .ok{color:var(--accent)}
+.state .dl{color:var(--ink)}
+.phead{display:flex;align-items:baseline;gap:14px;border-bottom:1.5px solid var(--ink);padding:14px 0 10px}
+.mark{font:700 11px/1 var(--mono);letter-spacing:-.06em;border:1px solid var(--ink);padding:4px 6px}
+.phead h1{margin:0;font-size:22px;letter-spacing:-.05em;font-weight:600}
+.phead .lede{font:10px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+.phead .side{margin-left:auto;font:10px var(--mono);letter-spacing:.12em;color:var(--ink-soft)}
+/* 左页：条目（登记表） */
+.cols{display:grid;grid-template-columns:44px minmax(0,1fr) 96px 64px;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line-soft);align-items:baseline}
+.cols.h{border-bottom:1px solid var(--ink);color:var(--ink-dim);font:8.5px var(--mono);letter-spacing:.16em}
+.cols .idx{font:9px var(--mono);letter-spacing:.1em;color:var(--ink-dim)}
+.cols .t{font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cols .t small{font-weight:400;color:var(--ink-soft);margin-left:8px;font-size:11px}
+.cols .m{font:8.5px var(--mono);letter-spacing:.12em;color:var(--ink-soft)}
+.cols .m.warn{color:var(--ink-dim)}
+.cols .rt{font:9px var(--mono);color:var(--ink-dim);text-align:right}
+.cols:hover{background:var(--accent-wash)}
+.seg{margin-top:20px}
+.seg-h{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--ink);padding-bottom:6px;margin-bottom:2px}
+.seg-h h2{margin:0;font-size:14px;font-weight:600}
+.seg-h .n{font:9px var(--mono);letter-spacing:.14em;color:var(--ink-dim)}
+/* 右页：注记（全部是解释） */
+.note{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;padding:10px 2px;border-bottom:1px solid var(--line-soft)}
+.note .ref{font:10px var(--mono);color:var(--accent);letter-spacing:.04em}
+.note .ref.dim{color:var(--ink-dim)}
+.note .bd{font-size:11px;line-height:1.55;color:var(--ink-soft)}
+.note .bd b{color:var(--ink);font-weight:600}
+.note .cap{font:8.5px var(--mono);letter-spacing:.18em;color:var(--ink-dim);margin:20px 0 2px}
+.note .cap:first-child{margin-top:14px}
+.note .state{display:flex;justify-content:space-between;font:9px var(--mono);letter-spacing:.1em;color:var(--ink-soft);padding:7px 2px;border-bottom:1px solid var(--line-soft)}
+.note .state b{color:var(--ink);font-weight:500}
+.note .state .ok{color:var(--accent)}
+.note .state .dl{color:var(--ink);}
+</style>
+</head>
+<body>
+<div class="book">
+  <!-- 左页：条目 -->
+  <section class="page left">
+    <header class="phead">
+      <span class="mark">AF·04</span>
+      <h1>首页。</h1>
+      <span class="lede">REGISTRY · 左页条目 / 右页注记</span>
+      <span class="side">⌕ F</span>
+    </header>
+
+    <div class="seg">
+      <div class="seg-h"><h2>今日推荐</h2><span class="n">REC · 06</span></div>
+      <div class="cols h"><span>NO.</span><span>条目</span><span>来源</span><span class="rt">时长</span></div>
+      <div class="cols"><span class="idx">R-01</span><span class="t">山雀<small>万能青年旅店</small></span><span class="m">网易云</span><span class="rt">4:12</span></div>
+      <div class="cols"><span class="idx">R-02</span><span class="t">平壤<small>低苦艾</small></span><span class="m">网易云</span><span class="rt">5:03</span></div>
+      <div class="cols"><span class="idx">R-03</span><span class="t">Field Below<small>Fenne Lily</small></span><span class="m">LRCLIB</span><span class="rt">3:48</span></div>
+      <div class="cols"><span class="idx">R-04</span><span class="t">夜空中最亮的星<small>逃跑计划</small></span><span class="m warn">QQ·未登录</span><span class="rt">4:12</span></div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-h"><h2>最近播放</h2><span class="n">LOG · 今日 12</span></div>
+      <div class="cols"><span class="idx">▶</span><span class="t" style="color:var(--accent)">杀死那个石家庄人<small>万能青年旅店</small></span><span class="m">本地</span><span class="rt">62%</span></div>
+      <div class="cols"><span class="idx">L-11</span><span class="t">New Boy<small>朴树</small></span><span class="m">本地</span><span class="rt">14:02</span></div>
+      <div class="cols"><span class="idx">L-10</span><span class="t">岁月的童话主题曲<small>平野妃菜</small></span><span class="m">电台</span><span class="rt">13:47</span></div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-h"><h2>下载</h2><span class="n">DL · 2 并发 / 上限 6</span></div>
+      <div class="cols"><span class="idx">D-01</span><span class="t">山雀<small>万能青年旅店 · flac</small></span><span class="m">62% · 2.4MB/s</span><span class="rt">剩 40s</span></div>
+      <div class="cols"><span class="idx">D-02</span><span class="t">平壤<small>低苦艾 · 320k</small></span><span class="m warn">排队中</span><span class="rt">#2</span></div>
+    </div>
+    <span class="folio">F.041 · 条目页</span>
+  </section>
+
+  <!-- 中缝：演奏线 -->
+  <aside class="gutter">
+    <span class="gt-lab gt-top">0:00</span>
+    <div class="thread"><div class="fill"></div><div class="head"></div></div>
+    <span class="gt-lab gt-mid">3:22 · 62%</span>
+    <span class="gt-lab gt-bot">5:44</span>
+  </aside>
+
+  <!-- 右页：注记 -->
+  <section class="page right">
+    <header class="phead">
+      <span class="lede" style="margin-left:auto">MARGINALIA · 注记页</span>
+      <span class="side">◀ ▶ 翻页</span>
+    </header>
+
+    <div class="note"><span class="cap" style="grid-column:1/3">今日推荐 · 为什么</span></div>
+    <div class="note"><span class="ref">R-01</span><span class="bd">你把 <b>《冀西南林路行》整张循环了 3 天</b>，按同专辑系谱推 R-01 / R-04。</span></div>
+    <div class="note"><span class="ref">R-02</span><span class="bd">与 R-01 同厂牌，你收藏过该厂牌另外 2 张。</span></div>
+    <div class="note"><span class="ref">R-03</span><span class="bd">你最近两周 <b>慢速人声占比 41%</b>（上周 28%）。</span></div>
+    <div class="note"><span class="ref dim">R-04</span><span class="bd">QQ 音源未登录，试听 30s 后需扫码 —— <b>点此登录</b>。</span></div>
+
+    <div class="note" style="border-bottom:none"><span class="cap" style="grid-column:1/3">状态</span></div>
+    <div class="state"><span>网易云</span><b class="ok">已登录 · 每日推荐 06</b></div>
+    <div class="state"><span>QQ 音乐</span><b>未登录</b></div>
+    <div class="state"><span>下载</span><b class="dl">山雀.flac · 62% · 2 并发</b></div>
+    <div class="state"><span>输出</span><b>Speakers · EQ 6 段 · 80%</b></div>
+
+    <div class="note"><span class="cap" style="grid-column:1/3">队列预告</span></div>
+    <div class="note"><span class="ref dim">Q-02</span><span class="bd">下一首 <b>秦皇岛</b>，来自你手动加入的专辑顺播。</span></div>
+    <div class="note"><span class="ref dim">Q-03</span><span class="bd">之后 <b>夜空中最亮的星</b>（QQ）——未登录，将先试听。</span></div>
+    <span class="folio">F.042 · 注记页</span>
+  </section>
+</div>
+</body>
+</html>

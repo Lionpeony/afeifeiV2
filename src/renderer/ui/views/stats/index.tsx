@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { getSessions, subscribe as subscribeLog } from "../../../domain/listening/log.js";
 import { fmtListening, summarize, type ListeningStats } from "../../../projection/stats.js";
 import { PageHead } from "../../PageHead.js";
@@ -67,11 +67,14 @@ export function StatsView() {
 
           <section className="stats-block">
             <h3>什么时候听</h3>
-            <div className="stats-hours" aria-label="按小时统计的听歌时长">
+            <div className="stats-heat" aria-label="按小时统计的听歌时长">
               {stats.byHour.map((ms, hour) => (
-                <div key={hour} className="stats-hour" title={`${hour} 时 · ${fmtListening(ms)}`}>
-                  <div className="stats-hour-bar" style={{ height: `${(ms / maxHour) * 100}%` }} />
-                </div>
+                <span
+                  key={hour}
+                  className="stats-heat-cell"
+                  title={`${hour} 时 · ${fmtListening(ms)}`}
+                  style={{ "--heat": Math.round((ms / maxHour) * 100) } as CSSProperties}
+                />
               ))}
             </div>
             <div className="stats-hour-axis">

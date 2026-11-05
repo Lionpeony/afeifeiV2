@@ -186,58 +186,13 @@ app.whenReady().then(async () => {
     return true;
   };
 
-  // 首次使用引导（C-16）：临时 profile 每次都是新 KV，引导必须出现。
-  // 三步走完（判据：步进文案 + 第三步「开始用」），拍两张，关掉 —— 不挡后面的页面截图。
-  const ob1 = await win.webContents.executeJavaScript(
-    `(() => {
-      const veil = document.querySelector(".ob-veil");
-      if (!veil) return null;
-      return {
-        title: veil.querySelector("h2")?.textContent ?? "",
-        steps: veil.querySelectorAll(".ob-dots i").length,
-        skip: [...veil.querySelectorAll("button")].some((b) => b.textContent === "跳过引导"),
-      };
-    })()`,
-    true,
-  );
-  if (!ob1) throw new Error("首次启动没有出现使用引导（.ob-veil）");
-  if (ob1.steps !== 3 || !ob1.skip) throw new Error(`引导结构不对：${JSON.stringify(ob1)}`);
-  if (ob1.title !== "先把歌放进来") throw new Error(`引导第一步不对：${ob1.title}`);
-  await shoot("page-onboarding.png");
-  for (const label of ["下一步", "下一步"]) {
-    await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === ${JSON.stringify(label)})?.click()`,
-      true,
-    );
-    await sleep(250);
-  }
-  const ob3 = await win.webContents.executeJavaScript(
-    `(() => ({
-      title: document.querySelector(".ob-card h2")?.textContent ?? "",
-      buttons: [...document.querySelectorAll(".ob-foot button")].map((b) => b.textContent.trim()),
-    }))()`,
-    true,
-  );
-  if (ob3.title !== "播放页随便换看法" || !ob3.buttons.includes("开始用")) {
-    throw new Error(`引导没走到第三步：${JSON.stringify(ob3)}`);
-  }
-  await shoot("page-onboarding-last.png");
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".ob-foot button")].find((b) => b.textContent === "开始用")?.click()`,
-    true,
-  );
-  await sleep(250);
-  const obGone = await win.webContents.executeJavaScript(`!document.querySelector(".ob-veil")`, true);
-  if (!obGone) throw new Error("引导关掉后还挂着");
-  const obFlag = path.join(PROFILE, "store-onboarded.json");
-  if (!fs.existsSync(obFlag) || fs.readFileSync(obFlag, "utf8").trim() !== "1") {
-    throw new Error("引导完成标记没写进 KV");
-  }
+  // 首次使用引导（C-16）已下线（2026-11-05 用户要求去掉启动弹窗）：
+  // 原三步引导的截图与 KV 判据一并移除，page-onboarding*.png 不再产出。
 
   for (const [label, id] of PAGES) {
     const ok = await win.webContents.executeJavaScript(
       `(() => {
-        const b = [...document.querySelectorAll(".rail button")].find((x) => x.textContent === ${JSON.stringify(label)});
+        const b = document.querySelector('.ruler-tick[data-page="${id}"]');
         if (!b) return false;
         b.click();
         return true;
@@ -328,7 +283,7 @@ app.whenReady().then(async () => {
 
   // 听歌报告（B-12）：账本在启动前注入，四个数字卡 + 7 根柱要有内容
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "听歌报告")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="stats"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -347,7 +302,7 @@ app.whenReady().then(async () => {
 
   // 不喜欢（B-11）：漫游抽一张 → 点少推 → 名单落盘 → 设置页清单出现
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "漫游")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="roam"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -379,7 +334,7 @@ app.whenReady().then(async () => {
   }
   await shoot(`page-roam-dislike${suffix}.png`);
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "设置")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="settings"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -391,7 +346,7 @@ app.whenReady().then(async () => {
 
   // 歌单页（M11）：账号歌单 → 一键收藏 → 粘链接导入 → 点开取曲目
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "歌单")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="playlists"]')?.click()`,
     true,
   );
   await sleep(500);
@@ -458,7 +413,7 @@ app.whenReady().then(async () => {
 
   // 下载增强（B-10）：在线搜索 3 首 → 全选 → 批量下载 → 下载页出现 3 个任务
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "在线")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="online"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -506,7 +461,7 @@ app.whenReady().then(async () => {
   await sleep(500);
 
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "下载")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="downloads"]')?.click()`,
     true,
   );
   await sleep(400);
@@ -545,7 +500,7 @@ app.whenReady().then(async () => {
 
   // 歌手详情（M11）：本地页「艺人」→ 第一个歌手。验专辑条 + 行内歌手链接没把行点崩
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "本地")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
     true,
   );
   await sleep(200);
@@ -638,7 +593,7 @@ app.whenReady().then(async () => {
 
   // 夜间一版（docs/09 B4 证据）：同一进程切主题，不重启、不重排
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".rail button")].find((x) => x.textContent === "本地")?.click()`,
+    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
     true,
   );
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
@@ -806,39 +761,6 @@ app.whenReady().then(async () => {
   await clickViewBtn("视图");
   await sleep(300);
   await shoot("page-stage-carousel.png");
-
-  // 町景（C-13，folia machi 移植）：重开菜单切「町景」，再关掉拍（create 异步，等着色器编完）
-  try {
-    await clickViewBtn("视图");
-    await sleep(300);
-    console.error("MACHI-STEP 1 menu reopened");
-    await win.webContents.executeJavaScript(clickMenuBtn("町景"), true);
-    console.error("MACHI-STEP 2 mode switched");
-    await clickViewBtn("视图");
-    console.error("MACHI-STEP 3 menu closed");
-  } catch (err) {
-    console.error("MACHI-STEP failed:", err?.message ?? err);
-  }
-  // 首次进町景要编译整套着色器（软渲染的机器上以 10 秒计），等够再拍。
-  // 换菜单关闭那步如果被 three 初始化的拒绝打断，这里再补一次（不致命）
-  await sleep(30000);
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === "视图")?.click()`,
-    true,
-  ).catch(() => undefined);
-  await sleep(5000);
-  await shoot("page-stage-machi.png");
-  const machi = await win.webContents.executeJavaScript(
-    `(() => {
-      const host = document.querySelector(".st-machi");
-      const canvas = host?.querySelector("canvas");
-      return { host: !!host, canvas: !!canvas, w: canvas?.width ?? 0, h: canvas?.height ?? 0 };
-    })()`,
-    true,
-  );
-  if (!machi.host || !machi.canvas || machi.w < 100 || machi.h < 100) {
-    throw new Error(`町景画布没挂出来：${JSON.stringify(machi)}`);
-  }
 
   app.quit();
 });

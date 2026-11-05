@@ -301,6 +301,36 @@ function reduce(current: AppState, intent: Intent): AppState {
       return switchTo(staged, cursor);
     }
 
+    case "player/joinLive": {
+      const items = intent.items;
+      if (items.length === 0) return current;
+      const cursor = clampCursor(items, intent.startAt ?? 0);
+      const trackId = items[cursor];
+      const positionMs = Number.isFinite(intent.positionMs) ? Math.max(0, intent.positionMs) : 0;
+      // 不走 switchTo：后者把状态压回 loading/0，异步 load 完成后偏移就没了。
+      // 这里直接进入 playing + 偏移，reconcile 的换歌分支会在 load 后带着它起播。
+      return {
+        ...current,
+        player: {
+          ...player,
+          status: "playing",
+          trackId,
+          trackTitle: intent.trackTitle ?? null,
+          positionMs,
+          error: null,
+          remote: null,
+        },
+        queue: {
+          ...queue,
+          items,
+          cursor,
+          context: intent.context ?? items,
+          history: pushHistory([], trackId),
+          failed: [],
+        },
+      };
+    }
+
     case "queue/add": {
       // 追加到队尾：不打断当前播放，光标不动（唱完这几首才会轮到）
       const add = intent.items.filter((id) => typeof id === "string" && id.length > 0);
