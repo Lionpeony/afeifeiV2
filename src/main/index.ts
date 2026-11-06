@@ -14,6 +14,7 @@ import { startUpdateCheck } from "./update/checker.js";
 import { registerMediaKeys, unregisterMediaKeys, type PlaybackCommand } from "./mediaKeys.js";
 import { GlobalShortcutController } from "./globalShortcuts.js";
 import { createTray, destroyTray } from "./tray.js";
+import { readKey, writeKey } from "./fs/kv.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
 // 分多次调用会互相覆盖（见 host/index.ts）。
@@ -30,6 +31,15 @@ installCrashGuard();
 
 /** 主窗口（托盘/媒体键都要把它找回来；关窗只隐藏，不销毁）。 */
 let mainWin: BrowserWindow | null = null;
+
+/* ---- 界面缩放 ----
+ * 设计稿按 9–13px 排，1280 宽下正文偏小。给主窗口一个默认放大，
+ * Ctrl + / - / 0 随时调，结果持久化到 KV（迷你窗 / 歌词窗不跟）。 */
+const ZOOM_KEY = "ui-zoom";
+const ZOOM_DEFAULT = 1.2;
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 1.6;
+const clampZoom = (n: number): number => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(n * 100) / 100));
 /** 用户真的要退出（托盘「退出」/ 系统注销）：此时关窗才允许销毁。 */
 let quitting = false;
 /** 媒体键兜底通道的命令出口（createWindow 里赋值）。 */
@@ -160,9 +170,10 @@ if (!locked) {
       width: 1280,
       height: 800,
       // 布局下限：rail 5×44 + tail 4×34 ≈ 388，加顶栏与 console 后 620 才不裁「设置」入口；
-      // 宽度给到 960 是因为页头（标题 + 统计 + 5 个排序 chip + 扫描按钮）再窄就把按钮压成竖排
-      minWidth: 960,
-      minHeight: 620,
+      // 宽度给到 960 是因为页头（标题 + 统计 + 5 个排序 chip + 扫描按钮）再窄就把按钮压成竖排。
+      // 按默认 1.2 界面缩放折算：960×1.2≈1152、620×1.2≈744 —— 取整后保证缩放后仍剩 960×620 的布局宽高。
+      minWidth: 1160,
+      minHeight: 740,
       // 无框窗口：去掉「原生标题栏 + 应用内顶栏」叠两层的老样子。
       // 右上三键由系统绘制（titleBarOverlay），颜色初始值 = tokens.css 日间 --bg/--fg，
       // 主题切换后由渲染层经 win:overlayTheme 同步（主进程不存第二份色值）。
@@ -179,6 +190,31 @@ if (!locked) {
     });
 
     mainWin = win;
+
+    let zoom = ZOOM_DEFAULT;
+    const applyZoom = (factor: number): void => {
+      zoom = clampZoom(factor);
+      if (!win.isDestroyed()) win.webContents.setZoomFactor(zoom);
+    };
+    applyZoom(ZOOM_DEFAULT);
+    void readKey(ZOOM_KEY)
+      .then((raw) => {
+        const n = Number(raw);
+        if (Number.isFinite(n) && n > 0) applyZoom(n);
+      })
+      .catch(() => undefined);
+    // 导航/重载后缩放会被重置，每次加载完补一次
+    win.webContents.on("did-finish-load", () => applyZoom(zoom));
+    win.webContents.on("before-input-event", (event, input) => {
+      if (input.type !== "keyDown" || !input.control) return;
+      const plus = input.key === "+" || input.key === "=" || input.code === "NumpadAdd";
+      const minus = input.key === "-" || input.code === "NumpadSubtract";
+      const reset = input.key === "0" || input.code === "Digit0" || input.code === "Numpad0";
+      if (!plus && !minus && !reset) return;
+      event.preventDefault();
+      applyZoom(reset ? ZOOM_DEFAULT : zoom + (plus ? 0.05 : -0.05));
+      void writeKey(ZOOM_KEY, String(zoom)).catch(() => undefined);
+    });
 
     // A-25：点 × 只是收进托盘（正在播的歌不该被误停）；真正退出走托盘「退出」或系统注销
     win.on("close", (e) => {

@@ -84,11 +84,11 @@ try {
   /* ---- 榜单：真实 toplist + 下钻 ---- */
   await clickPage("charts");
   await pickSource("网易云音乐");
-  const chartsReady = await app.waitFor(`document.querySelectorAll(".chart-rail .chart-cell").length > 0`, 25000);
+  const chartsReady = await app.waitFor(`document.querySelectorAll(".pl-item.chart-item").length > 0`, 25000);
   await sleep(600);
   await shoot("real-charts.png");
   if (chartsReady) {
-    await ev(`(() => { document.querySelector(".chart-rail .chart-cell")?.click(); return true; })()`);
+    await ev(`(() => { document.querySelector(".pl-item.chart-item")?.click(); return true; })()`);
     const rows = await app.waitFor(`document.querySelectorAll(".lib-row").length > 0`, 25000);
     await sleep(600);
     await shoot("real-chart-detail.png");

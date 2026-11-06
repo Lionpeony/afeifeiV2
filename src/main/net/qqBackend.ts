@@ -19,7 +19,10 @@ import { log } from "../log/index.js";
 export const QQ_API_PORT = Number(process.env.QQ_API_PORT ?? 3210);
 export const qqApiUrl = (): string => `http://127.0.0.1:${QQ_API_PORT}`;
 
-const SESSION_FILE = (): string => path.join(dataDir(), "cache", "qq-auth-sessions.json");
+/* 不能放 dataDir()/cache：Windows 大小写不敏感，和 Chromium 的 Cache/ 是同一目录，
+ * 应用退出时会被当缓存清掉 —— 表现就是「登录过，重启后登录态没了」。
+ * 与 qq-session-token.json 一样放根目录。 */
+const SESSION_FILE = (): string => path.join(dataDir(), "qq-auth-sessions.json");
 
 /** 同步会话仓库：包要求 require 后立即注入，fs 同步实现最直接（文件小、频次低）。 */
 function makeSessionRepository(): {
@@ -29,7 +32,10 @@ function makeSessionRepository(): {
 } {
   const load = (): unknown => {
     try {
-      return JSON.parse(fs.readFileSync(SESSION_FILE(), "utf8"));
+      const text = fs.readFileSync(SESSION_FILE(), "utf8");
+      const sessions = JSON.parse(text) as unknown;
+      log("info", `[qq] 会话仓库读盘：${Array.isArray(sessions) ? sessions.length : 0} 条`);
+      return sessions;
     } catch {
       return [];
     }
@@ -41,6 +47,7 @@ function makeSessionRepository(): {
       try {
         fs.mkdirSync(path.dirname(SESSION_FILE()), { recursive: true });
         fs.writeFileSync(SESSION_FILE(), JSON.stringify(sessions), "utf8");
+        log("info", `[qq] 会话仓库写盘：${sessions.length} 条`);
       } catch (err) {
         log("warn", `[qq] 会话写盘失败：code=${(err as NodeJS.ErrnoException).code ?? "unknown"}`);
       }

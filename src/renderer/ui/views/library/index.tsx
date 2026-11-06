@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Track } from "../../../domain/library/schema.js";
 import {
   getFiltered,
@@ -37,6 +37,10 @@ export interface LibraryViewProps {
   cover(id: string, path: string): Promise<string | null>;
   /** 改显示元数据（M11）：只写索引覆盖，不动音频文件。 */
   onEditMeta(id: string, patch: { title?: string; artist?: string; album?: string }): Promise<void>;
+  /** 「下载」标签的内容（与本地曲库同页，宿主提供） */
+  downloads?(): ReactNode;
+  /** 「电台」标签的内容（与本地曲库同页，宿主提供） */
+  radio?(): ReactNode;
 }
 
 type Mode = "all" | "likes";
@@ -57,7 +61,10 @@ export function LibraryView({
   scanNote,
   cover,
   onEditMeta,
+  downloads,
+  radio,
 }: LibraryViewProps) {
+  const [tab, setTab] = useState<"library" | "downloads" | "radio">("library");
   const [rows, setRows] = useState<Track[]>(getFiltered());
   const [keyword, setKeyword] = useState(getQuery());
   const [total, setTotal] = useState(getTracks().length);
@@ -128,7 +135,29 @@ export function LibraryView({
 
   return (
     <section className="library">
-      <PageHead title="本地" meta="LIBRARY" />
+      <PageHead
+        title={tab === "downloads" ? "下载" : tab === "radio" ? "电台" : "本地"}
+        meta={tab === "downloads" ? "DOWNLOADS" : tab === "radio" ? "STATIONS" : "LIBRARY"}
+        extra={
+          <div className="lib-tabs">
+            <button type="button" className={tab === "library" ? "on" : ""} onClick={() => setTab("library")}>
+              曲库
+            </button>
+            <button type="button" className={tab === "downloads" ? "on" : ""} onClick={() => setTab("downloads")}>
+              下载
+            </button>
+            <button type="button" className={tab === "radio" ? "on" : ""} onClick={() => setTab("radio")}>
+              电台
+            </button>
+          </div>
+        }
+      />
+      {tab === "downloads" ? (
+        downloads?.() ?? <p className="lib-empty">还没准备好，请稍候。</p>
+      ) : tab === "radio" ? (
+        radio?.() ?? <p className="lib-empty">电台还没准备好，请稍候。</p>
+      ) : (
+        <>
       <div className="lib-head">
         <input
           className="search"
@@ -346,6 +375,8 @@ export function LibraryView({
             {lists.length === 0 ? <p className="pl-empty">还没有歌单。</p> : null}
           </aside>
         </div>
+      )}
+        </>
       )}
 
       {editing ? (

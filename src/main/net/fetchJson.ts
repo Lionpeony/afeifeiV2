@@ -91,7 +91,16 @@ export async function fetchJson(url: string, options: FetchJsonOptions = {}): Pr
     const setCookie = response.headers.getSetCookie?.() ?? [];
 
     if (!response.ok) {
-      log("warn", `[net] HTTP ${response.status} ${url.slice(0, 120)}`);
+      // 只记 origin + path：QQ 会话 token 在 query 里，整串打进日志等于把凭据落盘
+      const safe = (() => {
+        try {
+          const u = new URL(url);
+          return `${u.origin}${u.pathname}`;
+        } catch {
+          return "(非法 URL)";
+        }
+      })();
+      log("warn", `[net] HTTP ${response.status} ${safe}`);
     }
 
     return { status: response.status, json, setCookie };

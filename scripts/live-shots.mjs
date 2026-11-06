@@ -132,6 +132,7 @@ const COVER_ART = {
   叶惠美: ["#d8c7a0", "#3b2f1c", "#9a7734"],
   第二天堂: ["#1d3a52", "#e6e1d4", "#5aa0c8"],
   U87: ["#3b2333", "#eee2dc", "#b46f8a"],
+  夜行电台: ["#101820", "#e8e2d6", "#5f7f9a"],
 };
 
 const hashOf = (s) => {
@@ -176,6 +177,25 @@ const coverOf = (album) => {
     `</svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 };
+
+/* 每日推荐 fixture：8 首，第 2 档（「玻璃海」）是首页那条判据的目标——
+   点它之后左栏大字必须换成它，换的时候还要有一次切档动画。 */
+const DAILY = [
+  ["平交道", "陆声", 214000],
+  ["玻璃海", "陆声", 236000],
+  ["慢速快门", "方续", 198000],
+  ["三号站台", "方续", 245000],
+  ["潮汐表", "陆声", 262000],
+  ["远光灯", "方续", 187000],
+  ["冷启动", "陆声", 221000],
+  ["末班车", "方续", 253000],
+].map(([name, artist, dt], i) => ({
+  id: `daily-${i}`,
+  name,
+  ar: [{ name: artist }],
+  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  dt,
+}));
 
 /* 原创示例词（不是这几首歌的真词）：只为让播放页的台词本有内容可排。
    时间轴铺到 2:18，三分钟左右的曲目都够用。 */
@@ -240,7 +260,35 @@ function registerMinimalIpc() {
   ipcMain.handle("library:roots", () => ["D:\\Music\\华语"]);
   ipcMain.handle("app:autoLaunch", () => false);
   ipcMain.handle("notify:show", () => true);
-  ipcMain.handle("netease:profile", () => ({ loggedIn: false }));
+  // 账号态：首页左栏要「正在播放的那一档」，没有每日推荐就整块不出现，
+  // 所以 fixture 给一个已登录账号 + 8 首固定推荐（放在这里才发现得早）
+  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "夜航测试", uid: 9527 }));
+  ipcMain.handle("netease:call", (_e, method) => {
+    if (method === "recommend_songs") return { data: { dailySongs: DAILY } };
+    // 搜索：给前 3 首，够验「结果落地」
+    if (method === "cloudsearch") return { result: { songs: DAILY.slice(0, 3), songCount: 3 } };
+    // 榜单：3 个榜够验「目录 → 下钻 → 选中态」，不用 65 个
+    if (method === "toplist") {
+      return {
+        list: [
+          { id: 901, name: "夜航飙升榜", trackCount: 100, coverImgUrl: coverOf("夜行电台") },
+          { id: 902, name: "夜航新歌榜", trackCount: 100, coverImgUrl: coverOf("叶惠美") },
+          { id: 903, name: "夜航热歌榜", trackCount: 50, coverImgUrl: coverOf("第二天堂") },
+        ],
+      };
+    }
+    // 6 首才够让「前三名台柱 + 第 4 名起列表」两段都吃到数据
+    if (method === "playlist_track_all") return { songs: DAILY.slice(0, 6), total: 6 };
+    // 取流：给一条假地址，media:grant 会把它换成 appmedia:// 的本地 WAV
+    if (method === "song_url" || method === "song_url_v1") {
+      return { data: [{ url: "http://fixture.local/track.wav", fee: 0 }] };
+    }
+    if (method === "likelist") return { ids: [] };
+    return {};
+  });
+  // QQ 源起来后启动就会问一次 profile；fixture 不登录，给空账号免得刷红字
+  ipcMain.handle("qq:profile", () => ({ loggedIn: false, nick: null, uid: null }));
+  ipcMain.handle("qq:call", () => ({}));
   // 外壳订阅了这两个 IPC；fixture 不跑主进程那套主题/轮询，给空实现免得刷红字
   ipcMain.handle("win:overlayTheme", () => undefined);
   ipcMain.handle("scheme:poll", () => null);
@@ -325,6 +373,37 @@ app.whenReady().then(async () => {
 
   const sfx = process.env.LIVE_EMPTY === "1" ? "-empty" : "";
 
+  // 站尺排版判据（三档都跑）：整页不横滚、刻度不折行、搜索槽不压到右端信息组、
+  // 账号只占一个头像。放在首页这一轮里跑——后面直播/切房间失败也不会把这几条带下去。
+  const probeRuler = async (w, h) => {
+    const probe = await evalJs(`(() => {
+      const de = document.documentElement;
+      const clock = document.querySelector(".ruler-clock");
+      const acct = document.querySelector(".ruler-acct");
+      const search = document.querySelector(".ruler-search");
+      const ticks = [...document.querySelectorAll(".ruler-tick")];
+      const clockRect = clock?.getBoundingClientRect();
+      const searchRect = search?.getBoundingClientRect();
+      return {
+        w: innerWidth,
+        overflowX: de.scrollWidth > de.clientWidth + 1,
+        wrapped: ticks.some((t) => (t.querySelector("span")?.getBoundingClientRect().height ?? 0) > 22),
+        tickRight: ticks.length ? Math.round(Math.max(...ticks.map((t) => t.getBoundingClientRect().right))) : 0,
+        searchW: searchRect ? Math.round(searchRect.width) : 0,
+        searchOverlap: searchRect && clockRect ? searchRect.right > clockRect.left + 1 : false,
+        acctW: acct ? Math.round(acct.getBoundingClientRect().width) : 0,
+        clockBorder: clock ? getComputedStyle(clock).borderTopWidth : "",
+      };
+    })()`);
+    console.log(`排版 ${w}x${h}：${JSON.stringify(probe)}`);
+    if (probe.overflowX) throw new Error(`${w} 宽横向溢出`);
+    if (probe.wrapped) throw new Error(`${w} 宽站尺刻度折行`);
+    if (probe.searchOverlap) throw new Error(`${w} 宽搜索槽压到右端信息组`);
+    if (probe.searchW < 160) throw new Error(`${w} 宽搜索槽被压到 ${probe.searchW}px`);
+    if (probe.acctW > 40) throw new Error(`${w} 宽账号入口 ${probe.acctW}px（应只剩头像）`);
+    if (probe.clockBorder !== "0px") throw new Error(`${w} 宽右端信息组还在画边框面板`);
+  };
+
   // 三档分辨率：只动内容尺寸，拍同一面
   for (const [w, h] of [
     [1024, 768],
@@ -334,13 +413,227 @@ app.whenReady().then(async () => {
     win.setContentSize(w, h);
     await sleep(500);
     await shoot(`live-home${sfx}-${w}x${h}.png`);
+    await probeRuler(w, h);
     if (process.env.LIVE_EMPTY !== "1") {
-      const cards = await evalJs(`document.querySelectorAll(".daily-grid .daily-card").length`);
-      console.log(`每日推荐 ${w}x${h}：${cards} 张`);
+      const tapes = await evalJs(`document.querySelectorAll(".cs-tape").length`);
+      console.log(`播出带 ${w}x${h}：${tapes} 档`);
     }
   }
 
-  if (process.env.LIVE_EMPTY === "1") {
+  if (process.env.LIVE_EMPTY !== "1") {
+    /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
+       旧实现把左栏锁死在 songs[0]，这条必红。 */
+    const heroBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);
+    const tapeTitle = await evalJs(`(() => {
+      const b = document.querySelectorAll(".cs-tape")[1];
+      if (!b) return null;
+      const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
+      window.__swapAnim = [];
+      const t0 = performance.now();
+      /* 只认阶段内的元素：页面上还有一个同名 .cs-cover（别处），
+         只查 .cs-stage 才拿得到真正换档的那两张。
+         只认 running：初始挂载那条早已结束（fill: both 会留在列表里）。 */
+      const tick = () => {
+        for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
+          const el = document.querySelector(sel);
+          if (!el) continue;
+          for (const a of el.getAnimations()) {
+            const name = String(a.animationName);
+            if (a.playState === "running" && !window.__swapAnim.includes(name)) window.__swapAnim.push(name);
+          }
+        }
+        if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
+        requestAnimationFrame(tick);
+      };
+      b.click();
+      tick();
+      return t;
+    })()`);
+    if (!tapeTitle) throw new Error("播出带没有第 2 格：fixture 的每日推荐没生效");
+    await sleep(1800);
+    const hero = await evalJs(`(() => ({
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      idx: document.querySelector(".cs-idx")?.textContent ?? "",
+      ord: document.querySelector(".cs-ord")?.textContent ?? "",
+      liveTape: document.querySelectorAll(".cs-tape.is-live").length,
+      anim: window.__swapAnim ?? [],
+    }))()`);
+    console.log(
+      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·在播标记 ${hero.liveTape}·动画 ${JSON.stringify(hero.anim)}`,
+    );
+    if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
+    if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
+    if (!hero.kicker.includes("ON AIR")) throw new Error("换档后眉标没变成「正在播出」");
+    if (hero.liveTape < 1) throw new Error("播出带没有标记正在播的那一档");
+    if (!hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
+      throw new Error(`换档没有播动画：${JSON.stringify(hero.anim)}`);
+    }
+    for (const want of ["cs-swap-copy", "cs-swap-cover"]) {
+      if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
+    }
+    await shoot("live-home-playing.png");
+
+    /* 不在这里验「暂停/继续」：fixture 的在线曲目是假地址（services.resolveOnlineUrl 直出
+       CDN URL，不走本地协议），音轨永远卡在 buffering，player/toggle 会被重试链路顶回 playing。
+       暂停分支只有真实曲目能验，留给真机手测。 */
+  }
+
+  if (process.env.LIVE_EMPTY === "1" || process.env.HOME_ONLY === "1") {
+    if (process.env.HOME_ONLY === "1") {
+      /* 在线页：搜索入口只在顶栏 —— 页内不许再有输入框，关键词要看得见，结果要落地。
+         放在这一段是因为再往下的直播/切房间在离线 fixture 下本来就跑不通。 */
+      await click(
+        `(() => {
+          const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("在线"));
+          t?.click();
+          return Boolean(t);
+        })()`,
+        "站尺「在线」",
+      );
+      await sleep(700);
+
+      /* 默认落榜单：进「在线」时没有关键词，落结果视图只会是一片空地。
+         顺带确认页内不再有搜索输入框（搜索只走顶栏）。 */
+      const landing = await evalJs(`(() => ({
+        charts: document.querySelectorAll(".pl-item.chart-item").length,
+        inPageInput: Boolean(document.querySelector(".lib-head input, .lib-head.search, .lib-head .search")),
+        rail: Boolean(document.querySelector(".chart-rail")),
+      }))()`);
+      console.log(`进在线页：榜单 ${landing.charts} 个·页内输入框 ${landing.inPageInput}·旧横排 ${landing.rail}`);
+      if (landing.inPageInput) throw new Error("在线页里还留着搜索输入框（与顶栏重复）");
+      if (landing.rail) throw new Error("榜单还是旧的横排 chip（.chart-rail）");
+      if (landing.charts < 3) throw new Error(`默认没落在榜单：只拿到 ${landing.charts} 个榜`);
+
+      /* 进页就该有内容：第一个榜自动选中，前三名已抬成台柱，第 4 名起进列表。
+         旧实现是一整片空白 + 「左栏点一个榜」，这一条必红。 */
+      const landed = await evalJs(`(() => ({
+        on: document.querySelector(".pl-item.chart-item.on .pl-name")?.textContent ?? "",
+        hero: document.querySelectorAll(".chart-hero-cell").length,
+        rows: document.querySelectorAll(".lib-row.online-row").length,
+        thead: Boolean(document.querySelector(".lib-thead")),
+      }))()`);
+      console.log(
+        `进榜单页：自动选中「${landed.on}」·台柱 ${landed.hero} 格·列表 ${landed.rows} 行·表头 ${landed.thead}`,
+      );
+      if (!landed.on) throw new Error("进榜页没有自动选中任何榜，右半屏还是空的");
+      if (landed.hero !== 3) throw new Error(`前三名台柱不是 3 格：${landed.hero}`);
+      if (landed.rows < 1) throw new Error("第 4 名起的列表没渲染");
+      if (!landed.thead) throw new Error("列表有行却没有表头");
+      await shoot("charts-landing.png");
+
+      const picked = await evalJs(`(() => {
+        const items = [...document.querySelectorAll(".pl-item.chart-item")];
+        const b = items[1];
+        if (!b) return null;
+        const name = b.querySelector(".pl-name")?.textContent ?? "";
+        b.click();
+        return name;
+      })()`);
+      await sleep(1200);
+      const charts = await evalJs(`(() => ({
+        on: document.querySelector(".pl-item.chart-item.on .pl-name")?.textContent ?? "",
+        hero: document.querySelectorAll(".chart-hero-cell").length,
+        rows: document.querySelectorAll(".lib-row.online-row").length,
+        head: document.querySelector(".lib-list .list-now")?.textContent ?? "",
+        ranks: [...document.querySelectorAll(".lib-row.online-row .lib-no")].map((n) => n.textContent),
+      }))()`);
+      console.log(
+        `榜单下钻：点「${picked}」→ 选中「${charts.on}」·抬头「${charts.head.trim()}」·台柱 ${charts.hero}·列表 ${charts.rows} 行·名次 ${JSON.stringify(charts.ranks)}`,
+      );
+      if (charts.on !== picked) throw new Error(`选中态没跟上点击：点「${picked}」，选中「${charts.on}」`);
+      if (!charts.head.includes(picked)) throw new Error(`右栏抬头没写榜名：${charts.head}`);
+      if (charts.hero !== 3) throw new Error(`换榜后台柱不是 3 格：${charts.hero}`);
+      if (charts.rows < 1) throw new Error("榜单曲目没落地");
+      // 前三名在台柱上，列表名次必须从 04 起，且与行数一致
+      if (charts.ranks.length !== charts.rows) throw new Error(`名次列缺行：${charts.ranks.length} 格 / ${charts.rows} 行`);
+      if (charts.ranks[0] !== "04") throw new Error(`列表名次没从 04 起：${JSON.stringify(charts.ranks.slice(0, 3))}`);
+      await shoot("charts-two-column.png");
+
+      /* 最坏数据（break-ui）：超长中文歌名 / 超长英文专辑 / emoji。
+         判据是横向不许溢出——列定宽的地方最容易在这里破。 */
+      if (process.env.STRESS === "1") {
+        await evalJs(`(() => {
+          const rows = [...document.querySelectorAll(".lib-row.online-row")];
+          const long = "这是一个非常非常长的歌名用来测试标题列在窄窗口下会不会把专辑列挤掉并且溢出";
+          rows[0].querySelector(".lib-title").textContent = long;
+          const arts = rows[0].querySelectorAll(".lib-artist");
+          arts[0].textContent = "一个名字同样很长的独立音乐人组合";
+          arts[1].textContent = "Extremely Long Album Name That Nobody Would Ever Type Out In Full (Deluxe Edition)";
+          return rows.length;
+        })()`);
+        await sleep(300);
+        const over = await evalJs(`(() => {
+          const l = document.querySelector(".lib-list");
+          return { scrollW: l.scrollWidth, clientW: l.clientWidth };
+        })()`);
+        console.log(`榜单最坏数据：scrollW ${over.scrollW} / clientW ${over.clientW}`);
+        if (over.scrollW > over.clientW + 1) throw new Error(`榜单窄窗横向溢出：${JSON.stringify(over)}`);
+        await shoot("charts-stress.png");
+      }
+
+      await evalJs(`(() => {
+        const i = document.querySelector(".ruler-search input");
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+        set.call(i, "晴天");
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+        document.querySelector(".ruler-search").requestSubmit();
+        return true;
+      })()`);
+      await sleep(1600);
+      const online = await evalJs(`(() => ({
+        query: document.querySelector(".list-now b")?.textContent ?? "",
+        rows: document.querySelectorAll(".online-row").length,
+        rail: Boolean(document.querySelector(".result-rail")),
+        tabs: [...document.querySelectorAll(".lib-tabs button")].map((b) => (b.textContent ?? "").trim()),
+      }))()`);
+      console.log(`在线页：关键词格「${online.query}」·结果 ${online.rows} 行·页头按钮 ${JSON.stringify(online.tabs)}`);
+      if (online.query !== "晴天") throw new Error(`关键词格没显示当前搜索词：${JSON.stringify(online)}`);
+      if (online.rows < 1) throw new Error(`顶栏提交后结果没落地：${JSON.stringify(online)}`);
+      // 结果带与表格是同一批数据画两遍：删掉之后这里必须为 false
+      if (online.rail) throw new Error("在线页还挂着与表格重复的结果带（.result-rail）");
+      // 页头不许再出现「搜索」入口：搜索只走顶栏，页头只留「榜单」这个分支
+      if (online.tabs.includes("搜索")) throw new Error(`页头还挂着一个搜索入口：${JSON.stringify(online.tabs)}`);
+      if (online.tabs.length !== 1) throw new Error(`页头按钮应只剩榜单一颗：${JSON.stringify(online.tabs)}`);
+      await shoot("online-search.png");
+
+      /* 最坏数据（break-ui）：长标题 / 长专辑 / emoji。在线页比榜单少一列排名，
+         但下载按钮是定宽，横向溢出要在这里当场抓住。 */
+      if (process.env.STRESS === "1") {
+        await evalJs(`(() => {
+          const rows = [...document.querySelectorAll(".lib-row.online-row")];
+          rows[0].querySelector(".lib-title").textContent =
+            "这是一个非常非常长的歌名用来测试标题列在窄窗口下会不会把乐队和专辑一起挤爆并且溢出边界";
+          const arts = rows[0].querySelectorAll(".lib-artist");
+          arts[0].textContent = "一个名字同样很长的独立音乐人组合";
+          arts[1].textContent = "Extremely Long Album Name That Nobody Would Ever Type Out In Full (Deluxe Edition)";
+          rows[1].querySelector(".lib-title").textContent = "🎵🎵🎵 emoji 标题 🎵🎵🎵";
+          return rows.length;
+        })()`);
+        await sleep(300);
+        const over = await evalJs(`(() => {
+          const l = document.querySelector(".lib-list");
+          return { scrollW: l.scrollWidth, clientW: l.clientWidth };
+        })()`);
+        console.log(`在线最坏数据：scrollW ${over.scrollW} / clientW ${over.clientW}`);
+        if (over.scrollW > over.clientW + 1) throw new Error(`在线窄窗横向溢出：${JSON.stringify(over)}`);
+        await shoot("online-stress.png");
+      }
+
+      // 清空：关键词格消失、结果清掉、空态说明「去顶栏搜」
+      await click(`(() => { const b = document.querySelector(".list-now-x"); b?.click(); return Boolean(b); })()`, "结果抬头清空");
+      await sleep(400);
+      const cleared = await evalJs(`(() => ({
+        query: Boolean(document.querySelector(".list-now")),
+        rows: document.querySelectorAll(".online-row").length,
+        empty: document.querySelector(".lib-empty")?.textContent ?? "",
+      }))()`);
+      console.log(`清空后：关键词格 ${cleared.query}·结果 ${cleared.rows} 行·空态「${cleared.empty.trim()}」`);
+      if (cleared.query) throw new Error("清空后关键词格还在");
+      if (cleared.rows > 0) throw new Error(`清空后结果没清掉：${cleared.rows} 行`);
+      if (!cleared.empty.includes("顶栏")) throw new Error(`空态没指向顶栏：${cleared.empty}`);
+      await shoot("online-empty.png");
+    }
     win.destroy();
     app.quit();
     return;
@@ -494,34 +787,7 @@ app.whenReady().then(async () => {
     await shoot(`${name}.png`);
   }
 
-  // 排版溢出：三档下整页不许横向滚、站尺刻度不许折行压到钟面
-  for (const [w, h] of [
-    [1024, 768],
-    [1280, 800],
-    [1440, 900],
-  ]) {
-    win.setContentSize(w, h);
-    await sleep(400);
-    const probe = await evalJs(`(() => {
-      const de = document.documentElement;
-      const clock = document.querySelector(".ruler-clock");
-      const ticks = [...document.querySelectorAll(".ruler-tick")];
-      const overflowX = de.scrollWidth > de.clientWidth + 1;
-      const wrapped = ticks.some((t) => (t.querySelector("span")?.getBoundingClientRect().height ?? 0) > 22);
-      const clockRect = clock?.getBoundingClientRect();
-      const tickRight = ticks.length ? Math.max(...ticks.map((t) => t.getBoundingClientRect().right)) : 0;
-      return {
-        w: innerWidth,
-        overflowX,
-        wrapped,
-        clockOverlap: clockRect ? tickRight > clockRect.left + 1 : false,
-      };
-    })()`);
-    console.log(`排版 ${w}x${h}：${JSON.stringify(probe)}`);
-    if (probe.overflowX) throw new Error(`${w} 宽横向溢出`);
-    if (probe.wrapped) throw new Error(`${w} 宽站尺刻度折行`);
-    if (probe.clockOverlap) throw new Error(`${w} 宽站尺压到钟面`);
-  }
+  // 排版判据（三档）已在首页那一轮跑过，这里不再重复——同一组断言只留一处
 
   win.destroy();
   app.quit();

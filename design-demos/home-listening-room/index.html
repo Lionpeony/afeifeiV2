@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>AFEIFEI 不夜台 · 夜廊 / LISTENING ROOM</title>
+<style>
+/* ══════════════════════════════════════════════════════════════
+   夜廊 / LISTENING ROOM — AFEIFEI 不夜台 首页（每日推荐）
+   一间可以走进去的听音室：书脊导航 · 一张大唱片 · 一排不齐的封套
+   色相只有三支：墨绿 / 米纸 / 黄铜
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#08110e;
+  --bg2:#0c1813;
+  --ink:#ece4d1;
+  --ink2:#cec5ae;
+  --ink3:#a29b87;
+  --brass:#c9a45c;
+  --brass-d:#8e7136;
+  --paper:#e7dcc4;
+  --line:rgba(201,164,92,.28);
+  --line-2:rgba(201,164,92,.16);
+  --hair:rgba(236,228,209,.12);
+  --serif:"SimSun","宋体","Songti SC",serif;
+  --sans:"Microsoft YaHei UI","Microsoft YaHei","Segoe UI",sans-serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,"Courier New",monospace;
+  --disp:"Bahnschrift SemiCondensed","Bahnschrift","Arial Narrow",sans-serif;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.62'/%3E%3C/svg%3E");
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:#040806;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--sans);color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+a:focus-visible,button:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--brass);outline-offset:3px;
+}
+.mono{font-family:var(--mono)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ── 舞台 1280×800 ─────────────────────────────────────────── */
+.stage{
+  position:relative;width:1280px;height:800px;overflow:hidden;
+  background:
+    radial-gradient(780px 480px at 14% 2%, rgba(201,164,92,.075), transparent 66%),
+    radial-gradient(900px 720px at 92% 104%, rgba(33,78,58,.38), transparent 64%),
+    linear-gradient(152deg,#0a1410 0%,#0b1712 46%,#071009 100%);
+}
+.stage::after{
+  content:"";position:absolute;inset:0;z-index:60;pointer-events:none;
+  background-image:var(--grain);opacity:.045;mix-blend-mode:overlay;
+}
+
+/* ── 左侧书脊导航 ─────────────────────────────────────────── */
+.spine{
+  position:absolute;left:0;top:0;bottom:0;width:108px;z-index:20;
+  display:flex;flex-direction:column;align-items:center;
+  padding:20px 0 22px;
+  border-right:1px solid var(--line);
+  background:
+    repeating-linear-gradient(90deg, rgba(236,228,209,.028) 0 1px, transparent 1px 9px),
+    linear-gradient(180deg,rgba(201,164,92,.06),transparent 26%),
+    linear-gradient(180deg,#0a1310 0%,#0d1914 58%,#08110d 100%);
+}
+.spine-mark{font:600 10px/1 var(--mono);letter-spacing:.22em;color:var(--brass)}
+.spine-mark2{font:8px/1 var(--mono);letter-spacing:.3em;color:var(--ink3);margin-top:6px}
+.spine-name{
+  writing-mode:vertical-rl;font-family:var(--serif);font-size:27px;
+  letter-spacing:.3em;line-height:1;color:var(--ink);margin-top:24px;
+  text-shadow:0 1px 0 rgba(0,0,0,.5);
+  white-space:nowrap;flex:none;
+}
+.spine-en{
+  writing-mode:vertical-rl;
+  font:8px/1 var(--mono);letter-spacing:.34em;color:var(--ink3);
+  margin-top:14px;white-space:nowrap;
+}
+.spine-nav{display:flex;gap:22px;margin-top:30px;position:relative}
+.spine-nav::before{
+  content:"";position:absolute;left:50%;top:-6px;bottom:-6px;width:1px;
+  background:linear-gradient(var(--line-2),rgba(201,164,92,.06),transparent);
+}
+.spine-nav .col{display:flex;flex-direction:column;align-items:center;gap:5px}
+.spine-nav a{
+  writing-mode:vertical-rl;font-size:13px;line-height:1.5;letter-spacing:.18em;
+  color:var(--ink2);text-decoration:none;padding:7px 4px;
+  border:1px solid transparent;transition:color .16s ease,background-color .16s ease,border-color .16s ease;
+}
+.spine-nav a:hover{color:var(--ink);background:rgba(201,164,92,.07);border-color:var(--line-2)}
+.spine-nav a.on{
+  background:var(--brass);border-color:var(--brass);color:#0b1511;font-weight:600;
+  box-shadow:0 0 14px rgba(201,164,92,.16);
+}
+.spine-foot{
+  margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:12px;
+  padding-top:18px;border-top:1px solid var(--line-2);width:58px;
+}
+.lamp{width:6px;height:6px;border-radius:50%;background:var(--brass);box-shadow:0 0 9px rgba(201,164,92,.85)}
+.spine-air{writing-mode:vertical-rl;font:8.5px/1 var(--mono);letter-spacing:.3em;color:var(--ink3)}
+
+/* ── 页头：日期 + 账号 ─────────────────────────────────────── */
+.masthead{
+  position:absolute;left:136px;right:24px;top:24px;z-index:10;
+  display:flex;align-items:flex-start;
+}
+.date-block{display:flex;align-items:flex-start;gap:18px}
+.date{
+  margin:0;font-family:var(--serif);font-weight:400;
+  font-size:38px;line-height:1;letter-spacing:.03em;color:var(--ink);
+  text-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+.date-meta{
+  display:flex;flex-direction:column;gap:7px;
+  padding:4px 0 0 18px;border-left:1px solid var(--line);
+}
+.date-line{display:flex;align-items:baseline;gap:10px;font-size:12px;line-height:1.5;color:var(--ink2)}
+.date-line .brass{color:var(--brass)}
+.tick{width:16px;height:1px;background:var(--brass);display:inline-block}
+.note{
+  margin:0;font-size:12px;line-height:1.6;color:var(--ink3);letter-spacing:.02em;
+}
+.note b{font-family:var(--mono);font-weight:400;color:var(--ink2)}
+.note time{font-family:var(--mono);color:var(--brass);letter-spacing:.04em}
+
+.account{
+  margin-left:auto;display:flex;align-items:center;gap:12px;
+  text-decoration:none;padding:6px 10px 6px 6px;border:1px solid transparent;
+  transition:background-color .16s ease,border-color .16s ease;
+}
+.account:hover{background:rgba(201,164,92,.05);border-color:var(--line-2)}
+.seal{
+  position:relative;width:42px;height:42px;border-radius:50%;flex:none;
+  display:grid;place-items:center;border:1px solid var(--brass);
+  background:
+    radial-gradient(circle at 34% 30%, rgba(236,228,209,.22), transparent 56%),
+    radial-gradient(circle at 50% 50%, #38432f 0%, #1a2a1d 58%, #101a12 100%);
+  font-family:var(--serif);font-size:17px;color:var(--ink);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 6px 14px rgba(0,0,0,.35);
+}
+.seal::after{content:"";position:absolute;inset:4px;border:1px solid rgba(201,164,92,.45);border-radius:50%}
+.who{display:flex;flex-direction:column;gap:4px}
+.who b{font-size:13.5px;line-height:1.4;font-weight:600;letter-spacing:.02em;color:var(--ink)}
+.who small{font-size:11px;line-height:1.4;color:var(--ink3);display:flex;align-items:center;gap:6px}
+.who small::before{content:"";width:4px;height:4px;border-radius:50%;background:var(--brass)}
+
+/* ── 主视觉：一张唱片 ─────────────────────────────────────── */
+.main{position:absolute;inset:0;pointer-events:none}
+.hero{position:absolute;left:136px;top:130px;width:622px;height:576px;pointer-events:auto}
+
+.disc{
+  position:absolute;left:308px;top:54px;width:304px;height:304px;border-radius:50%;z-index:2;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(236,228,209,.052) 0 1px, transparent 1px 3.6px),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 23px, rgba(0,0,0,.5) 23px 24px),
+    radial-gradient(circle at 50% 50%, #141a16 0 31.6%, #070b09 32% 100%);
+  box-shadow:0 28px 54px rgba(0,0,0,.55), inset 0 0 0 1px rgba(236,228,209,.06);
+  transform:rotate(7deg);
+  animation:discIn .9s cubic-bezier(.2,.75,.25,1) both;
+}
+.disc::before{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 198deg,
+    transparent 0deg, rgba(236,228,209,.085) 20deg, transparent 44deg,
+    transparent 176deg, rgba(201,164,92,.075) 204deg, transparent 238deg);
+}
+.disc::after{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  box-shadow:inset 0 0 46px rgba(0,0,0,.72), inset 0 0 0 1px rgba(236,228,209,.05);
+}
+.disc .label{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:88px;height:88px;border-radius:50%;z-index:2;
+  background:radial-gradient(circle at 36% 30%,#e4c487 0%,#c9a45c 46%,#9d7c3f 84%,#83642e 100%);
+  box-shadow:0 0 0 1px rgba(0,0,0,.55), inset 0 0 14px rgba(78,58,20,.45);
+  color:#141b12;
+}
+.disc .label b{
+  position:absolute;left:0;right:0;top:18px;text-align:center;
+  font-family:var(--serif);font-size:14px;font-weight:400;letter-spacing:.14em;
+}
+.disc .label span{
+  position:absolute;left:0;right:0;bottom:15px;text-align:center;
+  font:7.5px var(--mono);letter-spacing:.12em;
+}
+.disc .label::after{
+  content:"";position:absolute;left:50%;top:50%;width:6px;height:6px;
+  transform:translate(-50%,-50%);border-radius:50%;background:#0a120f;
+  box-shadow:0 0 0 2px rgba(0,0,0,.28);
+}
+
+.sleeve{
+  position:absolute;left:0;top:8px;width:392px;height:392px;margin:0;z-index:3;
+  overflow:hidden;border:1px solid rgba(236,228,209,.17);
+  background:
+    repeating-linear-gradient(90deg, rgba(236,228,209,.02) 0 1px, transparent 1px 6px),
+    radial-gradient(130% 100% at 18% 8%, rgba(236,228,209,.10), transparent 56%),
+    radial-gradient(90% 74% at 84% 26%, rgba(201,164,92,.14), transparent 62%),
+    linear-gradient(158deg,#1c2f26 0%,#13241c 46%,#0c1913 100%);
+  box-shadow:
+    0 34px 64px rgba(0,0,0,.55),
+    0 8px 20px rgba(0,0,0,.42),
+    inset 0 0 0 1px rgba(0,0,0,.28);
+  transform:rotate(-2.4deg);
+  animation:settle .8s cubic-bezier(.2,.75,.25,1) both;
+}
+.sleeve::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:var(--grain);opacity:.13;mix-blend-mode:overlay;
+}
+.s-top{
+  position:absolute;left:20px;right:20px;top:16px;display:flex;justify-content:space-between;
+  font:9px var(--mono);letter-spacing:.2em;color:var(--brass);
+}
+.s-title{
+  position:absolute;left:24px;top:56px;writing-mode:vertical-rl;
+  font-family:var(--serif);font-size:58px;letter-spacing:.16em;line-height:1;
+  color:var(--ink);text-shadow:0 2px 14px rgba(0,0,0,.35);
+}
+.s-rule{
+  position:absolute;left:102px;top:58px;bottom:78px;width:1px;
+  background:linear-gradient(rgba(201,164,92,.4),rgba(201,164,92,.08));
+}
+.orbit{
+  position:absolute;right:6px;top:34px;width:180px;height:180px;border-radius:50%;
+  border:1px solid rgba(201,164,92,.42);
+}
+.orbit::after{
+  content:"";position:absolute;inset:20px;border-radius:50%;
+  border:1px solid rgba(201,164,92,.2);
+}
+.moon{
+  position:absolute;right:34px;top:62px;width:112px;height:112px;border-radius:50%;
+  background:radial-gradient(circle at 38% 32%,#f5edd9 0%,#e5d9bd 52%,#cabd9d 78%,#b0a382 100%);
+  box-shadow:0 0 36px rgba(236,228,209,.16), inset -9px -11px 22px rgba(120,104,70,.34);
+}
+.moon::after{
+  content:"";position:absolute;left:24%;top:58%;width:26%;height:15%;border-radius:50%;
+  background:rgba(150,136,102,.22);filter:blur(2px);
+}
+.s-en{
+  position:absolute;right:15px;top:224px;writing-mode:vertical-rl;
+  font:8px var(--mono);letter-spacing:.32em;color:rgba(236,228,209,.52);
+}
+.stamp{
+  position:absolute;left:122px;bottom:42px;width:92px;height:92px;border-radius:50%;
+  border:1px solid rgba(201,164,92,.72);outline:1px solid rgba(201,164,92,.28);
+  outline-offset:-7px;transform:rotate(-9deg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  color:var(--brass);text-align:center;
+}
+.stamp b{font-family:var(--serif);font-size:15px;font-weight:400;letter-spacing:.24em;padding-left:.24em}
+.stamp span{font:8px var(--mono);letter-spacing:.2em;opacity:.85}
+.s-rpm{
+  position:absolute;right:24px;bottom:22px;text-align:right;line-height:1;
+  font-family:var(--disp);font-size:34px;letter-spacing:.02em;color:var(--ink2);
+}
+.s-rpm small{
+  display:block;margin-top:5px;font:8px var(--mono);letter-spacing:.24em;color:var(--brass);
+}
+.s-foot{
+  position:absolute;left:24px;bottom:20px;
+  font:8px var(--mono);letter-spacing:.2em;color:rgba(236,228,209,.5);
+}
+
+.hero-note{position:absolute;left:2px;top:444px;width:470px}
+.verse{
+  margin:0;font-family:var(--serif);font-size:18px;line-height:1.7;
+  letter-spacing:.1em;color:var(--ink);
+}
+.verse-src{
+  margin:7px 0 0;font:11px var(--mono);letter-spacing:.2em;color:var(--ink3);
+}
+.note-rule{
+  width:148px;height:1px;margin:20px 0 13px;
+  background:linear-gradient(90deg,var(--brass),rgba(201,164,92,0));
+}
+.hero-meta{display:flex;align-items:baseline;gap:0;font-size:11px;line-height:1.5;color:var(--ink3)}
+.hero-meta span{padding:0 13px;border-left:1px solid var(--line-2)}
+.hero-meta span:first-child{padding-left:0;border-left:0}
+.hero-meta b{font-family:var(--mono);font-weight:400;color:var(--ink2);letter-spacing:.04em}
+
+/* ── 今日推荐：唱片架 ────────────────────────────────────── */
+.rack{position:absolute;left:766px;top:118px;width:490px;pointer-events:auto}
+.rack-head{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  padding-bottom:14px;border-bottom:1px solid var(--line);
+}
+.rack-title{
+  margin:0;font-family:var(--serif);font-size:29px;font-weight:400;
+  letter-spacing:.07em;line-height:1.25;color:var(--ink);
+}
+.rack-sub{margin:6px 0 0;font-size:12px;line-height:1.5;letter-spacing:.04em;color:var(--ink3)}
+.count{display:flex;align-items:baseline;gap:6px;padding-bottom:2px}
+.count b{
+  font-family:var(--disp);font-size:58px;line-height:.78;font-weight:600;
+  letter-spacing:.01em;color:var(--brass);
+}
+.count span{font-size:12px;color:var(--ink3);letter-spacing:.1em}
+
+.row{display:flex;gap:12px;align-items:flex-start}
+.row.a{margin-top:18px}
+.row.b{margin-top:24px;padding-left:12px}
+
+.pick{
+  display:block;min-width:0;text-decoration:none;
+  animation:rise .62s cubic-bezier(.2,.72,.22,1) both;
+}
+.pick:hover .cover{transform:translateY(-5px);box-shadow:0 24px 38px rgba(0,0,0,.5)}
+.pick:focus-visible{outline-offset:6px}
+.slot{display:flex;align-items:flex-end}
+.cover{
+  position:relative;display:block;width:100%;aspect-ratio:1/1;overflow:hidden;
+  border:1px solid rgba(0,0,0,.45);
+  box-shadow:0 14px 26px rgba(0,0,0,.42), 0 2px 6px rgba(0,0,0,.32);
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.cover::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:var(--grain);opacity:.14;mix-blend-mode:overlay;
+}
+.cover .glyph{position:absolute;font-family:var(--serif);line-height:1}
+.cover .cat,.cover .code{
+  position:absolute;font:7.5px var(--mono);letter-spacing:.16em;
+  color:rgba(236,228,209,.62);z-index:1;
+}
+.cover .cat{left:9px;bottom:8px}
+.cover .code{right:9px;top:8px}
+.cover.light .cat,.cover.light .code{color:rgba(22,40,31,.58)}
+
+/* 8 张“厂牌封面”，纯 CSS 排版 */
+.c1{background:linear-gradient(162deg,#ece2cb 0%,#ddceb2 100%)}
+.c1::before{content:"";position:absolute;left:13px;top:0;bottom:0;width:1px;background:rgba(28,48,38,.38)}
+.c1 .glyph{right:5px;bottom:-4px;font-size:62px;color:#1c3026}
+.c1 .code{color:rgba(201,164,92,.9)}
+
+.c2{
+  background:
+    repeating-radial-gradient(circle at 50% 42%, rgba(201,164,92,.3) 0 1px, transparent 1px 10px),
+    linear-gradient(160deg,#183128 0%,#0d1a14 100%);
+}
+.c2 .glyph{left:12px;bottom:2px;font-family:var(--disp);font-size:66px;color:var(--ink)}
+
+.c3{background:linear-gradient(160deg,#ebe0c8,#d9caac)}
+.c3::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(118deg,transparent 0 60%,rgba(28,48,38,.14) 60% 100%);
+}
+.c3 .glyph{left:9px;bottom:-2px;font-size:50px;color:#1c3026}
+.c3 .code{color:rgba(201,164,92,.95)}
+
+.c4{background:linear-gradient(150deg,#16281f,#0a1510)}
+.c4::before{
+  content:"";position:absolute;left:22px;top:24px;width:16px;height:16px;border-radius:50%;
+  background:var(--brass);box-shadow:0 0 12px rgba(201,164,92,.5);
+}
+.c4 .glyph{
+  left:50%;top:50%;transform:translate(-50%,-48%);
+  font-family:var(--disp);font-size:78px;color:transparent;
+  -webkit-text-stroke:1px rgba(236,228,209,.85);
+}
+.c4 .cat{color:rgba(201,164,92,.8)}
+
+.c5{background:linear-gradient(160deg,#26382b,#1a2a20)}
+.c5::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:46%;
+  background:repeating-linear-gradient(180deg,rgba(236,228,209,.16) 0 1px,transparent 1px 7px);
+}
+.c5 .glyph{right:6px;bottom:-6px;font-family:var(--disp);font-size:68px;color:var(--ink)}
+
+.c6{
+  background:
+    repeating-radial-gradient(circle at 50% 122%, rgba(201,164,92,.34) 0 1px, transparent 1px 11px),
+    linear-gradient(160deg,#13251d,#0a1510);
+}
+.c6 .glyph{left:9px;top:6px;font-size:46px;color:var(--ink)}
+
+.c7{background:linear-gradient(160deg,#eae0c9,#d8c9ab)}
+.c7::before{
+  content:"";position:absolute;left:0;right:0;top:64%;height:1px;background:rgba(201,164,92,.8);
+  box-shadow:0 7px 0 rgba(201,164,92,.2);
+}
+.c7::after{
+  content:"";position:absolute;right:13px;top:14px;width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 40% 36%,#d9b876,#a9863f);
+}
+.c7 .glyph{right:7px;top:36%;font-size:48px;color:#1c3026}
+.c7 .cat,.c7 .code{color:rgba(22,40,31,.58)}
+
+.c8{background:linear-gradient(155deg,#15271f,#091410)}
+.c8::before{
+  content:"";position:absolute;left:24%;right:24%;top:19%;bottom:19%;
+  border:1px solid rgba(201,164,92,.55);
+}
+.c8::after{
+  content:"";position:absolute;left:66%;top:52%;width:4px;height:4px;border-radius:50%;
+  background:var(--brass);
+  box-shadow:0 0 0 1px rgba(201,164,92,.25);
+}
+.c8 .glyph{left:9px;top:7px;font-size:44px;color:var(--ink)}
+.c8 .cat{color:rgba(201,164,92,.75)}
+
+/* 错落：宽度权重、偏移、倾角各不同 */
+.p1{flex:1.22 1 0}.p2{flex:.82 1 0;margin-top:18px}.p3{flex:1.04 1 0;margin-top:4px}.p4{flex:.88 1 0;margin-top:26px}
+.p5{flex:.9 1 0;margin-top:16px}.p6{flex:1.2 1 0}.p7{flex:.84 1 0;margin-top:22px}.p8{flex:1 1 0;margin-top:6px}
+.p1 .cover{transform:rotate(-2.4deg)}
+.p2 .cover{transform:rotate(2.2deg)}
+.p3 .cover{transform:rotate(-1.5deg)}
+.p4 .cover{transform:rotate(2.8deg)}
+.p5 .cover{transform:rotate(1.8deg)}
+.p6 .cover{transform:rotate(-2.6deg)}
+.p7 .cover{transform:rotate(2.4deg)}
+.p8 .cover{transform:rotate(-1.8deg)}
+.pick:hover .cover{transform:translateY(-5px) rotate(0deg)}
+
+.cap{display:block;padding-top:10px}
+.ttl{
+  display:block;font-size:14px;line-height:1.5;font-weight:600;
+  letter-spacing:.01em;color:var(--ink);overflow-wrap:anywhere;text-wrap:balance;
+}
+.cap-meta{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-top:3px}
+.who-name{
+  display:block;min-width:0;font-size:11px;line-height:1.5;color:var(--ink3);
+}
+.cap .num{font:9.5px var(--mono);letter-spacing:.12em;color:var(--brass);flex:none}
+
+.rack-foot{
+  display:flex;align-items:baseline;gap:10px;margin:20px 0 0;
+  padding-top:12px;border-top:1px solid var(--line-2);
+  font-size:11px;line-height:1.5;color:var(--ink3);letter-spacing:.03em;
+}
+.rack-foot b{font-family:var(--mono);font-weight:400;color:var(--ink2)}
+.rack-foot .all{
+  margin-left:auto;color:var(--ink2);text-decoration:none;
+  border-bottom:1px solid rgba(201,164,92,.4);padding-bottom:1px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.rack-foot .all:hover{color:var(--brass);border-color:var(--brass)}
+
+/* ── 底部黄铜控制台 ──────────────────────────────────────── */
+.console{
+  position:absolute;left:108px;right:0;bottom:0;height:86px;z-index:30;
+  display:flex;align-items:center;padding:0 24px;
+  border-top:1px solid rgba(201,164,92,.48);
+  background:linear-gradient(180deg,#101d17 0%,#0b1511 62%,#08100d 100%);
+  box-shadow:0 -16px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(236,228,209,.05);
+}
+.console::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:2px;
+  background:linear-gradient(90deg,rgba(201,164,92,0),rgba(201,164,92,.55) 14%,rgba(201,164,92,.55) 86%,rgba(201,164,92,0));
+}
+.np{
+  flex:0 0 344px;display:flex;align-items:center;gap:12px;
+  padding-right:24px;border-right:1px solid var(--line-2);min-width:0;
+}
+.np-disc{
+  position:relative;width:46px;height:46px;border-radius:50%;flex:none;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(236,228,209,.07) 0 1px, transparent 1px 3px),
+    #0a100d;
+  box-shadow:inset 0 0 0 1px rgba(236,228,209,.08), 0 4px 10px rgba(0,0,0,.4);
+}
+.np-disc::after{
+  content:"";position:absolute;left:50%;top:50%;width:15px;height:15px;
+  transform:translate(-50%,-50%);border-radius:50%;background:var(--brass);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45);
+}
+.np-text{min-width:0}
+.np-title{
+  font-family:var(--disp);font-size:17px;line-height:1.25;letter-spacing:.02em;
+  color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.np-sub{
+  margin-top:3px;font-size:11px;line-height:1.4;color:var(--ink3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.np-sub .mono{color:var(--ink2)}
+.state{
+  flex:none;font-size:11px;line-height:1;letter-spacing:.1em;color:var(--brass);
+  border:1px solid rgba(201,164,92,.4);padding:4px 7px;margin-left:auto;
+}
+.tp{flex:1;min-width:0;padding:0 26px}
+.bar{display:flex;align-items:center;gap:12px}
+.time{font:11px var(--mono);letter-spacing:.04em;color:var(--ink3);flex:none}
+.time.now{color:var(--ink2)}
+.track{position:relative;flex:1;height:16px;min-width:80px;display:flex;align-items:center}
+.track::before{
+  content:"";position:absolute;left:0;right:0;top:50%;height:1px;
+  background:rgba(236,228,209,.18);
+}
+.track .fill{
+  position:absolute;left:0;top:50%;height:1px;width:35.3%;
+  background:linear-gradient(90deg,rgba(201,164,92,.55),var(--brass));
+}
+.track .knob{
+  position:absolute;left:35.3%;top:50%;width:7px;height:7px;
+  transform:translate(-50%,-50%) rotate(45deg);background:var(--brass);
+  box-shadow:0 0 9px rgba(201,164,92,.55);
+}
+.keys{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:7px}
+.k{
+  display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;
+  border:1px solid rgba(236,228,209,.18);background:transparent;color:var(--ink2);
+  font-size:11px;line-height:1;letter-spacing:.06em;
+  transition:color .15s ease,border-color .15s ease,background-color .15s ease;
+}
+.k svg{width:12px;height:12px;flex:none}
+.k:hover{color:var(--ink);border-color:rgba(201,164,92,.6)}
+.k.play{
+  background:var(--brass);border-color:var(--brass);color:#0d150e;
+  padding:0 14px;font-weight:600;
+}
+.k.play:hover{background:#d8b770;border-color:#d8b770;color:#0d150e}
+.k.play svg{width:10px;height:10px}
+.ut{
+  flex:0 0 318px;display:grid;grid-template-columns:repeat(5,1fr);
+  grid-auto-rows:29px;gap:3px 2px;align-items:center;
+  border-left:1px solid var(--line-2);padding-left:22px;
+}
+.u{
+  display:flex;align-items:center;gap:5px;min-width:0;padding:3px 2px;
+  border:0;background:none;color:var(--ink3);
+  font-size:11px;line-height:1.2;letter-spacing:.04em;text-align:left;
+  transition:color .15s ease;
+}
+.u svg{width:12px;height:12px;flex:none}
+.u:hover{color:var(--ink)}
+.u[aria-pressed="true"]{color:var(--brass)}
+.txt-ico{
+  font-family:var(--serif);font-size:11px;line-height:1;color:inherit;
+  width:12px;height:12px;display:grid;place-items:center;flex:none;
+}
+.u .mono-ico{font:11px/1 var(--mono);letter-spacing:0;width:22px;flex:none}
+
+/* ── 入场（不依赖动画也能读到全部内容） ─────────────────── */
+@keyframes settle{
+  from{transform:rotate(-3.8deg) translateY(14px)}
+  to{transform:rotate(-2.4deg) translateY(0)}
+}
+@keyframes discIn{
+  from{transform:rotate(13deg) translateX(-10px)}
+  to{transform:rotate(7deg) translateX(0)}
+}
+@keyframes rise{
+  from{transform:translateY(12px)}
+  to{transform:translateY(0)}
+}
+.p2{animation-delay:.04s}.p3{animation-delay:.08s}.p4{animation-delay:.12s}
+.p5{animation-delay:.16s}.p6{animation-delay:.2s}.p7{animation-delay:.24s}.p8{animation-delay:.28s}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ═══ 书脊导航 ═══ -->
+  <aside class="spine" aria-label="站名与主导航">
+    <span class="spine-mark">AFEIFEI</span>
+    <span class="spine-mark2">BROADCAST</span>
+    <div class="spine-name">不夜台</div>
+    <span class="spine-en">LISTENING ROOM · 06:00</span>
+    <nav class="spine-nav" aria-label="主导航">
+      <div class="col">
+        <a href="#" class="on" aria-current="page">首页</a>
+        <a href="#">在线</a>
+        <a href="#">榜单</a>
+        <a href="#">电台</a>
+        <a href="#">漫游</a>
+        <a href="#">本地</a>
+      </div>
+      <div class="col">
+        <a href="#">歌单</a>
+        <a href="#">喜欢</a>
+        <a href="#">最近</a>
+        <a href="#">统计</a>
+        <a href="#">设置</a>
+        <a href="#">直播</a>
+      </div>
+    </nav>
+    <div class="spine-foot">
+      <span class="lamp" aria-hidden="true"></span>
+      <span class="spine-air">ON AIR · 24H</span>
+    </div>
+  </aside>
+
+  <!-- ═══ 页头 ═══ -->
+  <header class="masthead">
+    <div class="date-block">
+      <h1 class="date">11 月 6 日</h1>
+      <div class="date-meta">
+        <div class="date-line"><span>星期五</span><span class="tick" aria-hidden="true"></span><span class="brass">立冬前夜</span></div>
+        <p class="note">每日推荐 · QQ 音乐每日 <time datetime="06:00">06:00</time> 换新 · 共 <b>33</b> 首</p>
+      </div>
+    </div>
+    <a class="account" href="#" aria-label="账号：此单位无法选中，QQ 音乐已登录">
+      <span class="seal" aria-hidden="true">此</span>
+      <span class="who"><b>此单位无法选中</b><small>QQ 音乐 · 已登录</small></span>
+    </a>
+  </header>
+
+  <main class="main">
+    <!-- ═══ 今日唱片 ═══ -->
+    <section class="hero" aria-label="今日唱片：不夜台第六夜">
+      <div class="disc" aria-hidden="true">
+        <div class="label"><b>不夜台</b><span>AFEIFEI · 33⅓</span></div>
+      </div>
+      <figure class="sleeve">
+        <div class="sleeve-art">
+          <span class="s-top"><span>AFEIFEI BROADCAST</span><span>SIDE A · 006</span></span>
+          <span class="s-title" aria-label="不夜台">不夜台</span>
+          <span class="s-rule" aria-hidden="true"></span>
+          <span class="orbit" aria-hidden="true"></span>
+          <span class="moon" aria-hidden="true"></span>
+          <span class="s-en">DAILY TRANSMISSION · SIDE A</span>
+          <span class="stamp"><b>第 六 夜</b><span>11 · 06</span></span>
+          <span class="s-rpm">33⅓<small>RPM · STEREO</small></span>
+          <span class="s-foot">夜廊 / LISTENING ROOM</span>
+        </div>
+      </figure>
+      <div class="hero-note">
+        <p class="verse">一间房，一张片，夜还长。</p>
+        <p class="verse-src">— 不夜台 · 听音室 · 第 006 夜</p>
+        <div class="note-rule" aria-hidden="true"></div>
+        <div class="hero-meta">
+          <span>已装片 <b>33</b> 首</span>
+          <span><b>06:00</b> 自动换新</span>
+          <span>今日第 <b>6</b> 夜</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ 今日推荐 · 唱片架 ═══ -->
+    <section class="rack" aria-label="今日推荐，共 33 首，先展示 8 首">
+      <div class="rack-head">
+        <div>
+          <h2 class="rack-title">今日推荐</h2>
+          <p class="rack-sub">三十三首里，先听这八张</p>
+        </div>
+        <div class="count"><b>33</b><span>首</span></div>
+      </div>
+
+      <div class="row a">
+        <a class="pick p1" href="#" aria-label="Komorebi，田熊理秀">
+          <span class="slot"><span class="cover light c1" aria-hidden="true">
+            <span class="glyph">木</span><span class="cat">AF·0601</span><span class="code">A / 1</span>
+          </span></span>
+          <span class="cap"><span class="ttl">Komorebi</span><span class="cap-meta"><span class="who-name">田熊理秀</span><span class="num">01</span></span></span>
+        </a>
+        <a class="pick p2" href="#" aria-label="Tek It，Cafuné">
+          <span class="slot"><span class="cover c2" aria-hidden="true">
+            <span class="glyph">T</span><span class="cat">AF·0602</span><span class="code">A / 2</span>
+          </span></span>
+          <span class="cap"><span class="ttl">Tek It</span><span class="cap-meta"><span class="who-name">Cafuné</span><span class="num">02</span></span></span>
+        </a>
+        <a class="pick p3" href="#" aria-label="爱情讯息，郭静">
+          <span class="slot"><span class="cover light c3" aria-hidden="true">
+            <span class="glyph">爱</span><span class="cat">AF·0603</span><span class="code">A / 3</span>
+          </span></span>
+          <span class="cap"><span class="ttl">爱情讯息</span><span class="cap-meta"><span class="who-name">郭静</span><span class="num">03</span></span></span>
+        </a>
+        <a class="pick p4" href="#" aria-label="One Last Kiss，宇多田ヒカル">
+          <span class="slot"><span class="cover c4" aria-hidden="true">
+            <span class="glyph">O</span><span class="cat">AF·0604</span><span class="code">A / 4</span>
+          </span></span>
+          <span class="cap"><span class="ttl">One Last Kiss</span><span class="cap-meta"><span class="who-name">宇多田ヒカル</span><span class="num">04</span></span></span>
+        </a>
+      </div>
+
+      <div class="row b">
+        <a class="pick p5" href="#" aria-label="One More Last Time，Henry Young、Ashley Alisha">
+          <span class="slot"><span class="cover c5" aria-hidden="true">
+            <span class="glyph">O</span><span class="cat">AF·0605</span><span class="code">B / 1</span>
+          </span></span>
+          <span class="cap"><span class="ttl">One More Last Time</span><span class="cap-meta"><span class="who-name">Henry Young / Ashley Alisha</span><span class="num">05</span></span></span>
+        </a>
+        <a class="pick p6" href="#" aria-label="熱の海の背に乗って，みゆな">
+          <span class="slot"><span class="cover c6" aria-hidden="true">
+            <span class="glyph">海</span><span class="cat">AF·0606</span><span class="code">B / 2</span>
+          </span></span>
+          <span class="cap"><span class="ttl" lang="ja">熱の海の背に乗って</span><span class="cap-meta"><span class="who-name" lang="ja">みゆな</span><span class="num">06</span></span></span>
+        </a>
+        <a class="pick p7" href="#" aria-label="下一個天亮，郭静">
+          <span class="slot"><span class="cover light c7" aria-hidden="true">
+            <span class="glyph">天</span><span class="cat">AF·0607</span><span class="code">B / 3</span>
+          </span></span>
+          <span class="cap"><span class="ttl">下一個天亮</span><span class="cap-meta"><span class="who-name">郭静</span><span class="num">07</span></span></span>
+        </a>
+        <a class="pick p8" href="#" aria-label="真夜中のドア〜stay with me，松原みき">
+          <span class="slot"><span class="cover c8" aria-hidden="true">
+            <span class="glyph">夜</span><span class="cat">AF·0608</span><span class="code">B / 4</span>
+          </span></span>
+          <span class="cap"><span class="ttl" lang="ja">真夜中のドア〜stay with me</span><span class="cap-meta"><span class="who-name" lang="ja">松原みき</span><span class="num">08</span></span></span>
+        </a>
+      </div>
+
+      <p class="rack-foot">
+        <span>每日 <b>06:00</b> 换新</span>
+        <span>·</span>
+        <span>共 <b>33</b> 首</span>
+        <a class="all" href="#">查看全部</a>
+      </p>
+    </section>
+  </main>
+
+  <!-- ═══ 底部控制台 ═══ -->
+  <footer class="console" aria-label="播放控制台">
+    <div class="np">
+      <span class="np-disc" aria-hidden="true"></span>
+      <div class="np-text">
+        <div class="np-title">Ozora Crystal</div>
+        <div class="np-sub"><span class="mono">Michita</span> · 每日推荐</div>
+      </div>
+      <span class="state">已暂停</span>
+    </div>
+
+    <div class="tp">
+      <div class="bar">
+        <span class="time now">1:47</span>
+        <div class="track" role="progressbar" aria-label="播放进度" aria-valuemin="0" aria-valuemax="303" aria-valuenow="107">
+          <span class="fill"></span><span class="knob"></span>
+        </div>
+        <span class="time">5:03</span>
+      </div>
+      <div class="keys">
+        <button class="k" type="button" aria-label="上一首">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4 3v10"/><path d="M12 3.5 5.5 8 12 12.5z"/></svg>
+          上一首
+        </button>
+        <button class="k play" type="button" aria-label="播放">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.2 12.6 8 5 12.8z"/></svg>
+          播放
+        </button>
+        <button class="k" type="button" aria-label="下一首">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M12 3v10"/><path d="M4 3.5 10.5 8 4 12.5z"/></svg>
+          下一首
+        </button>
+      </div>
+    </div>
+
+    <div class="ut" role="group" aria-label="播放选项">
+      <button class="u" type="button" aria-label="红心" aria-pressed="false">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M8 13.1S2.5 9.8 2.5 5.9a2.7 2.7 0 0 1 4.9-1.6L8 5.1l.6-.8a2.7 2.7 0 0 1 4.9 1.6c0 3.9-5.5 7.2-5.5 7.2z"/></svg>
+        红心
+      </button>
+      <button class="u" type="button" aria-label="随机播放" aria-pressed="false">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2 4.5h2.2c1.1 0 1.9.5 2.7 1.6l2.3 3.3c.8 1.1 1.6 1.6 2.7 1.6H14"/><path d="M11.8 9 14 11l-2.2 2"/><path d="M2 11.5h2.2c1.1 0 1.9-.5 2.7-1.6"/></svg>
+        随机
+      </button>
+      <button class="u" type="button" aria-label="音量">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2.5 6h2L7.5 3.5v9L4.5 10h-2z"/><path d="M10 5.8a3.2 3.2 0 0 1 0 4.4"/><path d="M12 4a5.6 5.6 0 0 1 0 8"/></svg>
+        音量
+      </button>
+      <button class="u" type="button" aria-label="睡眠定时">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M13 9.6A5.4 5.4 0 0 1 6.4 3a5.5 5.5 0 1 0 6.6 6.6z"/></svg>
+        睡眠
+      </button>
+      <button class="u" type="button" aria-label="播放倍速，当前 1.0 倍">
+        <span class="mono-ico" aria-hidden="true">1.0×</span>
+        倍速
+      </button>
+      <button class="u" type="button" aria-label="歌词">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M3 4.5h10M3 8h7.5M3 11.5h5.5"/></svg>
+        词
+      </button>
+      <button class="u" type="button" aria-label="迷你模式">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="2.5" y="3.5" width="11" height="9"/><path d="M8.5 8h3v3h-3z"/></svg>
+        迷你
+      </button>
+      <button class="u" type="button" aria-label="播放队列">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h7M2.5 11.5h9"/><path d="M12 7v5.5"/></svg>
+        队列
+      </button>
+      <button class="u" type="button" aria-label="音效设置">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M4 2.5v11M8 2.5v11M12 2.5v11"/><rect x="2.6" y="5.4" width="2.8" height="2" fill="currentColor" stroke="none"/><rect x="10.6" y="8.4" width="2.8" height="2" fill="currentColor" stroke="none"/></svg>
+        音效
+      </button>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

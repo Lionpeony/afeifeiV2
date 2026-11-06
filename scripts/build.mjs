@@ -55,6 +55,7 @@ if (TEST) {
       "listening-log": "src/renderer/domain/listening/log.ts",
       "listening-stats": "src/renderer/projection/stats.ts",
       "ui-theme": "src/renderer/ui/theme.ts",
+      "night-issue": "src/renderer/ui/live/night.ts",
       "global-theme": "src/renderer/ui/global-theme.ts",
       "active-source": "src/renderer/ui/active-source.ts",
       recommend: "src/renderer/domain/recommend/index.ts",
@@ -213,6 +214,8 @@ const css = [
   "src/renderer/ui/views/stage/stage-queue.css",
   "src/renderer/ui/views/stage/stage-panels.css",
   "src/renderer/ui/live/live.css",
+  "src/renderer/ui/live/night-signal.css",
+  "src/renderer/ui/live/cover-stage.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");

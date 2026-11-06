@@ -28,9 +28,12 @@ const STATE_TEXT: Record<DownloadRow["state"], string> = {
 export function DownloadsView({
   services,
   onRemove,
+  embedded = false,
 }: {
   services: Services;
   onRemove(id: string): Promise<void>;
+  /** 嵌进「本地」页时不再自带 section/PageHead，标题与外壳由宿主提供 */
+  embedded?: boolean;
 }) {
   const [rows, setRows] = useState<DownloadRow[]>(downloadRows(getState()));
   const [usage, setUsage] = useState(0);
@@ -81,9 +84,8 @@ export function DownloadsView({
   // 看板只读：状态迁移看得见，操作仍在下面的表格
   const board = boardProgram(rows.map((row) => ({ id: row.id, title: row.title, state: row.state })));
 
-  return (
-    <section className="library">
-      <PageHead title="下载" meta="DOWNLOADS" />
+  const body = (
+    <>
       <div className="lib-head">
         <span className="badge">
           已用 {fmtBytes(usage)} / 2GB · {rows.length} 个任务
@@ -212,6 +214,15 @@ export function DownloadsView({
           <p className="lib-empty">还没有下载任务。在「在线」页点歌名旁的「下载」。</p>
         ) : null}
       </div>
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="library">
+      <PageHead title="下载" meta="DOWNLOADS" />
+      {body}
     </section>
   );
 }

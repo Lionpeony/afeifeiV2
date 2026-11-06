@@ -40,7 +40,8 @@ const cache = new Map<string, { value: string; expire: number }>();
 
 /* ---- host.cache 的持久化：内存为主，变更后 2s 节流写快照，启动读回 ----
  * 上限 5MB（对齐 00 §6.3 的缓存预算）；写失败不影响宿主（缓存本来就可丢）。 */
-const CACHE_FILE = (): string => path.join(dataDir(), "cache", "sandbox-cache.json");
+/* 同 qqBackend：dataDir()/cache 在 Windows 上与 Chromium 的 Cache/ 目录重合，会被清掉 */
+const CACHE_FILE = (): string => path.join(dataDir(), "sandbox-cache.json");
 const CACHE_DISK_MAX = 5_000_000;
 let cacheFlushTimer: NodeJS.Timeout | null = null;
 

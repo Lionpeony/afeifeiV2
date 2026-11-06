@@ -80,9 +80,11 @@
   --live-onair: #e4483f;
   --live-amber: #e8a34a;
   --live-phosphor: #8fe0c0;
+  --live-signal: #8ecfdf; /* 夜航台：信号冰蓝，只做第二强调 */
+  --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
   --live-paper: #f3f2ed; /* 锁定页冷纸 */
   --live-ink: #14171a;
-  --live-ruler-h: 44px;
+  --live-ruler-h: 50px;
 
   color-scheme: light;
 }

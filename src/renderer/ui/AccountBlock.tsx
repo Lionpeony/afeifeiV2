@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { fmtDuration } from "./views/library/rows.js";
 import type { AccountState } from "./account-data.js";
+import { RefreshButton } from "./RefreshButton.js";
 
 /**
  * 账号数据区块（喜欢的音乐 / 最近播放 / 首页之外的复用块）。
@@ -51,7 +52,10 @@ export function AccountBlock({ title, note, state, empty, extra, onPlay, onUnlik
     <section className="acct" aria-label={title}>
       <div className="acct-head">
         <h3>{title}</h3>
-        <span className="acct-meta">{state.loading ? "LOADING" : `${count} 首`}</span>
+        <div className="acct-head-r">
+          <span className="acct-meta">{state.loading ? "LOADING" : `${count} 首`}</span>
+          <RefreshButton onClick={state.reload} />
+        </div>
       </div>
       <p className="acct-note">{note}</p>
 

@@ -203,6 +203,15 @@ html::after {
   padding-bottom: 10px;
 }
 
+/* 工具行右端（在线页）：批量操作顶到最右，和音源/账号隔开一段，
+   否则「退出」和「下载选中」并排同重量，主操作看不出来 */
+.lib-head-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .search {
   flex: 1;
   padding: 7px 12px;
@@ -493,19 +502,27 @@ html::after {
 .playlists-page .pl-wrap {
   grid-template-columns: 270px 1fr;
 }
+/* 榜单页：左目录 240px（榜名普遍比歌单名长，如「网易云音乐电音榜」），右侧曲目占满。
+   定义写在基类这边：布局属于页面骨架，不该由 live 壳去改。 */
+.charts-page .pl-wrap {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
 .pl-list {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+/* 歌单 / 榜单目录的行：它是目录条目，不是一排描边按钮 ——
+   横向发丝线分隔，选中靠左缘一道墨线，不靠加粗（加粗会把长名字挤成两行）。 */
 .pl-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
+  padding: 9px 10px 9px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
   border-radius: 0;
   background: none;
   color: var(--fg);
@@ -513,9 +530,16 @@ html::after {
   text-align: left;
   font-size: 13px;
 }
-.pl-item:hover { border-color: var(--fg-dim); }
-.pl-item.on { border-color: var(--fg); font-weight: 700; }
+.pl-item:hover {
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+.pl-item.on {
+  box-shadow: inset 2px 0 0 var(--accent);
+  font-weight: 600;
+}
 .pl-name {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -532,7 +556,6 @@ html::after {
 .chart-item {
   justify-content: flex-start;
   gap: 10px;
-  padding: 6px 8px;
 }
 .chart-cover {
   flex: 0 0 40px;
@@ -1034,6 +1057,8 @@ html::after {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* 滚动区底部留一口气：最后一行贴着面板边缘被切一半，读成"页面没做完" */
+  padding-bottom: 12px;
 }
 
 /* 行（ref pages-v11 .prow）：序号 / 歌名 / 歌手 / 专辑 / 时长 / 心，42px，点线分隔。

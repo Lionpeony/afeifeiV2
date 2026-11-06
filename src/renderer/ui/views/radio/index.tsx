@@ -28,7 +28,7 @@ const freqOf = (i: number): string => (88 + i * 1.7).toFixed(1);
  * 假 UP 主：频段墙 = 曲库里够 3 首的艺人（每位一个台，按首数排），
  * 「我的频路」= 五条由本机数据算出来的规则台。点了就按顺序串播。
  */
-export function RadioView({ onPlayGroup, now }: RadioViewProps) {
+export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps & { embedded?: boolean }) {
   const [, setRev] = useState(0);
   const bump = (): void => setRev((r) => r + 1);
   /* 私人 FM 的换流种子：FM 是一条流不是一批数据，换流不持久（换一批那种才要记住） */
@@ -115,14 +115,8 @@ export function RadioView({ onPlayGroup, now }: RadioViewProps) {
   }));
   const startFm = (): void => onPlayGroup(fmTracks, 0);
 
-  return (
-    <section className="radio">
-      <PageHead
-        title="电台"
-        desc="没有主播、没有广告，只有按规则串起来的本地曲库——十二个频段，随点随播。"
-        meta={`STATIONS · ${wall.length}`}
-      />
-
+  const body = (
+    <>
       {/* 私人 FM：横向开机条。左=接下来三首和理由，右=操作。不挤侧栏，也不占频段墙 */}
       <div className="fmbar">
         <div className="fm-why">
@@ -190,6 +184,19 @@ export function RadioView({ onPlayGroup, now }: RadioViewProps) {
         <span className="sp" />
         <span className="hint">点击频段即整台串播 · 队列与控制台同步</span>
       </div>
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <section className="radio">
+      <PageHead
+        title="电台"
+        desc="没有主播、没有广告，只有按规则串起来的本地曲库——十二个频段，随点随播。"
+        meta={`STATIONS · ${wall.length}`}
+      />
+      {body}
     </section>
   );
 }

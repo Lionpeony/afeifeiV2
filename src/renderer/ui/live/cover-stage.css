@@ -1,0 +1,998 @@
+/* ================= 首页 · 唱片舞台（COVER STAGE） =================
+   设计稿：design-demos/refine-cover-stage/home.html
+   左：整高封套 + 压在封套上的主打；右：每日推荐 + 横向播出带。
+   动效只保留「本次运行第一次进入首页」的一次入场；切页不重播。 */
+
+.shell.live .cs-home {
+  display: grid;
+  grid-template-columns: 40% minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* —— 左：唱片舞台 —— */
+.cs-stage {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--live-bg);
+  border-right: 1px solid var(--live-line-strong);
+  box-shadow: inset -26px 0 44px -34px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.cs-cover {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cs-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 8, 12, 0) 26%,
+    rgba(5, 8, 12, 0.16) 44%,
+    rgba(5, 8, 12, 0.66) 61%,
+    rgba(5, 8, 12, 0.93) 77%,
+    rgba(5, 8, 12, 0.985) 100%
+  );
+}
+
+.cs-frame {
+  position: absolute;
+  inset: 10px;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, var(--live-fg) 14%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), inset 0 40px 80px -70px rgba(255, 255, 255, 0.18);
+  pointer-events: none;
+}
+
+.cs-slate {
+  position: absolute;
+  top: 22px;
+  left: 24px;
+  z-index: 4;
+  padding: 8px 12px 7px;
+  background: color-mix(in srgb, var(--live-ink) 64%, transparent);
+  border: 1px solid color-mix(in srgb, var(--live-fg) 26%, transparent);
+  border-left: 2px solid var(--live-amber);
+  box-shadow: 0 16px 34px -22px rgba(0, 0, 0, 0.9);
+}
+
+.cs-slate-code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.17em;
+  color: var(--live-amber);
+}
+
+.cs-slate-date {
+  display: block;
+  margin-top: 5px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  color: var(--live-fg);
+}
+
+.cs-slate-sub {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--live-fg-dim);
+}
+
+.cs-copy {
+  position: absolute;
+  left: 30px;
+  right: 34px;
+  bottom: 22px;
+  z-index: 3;
+  max-width: 560px;
+}
+
+.cs-kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--live-amber);
+}
+
+.cs-idx {
+  margin-left: auto;
+  color: var(--live-signal);
+  letter-spacing: 0.1em;
+}
+
+.shell.live .cs-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--live-serif);
+  font-size: clamp(34px, 5vw, 58px);
+  font-weight: 400;
+  white-space: normal;
+  line-height: 1.04;
+  letter-spacing: 0.014em;
+  color: var(--live-fg);
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.6);
+  overflow-wrap: anywhere;
+}
+
+.shell.live .cs-title:hover {
+  color: var(--live-amber);
+}
+
+.cs-artist {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 10px 0 0;
+  min-width: 0;
+}
+
+.cs-artist b {
+  font-family: var(--font-disp);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  color: var(--live-signal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-dur {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--live-amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-ord {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--live-fg-dim);
+  white-space: nowrap;
+}
+
+.cs-note {
+  margin: 12px 0 0;
+  max-width: 31em;
+  font-family: var(--live-serif);
+  font-size: 15px;
+  line-height: 1.8;
+  color: color-mix(in srgb, var(--live-fg) 78%, transparent);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55);
+}
+
+.cs-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.cs-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid var(--live-amber);
+  background: var(--live-amber);
+  color: var(--live-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 0 rgba(0, 0, 0, 0.3);
+  transition: filter 160ms ease, transform 120ms ease;
+}
+
+.cs-play i {
+  width: 0;
+  height: 0;
+  border-left: 9px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+
+/* 正在播那一档时按钮变「暂停」：三角换两条竖杠 */
+.cs-play.is-pause i {
+  width: 9px;
+  height: 10px;
+  border: none;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.cs-play:hover {
+  filter: brightness(1.08);
+}
+
+.cs-play:active {
+  transform: translateY(1px);
+  filter: brightness(0.97);
+}
+
+/* —— 右：每日推荐 + 横向播出带 —— */
+.cs-feed {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px 28px 16px;
+  overflow: hidden;
+}
+
+.cs-feed-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-feed-kicker {
+  margin: 0 0 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--live-amber);
+}
+
+.cs-feed-meta {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--live-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-feed-meta b {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--live-amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-feed-head .refresh-btn {
+  margin-left: auto;
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border-color: var(--live-line-strong);
+  color: var(--live-fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.cs-feed-head .refresh-btn:hover {
+  border-color: var(--live-amber);
+  color: var(--live-amber);
+}
+
+.refresh-btn.is-spinning svg {
+  animation: cs-spin 600ms linear;
+}
+
+@keyframes cs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cs-strip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  margin: 16px 0 9px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--live-line-strong);
+}
+
+.cs-strip-head h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0.08em;
+  color: var(--live-fg);
+  white-space: nowrap;
+}
+
+.cs-strip-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--live-fg-faint);
+  white-space: nowrap;
+}
+
+.cs-more {
+  margin-left: auto;
+  padding: 0 0 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--live-signal);
+  white-space: nowrap;
+}
+
+.cs-more:hover {
+  color: var(--live-fg);
+}
+
+.cs-more[aria-expanded="true"] {
+  color: var(--live-amber);
+}
+
+.cs-tapes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--live-line-strong);
+  border-top: 2px solid color-mix(in srgb, var(--live-fg) 18%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--live-fg) 6%, transparent);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.cs-tapes::-webkit-scrollbar {
+  height: 0;
+}
+
+.cs-tapes li {
+  display: flex;
+  flex: 1 0 88px;
+  min-width: 88px;
+  border-left: 1px solid var(--live-line);
+}
+
+.cs-tapes li:first-child {
+  border-left: none;
+}
+
+.cs-tape {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 8px 9px;
+  border: none;
+  text-align: left;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--live-fg) 3%, transparent), transparent 46%);
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.cs-tape::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--live-amber);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.cs-tape:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--live-amber) 14%, transparent),
+    color-mix(in srgb, var(--live-amber) 2%, transparent) 64%
+  );
+}
+
+.cs-tape:hover::before {
+  opacity: 1;
+}
+
+/* 正在播出那一档：顶线常亮 + 顶上留一层很淡的琥珀（13% 在深底上会发褐，压到 9%） */
+.cs-tape.is-live {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--live-amber) 9%, transparent),
+    transparent 44%
+  );
+}
+
+.cs-tape.is-live::before {
+  opacity: 1;
+}
+
+.cs-tape-no {
+  font-family: var(--font-disp);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--live-amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-tape-rule {
+  width: 16px;
+  height: 1px;
+  margin: 7px 0 8px;
+  background: color-mix(in srgb, var(--live-fg) 34%, transparent);
+}
+
+.shell.live .cs-tape-title {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.8em;
+  white-space: normal;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  color: var(--live-fg);
+  overflow-wrap: break-word;
+}
+
+.cs-tape-artist {
+  min-width: 0;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--live-fg) 68%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-tape-window {
+  flex: 1;
+  min-height: 36px;
+  margin: 10px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--live-fg) 16%, transparent);
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--live-fg) 4.5%, transparent) 0 1px, transparent 1px 9px),
+    linear-gradient(180deg, color-mix(in srgb, var(--live-ink) 66%, transparent), color-mix(in srgb, var(--live-panel) 42%, transparent));
+}
+
+.cs-tape-window::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  height: 1px;
+  background: color-mix(in srgb, var(--live-fg) 12%, transparent);
+}
+
+.cs-tape-window i {
+  position: relative;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--live-signal) 50%, transparent);
+  background: color-mix(in srgb, var(--live-ink) 80%, transparent);
+}
+
+.cs-tape-window i::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--live-signal) 62%, transparent);
+}
+
+.cs-tape-meter {
+  height: 7px;
+  margin: 0 0 7px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--live-signal) 32%, transparent) 0 2px,
+    transparent 2px 5px
+  );
+  opacity: 0.55;
+}
+
+.cs-tape-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cs-tape-dur {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--live-fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-tape-play {
+  width: 0;
+  height: 0;
+  border-left: 8px solid var(--live-fg-dim);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transition: border-left-color 140ms ease;
+}
+
+.cs-tape:hover .cs-tape-play,
+.cs-tape:focus-visible .cs-tape-play {
+  border-left-color: var(--live-amber);
+}
+
+.cs-tape:focus-visible,
+.shell.live .cs-title:focus-visible,
+.cs-play:focus-visible {
+  outline: 2px solid var(--live-amber);
+  outline-offset: -2px;
+}
+
+/* 信号表：右下收底 */
+.cs-signal {
+  flex: none;
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px solid var(--live-line-strong);
+}
+
+.cs-sig-head,
+.cs-sig-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  color: var(--live-fg-faint);
+}
+
+.cs-vu {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 44px;
+  margin: 6px 0 6px;
+}
+
+.cs-vu i {
+  flex: 1;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--live-signal) 88%, transparent),
+    color-mix(in srgb, var(--live-signal) 30%, transparent)
+  );
+  opacity: 0.66;
+}
+
+.cs-vu i:nth-child(n + 32) {
+  background: linear-gradient(
+    180deg,
+    var(--live-amber),
+    color-mix(in srgb, var(--live-amber) 38%, transparent)
+  );
+  opacity: 0.82;
+}
+
+.cs-standby {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--live-signal);
+}
+
+.cs-standby i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--live-signal);
+  box-shadow: 0 0 7px var(--live-signal);
+}
+
+/* 加载 / 未登录 / 空态：占满整页，不留洞 */
+.cs-state-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 24px 30px;
+  min-height: 0;
+}
+
+.cs-empty {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.cs-empty-art {
+  flex: none;
+  width: 220px;
+  aspect-ratio: 591 / 596;
+  border: 1px solid var(--live-line-strong);
+}
+
+.cs-empty h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--live-fg);
+}
+
+.cs-empty p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--live-fg-dim);
+}
+
+/* 低频仪式感：只在本次运行第一次进入首页时播一次 */
+.cs-enter .cs-stage {
+  animation: cs-settle 460ms ease-out both;
+}
+
+.cs-enter .cs-feed {
+  animation: cs-rise 460ms 60ms ease-out both;
+}
+
+@keyframes cs-settle {
+  from {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* —— 换档：正在播放的那一档顶到左栏 ——
+   封套与文案按 lead.sourceId 重挂，各播一次；只碰 opacity / transform。
+   封套从 1.035 缩回 1（始终盖满容器，不会露边），文案抬 10px；都是单向收敛。 */
+@keyframes cs-swap-cover {
+  from {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-swap-copy {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cs-stage .cs-cover {
+  animation: cs-swap-cover 260ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+.cs-copy {
+  animation: cs-swap-copy 200ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+/* —— 窄宽 / 矮高降级 —— */
+@media (max-width: 1000px) {
+  .shell.live .cs-home {
+    grid-template-columns: 40% minmax(0, 1fr);
+  }
+
+  .cs-feed {
+    padding: 16px 20px 12px;
+  }
+
+  .cs-slate {
+    top: 16px;
+    left: 18px;
+    padding: 8px 11px 7px;
+  }
+
+  .cs-slate-date {
+    font-size: 14px;
+  }
+
+  .cs-copy {
+    left: 20px;
+    right: 22px;
+    bottom: 16px;
+  }
+
+  .shell.live .cs-title {
+    font-size: clamp(30px, 4.6vw, 38px);
+  }
+
+  .cs-note {
+    font-size: 14px;
+  }
+
+  .cs-tapes::-webkit-scrollbar {
+  height: 0;
+}
+
+.cs-tapes li {
+    flex: 1 0 80px;
+    min-width: 80px;
+  }
+
+  .cs-vu {
+    height: 34px;
+  }
+}
+
+@media (max-height: 600px) {
+  .cs-feed {
+    padding: 12px 20px 10px;
+  }
+
+  .cs-strip-head {
+    margin: 10px 0 7px;
+    padding-bottom: 6px;
+  }
+
+  .cs-strip-head h2 {
+    font-size: 17px;
+  }
+
+  .cs-slate {
+    top: 12px;
+    left: 14px;
+    padding: 6px 9px;
+  }
+
+  .cs-slate-sub {
+    display: none;
+  }
+
+  .cs-copy {
+    left: 16px;
+    right: 18px;
+    bottom: 12px;
+  }
+
+  .shell.live .cs-title {
+    font-size: 30px;
+  }
+
+  .cs-note {
+    display: none;
+  }
+
+  .cs-actions {
+    margin-top: 8px;
+  }
+
+  .cs-play {
+    height: 32px;
+  }
+
+  .cs-tape-window {
+    min-height: 24px;
+    margin: 7px 0 6px;
+  }
+
+  .cs-tape-meter {
+    display: none;
+  }
+
+  .cs-signal {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-enter .cs-stage,
+  .cs-enter .cs-feed {
+    animation: cs-fade 320ms ease-out both;
+  }
+
+  /* 换档只留淡入：去掉位移与缩放（不是全关） */
+  .cs-stage .cs-cover,
+  .cs-copy {
+    animation: cs-fade 220ms ease-out both;
+  }
+
+  .cs-tape,
+  .cs-tape::before,
+  .cs-tape-play,
+  .cs-play {
+    transition: none;
+  }
+}
+
+/* —— 完整播出单（展开态，替代横向磁带） —— */
+.cs-all {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--live-line-strong);
+  background: color-mix(in srgb, var(--live-ink) 24%, transparent);
+  scrollbar-width: thin;
+}
+
+.cs-all::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cs-all::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cs-all::-webkit-scrollbar-thumb {
+  background: var(--live-line-strong);
+}
+
+.cs-all-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 170px 46px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--live-line);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cs-all-row:hover {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--live-amber) 9%, transparent),
+    transparent 78%
+  );
+}
+
+/* 完整播出单里正在播的那一行：左缘一条琥珀刻度，和横排磁带同一套标记 */
+.cs-all-row.is-live {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--live-amber) 12%, transparent),
+    transparent 74%
+  );
+  box-shadow: inset 2px 0 0 var(--live-amber);
+}
+
+.cs-all-no {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--live-fg-faint);
+}
+
+.cs-all-title {
+  font-size: 14px;
+  color: var(--live-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-all-artist {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--live-fg) 66%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-all-dur {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--live-fg-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-all-row:focus-visible {
+  outline: 2px solid var(--live-amber);
+  outline-offset: -2px;
+}
+
+/* 极淡的机位纹理：只加 1.5% 的扫描与上亮下暗，避免纯黑电子屏感 */
+.shell.live .cs-home::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 32%);
+  opacity: 0.7;
+}
+
+.shell.live .cs-home {
+  position: relative;
+}
+
+@media (max-width: 1000px) {
+  .cs-all-row {
+    grid-template-columns: 30px minmax(0, 1fr) 44px;
+    gap: 9px;
+  }
+
+  .cs-all-artist {
+    display: none;
+  }
+}

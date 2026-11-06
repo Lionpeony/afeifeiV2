@@ -152,19 +152,31 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     },
 
     async getUrl(sourceId: string, quality): Promise<string> {
-      const body = await ncm<{ data?: { url?: string | null; code?: number; fee?: number }[] }>("song_url_v1", {
-        id: sourceId,
-        level: quality === "320k" ? "exhigh" : "standard",
-      });
+      const level = quality === "320k" ? "exhigh" : "standard";
+      const pick = (body: unknown): { url?: string; fee?: number } => {
+        const first = (body as { data?: { url?: string | null; fee?: number }[] } | null)?.data?.[0];
+        return { url: first?.url ?? undefined, fee: first?.fee };
+      };
 
-      const first = (body?.data ?? [])[0];
-      if (!first?.url) {
+      const ask = async (fn: string, params: Record<string, unknown>) =>
+        pick(await ncm(fn, params).catch(() => null));
+
+      // 实测（2026-11-06）：带登录 cookie 调 v1 会稳定触发网易云 -460「网络环境存在风险」，
+      // 旧 song_url 同一凭证可取到地址；两者偶发空返回，重试一次即可恢复。
+      let got = await ask("song_url", { id: sourceId, br: quality === "320k" ? 320000 : 128000 });
+      if (!got.url) got = await ask("song_url_v1", { id: sourceId, level });
+      if (!got.url) got = await ask("song_url", { id: sourceId, br: quality === "320k" ? 320000 : 128000 });
+      // 最后一层：匿名取流。登录 cookie 被风控 -460 时，匿名请求往往还能拿到免费曲地址。
+      if (!got.url) got = await ask("song_url_v1", { id: sourceId, level, cookie: "" });
+
+      if (!got.url) {
         // 有地址就播；没有的话：未登录 / 需要会员 / 真无版权，三种要分开说
         const profile = await api.profile("netease").catch(() => ({ loggedIn: false }));
         if (!profile.loggedIn) throw err("auth-required", "需要登录后才能播放");
-        throw err(first?.fee === 1 ? "quality-unavailable" : "track-missing", "这首歌暂时没有可播放的地址");
+        if (got.fee === 1) throw err("quality-unavailable", "这首歌需要会员音质，已无法取到地址");
+        throw err("track-missing", "网易云没有给出这首歌的地址，请稍后再试");
       }
-      return first.url;
+      return got.url;
     },
 
     async listPlaylists() {

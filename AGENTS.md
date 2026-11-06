@@ -69,3 +69,15 @@ node scripts/todo-count.mjs  # TODO 处数，只许降
 - 一提交一件事，diff ≤ 400 行。
 - 信息格式 `<环>: <做了什么>`，例 `kernel: add clock drift guard`；脚本/配置用 `chore:` / `build:`；放宽门禁用 `gate:` 并写清原值→新值。
 - 只提交，不 push。
+
+## 7. 工程习惯
+
+1. **平台 SDK 钉死版本**：`@yakult-green-tea/qq-music-api`、`NeteaseCloudMusicApi` 不写 `^` / `~`。它们会被读内部文件，小版本变了也可能坏。
+2. **已发布的存储键不改名**：`kernel/store` 和各设置的持久化键一旦发布就固定；要改只能新增键并迁移旧值。
+3. **日志交 Error 对象**：`console.warn("[模块] ...", error)`，不要只交 `error.message`；行首 tag 写模块名。
+4. **生成物不手改**：`dist/` 全部由 esbuild 产出，改源码后跑 `npm start` / `npm run build` 重新生成。
+5. **环是硬边界，环内按功能放**：功能代码放一处，环外只留接入点（能力声明一行、preload 一行）；同环内先平铺，目录约 15 个文件以上再分子目录。
+6. **入口只组装**：页面/窗口入口只做传参、组合、必要分支，实现放相邻文件。提前警戒：入口/装配 180 行，容器/页面 220 行，展示/工具 160 行；超过 400 行一律拆。
+7. **同类新增只动自己的目录和注册点**：新增音源、窗口或命令只改能力声明与注册点，不改 `ui/`。
+8. **格式**：组件文件 PascalCase，其余小驼峰，不用连字符；2 空格缩进、双引号、LF、文件末尾一个换行（见 `.editorconfig`）。
+9. **审查与开工**：开工前读本文件，按任务只加载相关 skill；审查用中文、简洁可操作，只提 correctness / security / performance / maintainability，不提低价值风格意见，只是建议就标「建议」。

@@ -55,7 +55,7 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
   const [dislikeNote, setDislikeNote] = useState("");
   const coverFn = useRef(cover);
   coverFn.current = cover;
-  const acct = useAccountBundle(account);
+  const acct = useAccountBundle(account, "fm");
 
   const bump = (): void => setRev((r) => r + 1);
   useEffect(() => subscribeLibrary(bump), []);

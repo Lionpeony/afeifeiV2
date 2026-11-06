@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { RemoteTrack, Toplist } from "../../../../contracts/capability.js";
+import { getNet, loadNet, refreshNet } from "../../../domain/net-cache/index.js";
 import { PageHead } from "../../PageHead.js";
+import { RefreshButton } from "../../RefreshButton.js";
 import { Segmented } from "../../Segmented.js";
 import { useActiveSource } from "../../use-active-source.js";
 
@@ -15,6 +17,8 @@ export interface ChartsViewProps {
     page?: number,
   ): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  /** 页头右侧的模式切换（在线 / 榜单合并后由宿主提供） */
+  tabs?: ReactNode;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -31,7 +35,7 @@ function fmtDuration(ms: number): string {
  * 左列是榜，右列是曲目，和歌单页同一套 `.pl-*` 布局，换的只是数据来源。
  * 榜单不需要登录（网易云 toplist 匿名可读），未登录也能看——这是它和"我的歌单"的区别。
  */
-export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: ChartsViewProps) {
+export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs }: ChartsViewProps) {
   const [sourceId, setSourceId] = useActiveSource(sources);
   const [lists, setLists] = useState<Toplist[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -39,17 +43,19 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
   const [nextPage, setNextPage] = useState<number | undefined>(undefined);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
-
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!sourceId) return;
     let alive = true;
-    setLists([]);
+    const key = `charts:toplists:${sourceId}`;
+    // 命中缓存就先摆出来：切页/切源不该闪一下空列表
+    setLists(getNet<Toplist[]>(key) ?? []);
     setSelected(null);
     setTracks([]);
     setNextPage(undefined);
     setNote("");
-    listToplists(sourceId)
+    loadNet(key, () => listToplists(sourceId))
       .then((list) => {
         if (!alive) return;
         setLists(list);
@@ -61,7 +67,11 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
     return () => {
       alive = false;
     };
-  }, [sourceId, listToplists]);
+    /* 只认 sourceId / tick：宿主传的是内联箭头函数，把它放进依赖会让本效果
+       每次渲染都重跑 —— 刚点中的榜会被下一个 render 重置回 null，
+       选中态永远不亮、曲目刚出来就被清掉。 */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceId, tick]);
 
   const loadTracks = async (listId: string, page: number): Promise<void> => {
     setBusy(true);
@@ -83,6 +93,17 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
     await loadTracks(list.id, 0);
   };
 
+  /* 一进页就把第一个榜摆出来：右半屏空着 700px 只会被读成「页面坏了」。
+     榜单页的内容本来就是「某个榜从第 1 名开始」，不该先逼用户选一次。 */
+  useEffect(() => {
+    if (selected !== null || lists.length === 0) return;
+    const first = lists[0];
+    setSelected(first.id);
+    void loadTracks(first.id, 0);
+    // 只认 lists：loadTracks 是这轮渲染的闭包，进依赖会让本效果每帧重跑
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lists]);
+
   const play = async (track: RemoteTrack): Promise<void> => {
     try {
       await onPlay(sourceId, track);
@@ -90,6 +111,9 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
       setNote(err instanceof Error ? err.message : String(err));
     }
   };
+
+  /** 右栏头部要显示「哪个榜 · 多少首」，从目录里反查，不另存一份名字 */
+  const selectedList = lists.find((l) => l.id === selected) ?? null;
 
   if (sources.length === 0) {
     return (
@@ -101,7 +125,22 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
 
   return (
     <section className="library charts-page">
-      <PageHead title="榜单" meta={`CHARTS · ${lists.length} LISTS`} />
+      <PageHead
+        title="榜单"
+        meta={`CHARTS · ${lists.length} LISTS`}
+        extra={
+          <div className="head-tools">
+            {tabs}
+            <RefreshButton
+              onClick={() => {
+                if (!sourceId) return;
+                refreshNet(`charts:toplists:${sourceId}`);
+                setTick((t) => t + 1);
+              }}
+            />
+          </div>
+        }
+      />
       <div className="lib-head">
         <Segmented
           label="音源"
@@ -112,44 +151,122 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
         {lists.length > 0 ? <span className="badge">{lists.length} 个榜</span> : null}
       </div>
 
-      {note ? <p className="lib-note">{note}</p> : null}
-
-      {/* 榜单带：先横着挑榜，再在下面看曲目；不把"选榜"藏进左侧窄列表 */}
-      {lists.length > 0 ? (
-        <div className="chart-rail" aria-label="榜单列表">
-          {lists.map((list) => (
-            <button
-              type="button"
-              key={list.id}
-              className={`chart-cell${selected === list.id ? " on" : ""}`}
-              onClick={() => void loadTracks(list.id, 1)}
-              title={list.name}
-            >
-              {list.coverUrl ? (
-                <i className="chart-dot" style={{ backgroundImage: `url("${list.coverUrl}")` }} aria-hidden="true" />
-              ) : null}
-              <b>{list.name}</b>
-              <span>{list.count > 0 ? `${list.count} 首` : "—"}</span>
-            </button>
-          ))}
-        </div>
+      {note ? (
+        <p className="lib-note" role="status">
+          {note}
+        </p>
       ) : null}
 
       <div className="pl-wrap">
+        {/* 左：榜单索引。65 个榜要一屏扫得动，靠三件事：mono 序号给列、18px 封套当锚点、
+            行高压到 26px。行样式仍与歌单页共用 .pl-item，只在这里收紧密度。 */}
+        <div className="pl-list" aria-label="榜单目录">
+          <p className="pl-sect">全部榜单 · {lists.length}</p>
+          {lists.map((list, i) => (
+            <button
+              type="button"
+              key={list.id}
+              className={`pl-item chart-item${selected === list.id ? " on" : ""}`}
+              onClick={() => void open(list)}
+              title={list.name}
+              aria-current={selected === list.id ? "true" : undefined}
+            >
+              <span className="chart-index" aria-hidden="true">
+                {pad(i + 1)}
+              </span>
+              <i
+                className="chart-thumb"
+                aria-hidden="true"
+                style={list.coverUrl ? { backgroundImage: `url("${list.coverUrl}")` } : undefined}
+              />
+              <span className="pl-name">{list.name}</span>
+              <span className="pl-count">{list.count > 0 ? `${list.count} 首` : "—"}</span>
+            </button>
+          ))}
+          {lists.length === 0 && !note ? <p className="pl-empty">这个音源没有给出榜单。</p> : null}
+        </div>
+
+        {/* 右：名次结构。前三名抬成台柱——名次是榜单的全部信息量，第 1 名和第 50 名
+            不能长得一样；第 4 名起才落回密集列表。 */}
         <div className="lib-list">
-          <div className="lib-thead online-thead">
-            <span className="th-title">TITLE</span>
-            <span className="th-a">ARTIST</span>
-            <span className="th-b">ALBUM</span>
-            <span className="th-dur">TIME</span>
-          </div>
-          {tracks.map((track) => (
+          {selectedList ? (
+            <p className="list-now">
+              <b>{selectedList.name}</b>
+              <span>{tracks.length > 0 ? `${tracks.length} 首` : "取曲目中…"}</span>
+            </p>
+          ) : null}
+
+          {tracks.length > 0 ? (
+            <div className="chart-hero">
+              {tracks.slice(0, 3).map((track, i) => (
+                <button
+                  key={track.sourceId}
+                  type="button"
+                  className={`chart-hero-cell p${i + 1}`}
+                  onClick={() => void play(track)}
+                  title={`第 ${i + 1} 名 · ${track.title} — ${track.artist}`}
+                >
+                  <span className="chart-hero-rank">{pad(i + 1)}</span>
+                  <span className="chart-hero-cover">
+                    {track.coverUrl ? (
+                      <img src={track.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                    ) : (
+                      <i aria-hidden="true" />
+                    )}
+                  </span>
+                  <b>{track.title}</b>
+                  <span className="chart-hero-artist">{track.artist}</span>
+                  <span className="chart-hero-dur">{fmtDuration(track.durationMs)}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {/* 取曲目期间摆骨架行：只留一句「取曲目中…」会被读成卡死（上游实测可达数十秒） */}
+          {busy && tracks.length === 0 ? (
+            <div className="online-skel" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div className="sk-row" key={i} style={{ "--i": i } as CSSProperties}>
+                  <span className="sk-bar t" />
+                  <span className="sk-bar a" />
+                  <span className="sk-bar d" />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {tracks.length > 3 ? (
+            <div className="lib-thead online-thead charts-thead">
+              <span className="th-no">#</span>
+              <span className="th-cover" aria-hidden="true" />
+              <span className="th-title">TITLE</span>
+              <span className="th-a">ARTIST</span>
+              <span className="th-b">ALBUM</span>
+              <span className="th-dur">TIME</span>
+            </div>
+          ) : null}
+          {tracks.slice(3).map((track, i) => (
             <div
               key={track.sourceId}
               className="lib-row online-row"
+              role="button"
+              tabIndex={0}
               onClick={() => void play(track)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault();
+                void play(track);
+              }}
               title={`${track.title} — ${track.artist}`}
             >
+              <span className="lib-no">{pad(i + 4)}</span>
+              <span className="row-cover">
+                {track.coverUrl ? (
+                  <img src={track.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                ) : (
+                  <i aria-hidden="true" />
+                )}
+              </span>
               <span className="lib-title">{track.title}</span>
               <span className="lib-artist">{track.artist}</span>
               <span className="lib-artist">{track.album}</span>
@@ -166,8 +283,8 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay }: Ch
               {busy ? "加载中…" : "加载更多"}
             </button>
           ) : null}
-          {tracks.length === 0 && !note && selected === null ? (
-            <p className="lib-empty">选一个榜。</p>
+          {tracks.length === 0 && !busy && !note ? (
+            <p className="lib-empty lib-empty--inline">左栏点一个榜，曲目会出现在这里。</p>
           ) : null}
         </div>
       </div>

@@ -39,7 +39,7 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
   const [, setRev] = useState(0);
   const [byAlbum, setByAlbum] = useState(false);
   const bump = (): void => setRev((r) => r + 1);
-  const acct = useAccountBundle(account);
+  const acct = useAccountBundle(account, "liked");
 
   /*
    * 账号红心的**唯一事实源**是域（播放条那颗心读的也是它）：

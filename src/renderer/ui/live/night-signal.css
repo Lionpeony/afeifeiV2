@@ -1,0 +1,278 @@
+/* ================= 夜航台（NIGHT SIGNAL）：站尺与控制台 =================
+   首页布局见 cover-stage.css；这里只管频率刻度和调音台控制条。 */
+
+/* —— 站尺：频率刻度带 —— */
+.ruler-tick {
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 3px;
+  padding: 0 2px 3px;
+}
+
+.ruler-tick > span:first-child {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+.ruler-tick::after {
+  content: attr(data-freq);
+  position: static;
+  left: auto;
+  top: auto;
+  width: auto;
+  height: auto;
+  transform: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--live-fg-faint);
+  line-height: 1;
+}
+
+.ruler-tick i {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: 1px;
+  height: 8px;
+  background: var(--live-line-strong);
+}
+
+.ruler-tick.on::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 10px;
+  transform: translateX(-50%);
+  background: var(--live-amber);
+  box-shadow: 0 0 8px var(--live-amber);
+}
+
+.ruler-tick.on > span:first-child {
+  color: var(--live-amber);
+  font-weight: 600;
+}
+
+.ruler-tick.on::after {
+  color: var(--live-amber);
+}
+
+.ruler-tick.on i {
+  width: 2px;
+  height: 10px;
+  background: var(--live-amber);
+  box-shadow: 0 0 10px var(--live-amber);
+}
+
+.ruler-tick:hover::after {
+  color: var(--live-fg-dim);
+}
+
+/* —— 控制台：调音台式的一条 —— */
+.shell.live .console {
+  border-top: 1px solid color-mix(in srgb, var(--live-amber) 38%, transparent);
+  background: linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
+}
+
+.shell.live .console .np-art {
+  width: 50px;
+  height: 50px;
+  border-color: var(--live-line-strong);
+  box-shadow: 0 10px 24px -14px rgba(0, 0, 0, 0.9);
+}
+
+.shell.live .console .np-tx::before {
+  content: "正在播放 · NOW PLAYING";
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .console .np-tx b {
+  font-size: 15.5px;
+}
+
+/* 悬停反馈：让频率刻度看起来确实可点（只换底色，不做位移） */
+.ruler-tick:hover {
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
+}
+
+/* 右上信息组不再包成一块面板（一块面板会让账号看着像台大控件）：
+   改用刻度语言——分格线落在「账号 | 时钟」之间，账号单独成格。 */
+.ruler-clock {
+  align-self: center;
+  gap: 10px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+/* 分格线：把账号入口和报时分开，未登录时不会读成「登录 15:37:30」 */
+.ruler-clock time {
+  padding-left: 12px;
+  border-left: 1px solid var(--live-line);
+}
+
+/* PC 鼠标拖动：进度条可点区域加高，视觉轨道不变 */
+.shell.live .console input.bar {
+  height: 22px;
+}
+
+/* ---------- 站尺右端：调谐式搜索槽 + 头像 ----------
+   搜索不是浮在刻度上的一个框，而是刻度尺上的一段「输入槽」：只有底边一条线，
+   聚焦变琥珀。宽度按窗口分档且 flex: none —— 既不抢刻度，也不会被压缩成一条缝。 */
+.ruler-search {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 8px;
+  flex: none;
+  width: 216px;
+  height: 26px;
+  padding: 0 2px;
+  border: none;
+  /* 底边用强线：搜索是全局入口，不能比刻度读数还暗 */
+  border-bottom: 1px solid var(--live-line-strong);
+  background: none;
+  -webkit-app-region: no-drag;
+  transition: border-color 140ms ease-out;
+}
+
+.ruler-search svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--live-fg-faint);
+  transition: color 140ms ease-out;
+}
+
+.ruler-search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--live-fg);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.ruler-search input::placeholder {
+  /* 输入框的提示文字要比刻度读数亮一档，否则 12px 下读不出来 */
+  color: var(--live-fg-dim);
+}
+
+/* 聚焦：底边变琥珀并加一条 1px 的压影，等效 2px 焦点线但不改变盒高 */
+.ruler-search:focus-within {
+  border-bottom-color: var(--live-amber);
+  box-shadow: 0 1px 0 0 var(--live-amber);
+}
+
+.ruler-search:focus-within svg {
+  color: var(--live-amber);
+}
+
+/* 账号只留 22px 头像；未登录是一个「登录」字样。昵称/音源在悬停提示与账号面板里 */
+.ruler-acct {
+  display: flex;
+  align-items: center;
+  max-width: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--live-fg-dim);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.ruler-acct img,
+.ruler-acct-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.ruler-acct img {
+  object-fit: cover;
+  box-shadow: 0 0 0 1px var(--live-line-strong);
+  transition: box-shadow 140ms ease-out;
+}
+
+.ruler-acct:hover img {
+  box-shadow: 0 0 0 1px var(--live-amber);
+}
+
+.ruler-acct-dot {
+  border: 1px solid var(--live-line-strong);
+}
+
+.ruler-acct.on .ruler-acct-dot {
+  background: var(--live-phosphor);
+  border-color: var(--live-phosphor);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-phosphor) 60%, transparent);
+}
+
+.ruler-acct-login {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--live-fg-dim);
+}
+
+.ruler-acct:hover .ruler-acct-login {
+  color: var(--live-fg);
+}
+
+@media (min-width: 1440px) {
+  .ruler-search {
+    width: 288px;
+  }
+}
+
+@media (max-width: 1300px) {
+  .ruler-en {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) {
+  .ruler-search {
+    width: 192px;
+  }
+
+  .ruler-clock {
+    gap: 8px;
+  }
+
+  .ruler-clock time {
+    padding-left: 10px;
+  }
+}
+
+@media (max-width: 1040px) {
+  .ruler-search {
+    width: 168px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ruler-search,
+  .ruler-search svg,
+  .ruler-acct img {
+    transition: none;
+  }
+}

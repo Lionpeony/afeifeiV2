@@ -1,0 +1,962 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280, initial-scale=1">
+<title>AFEIFEI 不夜台 · 夜航台 · ON-AIR TIMELINE</title>
+<style>
+/* ============================================================
+   NIGHT SIGNAL / 夜航台
+   构图：播出时间线 / ON-AIR TIMELINE
+   整页骨架是一条横贯的节目时间线：主打是「正在播」的大格，
+   02–07 是线上的小节点，信号表嵌在右端。日期做左下角巨大时间码，
+   与时间线形成对角平衡。纵向列表完全取消。
+   1280 × 800 · 单文件 · 无滚动
+   ============================================================ */
+
+:root{
+  --bg:#0a0e13;
+  --bg-deep:#05080c;
+  --panel:#0c131c;
+  --panel-hi:#101a26;
+
+  --ink:#ece6d8;
+  --ink-2:#cbd1d8;
+  --dim:#9aa6b4;
+  --faint:#7f8b99;
+
+  --amber:#e8a34a;
+  --amber-hi:#ffcf8a;
+  --amber-soft:rgba(232,163,74,.14);
+  --ice:#8ecfdf;
+  --ice-dim:#79bccd;
+  --ice-soft:rgba(142,207,223,.13);
+
+  --line:rgba(236,230,216,.10);
+  --line-2:rgba(236,230,216,.19);
+  --line-3:rgba(236,230,216,.30);
+
+  --display:"Bahnschrift SemiCondensed","Bahnschrift Condensed","Bahnschrift","Arial Narrow",sans-serif;
+  --sans:"Microsoft YaHei UI","Microsoft YaHei","微软雅黑","Segoe UI",sans-serif;
+  --serif:"SimSun","宋体","NSimSun","Songti SC",serif;
+  --mono:"Cascadia Mono","Cascadia Code",Consolas,"Courier New",monospace;
+
+  --pad:32px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden}
+body{
+  background:#05070b;
+  color:var(--ink);
+  font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+::selection{background:var(--amber);color:#1a1305}
+
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,
+[tabindex]:focus-visible{outline:2px solid #9fd8e8;outline-offset:2px}
+
+.stage{
+  position:relative;
+  width:1280px;height:800px;
+  margin:0 auto;
+  display:grid;
+  grid-template-rows:92px minmax(0,1fr) 122px;
+  overflow:hidden;
+  background:
+    radial-gradient(980px 520px at 84% 0%, rgba(232,163,74,.075), transparent 62%),
+    radial-gradient(760px 560px at -6% 104%, rgba(142,207,223,.05), transparent 60%),
+    var(--bg);
+}
+/* 极淡信号噪点，不参与布局 */
+.stage::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:90;opacity:.045;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ================= 顶部：台标 + 频率刻度导航 ================= */
+.masthead{
+  display:grid;
+  grid-template-rows:36px 1fr;
+  padding:0 var(--pad);
+  border-bottom:1px solid var(--line-2);
+  background:linear-gradient(180deg, rgba(255,255,255,.018), transparent 80%);
+}
+.brandrow{display:flex;align-items:center;gap:14px;min-width:0}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0;white-space:nowrap}
+.brand-mark{
+  align-self:center;width:19px;height:19px;display:grid;place-items:center;
+  border:1px solid rgba(232,163,74,.55);color:var(--amber);
+  font:600 10px/1 var(--mono);letter-spacing:.04em;
+}
+.brand-name{margin:0;font:600 21px/1 var(--display);letter-spacing:.14em;color:var(--ink)}
+.brand-cn{font:500 15px/1 var(--sans);letter-spacing:.2em;color:var(--ink-2)}
+.brand-dot{width:4px;height:4px;background:var(--amber);align-self:center;transform:rotate(45deg)}
+.brand-sub{font:400 11px/1 var(--mono);letter-spacing:.18em;color:var(--faint)}
+
+.masthead-right{margin-left:auto;display:flex;align-items:center;gap:20px;min-width:0}
+.night-signal{display:flex;align-items:center;gap:7px;font:11px/1 var(--mono);letter-spacing:.12em;color:var(--ice-dim)}
+.night-signal i{width:5px;height:5px;border-radius:50%;background:var(--ice);box-shadow:0 0 8px rgba(142,207,223,.7)}
+
+.account{
+  display:flex;align-items:center;gap:9px;padding:3px 9px 3px 3px;
+  border:1px solid transparent;
+  transition:border-color .16s ease, background-color .16s ease;
+}
+.account:hover{border-color:var(--line-2);background:rgba(255,255,255,.025)}
+.avatar{
+  width:26px;height:26px;display:grid;place-items:center;
+  background:linear-gradient(145deg,#3a2c14,#20180b);
+  border:1px solid rgba(232,163,74,.5);color:var(--amber-hi);
+  font:500 12px/1 var(--sans);
+}
+.acct-text{display:grid;gap:2px;text-align:left}
+.acct-text b{font:500 13px/1.1 var(--sans);letter-spacing:.02em;color:var(--ink)}
+.acct-text small{font:11px/1 var(--sans);color:var(--faint)}
+
+/* 频率刻度导航 */
+.ruler{
+  position:relative;display:grid;grid-template-columns:repeat(12,1fr);align-items:stretch;
+  border-top:1px solid rgba(236,230,216,.05);
+}
+.ruler::before{
+  content:"";position:absolute;left:0;right:0;bottom:22px;height:1px;
+  background:var(--line);pointer-events:none;
+}
+.freq{
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  min-width:0;height:100%;padding:0 0 1px;
+  transition:background-color .18s ease;
+}
+.freq::before{
+  content:"";position:absolute;inset:2px 8px 6px;
+  background:linear-gradient(180deg, rgba(232,163,74,.09), rgba(232,163,74,0) 74%);
+  opacity:0;transition:opacity .18s ease;pointer-events:none;
+}
+.freq::after{
+  content:"";position:absolute;top:0;left:50%;width:1px;height:8px;transform:translateX(-50%);
+  background:var(--amber);opacity:0;transition:opacity .18s ease;
+}
+.f-name{font:400 14px/1.3 var(--sans);letter-spacing:.05em;color:var(--dim);margin-bottom:4px;transition:color .16s ease}
+.f-tick{width:1px;height:10px;background:var(--line-3);transition:background-color .16s ease, box-shadow .16s ease}
+.f-num{margin-top:3px;font:11px/1 var(--mono);letter-spacing:.1em;color:var(--faint);transition:color .16s ease}
+.freq:hover .f-name{color:var(--ink)}
+.freq:hover .f-num{color:var(--dim)}
+.freq:hover .f-tick{background:var(--ink-2)}
+.freq[aria-current="page"]::before,
+.freq[aria-current="page"]::after{opacity:1}
+.freq[aria-current="page"] .f-name{color:var(--amber-hi);font-weight:600}
+.freq[aria-current="page"] .f-tick{width:2px;background:var(--amber);box-shadow:0 0 12px rgba(232,163,74,.55)}
+.freq[aria-current="page"] .f-num{color:var(--amber)}
+
+/* ================= 主区 ================= */
+.deck{
+  display:flex;flex-direction:column;
+  padding:14px var(--pad) 12px;
+  min-height:0;overflow:hidden;
+}
+
+/* —— 节目条：每日推荐元信息 + 刷新 —— */
+.feedbar{
+  display:flex;align-items:center;justify-content:space-between;
+  height:34px;flex:0 0 34px;margin-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+.feed-left{display:flex;align-items:center;gap:12px;min-width:0}
+.eyebrow{
+  display:flex;align-items:center;gap:8px;margin:0;
+  font:11px/1 var(--mono);letter-spacing:.18em;color:var(--ice-dim);white-space:nowrap;
+}
+.eyebrow::before{content:"";width:14px;height:1px;background:var(--ice-dim)}
+.feed-txt{font:400 14px/1.4 var(--sans);color:var(--dim);white-space:nowrap}
+.feed-txt b{font:500 14px/1 var(--mono);color:var(--ink-2);letter-spacing:.03em}
+.feed-right{display:flex;align-items:center;gap:12px;white-space:nowrap}
+.feed-mono{font:11px/1 var(--mono);letter-spacing:.12em;color:var(--faint)}
+.feed-mono b{color:var(--amber-hi);font-weight:600;letter-spacing:.06em}
+.sep-dot{width:3px;height:3px;background:var(--line-3);transform:rotate(45deg)}
+.refresh{
+  display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;
+  border:1px solid var(--line-2);color:var(--ink-2);
+  font:400 12px/1 var(--sans);letter-spacing:.05em;
+  transition:border-color .16s ease,color .16s ease,background-color .16s ease;
+}
+.refresh svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.refresh:hover{border-color:var(--amber);color:var(--amber-hi);background:var(--amber-soft)}
+.refresh:active svg{transform:rotate(40deg)}
+
+/* ================= 播出时间线 / ON-AIR TIMELINE ================= */
+.timeline{flex:0 0 auto;min-width:0}
+.tl-cap{
+  display:flex;align-items:baseline;gap:12px;height:22px;
+}
+.tl-cap-en{font:600 12px/1 var(--mono);letter-spacing:.2em;color:var(--amber)}
+.tl-cap-cn{font:500 13px/1 var(--sans);letter-spacing:.12em;color:var(--ink-2)}
+.tl-cap-count{margin-left:auto;font:11px/1 var(--mono);letter-spacing:.1em;color:var(--ice-dim)}
+.tl-cap-count b{color:var(--ink-2);font-weight:500}
+
+/* 刻度尺：整条时间轴 */
+.tl-ruler{
+  height:16px;
+  border-bottom:1px solid var(--line-3);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(236,230,216,.22) 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(90deg, rgba(236,230,216,.34) 0 1px, transparent 1px 50px);
+  background-size:100% 5px, 100% 11px;
+  background-position:left bottom, left bottom;
+  background-repeat:repeat-x, repeat-x;
+}
+
+.tl-track{
+  position:relative;
+  display:grid;
+  grid-template-columns:312px repeat(6, minmax(0,1fr)) 156px;
+  height:198px;
+}
+
+.cell{
+  position:relative;min-width:0;
+  padding:16px 12px 12px;
+  text-align:left;
+  border-left:1px solid var(--line);
+  transition:background-color .16s ease;
+}
+.cell::before{
+  content:"";position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;
+  background:var(--bg);border:1px solid var(--line-3);
+  transition:background-color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+.cell:first-child{border-left:0}
+
+/* —— 正在播：大格 —— */
+.cell.air{
+  padding:13px 15px 13px;
+  border-left:2px solid var(--amber);
+  background:
+    linear-gradient(180deg, rgba(232,163,74,.11), rgba(232,163,74,0) 58%),
+    linear-gradient(90deg, rgba(232,163,74,.055), transparent 72%);
+  box-shadow:inset 0 2px 0 var(--amber);
+}
+.cell.air::before{
+  left:-3px;top:-4px;width:7px;height:7px;
+  background:var(--amber);border-color:var(--amber);
+  box-shadow:0 0 12px rgba(232,163,74,.85);
+}
+.air-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.air-live{display:inline-flex;align-items:center;gap:7px;font:600 11px/1 var(--mono);letter-spacing:.14em;color:var(--amber-hi)}
+.live-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--amber-hi);
+  box-shadow:0 0 9px rgba(255,207,138,.9);
+  animation:live 2.6s ease-in-out infinite;
+}
+@keyframes live{0%,100%{opacity:1}50%{opacity:.35}}
+.air-idx{font:600 15px/1 var(--display);letter-spacing:.08em;color:var(--amber)}
+.air-body{display:grid;grid-template-columns:132px minmax(0,1fr);gap:15px;align-items:center;margin-top:11px}
+.cover{
+  display:block;width:132px;height:132px;
+  border:1px solid rgba(236,230,216,.18);
+  box-shadow:0 20px 38px -24px rgba(0,0,0,.95);
+}
+.cover svg{display:block;width:100%;height:100%}
+.air-text{display:flex;flex-direction:column;min-width:0}
+.air-kicker{font:11px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
+.air-title{
+  margin:7px 0 3px;
+  font:600 21px/1.04 var(--display);letter-spacing:.02em;color:var(--ink);
+}
+.air-artist{font:500 14px/1.3 var(--sans);color:var(--ink-2)}
+.air-dur{display:flex;flex-direction:column;gap:3px;margin-top:8px;font:11px/1.4 var(--mono);letter-spacing:.06em;color:var(--faint);font-variant-numeric:tabular-nums}
+.air-dur em{font-style:normal;color:var(--dim);white-space:nowrap}
+
+/* —— 节点：02–07 —— */
+.cell.node{display:flex;flex-direction:column}
+.node-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.node-idx{font:600 17px/1 var(--display);letter-spacing:.04em;color:var(--dim);transition:color .16s ease}
+.node-dur{font:11px/1 var(--mono);letter-spacing:.04em;color:var(--faint);font-variant-numeric:tabular-nums}
+.node-title{
+  margin:12px 0 4px;
+  height:2.72em;
+  font:600 14.5px/1.36 var(--sans);letter-spacing:.01em;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  transition:color .16s ease;
+}
+.node-artist{
+  font:400 14px/1.3 var(--sans);color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.node-foot{
+  margin-top:auto;padding-top:9px;
+  display:flex;align-items:center;gap:6px;
+  border-top:1px solid rgba(236,230,216,.07);
+  font:11px/1 var(--mono);letter-spacing:.12em;color:var(--faint);
+  transition:color .16s ease,border-color .16s ease;
+}
+.node-foot svg{width:8px;height:8px;fill:currentColor}
+.cell.node:hover{background:linear-gradient(180deg, rgba(232,163,74,.08), rgba(232,163,74,0) 70%)}
+.cell.node:hover::before{background:var(--amber);border-color:var(--amber);opacity:1;box-shadow:0 0 9px rgba(232,163,74,.7)}
+.cell.node:hover .node-idx,
+.cell.node:hover .node-title{color:var(--amber-hi)}
+.cell.node:hover .node-foot{color:var(--amber);border-color:rgba(232,163,74,.35)}
+.cell.node.is-on{background:linear-gradient(180deg, rgba(142,207,223,.10), rgba(142,207,223,0) 72%)}
+.cell.node.is-on::before{background:var(--ice);border-color:var(--ice);opacity:1;box-shadow:0 0 9px rgba(142,207,223,.75)}
+.cell.node.is-on .node-idx{color:var(--ice)}
+
+/* —— 信号表：嵌在时间线右端 —— */
+.cell.signal{border-left:1px solid var(--line);padding:14px 12px 12px}
+.cell.signal::before{display:none}
+.sig-head{display:flex;justify-content:space-between;align-items:baseline}
+.sig-label{font:600 11px/1 var(--mono);letter-spacing:.16em;color:var(--ink-2)}
+.sig-ch{font:11px/1 var(--mono);letter-spacing:.12em;color:var(--faint)}
+.sig-bars{display:flex;align-items:flex-end;gap:3px;height:98px;margin:14px 0 12px}
+.sig-bars i{
+  flex:1;height:var(--h);min-height:4px;
+  background:linear-gradient(180deg,#a9dce8 0%,#477f8e 100%);
+  opacity:.66;
+}
+.sig-bars i:nth-child(n+11){background:linear-gradient(180deg,var(--amber-hi) 0%,#8f5620 100%);opacity:.9}
+.sig-readout{display:flex;align-items:baseline;gap:5px;font:500 15px/1 var(--mono);color:var(--ink)}
+.sig-readout span{font-size:11px;color:var(--faint);letter-spacing:.08em}
+.sig-dot{width:5px;height:5px;border-radius:50%;background:var(--ice);box-shadow:0 0 7px rgba(142,207,223,.6);align-self:center}
+.sig-state{margin-top:auto;padding-top:9px;font:11px/1 var(--mono);letter-spacing:.08em;color:var(--faint)}
+.cell.signal{display:flex;flex-direction:column}
+
+/* ================= 下半：巨大时间码 + 主打文案（对角平衡） ================= */
+.lower{
+  position:relative;
+  flex:1 1 auto;min-height:0;
+  margin-top:16px;
+  display:grid;
+  grid-template-columns:340px 1px minmax(0,1fr);
+  column-gap:34px;
+  align-items:stretch;
+}
+/* 播放头的琥珀线从时间线左缘向下收束，指向左下角时间码 */
+.lower::before{
+  content:"";position:absolute;left:0;top:0;width:1px;height:96px;
+  background:linear-gradient(180deg, rgba(232,163,74,.6), rgba(232,163,74,0));
+  pointer-events:none;
+}
+.dateblock{
+  align-self:stretch;
+  display:flex;flex-direction:column;justify-content:space-between;min-width:0;
+  padding:2px 2px 0 0;
+}
+.date-bottom{display:flex;flex-direction:column;min-width:0}
+.date-eyebrow{display:flex;align-items:center;gap:8px;font:11px/1 var(--mono);letter-spacing:.16em;color:var(--ice-dim)}
+.date-eyebrow::before{content:"";width:12px;height:1px;background:var(--ice-dim)}
+.datecode{
+  margin:6px 0 4px;
+  font:600 112px/.88 var(--display);
+  letter-spacing:-.012em;color:var(--ink);
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.datecode .dt{color:var(--amber);font-weight:400;margin:0 1px}
+.date-line{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.date-line b{font:500 16px/1.3 var(--sans);letter-spacing:.04em;color:var(--ink)}
+.date-line span{font:11px/1 var(--mono);letter-spacing:.14em;color:var(--faint)}
+.rulediv{background:linear-gradient(180deg, var(--line), var(--line-2) 70%, var(--line))}
+
+.editorial{display:flex;flex-direction:column;min-width:0;padding-top:2px}
+.lead-kicker{margin:0;font:11px/1 var(--mono);letter-spacing:.18em;color:var(--amber)}
+.lead-title{
+  margin:6px 0 0;
+  font:600 64px/1 var(--serif);
+  letter-spacing:.005em;color:var(--ink);
+}
+.lead-artist{display:flex;align-items:baseline;gap:12px;margin:8px 0 0;flex-wrap:wrap}
+.lead-artist b{font:500 16px/1.3 var(--sans);letter-spacing:.08em;color:var(--ink-2)}
+.lead-artist span{font:11px/1.4 var(--mono);letter-spacing:.1em;color:var(--faint)}
+.lead-note{
+  margin:12px 0 0;max-width:44em;
+  font:400 15.5px/1.92 var(--serif);
+  letter-spacing:.03em;color:var(--ink-2);
+}
+.lead-note em{font-style:normal;color:var(--amber-hi)}
+.lead-actions{display:flex;align-items:center;gap:12px;margin-top:16px}
+.play-feature{
+  display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 18px;
+  background:var(--amber);border:1px solid var(--amber);color:#191204;
+  font:600 14px/1 var(--sans);letter-spacing:.03em;
+  transition:filter .16s ease, transform .16s ease;
+}
+.play-feature svg{width:11px;height:11px;fill:currentColor}
+.play-feature:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.play-feature:active{transform:translateY(0)}
+.ghost-feature{
+  height:38px;padding:0 16px;border:1px solid var(--line-2);color:var(--ink-2);
+  font:400 14px/1 var(--sans);transition:border-color .16s ease,color .16s ease;
+}
+.ghost-feature:hover{border-color:var(--amber);color:var(--amber-hi)}
+.more{
+  margin-left:auto;align-self:center;
+  font:400 12px/1.4 var(--mono);letter-spacing:.08em;color:var(--ice-dim);
+  border-bottom:1px solid rgba(142,207,223,.32);padding-bottom:2px;
+  transition:color .15s ease,border-color .15s ease;
+}
+.more:hover{color:var(--ice);border-color:var(--ice)}
+
+/* ================= 底部：调音台 ================= */
+.console{
+  position:relative;
+  display:grid;
+  grid-template-columns:300px 150px minmax(0,1fr) 156px;
+  grid-template-rows:76px 34px;
+  column-gap:24px;
+  padding:6px var(--pad);
+  border-top:1px solid rgba(232,163,74,.36);
+  background:linear-gradient(180deg,#0d141f 0%,#090e16 100%);
+}
+.console::before{
+  content:"";position:absolute;top:-1px;left:0;width:300px;height:1px;
+  background:linear-gradient(90deg,var(--amber),rgba(232,163,74,0));
+}
+.np{grid-column:1;grid-row:1;display:grid;grid-template-columns:50px minmax(0,1fr) 32px;gap:11px;align-items:center}
+.np-cover{
+  position:relative;width:50px;height:50px;
+  border:1px solid rgba(236,230,216,.2);
+  display:flex;align-items:flex-end;padding:4px;
+  background:
+    radial-gradient(circle at 50% 36%, #ffe6b8 0 3px, #e8a34a 3px 6px, rgba(232,163,74,0) 6.6px),
+    radial-gradient(circle at 50% 36%, transparent 0 10px, rgba(142,207,223,.5) 10.4px 11.4px, transparent 11.8px),
+    repeating-linear-gradient(180deg, rgba(5,8,13,0) 0 2px, rgba(5,8,13,.28) 2px 3px),
+    linear-gradient(145deg,#16283a 0%,#0b141f 60%,#070b11 100%);
+}
+.np-cover::after{content:"NS";font:600 6px/1 var(--display);letter-spacing:.12em;color:#c7d0da}
+.np-text{min-width:0}
+.np-kicker{margin:0 0 2px;font:11px/1.2 var(--mono);letter-spacing:.08em;color:var(--faint)}
+.np-state{color:var(--ice-dim)}
+.np-state.on{color:var(--amber-hi)}
+.np-title{margin:0;font:500 15px/1.3 var(--sans);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.np-artist{margin:0;font:400 14px/1.25 var(--sans);color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heart{
+  width:32px;height:32px;display:grid;place-items:center;
+  border:1px solid var(--line);color:var(--faint);
+  transition:color .15s ease,border-color .15s ease,background-color .15s ease;
+}
+.heart svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.4}
+.heart:hover{color:var(--amber-hi);border-color:rgba(232,163,74,.45)}
+.heart[aria-pressed="true"]{color:var(--amber);border-color:rgba(232,163,74,.55);background:var(--amber-soft)}
+.heart[aria-pressed="true"] svg{fill:currentColor}
+
+.transport{grid-column:2;grid-row:1;display:flex;align-items:center;gap:5px}
+.t-btn{
+  width:38px;height:38px;display:grid;place-items:center;
+  border:1px solid var(--line-2);color:var(--ink-2);
+  transition:border-color .15s ease,color .15s ease;
+}
+.t-btn svg{width:13px;height:13px;fill:currentColor}
+.t-btn:hover{border-color:var(--amber);color:var(--amber-hi)}
+.play-btn{
+  width:46px;height:46px;display:grid;place-items:center;
+  background:var(--amber);border:1px solid var(--amber);color:#191204;
+  transition:filter .15s ease;
+}
+.play-btn:hover{filter:brightness(1.08)}
+.play-btn svg{width:15px;height:15px;fill:currentColor}
+.play-btn .i-pause{display:none}
+.console.playing .play-btn .i-play{display:none}
+.console.playing .play-btn .i-pause{display:block}
+
+.timeline-progress{grid-column:3;grid-row:1;display:flex;flex-direction:column;justify-content:center;gap:8px;min-width:0}
+.bar{position:relative;height:3px;background:rgba(236,230,216,.16);cursor:pointer}
+.bar-fill{position:absolute;left:0;top:0;bottom:0;width:67.8%;background:var(--amber);transition:width .12s linear}
+.bar-head{
+  position:absolute;left:67.8%;top:50%;width:8px;height:8px;
+  transform:translate(-50%,-50%) rotate(45deg);
+  background:var(--amber-hi);box-shadow:0 0 10px rgba(232,163,74,.55);
+  transition:left .12s linear;
+}
+.bar-ticks{
+  position:absolute;inset:auto 0 -4px 0;height:3px;
+  background:repeating-linear-gradient(90deg, rgba(236,230,216,.22) 0 1px, transparent 1px 25%);
+  opacity:.5;pointer-events:none;
+}
+.times{display:flex;align-items:baseline;gap:6px;font:11px/1 var(--mono);letter-spacing:.08em;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.times .sep{color:var(--faint)}
+.times #totalTime{color:var(--faint)}
+.times .state-tag{margin-left:auto;font-size:11px;color:var(--faint);letter-spacing:.14em}
+
+.volume{grid-column:4;grid-row:1;display:flex;align-items:center;gap:9px;min-width:0}
+.vol-btn{
+  width:30px;height:30px;display:grid;place-items:center;
+  border:1px solid var(--line);color:var(--dim);
+  transition:color .15s ease,border-color .15s ease;
+}
+.vol-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5}
+.vol-btn:hover{color:var(--amber-hi);border-color:rgba(232,163,74,.45)}
+.vol-bar{position:relative;flex:1;height:3px;background:rgba(236,230,216,.16);cursor:pointer}
+.vol-bar i{position:absolute;left:0;top:0;bottom:0;width:62%;background:var(--ice-dim)}
+.vol-num{font:11px/1 var(--mono);color:var(--faint);min-width:18px;text-align:right;font-variant-numeric:tabular-nums}
+
+.utility{
+  grid-column:1 / -1;grid-row:2;display:flex;align-items:center;gap:14px;
+  border-top:1px solid var(--line);
+}
+.mix{font:11px/1 var(--mono);letter-spacing:.14em;color:var(--faint);white-space:nowrap}
+.util-set{margin-left:auto;display:flex;align-items:center;gap:3px}
+.util-set button{
+  height:24px;padding:0 10px;border:1px solid transparent;color:var(--dim);
+  font:400 12px/1 var(--sans);letter-spacing:.04em;
+  transition:color .15s ease,border-color .15s ease,background-color .15s ease;
+}
+.util-set button:hover{color:var(--ink);border-color:var(--line-2);background:rgba(255,255,255,.025)}
+.util-set button.on{color:var(--amber-hi);border-color:rgba(232,163,74,.4);background:var(--amber-soft)}
+
+/* ================= 入场 ================= */
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.masthead{animation:rise .42s ease-out both}
+.feedbar{animation:rise .46s .04s ease-out both}
+.timeline{animation:rise .5s .08s ease-out both}
+.lower{animation:rise .5s .14s ease-out both}
+.console{animation:rise .48s .1s ease-out both}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001s !important;animation-delay:0s !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <!-- ============ 顶部：台标 / 账号 / 频率刻度导航 ============ -->
+  <header class="masthead">
+    <div class="brandrow">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">AF</span>
+        <h1 class="brand-name">AFEIFEI</h1>
+        <span class="brand-cn">不夜台</span>
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-sub">AFEIFEI BROADCAST</span>
+      </div>
+      <div class="masthead-right">
+        <span class="night-signal"><i aria-hidden="true"></i>NIGHT SIGNAL 88.1</span>
+        <button class="account" type="button" aria-label="账号：此单位无法选中，QQ 音乐已登录">
+          <span class="avatar" aria-hidden="true">此</span>
+          <span class="acct-text">
+            <b>此单位无法选中</b>
+            <small>QQ 音乐 · 已登录</small>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <nav class="ruler" aria-label="不夜台频道导航">
+      <button class="freq" type="button" aria-current="page"><span class="f-name">首页</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">88.1</span></button>
+      <button class="freq" type="button"><span class="f-name">在线</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">89.3</span></button>
+      <button class="freq" type="button"><span class="f-name">榜单</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">90.5</span></button>
+      <button class="freq" type="button"><span class="f-name">电台</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">91.7</span></button>
+      <button class="freq" type="button"><span class="f-name">漫游</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">92.9</span></button>
+      <button class="freq" type="button"><span class="f-name">本地</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">94.1</span></button>
+      <button class="freq" type="button"><span class="f-name">歌单</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">95.3</span></button>
+      <button class="freq" type="button"><span class="f-name">喜欢</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">96.5</span></button>
+      <button class="freq" type="button"><span class="f-name">最近</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">97.7</span></button>
+      <button class="freq" type="button"><span class="f-name">统计</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">98.9</span></button>
+      <button class="freq" type="button"><span class="f-name">设置</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">100.1</span></button>
+      <button class="freq" type="button"><span class="f-name">直播</span><span class="f-tick" aria-hidden="true"></span><span class="f-num" aria-hidden="true">101.3</span></button>
+    </nav>
+  </header>
+
+  <!-- ============ 主区 ============ -->
+  <main class="deck">
+
+    <!-- 节目条：每日推荐元信息 + 刷新 -->
+    <div class="feedbar">
+      <div class="feed-left">
+        <p class="eyebrow">每日推荐 · DAILY FEED</p>
+        <span class="feed-txt">QQ 音乐每天 <b>06:00</b> 换新 · 共 <b>30</b> 首</span>
+      </div>
+      <div class="feed-right">
+        <span class="feed-mono">NO.<b>1106</b></span>
+        <span class="sep-dot" aria-hidden="true"></span>
+        <span class="feed-mono">第 <b>310</b> 夜</span>
+        <span class="sep-dot" aria-hidden="true"></span>
+        <button class="refresh" type="button" aria-label="刷新每日推荐">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M13 6.4A5.2 5.2 0 1 0 13.2 9"/><path d="M13.2 2.6v3.9H9.3"/></svg>
+          刷新
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= 播出时间线 ================= -->
+    <section class="timeline" aria-label="今晚节目时间线">
+      <div class="tl-cap">
+        <span class="tl-cap-en">ON-AIR TIMELINE</span>
+        <span class="tl-cap-cn">今晚节目时间线</span>
+        <span class="tl-cap-count">01 — 07 · 共 <b>30</b> 首</span>
+      </div>
+
+      <!-- 刻度尺：整条时间轴的骨架 -->
+      <div class="tl-ruler" aria-hidden="true"></div>
+
+      <div class="tl-track">
+
+        <!-- 01 正在播：大格 -->
+        <button class="cell air" type="button"
+                data-title="Endless Tears" data-artist="CLIFF EDGE" data-dur="2:16"
+                aria-label="播放 Endless Tears — CLIFF EDGE，时长 2:16，第 1 首，共 30 首">
+          <span class="air-head">
+            <span class="air-live"><i class="live-dot" aria-hidden="true"></i>ON AIR · 正在播</span>
+            <span class="air-idx">01</span>
+          </span>
+          <span class="air-body">
+            <span class="cover" aria-hidden="true">
+              <svg viewBox="0 0 132 132" role="img" aria-hidden="true" focusable="false">
+                <defs>
+                  <linearGradient id="cv-bg" x1="0" y1="0" x2="0.4" y2="1">
+                    <stop offset="0" stop-color="#182b3d"/><stop offset=".55" stop-color="#0c1621"/><stop offset="1" stop-color="#070b11"/>
+                  </linearGradient>
+                  <radialGradient id="cv-moon" cx=".4" cy=".35" r=".82">
+                    <stop offset="0" stop-color="#ffe6b8"/><stop offset=".55" stop-color="#e8a34a"/><stop offset="1" stop-color="#8f5620"/>
+                  </radialGradient>
+                  <linearGradient id="cv-tear" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#ffcf8a" stop-opacity="0"/>
+                    <stop offset=".32" stop-color="#e8a34a" stop-opacity=".92"/>
+                    <stop offset="1" stop-color="#8ecfdf" stop-opacity=".6"/>
+                  </linearGradient>
+                  <pattern id="cv-scan" width="4" height="4" patternUnits="userSpaceOnUse">
+                    <rect width="4" height="1.3" fill="#05080d" opacity=".4"/>
+                  </pattern>
+                  <clipPath id="cv-disc"><circle cx="66" cy="52" r="30"/></clipPath>
+                </defs>
+
+                <rect width="132" height="132" fill="url(#cv-bg)"/>
+
+                <g stroke="#8ecfdf" stroke-opacity=".06">
+                  <line x1="0" y1="34" x2="132" y2="34"/>
+                  <line x1="0" y1="66" x2="132" y2="66"/>
+                  <line x1="0" y1="98" x2="132" y2="98"/>
+                  <line x1="44" y1="0" x2="44" y2="132"/>
+                  <line x1="88" y1="0" x2="88" y2="132"/>
+                </g>
+
+                <circle cx="66" cy="52" r="46" fill="none" stroke="#e8a34a" stroke-opacity=".15" stroke-dasharray="1 5"/>
+                <circle cx="66" cy="52" r="38" fill="none" stroke="#8ecfdf" stroke-opacity=".17"/>
+                <circle cx="66" cy="52" r="30" fill="url(#cv-moon)"/>
+
+                <!-- 盘内的雨线 -->
+                <g clip-path="url(#cv-disc)" stroke="#0a111b" stroke-opacity=".48">
+                  <line x1="20" y1="40" x2="120" y2="40" stroke-width="1.4"/>
+                  <line x1="16" y1="48" x2="122" y2="48" stroke-width="2.2"/>
+                  <line x1="24" y1="56" x2="118" y2="56" stroke-width="1.2"/>
+                  <line x1="18" y1="64" x2="124" y2="64" stroke-width="1.8"/>
+                  <line x1="26" y1="72" x2="116" y2="72" stroke-width="1.1"/>
+                </g>
+
+                <!-- 垂直泪痕 -->
+                <rect x="64.4" y="58" width="3.2" height="44" fill="url(#cv-tear)"/>
+                <circle cx="66" cy="104" r="3.2" fill="#8ecfdf" opacity=".88"/>
+                <circle cx="65" cy="103" r="1" fill="#e8f7fb" opacity=".9"/>
+
+                <rect width="132" height="132" fill="url(#cv-scan)" opacity=".5"/>
+
+                <text x="10" y="14" fill="#c9d3de" font-family="Cascadia Mono,Consolas,monospace" font-size="5" letter-spacing="1.1">AFEIFEI · NIGHT SIGNAL</text>
+                <text x="122" y="14" text-anchor="end" fill="#8ecfdf" font-family="Cascadia Mono,Consolas,monospace" font-size="5" letter-spacing="1">88.1</text>
+                <line x1="10" y1="19" x2="122" y2="19" stroke="#ece6d8" stroke-opacity=".18"/>
+
+                <text x="10" y="121" fill="#f2ecdf" font-family="Bahnschrift SemiCondensed,Bahnschrift,Arial Narrow,sans-serif" font-size="9" font-weight="600" letter-spacing=".7">ENDLESS TEARS</text>
+                <text x="10" y="128" fill="#8ecfdf" font-family="Cascadia Mono,Consolas,monospace" font-size="5" letter-spacing=".7">CLIFF EDGE</text>
+                <text x="122" y="128" text-anchor="end" fill="#7f8b99" font-family="Cascadia Mono,Consolas,monospace" font-size="5" letter-spacing=".6">AF-1106</text>
+
+                <rect width="132" height="132" fill="#000" opacity="0" />
+                <rect x=".5" y=".5" width="131" height="131" fill="none" stroke="#ece6d8" stroke-opacity=".14"/>
+              </svg>
+            </span>
+            <span class="air-text">
+              <span class="air-kicker">今晚主打</span>
+              <span class="air-title">Endless Tears</span>
+              <span class="air-artist">CLIFF EDGE</span>
+              <span class="air-dur">2:16 <em>· 第 1 首 / 共 30 首</em></span>
+            </span>
+          </span>
+        </button>
+
+        <!-- 02–07 节点 -->
+        <button class="cell node" type="button" data-title="来不及告别" data-artist="一只白羊" data-dur="4:03" aria-label="播放 来不及告别 — 一只白羊，时长 4:03">
+          <span class="node-head"><span class="node-idx">02</span><span class="node-dur">4:03</span></span>
+          <span class="node-title">来不及告别</span>
+          <span class="node-artist">一只白羊</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <button class="cell node" type="button" data-title="Unforgivable Sinner" data-artist="Lene Marlin" data-dur="3:59" aria-label="播放 Unforgivable Sinner — Lene Marlin，时长 3:59">
+          <span class="node-head"><span class="node-idx">03</span><span class="node-dur">3:59</span></span>
+          <span class="node-title">Unforgivable Sinner</span>
+          <span class="node-artist">Lene Marlin</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <button class="cell node" type="button" data-title="本当だよ" data-artist="ナツノセ" data-dur="3:33" aria-label="播放 本当だよ — ナツノセ，时长 3:33">
+          <span class="node-head"><span class="node-idx">04</span><span class="node-dur">3:33</span></span>
+          <span class="node-title">本当だよ</span>
+          <span class="node-artist">ナツノセ</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <button class="cell node" type="button" data-title="The Storm Of Us" data-artist="吕施其" data-dur="4:47" aria-label="播放 The Storm Of Us — 吕施其，时长 4:47">
+          <span class="node-head"><span class="node-idx">05</span><span class="node-dur">4:47</span></span>
+          <span class="node-title">The Storm Of Us</span>
+          <span class="node-artist">吕施其</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <button class="cell node" type="button" data-title="梦的光点" data-artist="王心凌" data-dur="3:51" aria-label="播放 梦的光点 — 王心凌，时长 3:51">
+          <span class="node-head"><span class="node-idx">06</span><span class="node-dur">3:51</span></span>
+          <span class="node-title">梦的光点</span>
+          <span class="node-artist">王心凌</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <button class="cell node" type="button" data-title="等不来花开" data-artist="傅梦彤" data-dur="2:18" aria-label="播放 等不来花开 — 傅梦彤，时长 2:18">
+          <span class="node-head"><span class="node-idx">07</span><span class="node-dur">2:18</span></span>
+          <span class="node-title">等不来花开</span>
+          <span class="node-artist">傅梦彤</span>
+          <span class="node-foot"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>PLAY</span>
+        </button>
+
+        <!-- 信号表：嵌在时间线右端 -->
+        <aside class="cell signal" aria-label="信号表 SIGNAL">
+          <div class="sig-head"><span class="sig-label">SIGNAL</span><span class="sig-ch">L · R</span></div>
+          <div class="sig-bars" aria-hidden="true">
+            <i style="--h:22%"></i><i style="--h:40%"></i><i style="--h:30%"></i><i style="--h:54%"></i>
+            <i style="--h:43%"></i><i style="--h:66%"></i><i style="--h:57%"></i><i style="--h:76%"></i>
+            <i style="--h:49%"></i><i style="--h:62%"></i><i style="--h:82%"></i><i style="--h:68%"></i>
+            <i style="--h:46%"></i><i style="--h:33%"></i>
+          </div>
+          <div class="sig-readout"><span class="sig-dot" aria-hidden="true"></span>88.1<span>MHz</span></div>
+          <div class="sig-state">STANDBY · 已暂停</div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= 下半：时间码 + 主打文案 ================= -->
+    <section class="lower" aria-label="日期与今晚主打">
+
+      <div class="dateblock">
+        <p class="date-eyebrow">NIGHT CODE / 今夜时间码</p>
+        <div class="date-bottom">
+          <p class="datecode" aria-label="11 月 6 日"><span>11</span><span class="dt" aria-hidden="true">.</span><span>06</span></p>
+          <div class="date-line">
+            <b>11 月 6 日 · 星期五</b>
+            <span>NOV 06 / 2026</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rulediv" aria-hidden="true"></div>
+
+      <div class="editorial">
+        <p class="lead-kicker">今晚主打 · TONIGHT'S LEAD</p>
+        <h2 class="lead-title">Endless Tears</h2>
+        <p class="lead-artist">
+          <b>CLIFF EDGE</b>
+          <span>2:16 · 第 1 首 / 共 30 首 · 每日推荐</span>
+        </p>
+        <p class="lead-note">第 <em>310</em> 夜的开场。把灯调到只剩刻度，让前奏先走完，再决定今晚要往哪里去。</p>
+        <div class="lead-actions">
+          <button class="play-feature" type="button" data-title="Endless Tears" data-artist="CLIFF EDGE" data-dur="2:16">
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>
+            播放主打
+          </button>
+          <button class="ghost-feature" type="button">加入队列</button>
+          <button class="more" type="button">完整播出单 · 30 首</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ 底部：调音台 ============ -->
+  <footer class="console" id="console" aria-label="播放器控制">
+    <div class="np">
+      <div class="np-cover" aria-hidden="true"></div>
+      <div class="np-text">
+        <p class="np-kicker">正在播放 <span class="np-state" id="npState">· 已暂停</span></p>
+        <p class="np-title" id="npTitle">过渡期（吉他版）</p>
+        <p class="np-artist" id="npArtist">小宇-宋念宇</p>
+      </div>
+      <button class="heart" type="button" id="heartBtn" aria-label="喜欢这首歌" aria-pressed="false">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 13.4S2.4 10 2.4 6.1a3.1 3.1 0 0 1 5.6-1.8 3.1 3.1 0 0 1 5.6 1.8c0 3.9-5.6 7.3-5.6 7.3Z"/></svg>
+      </button>
+    </div>
+
+    <div class="transport" aria-label="播放控制">
+      <button class="t-btn" type="button" aria-label="上一首">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 3h1.7v10H3Zm10 0v10L5.6 8Z"/></svg>
+      </button>
+      <button class="play-btn" type="button" id="playBtn" aria-label="播放">
+        <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.2 13.2 8 4 13.8Z"/></svg>
+        <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.4 2.4h3.1v11.2H3.4Zm6.1 0h3.1v11.2H9.5Z"/></svg>
+      </button>
+      <button class="t-btn" type="button" aria-label="下一首">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.3 3H13v10h-1.7ZM3 3l7.4 5L3 13Z"/></svg>
+      </button>
+    </div>
+
+    <div class="timeline-progress">
+      <div class="bar" id="progressBar" role="slider" tabindex="0"
+           aria-label="播放进度" aria-valuemin="0" aria-valuemax="261" aria-valuenow="177"
+           aria-valuetext="2:57 / 4:21">
+        <i class="bar-fill" id="progressFill"></i>
+        <b class="bar-head" id="progressHead"></b>
+        <span class="bar-ticks" aria-hidden="true"></span>
+      </div>
+      <div class="times">
+        <span id="curTime">2:57</span><span class="sep">/</span><span id="totalTime">4:21</span>
+        <span class="state-tag" id="stateTag">PAUSED</span>
+      </div>
+    </div>
+
+    <div class="volume">
+      <button class="vol-btn" type="button" aria-label="音量">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M2.5 6h2.6L8.6 3v10L5.1 10H2.5Z"/>
+          <path d="M10.6 5.4a3.6 3.6 0 0 1 0 5.2M12.4 3.8a6 6 0 0 1 0 8.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="vol-bar" id="volBar" role="slider" tabindex="0"
+           aria-label="音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="62">
+        <i id="volFill"></i>
+      </div>
+      <span class="vol-num" id="volNum">62</span>
+    </div>
+
+    <div class="utility">
+      <span class="mix">MIX BUS · NIGHT SIGNAL</span>
+      <div class="util-set">
+        <button type="button">随机</button>
+        <button type="button">睡眠</button>
+        <button type="button">倍速</button>
+        <button type="button">词</button>
+        <button type="button">迷你</button>
+        <button type="button">队列</button>
+        <button type="button">音效</button>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var consoleEl = document.getElementById("console");
+  var playBtn = document.getElementById("playBtn");
+  var npState = document.getElementById("npState");
+  var stateTag = document.getElementById("stateTag");
+  var heartBtn = document.getElementById("heartBtn");
+  var npTitle = document.getElementById("npTitle");
+  var npArtist = document.getElementById("npArtist");
+  var totalTime = document.getElementById("totalTime");
+  var curTime = document.getElementById("curTime");
+  var progressBar = document.getElementById("progressBar");
+  var progressFill = document.getElementById("progressFill");
+  var progressHead = document.getElementById("progressHead");
+  var volBar = document.getElementById("volBar");
+  var volFill = document.getElementById("volFill");
+  var volNum = document.getElementById("volNum");
+
+  function setPlaying(playing) {
+    consoleEl.classList.toggle("playing", playing);
+    npState.textContent = playing ? "· 播放中" : "· 已暂停";
+    npState.classList.toggle("on", playing);
+    stateTag.textContent = playing ? "ON AIR" : "PAUSED";
+    playBtn.setAttribute("aria-label", playing ? "暂停" : "播放");
+  }
+
+  function fmt(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  function setProgress(seconds, totalSeconds) {
+    var ratio = Math.max(0, Math.min(1, seconds / totalSeconds));
+    progressFill.style.width = (ratio * 100) + "%";
+    progressHead.style.left = (ratio * 100) + "%";
+    curTime.textContent = fmt(seconds);
+    progressBar.setAttribute("aria-valuenow", String(Math.round(seconds)));
+    progressBar.setAttribute("aria-valuetext", curTime.textContent + " / " + totalTime.textContent);
+  }
+
+  function parseDuration(text) {
+    var parts = text.split(":");
+    return Number(parts[0]) * 60 + Number(parts[1]);
+  }
+
+  function loadTrack(title, artist, duration) {
+    npTitle.textContent = title;
+    npArtist.textContent = artist;
+    totalTime.textContent = duration;
+    progressBar.setAttribute("aria-valuemax", String(parseDuration(duration)));
+    setProgress(0, parseDuration(duration));
+    setPlaying(true);
+  }
+
+  /* 初始状态：过渡期（吉他版）· 2:57 / 4:21 · 已暂停 */
+  setProgress(177, 261);
+
+  playBtn.addEventListener("click", function () {
+    setPlaying(!consoleEl.classList.contains("playing"));
+  });
+
+  heartBtn.addEventListener("click", function () {
+    var on = heartBtn.getAttribute("aria-pressed") === "true";
+    heartBtn.setAttribute("aria-pressed", on ? "false" : "true");
+  });
+
+  /* 频率刻度导航：选中态 */
+  document.querySelectorAll(".freq").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".freq").forEach(function (b) {
+        b.removeAttribute("aria-current");
+      });
+      btn.setAttribute("aria-current", "page");
+    });
+  });
+
+  /* 时间线上的节目节点 / 主打格：载入播放器 */
+  document.querySelectorAll(".cell[data-title], .play-feature").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".cell.node").forEach(function (b) {
+        b.classList.remove("is-on");
+      });
+      if (btn.classList.contains("node")) {
+        btn.classList.add("is-on");
+      }
+      loadTrack(btn.dataset.title, btn.dataset.artist, btn.dataset.dur);
+    });
+  });
+
+  /* 进度 / 音量键盘操作 */
+  progressBar.addEventListener("keydown", function (e) {
+    var total = Number(progressBar.getAttribute("aria-valuemax"));
+    var now = Number(progressBar.getAttribute("aria-valuenow"));
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      setProgress(Math.min(total, now + 5), total);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      setProgress(Math.max(0, now - 5), total);
+    }
+  });
+
+  volBar.addEventListener("keydown", function (e) {
+    var now = Number(volBar.getAttribute("aria-valuenow"));
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault();
+      now = Math.min(100, now + 5);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault();
+      now = Math.max(0, now - 5);
+    } else {
+      return;
+    }
+    volBar.setAttribute("aria-valuenow", String(now));
+    volFill.style.width = now + "%";
+    volNum.textContent = String(now);
+  });
+})();
+</script>
+</body>
+</html>

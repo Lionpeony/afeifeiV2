@@ -167,17 +167,6 @@
   box-shadow: 0 0 6px var(--live-amber);
 }
 
-.ruler-tick.on::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--live-phosphor);
-  transform: translateX(-50%);
-}
 
 .ruler-clock {
   display: flex;
@@ -327,6 +316,24 @@
   width: 2px;
   height: 14px;
   background: var(--live-amber);
+}
+
+/* 在线页空态：一行字就够。搜索框搬去顶栏之后，这里是进页第一眼——
+   占半屏的面板会读成「页面坏了」，「没内容」不需要一块画布。 */
+.shell.live .lib-empty--inline {
+  min-height: 0;
+  margin: 18px 0 0;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  justify-content: flex-start;
+  text-align: left;
+  font-size: 12px;
+}
+
+/* 一行字的空态不要那根琥珀刻度：它属于「一块面」的版本，缩成一行后只剩一截噪点 */
+.shell.live .lib-empty--inline::before {
+  content: none;
 }
 
 /* 房间里的原生控件：下拉不该在控制室里露出一块系统灰。
@@ -1973,109 +1980,247 @@
   border-color: var(--live-onair);
 }
 
-/* 榜单带：横着挑榜 */
-.shell.live .live-room .chart-rail {
-  display: flex;
-  gap: 8px;
+/* 榜单页的骨架（两栏宽度）归 app.css 的 .charts-page，这里只管夜间壳的皮 */
+
+/* 目录里的 22px 封套：65 个榜平铺成一列文字时，缩略图是唯一能扫读的锚点 */
+.shell.live .live-room .chart-thumb {
   flex: none;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  width: 22px;
+  height: 22px;
+  background-color: var(--live-line);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 0 1px var(--live-line-strong);
 }
 
-.shell.live .live-room .chart-cell {
-  flex: 0 0 auto;
-  min-width: 150px;
+/* 选中那一行：左缘琥珀线 + 一层很淡的底色，2px 线在深底上单独看太弱 */
+.shell.live .live-room .pl-item.on {
+  background: color-mix(in srgb, var(--live-amber) 8%, transparent);
+}
+
+/* 列表抬头（榜单右栏 / 在线结果）：标题 14px + mono 注。两页共用一行式——
+   「现在看的是哪一批」属于内容，不该混进工具行的音源/账号里。 */
+.shell.live .live-room .list-now {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0 4px;
+}
+
+.shell.live .live-room .list-now b {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .list-now span {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--live-fg-faint);
+}
+
+/* 「清空」是小动作，不是第二个主操作：无框、辅助色，hover 才提亮。
+   跟着关键词走，不推到行尾 —— 推过去会和右侧的批量按钮连成一片，读成两组。 */
+.shell.live .live-room .list-now-x {
+  margin-left: 4px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--live-fg-faint);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.shell.live .live-room .list-now-x:hover {
+  color: var(--live-fg);
+}
+
+/* 榜单曲目表比在线多一列「排名」：26px 序号 + 38px 封面 + 四列。
+   特异性要压过上面 .shell.live .lib-row.online-row 的四列模板。 */
+.shell.live .live-room .charts-page .lib-thead.online-thead,
+.shell.live .live-room .charts-page .lib-row.online-row {
+  grid-template-columns: 26px 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+}
+
+.shell.live .live-room .charts-thead .th-no {
+  text-align: right;
+}
+
+/* 列表里的名次：等宽数字右对齐，退到辅助色（第 1–3 名已经抬到台柱上了） */
+.shell.live .live-room .lib-row.online-row .lib-no {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--live-fg-faint);
+}
+
+/* ---------- 榜单台柱：前三名 ---------- */
+
+/* 名次是这一页最大的排印。冠军独占一整行（96px 封面 + 40px 名次），
+   亚军季军并排各半（56px + 22px）——一页里同时有「疏」和「密」两种密度，
+   第 4 名起才落回列表。 */
+.shell.live .live-room .chart-hero {
   display: grid;
-  grid-template-columns: 18px 1fr;
-  column-gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.shell.live .live-room .chart-hero-cell {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto;
   align-items: center;
-  padding: 9px 11px;
+  gap: 2px 12px;
+  padding: 9px 12px 9px 10px;
   border: 1px solid var(--live-line);
-  background: color-mix(in srgb, var(--live-panel) 55%, transparent);
+  background: color-mix(in srgb, var(--live-panel) 45%, transparent);
   color: var(--live-fg);
   text-align: left;
   cursor: pointer;
 }
 
-.shell.live .live-room .chart-dot {
-  grid-row: 1 / span 2;
-  width: 18px;
-  height: 18px;
-  background-size: cover;
-  background-position: center;
+.shell.live .live-room .chart-hero-cell:hover {
+  border-color: var(--live-line-strong);
+  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
 }
 
-.shell.live .live-room .chart-cell b {
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.shell.live .live-room .chart-cell span {
+/* 封面在左、文字在右：名次压在文字列第一行，跟着封面走。
+   反过来（文字左封面右）在宽行的冠军卡上会撑出一条 500px 的空档。 */
+.shell.live .live-room .chart-hero-rank {
+  grid-column: 2;
+  grid-row: 1;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 22px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--live-fg-dim);
+}
+
+/* 冠军：占满整行，头名本来就该比二三名重一个档 */
+.shell.live .live-room .chart-hero-cell.p1 {
+  grid-column: 1 / -1;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  padding: 12px 14px 12px 12px;
+}
+
+/* 时长垫在标题行右端：宽行右半边本来空着，给一个能读的数字，比留白有用 */
+.shell.live .live-room .chart-hero-dur {
+  grid-column: 3;
+  grid-row: 2;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
   color: var(--live-fg-faint);
 }
 
-.shell.live .live-room .chart-cell:hover {
-  border-color: var(--live-line-strong);
-}
-
-.shell.live .live-room .chart-cell.on {
-  border-color: var(--live-amber);
+/* 第 1 名的名次用琥珀：它确实是「当前这一榜的第一」，不是装饰 */
+.shell.live .live-room .chart-hero-cell.p1 .chart-hero-rank {
+  font-size: 40px;
   color: var(--live-amber);
 }
 
-/* 榜单带替掉了左列：只剩曲目时占满整宽，不要退回 220px 的一格 */
-.shell.live .live-room .charts-page .pl-wrap {
-  grid-template-columns: minmax(0, 1fr);
+.shell.live .live-room .chart-hero-cell.p1 b {
+  font-size: 15px;
 }
 
-/* 搜索结果带 */
-.shell.live .live-room .result-rail {
-  display: flex;
-  gap: 6px;
-  flex: none;
-  overflow-x: auto;
-  padding-bottom: 4px;
+.shell.live .live-room .chart-hero-cell.p1 .chart-hero-artist {
+  font-size: 11.5px;
 }
 
-.shell.live .live-room .result-cell {
-  flex: 0 0 auto;
-  min-width: 118px;
-  max-width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--live-line);
-  background: color-mix(in srgb, var(--live-panel) 55%, transparent);
-  color: var(--live-fg);
-  text-align: left;
-  cursor: pointer;
-}
-
-.shell.live .live-room .result-cell b {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+.shell.live .live-room .chart-hero-cover {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  width: 56px;
+  height: 56px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--live-panel-2);
 }
 
-.shell.live .live-room .result-cell span {
+.shell.live .live-room .chart-hero-cell.p1 .chart-hero-cover {
+  width: 96px;
+  height: 96px;
+}
+
+.shell.live .live-room .chart-hero-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shell.live .live-room .chart-hero-cover i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: color-mix(in srgb, var(--live-fg) 7%, transparent);
+}
+
+.shell.live .live-room .chart-hero-cell b {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.shell.live .live-room .chart-hero-artist {
+  grid-column: 2;
+  grid-row: 3;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 10.5px;
   color: var(--live-fg-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.shell.live .live-room .result-cell:hover {
-  border-color: var(--live-line-strong);
-  background: rgba(242, 238, 230, 0.05);
+/* ---------- 榜单索引：65 个榜的密度 ---------- */
+
+/* 65 行不该是一条条带发丝线的目录：行高压到 26px、去掉行线，靠序号列对齐来读 */
+.shell.live .live-room .charts-page .pl-list {
+  gap: 2px;
+  padding-bottom: 12px;
+}
+
+.shell.live .live-room .charts-page .chart-item {
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 0;
+  font-size: 12.5px;
+}
+
+.shell.live .live-room .charts-page .chart-thumb {
+  width: 18px;
+  height: 18px;
+}
+
+/* 索引序号：给列一个可数的锚，字距压到 0.06em 免得 65 行看着毛 */
+.shell.live .live-room .chart-index {
+  flex: none;
+  width: 17px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-align: right;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .live-room .chart-item.on .chart-index {
+  color: var(--live-amber);
 }
 
 /* 听歌报告：24 小时热力带（一格一小时，亮度即时长） */
@@ -2092,53 +2237,7 @@
   border: 1px solid var(--live-line);
 }
 
-/* 账号入口（站尺右端）与账号面板 */
-.ruler-acct {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 150px;
-  padding: 2px 6px;
-  border: 1px solid transparent;
-  background: none;
-  color: var(--live-fg-dim);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.ruler-acct img {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.ruler-acct-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--live-line-strong);
-}
-
-.ruler-acct.on .ruler-acct-dot {
-  background: var(--live-phosphor);
-  border-color: var(--live-phosphor);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--live-phosphor) 60%, transparent);
-}
-
-.ruler-acct b {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.ruler-acct:hover {
-  color: var(--live-fg);
-  border-color: var(--live-line-strong);
-}
-
+/* 账号面板（账号入口 .ruler-acct 的皮肤在 night-signal.css：站尺右端那一格） */
 .acct-scrim {
   position: fixed;
   inset: 0;
@@ -2353,6 +2452,18 @@
   cursor: pointer;
 }
 
+.shell.live .daily-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell.live .daily-actions .refresh-btn {
+  border-color: var(--live-line-strong);
+  color: var(--live-fg-dim);
+  font-size: 10px;
+}
+
 .shell.live .daily-account:hover {
   color: var(--live-fg);
 }
@@ -2500,4 +2611,138 @@
   .im-signal i {
     animation: none;
   }
+}
+
+/* ---- 启动加载页：装配与首屏预取完成前的门面 ---- */
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--live-bg);
+  color: var(--live-fg);
+}
+
+.boot-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  letter-spacing: 0.22em;
+}
+
+.boot-mark b {
+  font-family: var(--font-disp);
+  font-size: 22px;
+  letter-spacing: 0.14em;
+}
+
+.boot-mark span {
+  font-size: 11px;
+  color: var(--live-fg-dim);
+}
+
+.boot-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live-amber);
+}
+
+.boot-splash p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--live-fg-faint);
+}
+
+.boot-line {
+  width: 180px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--live-amber), transparent);
+  animation: boot-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes boot-sweep {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scaleX(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-line {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+/* ---------- 在线/榜单曲目行：封面列 ---------- */
+.shell.live .online-thead {
+  grid-template-columns: 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+}
+
+.shell.live .online-thead.with-btn {
+  grid-template-columns: 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 52px;
+}
+
+.shell.live .lib-row.online-row {
+  grid-template-columns: 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+}
+
+.shell.live .lib-row.online-row:has(.dl-btn) {
+  grid-template-columns: 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px 52px;
+}
+
+.row-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--bg-raised);
+}
+
+.row-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 曲目行是 div[role=button]（行内还有下载按钮，不能再嵌一层 button），
+   所以拿不到上面那条 button 的焦点环，这里补上，offset 取内让环贴着行边 */
+.shell.live .live-room .lib-row:focus-visible {
+  outline: 2px solid var(--live-amber);
+  outline-offset: -2px;
+}
+
+/* 没有封面时不要画一个小圆圈：14px 圆圈在 34px 方框里读成「图片碎了」。
+   改成同尺寸的暗面块，只表示「这里本来有图」。 */
+.row-cover i {
+  width: 100%;
+  height: 100%;
+  background: color-mix(in srgb, var(--live-fg) 7%, transparent);
+}
+
+.th-cover {
+  width: auto;
+}
+
+/* 页头右侧：模式切换 + 刷新并排 */
+.head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }

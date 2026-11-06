@@ -554,7 +554,9 @@ export async function bootstrap(): Promise<Services> {
     // 倍速与音调补偿：老快照没这两个字段时按 1 / true 处理
     dispatch({ type: "player/setPlaybackRate", rate: snapshot.playbackRate ?? 1 });
     dispatch({ type: "player/setPreservesPitch", on: snapshot.preservesPitch !== false });
-    if (snapshot.trackId) {
+    if (snapshot.trackId && !snapshot.remote) {
+      // 在线直链带签名会过期：跨启动恢复它只会得到一条放不动的死链。
+      // 队列、音量与本地曲目照常恢复；在线曲目留给用户重新点选。
       dispatch({
         type: "player/cue",
         trackId: snapshot.trackId,

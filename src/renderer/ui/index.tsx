@@ -46,6 +46,9 @@ import { CommandPalette } from "./input/CommandPalette.js";
 import type { DailyBundle } from "./views/home/index.js";
 import { StationRuler } from "./live/StationRuler.js";
 import { LiveHome } from "./live/LiveHome.js";
+import { BootSplash } from "./BootSplash.js";
+import { invalidatePrefix, loadNet } from "../domain/net-cache/index.js";
+import { accountKey } from "./account-data.js";
 
 
 /** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。 */
@@ -110,6 +113,14 @@ function App() {
   const [scanNote, setScanNote] = useState("");
   // 外壳只有不夜台直播带一种；开机即首页直播面
   const [page, setPage] = useState<PageId>("home");
+  // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的首页亮给用户
+  const [bootReady, setBootReady] = useState(false);
+  /* 在线页内的两个模式：结果 / 榜单。
+     默认落榜单：搜索由顶栏负责，进页时没有关键词，落「结果」只会看到一块空地。
+     从顶栏提交搜索时 onSearch 会强制切回 search，所以不会「搜了却停在榜单」。 */
+  const [onlineTab, setOnlineTab] = useState<"search" | "charts">("charts");
+  /** 顶栏搜索提交的一次性请求：at 变化即重新执行 */
+  const [searchSeek, setSearchSeek] = useState<{ text: string; at: number } | null>(null);
   const lastRoom = useRef<PageId>("home");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -238,7 +249,9 @@ function App() {
       clearTimeout(fallback);
       offFrame?.();
       offFrame = null;
-      void bootstrap().then((s) => {
+
+      const bootAndPrefetch = async (): Promise<void> => {
+        const s = await bootstrap();
         if (!alive) return;
         services.current = s;
         resolveServices.current?.(s);
@@ -248,7 +261,7 @@ function App() {
         syncPosition();
         startMiniBridge(s);
         startLyricBridge(s);
-  
+
         // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
         // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
         void s
@@ -275,14 +288,20 @@ function App() {
             if (alive) setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
           })
           .catch(() => undefined);
-  
-        // 启动就把账号红心读一次：底栏那颗心不能等用户点进「喜欢的音乐」才有状态
-        void (async () => {
-          const { id } = await resolveAccountSource();
-          if (!alive || !id) return;
+
+        // 首屏联网预取：账号一确定就并发拉每日推荐 / 账号红心 / 个人 FM。
+        // 结果落进 domain/net-cache，首页首帧与之后每次切页都直接命中；
+        // 单个源失败不影响其它数据，也不挡放行（外层还有 12 秒总超时）。
+        const { id } = await resolveAccountSource().catch(() => ({ id: null as string | null }));
+        if (alive && id) {
           ensureAccount(id);
-        })();
-  
+          await Promise.allSettled([
+            loadNet(accountKey(id, "daily"), () => accountBundle("daily")),
+            loadNet(accountKey(id, "liked"), () => accountBundle("liked")),
+            loadNet(accountKey(id, "fm"), () => accountBundle("fm")),
+          ]);
+        }
+
         // 更新提示（M8）：一条线，不弹窗不打断播放
         s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
         // 上次异常退出：提示一次，之后不再烦
@@ -292,7 +311,14 @@ function App() {
             void s.markCrashSeen(c.file);
           }
         });
-      });
+      };
+
+      // 加载页从挂载起最多停 12 秒：任何一个联网源卡住都不能把用户关在门外
+      void Promise.race([bootAndPrefetch(), new Promise<void>((r) => setTimeout(r, 12_000))])
+        .catch(() => undefined)
+        .finally(() => {
+          if (alive) setBootReady(true);
+        });
     };
     offFrame = onFrame(() => {
       frames += 1;
@@ -530,7 +556,14 @@ function App() {
         run: () => setPage("local"),
       }),
       registerCommand({ id: "tab-online", label: "转到：在线搜索", run: () => setPage("online") }),
-      registerCommand({ id: "tab-radio", label: "转到：电台", run: () => setPage("radio") }),
+      registerCommand({
+        id: "tab-charts",
+        label: "转到：榜单",
+        run: () => {
+          setOnlineTab("charts");
+          setPage("online");
+        },
+      }),
       registerCommand({ id: "tab-roam", label: "转到：漫游", run: () => setPage("roam") }),
       registerCommand({ id: "tab-liked", label: "转到：喜欢的音乐", run: () => setPage("liked") }),
       registerCommand({ id: "tab-recent", label: "转到：最近播放", run: () => setPage("recent") }),
@@ -841,6 +874,7 @@ function App() {
   const unlikeAccount = async (sourceId: string, songId: string): Promise<void> => {
     try {
       await pressAccountLike(portOf(sourceId), songId, false);
+      invalidatePrefix(accountKey(sourceId, "liked"));
       setNotice({ text: "已从账号红心移除" });
     } catch (err) {
       setNotice({ text: err instanceof Error ? err.message : "取消红心失败，已恢复" });
@@ -875,6 +909,7 @@ function App() {
       const wanted = !isAccountLiked(songId);
       try {
         await pressAccountLike(portOf(id), songId, wanted);
+        invalidatePrefix(accountKey(id, "liked"));
         setNotice({ text: wanted ? "已加入账号红心" : "已从账号红心移除" });
       } catch (err) {
         setNotice({ text: err instanceof Error ? err.message : "红心没改成" });
@@ -937,6 +972,24 @@ function App() {
     if (page !== "stage") lastRoom.current = page;
   }, [page]);
 
+  /* 在线页只有「结果」这一个主视图，榜单是分支。所以页头不放两个 tab ——
+     写一个「搜索」在那儿等于又给搜索开了一个入口（顶栏才是唯一入口）。
+     一颗按钮，标签写目的地：榜单 ⇄ 搜索结果。 */
+  const onlineTabs = (
+    <div className="lib-tabs">
+      {onlineTab === "search" ? (
+        <button type="button" title="看榜单" onClick={() => setOnlineTab("charts")}>
+          榜单
+        </button>
+      ) : searchSeek?.text ? (
+        /* 没搜过就没有「结果」可回，别给一颗点了只会看到空地的按钮 */
+        <button type="button" title="回到搜索结果" onClick={() => setOnlineTab("search")}>
+          搜索结果
+        </button>
+      ) : null}
+    </div>
+  );
+
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
     if (page === "home") {
@@ -949,6 +1002,9 @@ function App() {
             setAccountOpen(true);
             refreshAccountProfiles();
           }}
+          nowPlaying={state.player.remote ?? null}
+          playing={playing}
+          onToggle={() => dispatch({ type: "player/toggle" })}
         />
       );
     }
@@ -982,17 +1038,6 @@ function App() {
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("week")}
             onPlayRemote={playRemoteSafe}
-          />
-        );
-      case "radio":
-        return (
-          <RadioView
-            onPlayGroup={onPlayGroup}
-            now={
-              trackId
-                ? { title: trackTitle ?? baseName(trackId), artist: remote ? "在线音源" : "本地曲库" }
-                : null
-            }
           />
         );
       case "roam":
@@ -1099,16 +1144,29 @@ function App() {
             onEditMeta={(id, patch) =>
               services.current?.editTrackMeta(id, patch) ?? Promise.reject(new Error("还没准备好，请稍后再试"))
             }
+            downloads={() =>
+              services.current ? (
+                <DownloadsView
+                  embedded
+                  services={services.current}
+                  onRemove={(id) => services.current?.removeDownload(id) ?? Promise.resolve()}
+                />
+              ) : (
+                <p className="lib-empty">还没准备好，请稍候。</p>
+              )
+            }
+            radio={() => (
+              <RadioView
+                embedded
+                onPlayGroup={onPlayGroup}
+                now={
+                  trackId
+                    ? { title: trackTitle ?? baseName(trackId), artist: remote ? "在线音源" : "本地曲库" }
+                    : null
+                }
+              />
+            )}
           />
-        );
-      case "downloads":
-        return services.current ? (
-          <DownloadsView
-            services={services.current}
-            onRemove={(id) => services.current?.removeDownload(id) ?? Promise.resolve()}
-          />
-        ) : (
-          <p className="lib-empty">还没准备好，请稍候。</p>
         );
       case "playlists":
         return (
@@ -1142,9 +1200,10 @@ function App() {
             }}
           />
         );
-      case "charts":
-        return (
+      case "online":
+        return onlineTab === "charts" ? (
           <ChartsView
+            tabs={onlineTabs}
             sources={sources.filter((s) => s.canToplists)}
             listToplists={(sourceId) => {
               const svc = services.current;
@@ -1158,10 +1217,10 @@ function App() {
             }}
             onPlay={playRemote}
           />
-        );
-      case "online":
-        return (
+        ) : (
           <OnlineView
+            tabs={onlineTabs}
+            seekQuery={searchSeek}
             sources={sources}
             onSearch={(sourceId, keyword) => {
               const svc = services.current;
@@ -1194,6 +1253,7 @@ function App() {
             }}
             logout={(sourceId) => {
               const svc = services.current;
+              invalidatePrefix(`account:${sourceId}:`);
               return svc ? svc.logout(sourceId) : Promise.resolve();
             }}
             onDownload={(sourceId, track) => {
@@ -1222,6 +1282,8 @@ function App() {
 
   return (
     <main className={`shell live${offline ? " offline" : ""}`}>
+      {/* 加载页是覆盖层不是替换：主壳先挂好，脚本/快捷键在预取期间也能正常工作 */}
+      {!bootReady ? <BootSplash /> : null}
       {/* 离线态（P0-25）：常驻横幅，不用 toast —— 断网期间 toast 会反复刷屏 */}
       {offline ? (
         <div className="net-banner" role="status" aria-live="polite">
@@ -1242,6 +1304,11 @@ function App() {
           setAccountOpen((open) => !open);
           refreshAccountProfiles();
         }}
+        onSearch={(query) => {
+          setOnlineTab("search");
+          if (query) setSearchSeek({ text: query, at: Date.now() });
+          setPage("online");
+        }}
       />
 
       <AccountMenu
@@ -1261,6 +1328,7 @@ function App() {
         onLogout={(id) => {
           void (async () => {
             await services.current?.logout(id).catch(() => undefined);
+            invalidatePrefix(`account:${id}:`);
             if (getActiveSource() === id) {
               accountSource.current = "";
               beginAccount("");
@@ -1290,7 +1358,12 @@ function App() {
           onSuccess={() => {
             const id = loginFor;
             setLoginFor(null);
-            if (id) setActiveSource(id);
+            if (id) {
+              setActiveSource(id);
+              // 新账号的数据不能沿用上一个账号的缓存
+              invalidatePrefix(`account:${id}:`);
+              ensureAccount(id);
+            }
             refreshAccountProfiles();
           }}
           onClose={() => setLoginFor(null)}

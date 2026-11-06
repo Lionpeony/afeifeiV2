@@ -928,6 +928,11 @@ button.primary:hover:not(:disabled) {
   margin: 0 0 18px;
   border: 1px solid var(--line-soft);
   background: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(42vh, 420px);
+  overflow: hidden;
 }
 
 .acct-head {
@@ -936,6 +941,13 @@ button.primary:hover:not(:disabled) {
   justify-content: space-between;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line-soft);
+  flex: none;
+}
+
+.acct-head-r {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .acct-head h3 {
@@ -956,6 +968,7 @@ button.primary:hover:not(:disabled) {
   padding: 8px 14px 0;
   font-size: 12px;
   color: var(--fg-dim);
+  flex: none;
 }
 
 .acct-state {
@@ -964,6 +977,7 @@ button.primary:hover:not(:disabled) {
   gap: 8px;
   margin: 0;
   padding: 14px;
+  flex: none;
   font-size: 12px;
   color: var(--fg-dim);
 }
@@ -980,6 +994,9 @@ button.primary:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   padding-top: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .acct-row {

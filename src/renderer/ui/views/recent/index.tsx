@@ -45,7 +45,7 @@ const dayOf = (at: number): string => {
 export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewProps) {
   const [, setRev] = useState(0);
   const bump = (): void => setRev((r) => r + 1);
-  const acct = useAccountBundle(account);
+  const acct = useAccountBundle(account, "week");
 
   useEffect(() => subscribeLibrary(bump), []);
   useEffect(() => subscribeHistory(bump), []);

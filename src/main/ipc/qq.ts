@@ -51,7 +51,7 @@ async function qqProfileInfo(): Promise<{ loggedIn: boolean; nick: string | null
     null;
   const avatarUrl =
     str(profile.headurl) ?? str(profile.headUrl) ?? str(profile.avatar) ??
-    str(info.headurl) ?? str(info.headUrl) ?? str(info.avatar) ?? null;
+    str(info.headurl) ?? str(info.headUrl) ?? str(info.avatar) ?? str(info.logo) ?? null;
   return { loggedIn, nick: loggedIn ? (nick ?? uid ?? null) : null, uid, avatarUrl: loggedIn ? avatarUrl : null };
 }
 

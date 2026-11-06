@@ -98,8 +98,34 @@ export async function callNcm(method: string, params: Record<string, unknown> = 
     throw new Error(`网易云接口不存在：${method}`);
   }
 
-  const result = await fn({ ...params, cookie, timestamp: Date.now() });
+  // 允许调用方显式指定 cookie（含空串 = 匿名请求）：
+  // song_url 在部分网络下会被登录态触发 -460 风控，匿名反而能取到地址。
+  const useCookie = Object.prototype.hasOwnProperty.call(params, "cookie") ? String(params.cookie ?? "") : cookie;
+  const rest = { ...params };
+  delete rest.cookie;
+
+  let result: { status: number; body: Record<string, unknown> };
+  try {
+    result = await fn({ ...rest, cookie: useCookie, timestamp: Date.now() });
+  } catch (err) {
+    if (method === "song_url" || method === "song_url_v1") {
+      const body = (err as { body?: { code?: unknown; message?: unknown } })?.body;
+      log(
+        "warn",
+        `[netease] ${method} 抛错 ${body ? `code=${String(body.code ?? "?")} msg=${String(body.message ?? "")}` : String((err as Error)?.message ?? err).slice(0, 120)}`,
+      );
+    }
+    throw err;
+  }
   const body = result?.body ?? {};
+
+  // 取流失败要留痕：风控（-460）与「真的没地址」在 UI 上是同一句话，日志里必须分得开
+  if (method === "song_url" || method === "song_url_v1") {
+    const data = body.data as { url?: string | null }[] | undefined;
+    if (!data?.[0]?.url) {
+      log("warn", `[netease] ${method} 无地址 code=${String(body.code ?? "?")} msg=${String(body.message ?? "")}`);
+    }
+  }
 
   const nextCookie = body.cookie;
   if (typeof nextCookie === "string" && nextCookie) {

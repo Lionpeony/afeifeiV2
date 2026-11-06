@@ -16,7 +16,7 @@ import type { ScanStats } from "../domain/library/scan.js";
 import type { Track } from "../domain/library/schema.js";
 import type { LrclibHit } from "../domain/lyrics/fetch-lrclib.js";
 import type { Theme } from "./theme.js";
-import { errorText, translateError } from "../capability/errors.js";
+import { ERROR_INFO, errorText, translateError } from "../capability/errors.js";
 
 export interface Api {
   ping(): string;
@@ -306,7 +306,19 @@ export interface NcmBody {
 /** 把能力层抛的错收敛成一句人话。界面永远只看到这句话。 */
 export function humanize(err: unknown): Error {
   const code = translateError(err);
-  const wrapped = new Error(errorText(code));
+  // 自家抛的错（带十二码之一 + 一句具体说明）优先用具体说明，比通用文案有用
+  const own = err as { code?: unknown; message?: unknown } | null;
+  const custom =
+    typeof own?.code === "string" &&
+    own.code in ERROR_INFO &&
+    typeof own.message === "string" &&
+    own.message &&
+    own.message !== own.code
+      ? own.message
+      : "";
+  const wrapped = new Error(custom || errorText(code));
   (wrapped as Error & { code?: string }).code = code;
+  // 保留原始错误：界面仍只说人话，排障时能顺着 cause 找到上游
+  (wrapped as Error & { cause?: unknown }).cause = err;
   return wrapped;
 }

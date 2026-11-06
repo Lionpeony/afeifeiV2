@@ -14,7 +14,9 @@ export type IconName =
   | "recent"
   | "playlists"
   | "stats"
-  | "settings";
+  | "settings"
+  | "refresh"
+  | "search";
 
 const PATHS: Record<IconName, ReactNode> = {
   home: (
@@ -87,6 +89,18 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="6" cy="4.5" r="1.4" fill="currentColor" stroke="none" />
       <circle cx="10.5" cy="8" r="1.4" fill="currentColor" stroke="none" />
       <circle cx="5" cy="11.5" r="1.4" fill="currentColor" stroke="none" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M13 8a5 5 0 1 1-1.6-3.7" />
+      <path d="M13.2 2.6v3.2H10" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.4 10.4 14 14" />
     </>
   ),
 };

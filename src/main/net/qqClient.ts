@@ -28,23 +28,37 @@ const SESSION_COOKIE_RE = /qqmusic_session=([^;]+)/;
 
 let qqToken = "";
 let tokenLoaded = false;
+let tokenLoad: Promise<string> | null = null;
 
 /**
- * KV 是异步的（fs/promises），这里必须 await —— 上一版把它当同步值用
- * （`typeof Promise` 永远不是 "string"），token 永远读成空串，
- * QQ 登录态重启即丢：扫码当次内存里有 token 所以一切正常，一重启全匿名。
+ * KV 是异步的（fs/promises），这里必须 await。
+ * **并发安全**：启动时首页与站尺会同时问登录态，共享同一个 Promise；
+ * 首个调用置 tokenLoaded 前先 await，后来者若直接返回按旧实现会拿到空串，
+ * 于是以匿名身份请求 /login/status —— 首页就显示成「未登录」。
  */
-async function loadToken(): Promise<string> {
-  if (!tokenLoaded) {
-    tokenLoaded = true;
-    const raw = await readKey(TOKEN_KEY).catch(() => null);
-    qqToken = typeof raw === "string" && raw ? raw : "";
-  }
-  return qqToken;
+function loadToken(): Promise<string> {
+  if (tokenLoaded) return Promise.resolve(qqToken);
+  tokenLoad ??= readKey(TOKEN_KEY)
+    .then((raw) => {
+      if (!tokenLoaded) {
+        qqToken = typeof raw === "string" ? raw : "";
+        tokenLoaded = true;
+      }
+      return qqToken;
+    })
+    .catch(() => {
+      tokenLoaded = true;
+      return qqToken;
+    })
+    .finally(() => {
+      tokenLoad = null;
+    });
+  return tokenLoad;
 }
 
 function saveToken(token: string): void {
   qqToken = token;
+  tokenLoaded = true; // 抢先写入时，磁盘旧值不再覆盖
   void writeKey(TOKEN_KEY, token).catch(() => undefined); // 存不上只影响下次启动，不阻塞
 }
 
@@ -249,10 +263,16 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null;
 let lastRefreshAt = 0;
 
 async function qqRefresh(): Promise<void> {
-  const body = (await callApi("/login/refresh")) as { data?: { rotated?: unknown; token?: unknown } } | null;
-  const data = body?.data;
-  const token = typeof data?.token === "string" ? data.token.trim() : "";
-  if (data?.rotated === true && token && !/[;\s]/.test(token)) saveToken(token);
+  const token = await loadToken();
+  if (!token) return;
+  // 路由是 POST（GET 回 405 Allow: POST）；带 token 让包把当前会话续在同一个 key 上
+  const { json } = await fetchJson(
+    `${qqApiUrl()}/login/refresh?cookie=${encodeURIComponent(`qqmusic_session=${token}`)}`,
+    { method: "POST", timeoutMs: 20000 },
+  );
+  const data = (json as { data?: { rotated?: unknown; token?: unknown } } | null)?.data;
+  const next = typeof data?.token === "string" ? data.token.trim() : "";
+  if (data?.rotated === true && next && !/[;\s]/.test(next)) saveToken(next);
 }
 
 function keepSessionFresh(): void {

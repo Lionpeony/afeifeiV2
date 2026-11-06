@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PageHead } from "../../PageHead.js";
 import { Segmented } from "../../Segmented.js";
 import { useActiveSource } from "../../use-active-source.js";
@@ -35,6 +35,10 @@ export interface OnlineViewProps {
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
   logout(sourceId: string): Promise<void>;
+  /** 页头右侧的模式切换（在线 / 榜单合并后由宿主提供） */
+  tabs?: ReactNode;
+  /** 顶栏搜索提交：at 变化即用 text 发起一次搜索 */
+  seekQuery?: { text: string; at: number } | null;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -45,7 +49,11 @@ function fmtDuration(ms: number): string {
 }
 
 /**
- * 在线页（M3）：音源选择 + 搜索 + 结果。
+ * 在线页（M3）：音源选择 + 搜索结果。
+ *
+ * **搜索入口只有顶栏那一个**（站尺右端的搜索槽）——页内再放一个输入框是功能重复，
+ * 两个入口迟早出现"上面搜了、下面还是旧结果"的错位。本页只负责：选音源、显示关键词、
+ * 列结果、登录、批量下载。关键词改了只能回顶栏改，这里用 ✕ 清空。
  *
  * 音源列表来自注册表，**不写死** —— 加第三家源时这个下拉框自动多一项。
  * 登录走"真实浏览器窗口"而不是扫码接口：后者对请求频率敏感，
@@ -63,6 +71,8 @@ export function OnlineView({
   sendCaptcha,
   loginByCaptcha,
   logout,
+  tabs,
+  seekQuery,
 }: OnlineViewProps) {
   const [sourceId, setSourceId] = useActiveSource(sources);
   const [keyword, setKeyword] = useState("");
@@ -100,14 +110,14 @@ export function OnlineView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId]);
 
-  const run = async (): Promise<void> => {
+  const run = async (query = keyword): Promise<void> => {
     if (!sourceId) return;
     setBusy(true);
     setSlow(false);
     setNote("");
     const slowTimer = setTimeout(() => setSlow(true), 5000);
     try {
-      const result = await onSearch(sourceId, keyword);
+      const result = await onSearch(sourceId, query);
       setRows(result.items);
       setSelected(new Set());
       if (result.items.length === 0) setNote("没搜到。换个词试试。");
@@ -120,6 +130,32 @@ export function OnlineView({
       setBusy(false);
     }
   };
+
+  /** 顶栏提交的搜索：进入在线页时自动填入并发起 */
+  useEffect(() => {
+    if (!seekQuery?.text) return;
+    setKeyword(seekQuery.text);
+    void run(seekQuery.text);
+    // 只认 at：同一关键词再次提交也要重新搜
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekQuery?.at]);
+
+  /** 清空关键词格：回到「还没搜过」——结果、多选、提示一起收掉，不留半截状态 */
+  const clearQuery = (): void => {
+    setKeyword("");
+    setRows([]);
+    setSelected(new Set());
+    setNote("");
+  };
+
+  /* 换音源：带着同一个词在新源上重搜。
+     页内没有搜索按钮之后，不这么做就会「换了源还挂着上一个源的结果」——
+     表格上写着 QQ 音乐，行却是网易云搜出来的。 */
+  useEffect(() => {
+    if (!keyword) return;
+    void run(keyword);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceId]);
 
   const play = async (track: RemoteTrack): Promise<void> => {
     setNote("");
@@ -198,7 +234,7 @@ export function OnlineView({
 
   return (
     <section className="library">
-      <PageHead title="在线" meta={`ONLINE · ${sources.length} SOURCES`} />
+      <PageHead title="在线" meta={`ONLINE · ${sources.length} SOURCES`} extra={tabs} />
       <div className="lib-head">
         {sources.length > 0 ? (
           <Segmented
@@ -208,18 +244,6 @@ export function OnlineView({
             onChange={setSourceId}
           />
         ) : null}
-        <input
-          className="search"
-          value={keyword}
-          placeholder="搜索在线歌曲"
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void run();
-          }}
-        />
-        <button type="button" className="primary" onClick={() => void run()} disabled={busy}>
-          {busy ? "搜索中…" : "搜索"}
-        </button>
         {currentSource && !canLogin ? <span className="badge">免登录</span> : null}
         {canLogin && !loggedIn ? (
           <button type="button" onClick={() => void openLogin()}>
@@ -236,22 +260,24 @@ export function OnlineView({
             </button>
           </>
         ) : null}
-        {rows.length > 0 ? <span className="badge">{rows.length} 条</span> : null}
-        {currentSource?.canDownload && rows.length > 0 ? (
-          <>
-            <button type="button" onClick={() => setSelected(new Set(rows.map((t) => t.sourceId)))}>
-              全选
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={selected.size === 0}
-              onClick={() => void downloadMany()}
-            >
-              下载选中{selected.size > 0 ? `（${selected.size}）` : ""}
-            </button>
-          </>
-        ) : null}
+        {/* 右端只放「这一批结果的批量操作」：跟音源/账号不是一类东西，靠右顶开 */}
+        <div className="lib-head-end">
+          {currentSource?.canDownload && rows.length > 0 ? (
+            <>
+              <button type="button" onClick={() => setSelected(new Set(rows.map((t) => t.sourceId)))}>
+                全选
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={selected.size === 0}
+                onClick={() => void downloadMany()}
+              >
+                下载选中{selected.size > 0 ? `（${selected.size}）` : ""}
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
 
       {loginOpen ? (
@@ -278,34 +304,40 @@ export function OnlineView({
         />
       ) : null}
 
-      {note ? <p className="lib-note">{note}</p> : null}
-      {slow ? <p className="lib-note dim">还在搜——这个音源的上游响应比较慢，再等几秒。</p> : null}
-
-      {/* 结果带：搜完先给一眼能点的横排，精确选择仍看下面的表 */}
-      {!busy && rows.length > 0 ? (
-        <div className="result-rail" aria-label="搜索结果">
-          {rows.slice(0, 12).map((track) => (
-            <button
-              key={track.sourceId}
-              type="button"
-              className="result-cell"
-              onClick={() => void play(track)}
-              title={`${track.title} — ${track.artist}`}
-            >
-              <b>{track.title}</b>
-              <span>{track.artist}</span>
-            </button>
-          ))}
-        </div>
+      {/* 异步结果（搜到没有 / 报错 / 上游慢）要能读屏播报，不然只有看得见的人知道出了事 */}
+      {note ? (
+        <p className="lib-note" role="status">
+          {note}
+        </p>
+      ) : null}
+      {slow ? (
+        <p className="lib-note dim" role="status">
+          还在搜——这个音源的上游响应比较慢，再等几秒。
+        </p>
       ) : null}
 
       <div className="lib-list">
-        <div className={`lib-thead online-thead${currentSource?.canDownload ? " with-btn" : ""}`}>
-          <span className="th-title">TITLE</span>
-          <span className="th-a">ARTIST</span>
-          <span className="th-b">ALBUM</span>
-          <span className="th-dur">TIME</span>
-        </div>
+        {/* 结果抬头：关键词贴着结果走（和榜单页右栏同一行式），工具行只留音源与账号。
+            搜索入口仍然只有顶栏那一个，这里只交代「现在看的是哪一批」。 */}
+        {keyword ? (
+          <p className="list-now">
+            <b>{keyword}</b>
+            <span>{busy ? "搜索中…" : rows.length > 0 ? `${rows.length} 条` : "没有结果"}</span>
+            <button type="button" className="list-now-x" onClick={clearQuery}>
+              清空
+            </button>
+          </p>
+        ) : null}
+        {/* 表头只在有结果（或正在搜）时出现：空着的时候一列表头压在空态上，像页面坏了 */}
+        {rows.length > 0 || busy ? (
+          <div className={`lib-thead online-thead${currentSource?.canDownload ? " with-btn" : ""}`}>
+            <span className="th-cover" aria-hidden="true" />
+            <span className="th-title">TITLE</span>
+            <span className="th-a">ARTIST</span>
+            <span className="th-b">ALBUM</span>
+            <span className="th-dur">TIME</span>
+          </div>
+        ) : null}
         {busy ? (
           /* 骨架行：搜索期间结果区不再是空白一片（QQ 上游实测要几十秒） */
           <div className="online-skel" aria-hidden="true">
@@ -323,9 +355,23 @@ export function OnlineView({
               <div
                 key={track.sourceId}
                 className="lib-row online-row"
+                role="button"
+                tabIndex={0}
                 onClick={() => void play(track)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  void play(track);
+                }}
                 title={`${track.title} — ${track.artist}`}
               >
+                <span className="row-cover">
+                  {track.coverUrl ? (
+                    <img src={track.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                  ) : (
+                    <i aria-hidden="true" />
+                  )}
+                </span>
                 <span className="lib-title">
                   {currentSource?.canDownload ? (
                     <input
@@ -357,7 +403,9 @@ export function OnlineView({
                 ) : null}
               </div>
             ))}
-            {rows.length === 0 && !note ? <p className="lib-empty">选一个音源，输入关键词搜索。</p> : null}
+            {rows.length === 0 && !note ? (
+              <p className="lib-empty lib-empty--inline">用顶栏的搜索框搜歌，结果会落在这里。</p>
+            ) : null}
           </>
         )}
       </div>
