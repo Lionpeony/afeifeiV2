@@ -19,7 +19,7 @@ export interface LikedViewProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
   /** 账号红心（A 方案：账号归账号、本地归本地，两栏各自完整，不做 id 合并） */
   account(): Promise<AccountBundle>;
-  onPlayRemote(sourceId: string, track: RemoteTrack): void;
+  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
   /** 取消账号红心；失败必须 reject，行才回得去 */
   onUnlike(sourceId: string, songId: string): Promise<void>;
 }

@@ -24,7 +24,8 @@ export const ERROR_INFO: Record<ErrorCode, CodeInfo> = {
   "decode-failed": { text: "这首歌的文件可能损坏了", retryable: false },
   aborted: { text: "已取消", retryable: false },
   "disk-full": { text: "磁盘空间不足", retryable: false },
-  unknown: { text: "出了点问题", retryable: true },
+  // 兜底也要给下一步：只说「出了点问题」，用户不知道该等还是该重开
+  unknown: { text: "出了点问题，稍后再试一次", retryable: true },
   // P0-14 自愈的停机原因：连跳三首才出现，必须说真话，不能塞进 unknown
   "too-many-failures": { text: "连续几首都播不了，已暂停", retryable: true },
 };

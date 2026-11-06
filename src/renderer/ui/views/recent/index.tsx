@@ -15,7 +15,7 @@ export interface RecentViewProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
   /** 账号听歌排行（A 方案：账号在上、本机记录在下） */
   account(): Promise<AccountBundle>;
-  onPlayRemote(sourceId: string, track: RemoteTrack): void;
+  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
 }
 
 interface Line {

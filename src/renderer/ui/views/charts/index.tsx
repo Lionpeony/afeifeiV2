@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { RemoteTrack, Toplist } from "../../../../contracts/capability.js";
-import { getNet, loadNet, refreshNet } from "../../../domain/net-cache/index.js";
+import { getNet, invalidatePrefix, loadNet, refreshNet } from "../../../domain/net-cache/index.js";
 import { PageHead } from "../../PageHead.js";
 import { RefreshButton } from "../../RefreshButton.js";
 import { Segmented } from "../../Segmented.js";
@@ -16,7 +16,8 @@ export interface ChartsViewProps {
     listId: string,
     page?: number,
   ): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
-  onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  /** list = 当前榜单全部曲目：点哪首就从哪首开始，队列 = 整个榜 */
+  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): Promise<void>;
   /** 页头右侧的模式切换（在线 / 榜单合并后由宿主提供） */
   tabs?: ReactNode;
 }
@@ -74,10 +75,18 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
   }, [sourceId, tick]);
 
   const loadTracks = async (listId: string, page: number): Promise<void> => {
+    const key = `charts:tracks:${sourceId}:${listId}:${page}`;
+    // 命中缓存就同步摆出来，不置 busy —— 切榜再切回来不该闪一次骨架
+    const cached = page === 0 ? getNet<{ items: RemoteTrack[]; nextPage?: number }>(key) : undefined;
+    if (cached) {
+      setTracks(cached.items);
+      setNextPage(cached.nextPage);
+      return;
+    }
     setBusy(true);
     setNote("");
     try {
-      const result = await playlistTracks(sourceId, listId, page);
+      const result = await loadNet(key, () => playlistTracks(sourceId, listId, page));
       setTracks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
       setNextPage(result.nextPage);
       if (page === 0 && result.items.length === 0) setNote("这个榜单暂时取不到曲目。");
@@ -106,7 +115,7 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
 
   const play = async (track: RemoteTrack): Promise<void> => {
     try {
-      await onPlay(sourceId, track);
+      await onPlay(sourceId, track, tracks);
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -134,7 +143,9 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
             <RefreshButton
               onClick={() => {
                 if (!sourceId) return;
+                // 清单和曲目一起失效：只刷清单会让下钻还是旧曲目
                 refreshNet(`charts:toplists:${sourceId}`);
+                invalidatePrefix(`charts:tracks:${sourceId}:`);
                 setTick((t) => t + 1);
               }}
             />

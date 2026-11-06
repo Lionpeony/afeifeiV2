@@ -22,6 +22,8 @@ export const fmt = (ms: number): string => {
 export const pad2 = (n: number): string => String(Math.max(0, n)).padStart(2, "0");
 
 export function fileOf(id: string): string {
+  // 队列里的在线项是 `remote:<音源>:<歌 id>`：别把逻辑 id 当歌名摆出来
+  if (id.startsWith("remote:")) return "在线曲目";
   const parts = id.split(/[\\/]/);
   const last = parts[parts.length - 1] ?? id;
   try {

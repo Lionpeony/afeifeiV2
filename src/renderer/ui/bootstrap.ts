@@ -1,4 +1,4 @@
-import type { AppState, DownloadItem, ErrorCode } from "../../contracts/index.js";
+import type { AppState, DownloadItem, ErrorCode, RemoteTrackMeta } from "../../contracts/index.js";
 import type { AccountCapability } from "../../contracts/capability.js";
 import type {
   DownloadPort,
@@ -59,7 +59,13 @@ import {
 } from "../domain/download/settings.js";
 import { loadHistory, pushHistory as recordPlay, saveHistory } from "../domain/history/index.js";
 import { loadLikes, saveLikes, subscribe as subscribeLikes } from "../domain/likes/index.js";
-import { loadDislikes, saveDislikes, subscribe as subscribeDislikes } from "../domain/dislikes/index.js";
+import {
+  hasDislike,
+  loadDislikes,
+  remoteDislikeKey,
+  saveDislikes,
+  subscribe as subscribeDislikes,
+} from "../domain/dislikes/index.js";
 import {
   begin as beginListening,
   end as endListening,
@@ -77,6 +83,7 @@ import {
   saveSavedPlaylists,
   setSavedPlaylists,
 } from "../domain/playlists/online.js";
+import { attachNetPersistence, hydrateNet } from "../domain/net-cache/index.js";
 import { loadSalt } from "../domain/recommend/salt.js";
 import { clock } from "../kernel/clock.js";
 import { decideFailure } from "../kernel/failure.js";
@@ -84,6 +91,8 @@ import {
   dispatch,
   getState,
   orderOf,
+  parseRemoteTrackId,
+  remoteTrackId,
   sanitizeLyricOffsets,
   sanitizePlaybackConfig,
   stepForward,
@@ -297,7 +306,9 @@ export async function bootstrap(): Promise<Services> {
       dispatch({ type: "player/error", code });
       void engine.reload().then((changed) => {
         if (!changed) {
-          retryCount = 0; // 取源这步就失败了，停在错误态等用户（按钮由 isRetryable 决定）
+          // 取源失败（resolveSrc 已报过 onError，判定走 skip）或期间已切到别的歌（load 代际作废）。
+          // 两种都别再 play：前者由重入的 handleFailure 安排跳歌，后者用户已经在别处了
+          retryCount = 0;
           return;
         }
         dispatch({ type: "player/seek", positionMs: 0 });
@@ -309,6 +320,11 @@ export async function bootstrap(): Promise<Services> {
     if (decision.action === "stop") {
       retryCount = 0;
       skipStreak = 0;
+      // 停机就是"别再自动跳"：之前排下的那次跳歌要撤回
+      if (skipTimer) {
+        clearTimeout(skipTimer);
+        skipTimer = null;
+      }
       // 只有"连跳三首"值得换成一句总结；"没有下一首"照实报原码 ——
       // 用户想知道的是"这首歌为什么放不了"，不是"队列空了"
       dispatch({ type: "player/error", code: decision.reason === "exhausted" ? "too-many-failures" : code });
@@ -322,8 +338,9 @@ export async function bootstrap(): Promise<Services> {
     if (skipTimer) clearTimeout(skipTimer);
     skipTimer = setTimeout(() => {
       skipTimer = null;
-      // 这 500ms 里用户自己切了歌：别替他再跳一次
-      if (getState().player.trackId !== failing) return;
+      // 这 500ms 里用户自己切了歌、或点了播放重试同一首：别替他再跳一次
+      const now = getState();
+      if (now.player.trackId !== failing || now.player.status !== "error") return;
       dispatch({ type: "queue/next" });
     }, decision.delayMs);
   };
@@ -408,9 +425,66 @@ export async function bootstrap(): Promise<Services> {
     void api.notify({ title, body }).catch(() => undefined);
   };
 
+  /** FM 续批进行中：`ended` 可能连发（用户手动点到队尾也算），别同时拉两批。 */
+  let refilling = false;
+  /** 续批时保留当前曲之前多少首：够往回翻，又不会让队列面板无限长。 */
+  const FM_KEEP_BEFORE = 20;
+
+  /**
+   * 漫游 FM 无限流：一批放完（ended）就再要一批接在队尾，然后接着播。
+   * 空批 / 失败静默停在最后一首 —— 没流了不是错误，不该弹提示打扰。
+   */
+  async function refillStream(sourceId: string): Promise<void> {
+    if (refilling) return;
+    refilling = true;
+    try {
+      const songs = await services.accountPersonalFm(sourceId);
+      const known = new Set(getState().queue.items);
+      const items: string[] = [];
+      const remote: Record<string, RemoteTrackMeta> = {};
+      for (const track of songs) {
+        // 与漫游页同一份"不喜欢"名单：续批也不该把刚删掉的歌推回来
+        if (hasDislike(remoteDislikeKey(sourceId, track.sourceId))) continue;
+        const id = remoteTrackId(sourceId, track.sourceId);
+        if (known.has(id)) continue; // 服务端偶尔给重复批，别把队列撑成复读机
+        items.push(id);
+        remote[id] = {
+          sourceId,
+          songId: track.sourceId,
+          title: track.title,
+          artist: track.artist,
+          coverUrl: track.coverUrl,
+          durationMs: track.durationMs,
+        };
+      }
+      if (items.length === 0) return;
+      // 先裁掉播过的再追加：不裁的话挂机一晚队列能攒到几千首，面板没法用。
+      // 裁完光标仍指向同一首，下面的 next 照样走到新批第一首
+      dispatch({ type: "queue/trim", keepBefore: FM_KEEP_BEFORE });
+      dispatch({ type: "queue/add", items, remote });
+      dispatch({ type: "queue/next" });
+    } catch (error) {
+      console.warn("[bootstrap] FM 续批失败，这批播完就停", error);
+    } finally {
+      refilling = false;
+    }
+  }
+
   let prev = getState();
   subscribe(() => {
     const next = getState();
+
+    // 漫游 FM 到队尾要续批，两种情况都算：
+    // ① 自然播完（ended 刚发生）② 已经停在 ended，用户又点了「下一首」（上次续批失败/没网）
+    if (next.queue.stream) {
+      const justEnded = next.player.status === "ended" && prev.player.status !== "ended";
+      const retryAtEnd =
+        next.player.status === "ended" &&
+        prev.player.status === "ended" &&
+        next.player.trackId === prev.player.trackId &&
+        next.queue.cursor === prev.queue.cursor;
+      if (justEnded || retryAtEnd) void refillStream(next.queue.stream.sourceId);
+    }
 
     // 后台切歌 / 下载完成 → 系统通知（M9）
     if (next.player.trackId !== prev.player.trackId && next.player.status === "playing" && next.player.trackTitle) {
@@ -481,6 +555,16 @@ export async function bootstrap(): Promise<Services> {
     loadHistory(kv),
     loadLog(kv),
   ]);
+
+  /* 联网清单的落盘快照：先装旧清单（首帧就有「有哪些榜 / 有哪些歌单」），有网再补。
+     只存清单类 —— 曲目和账号数据变太快，落盘只会让人看到过期内容。 */
+  hydrateNet(await kv.read("net-cache"));
+  attachNetPersistence({
+    match: (key) => key.startsWith("charts:toplists:") || key.startsWith("playlists:list:"),
+    save: (data) => {
+      void kv.write("net-cache", JSON.stringify(data)).catch(() => undefined);
+    },
+  });
 
   /*
    * 当前音源（账号模型）：恢复上次选的；没有就默认第一个支持账号的源。
@@ -554,9 +638,11 @@ export async function bootstrap(): Promise<Services> {
     // 倍速与音调补偿：老快照没这两个字段时按 1 / true 处理
     dispatch({ type: "player/setPlaybackRate", rate: snapshot.playbackRate ?? 1 });
     dispatch({ type: "player/setPreservesPitch", on: snapshot.preservesPitch !== false });
-    if (snapshot.trackId && !snapshot.remote) {
-      // 在线直链带签名会过期：跨启动恢复它只会得到一条放不动的死链。
-      // 队列、音量与本地曲目照常恢复；在线曲目留给用户重新点选。
+    // 只有**老快照的在线直链**不恢复：它带签名，跨启动必然过期，恢复出来是条死链。
+    // 现在在线曲目存的是 `remote:<音源>:<歌 id>`（起播时重新解析），可以正常还原；
+    // 本地路径照旧。判据是 id 形态，不是"有没有 remote 字段"。
+    const deadLink = /^https?:\/\//i.test(snapshot.trackId ?? "");
+    if (snapshot.trackId && !deadLink) {
       dispatch({
         type: "player/cue",
         trackId: snapshot.trackId,
@@ -1034,6 +1120,17 @@ export async function bootstrap(): Promise<Services> {
     openExternal: (url) => api.openExternal(url),
   };
 
+  /**
+   * 在线曲目取源：队列里存 `remote:<音源>:<歌 id>`，起播前才换成直链
+   * （直链带令牌、会过期，存进队列过一会儿就打不开）。
+   * 注册点必须在这里：resolver 要用 `services`，提前注册会踩 TDZ。
+   */
+  engine.setResolver(async (track) => {
+    const remote = parseRemoteTrackId(track);
+    if (!remote) return null; // 本地路径：交给 engine 的默认授权流程
+    return services.resolveOnlineUrl(remote.sourceId, remote.songId, "320k");
+  });
+
   // 下载执行器（M7）：与播放链路同源——完成后走曲库，不做"边下边播"
   startDownloadRunner({
     port: download,
@@ -1060,7 +1157,18 @@ async function runAccount<T>(sourceId: string, fn: (acc: AccountCapability) => P
   }
 }
 
-/** store → engine 的单向同步。任何"引擎反过来改 store"都是 bug。 */
+/**
+ * store → engine 的单向同步。任何"引擎反过来改 store"都是 bug。
+ *
+ * 三条规则，除此之外不许有分支：
+ *   ① trackId 变 → load。**起播权只在这里**（load 完成后看 store 要不要响），
+ *      因为取源是异步的，dispatch 时元素里还没有这首。
+ *   ② status 变 → 起/停表 + play/pause。**只对"引擎已装着这首"生效**；
+ *      换曲途中那点空窗交给 ①，否则会对空元素 play（报 NotSupported → 打成 error → 自动跳歌）。
+ *   ③ positionMs 变 → seek。它是"最后一次 seek / 切歌"的位置，不是实时位置。
+ *
+ * crossfade 是唯一例外：淡出期间时钟仍跟出场曲，归零由 onSwitched 负责（00 §3.2 #5）。
+ */
 function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   const p = prev.player;
   const n = next.player;
@@ -1074,9 +1182,11 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
     const keepClock = engine.willCrossfade(n.trackId);
     void engine.load(n.trackId).then((changed) => {
       if (!changed || keepClock) return;
-      if (n.positionMs > 0) engine.seek(n.positionMs);
-      if (getState().player.status === "playing") {
-        clock.start(n.positionMs, performance.now());
+      // 用最新状态：load 期间用户可能已经拖过进度条
+      const live = getState().player;
+      if (live.positionMs > 0) engine.seek(live.positionMs);
+      if (live.status === "playing") {
+        clock.start(live.positionMs, performance.now());
         void engine.play();
       }
     });
@@ -1088,12 +1198,26 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
     return;
   }
 
-  // crossfade 中状态机由 onFadeStart/onSwitched 驱动，这里别去动 clock 与播放
-  if (n.status !== p.status && !engine.isFading()) {
+  if (n.status !== p.status) {
     if (n.status === "playing") {
-      clock.start(n.positionMs, now);
-      void engine.play();
-    } else if (n.status === "paused" || n.status === "ended" || n.status === "idle") {
+      // crossfade 中入场曲已经在响，clock 归零由切点 onSwitched 负责，这里别重复起表
+      if (!engine.isFading()) {
+        // 元素里还没装着这首（换曲的取源窗口）：起播权归换歌分支的 load 回调，
+        // 这里 play() 只会对空元素报 NotSupported，把好好的切歌打成 error
+        if (engine.currentTrack() === n.trackId) {
+          // 续播从停表处起：store 的 positionMs 只是"最后一次 seek / 切歌"的位置，
+          // 拿它起表会让进度条闪回 0（I1）。从 ended 复播则是引擎重绕到 0
+          clock.start(p.status === "ended" ? 0 : clock.t(now), now);
+          void engine.play();
+        }
+      }
+    } else if (
+      n.status === "paused" ||
+      n.status === "ended" ||
+      n.status === "idle" ||
+      n.status === "error"
+    ) {
+      // 停这一侧不能被 crossfade 吞掉：淡出窗口里按暂停必须真的安静
       clock.stop(now);
       engine.pause();
     }

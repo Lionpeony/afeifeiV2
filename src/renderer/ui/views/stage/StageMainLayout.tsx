@@ -33,7 +33,8 @@ function AirHeader({
   line,
   duration,
   menuOpen,
-  onToggleMenu,
+  onToggleMenu,
+
 }: {
   title: string;
   sub: string;
@@ -60,7 +61,8 @@ function AirHeader({
         <span className="st-air-line">{line}</span>
         <span className="st-air-clock tabnum" ref={timeRef}>0:00 / {fmt(duration)}</span>
         <span className="st-air-tools">
-          <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+          <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+
         </span>
       </div>
       <div className="st-air-main">
@@ -81,6 +83,7 @@ export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMe
     playOrder: data.playOrder,
     tracks: data.tracksMap,
     covers: data.queueCovers,
+    remote: data.queueRemote,
     onPlay: (id: TrackId) => dispatch({ type: "player/play", trackId: id, trackTitle: data.tracksMap.get(id)?.title ?? null }),
     onMove: (index, delta) => dispatch({ type: "queue/move", from: index, to: index + delta }),
     onRemove: (index) => dispatch({ type: "queue/remove", index }),
@@ -133,7 +136,8 @@ export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMe
           line={lyric.doc && lyric.lineIndex >= 0 ? `LINE ${pad2(lyric.lineIndex + 1)} / ${lyric.doc.lines.length}` : "LINE —"}
           duration={data.nowDuration}
           menuOpen={menuOpen}
-          onToggleMenu={onToggleMenu}
+          onToggleMenu={onToggleMenu}
+
         />
       ) : (
         <PageHead
@@ -143,7 +147,8 @@ export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMe
           extra={(
             <span className="st-src">
               <span>QUEUE {queue.items.length ? `${String(Math.max(1, data.cursorPosition + 1)).padStart(2, "0")} / ${queue.items.length}` : "—"}</span>
-              <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+              <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
+
             </span>
           )}
         />

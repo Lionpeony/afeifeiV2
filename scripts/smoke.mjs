@@ -436,6 +436,7 @@ async function main() {
 
     const seen = new Set();
     for (let i = 1; i <= 20; i += 1) {
+      const before = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? ""`);
       await app2.evaluate(`${NEXT_BUTTON}.click()`);
       await sleep(200);
       const errored = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
@@ -446,6 +447,12 @@ async function main() {
         `(() => { const b = document.querySelector(".seek input"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
       );
       assert.ok(bar.v <= bar.m + 1000, `第 ${i} 次切歌后进度条越界：${bar.v} > ${bar.m}`);
+      // 切歌就是要播：主按钮读「暂停」= store 在 playing。
+      // 唯一允许不播的情况是已经走到队尾（没切歌，标题不变）——那时是正常的「播完了」
+      const label = await app2.evaluate(`document.querySelector(".tb.main")?.getAttribute("aria-label") ?? ""`);
+      if (label !== "暂停") {
+        assert.equal(track, before, `第 ${i} 次切歌后停在暂停态，但曲子已经换了（${before} → ${track}）`);
+      }
     }
     assert.ok(seen.size >= 15, `20 次切歌应切到多个不同曲目，实际只有 ${seen.size} 个`);
     console.log(`  连切 20 首 OK：经过 ${seen.size} 个不同曲目，无 error、进度条不越界`);

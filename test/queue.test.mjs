@@ -5,9 +5,11 @@ import {
   dropTargetIndex,
   nextShuffleSeed,
   orderOf,
+  parseRemoteTrackId,
   positionOf,
   prevAction,
   pushHistory,
+  remoteTrackId,
   stepBackward,
   stepForward,
 } from "../dist-test/queue.mjs";
@@ -175,6 +177,22 @@ test("pushHistory 追加到末尾", () => {
 
 test("pushHistory 超过上限时丢最旧的", () => {
   assert.deepEqual(pushHistory(["a", "b", "c"], "d", 3), ["b", "c", "d"]);
+});
+
+/* ---------- 在线曲目的队列 id ---------- */
+
+test("remoteTrackId / parseRemoteTrackId：往返一致，本地路径返回 null", () => {
+  const id = remoteTrackId("netease", "12345");
+  assert.equal(id, "remote:netease:12345");
+  assert.deepEqual(parseRemoteTrackId(id), { sourceId: "netease", songId: "12345" });
+  // 歌 id 里可能有冒号（QQ 的串），音源标识不能有
+  assert.deepEqual(parseRemoteTrackId(remoteTrackId("qq", "00:AB")), { sourceId: "qq", songId: "00:AB" });
+});
+
+test("parseRemoteTrackId：本地路径与残缺 id 一律 null", () => {
+  for (const bad of ["C:/music/a.mp3", "remote:", "remote:netease", "remote::1"]) {
+    assert.equal(parseRemoteTrackId(bad), null, bad);
+  }
 });
 
 /* ---------- 拖拽落点换算（P0-11） ---------- */

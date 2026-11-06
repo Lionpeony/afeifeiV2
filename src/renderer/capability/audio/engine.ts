@@ -49,6 +49,13 @@ export class AudioEngine {
   private graph: AudioGraph | null = null;
   private hooks: EngineHooks = {};
   private currentSrc: string | null = null;
+  /**
+   * load 代际：`resolveSrc` 是 IPC，等回来期间用户可能已经切了别的曲目。
+   * 没有这个序号，慢的那次会把快的那首的 src 覆盖掉——界面显示 B、耳朵听到 A（I1）。
+   */
+  private loadSeq = 0;
+  /** 逻辑 trackId → 可播放地址（在线曲目用）。null 表示没接解析器，按本地路径处理。 */
+  private resolver: ((track: string) => Promise<string | null>) | null = null;
   /** 图还没建（还没播过第一首）时暂存的音频配置，建图后立即应用。 */
   private pendingPreamp: number | null = null;
   private pendingEq: number[] | null = null;
@@ -58,6 +65,8 @@ export class AudioEngine {
   private fading: ReturnType<typeof setTimeout> | null = null;
   /** nearEnd 已发过（一次换曲只发一次）。 */
   private nearEndFired = false;
+  /** 元数据还没到就收到的 seek 目标（毫秒），loadedmetadata 时补上。 */
+  private pendingSeekMs: number | null = null;
 
   constructor(media: MediaPort) {
     this.media = media;
@@ -71,7 +80,13 @@ export class AudioEngine {
     for (const el of this.els) {
       // ready 只认主元素：crossfade 给待命元素装 src 时不能把 loading 打回 paused
       el.addEventListener("loadedmetadata", () => {
-        if (el === this.el) this.hooks.onReady?.();
+        if (el !== this.el) return;
+        // 元数据到之前收到的 seek 在这里补：恢复上次位置/切歌立刻定位都会撞上
+        if (this.pendingSeekMs !== null) {
+          el.currentTime = this.pendingSeekMs / 1000;
+          this.pendingSeekMs = null;
+        }
+        this.hooks.onReady?.();
       });
       // crossfade 中出场曲到头是正常路径（我们提前切了），不算 ended
       el.addEventListener("ended", () => {
@@ -98,6 +113,14 @@ export class AudioEngine {
 
   on(hooks: EngineHooks): void {
     this.hooks = hooks;
+  }
+
+  /**
+   * 注册取源解析器：队列里的在线曲目（`remote:<音源>:<歌 id>`）要靠它换成直链。
+   * 返回 null = "这条我不管"，engine 回落到本地文件授权（`media.grant`）。
+   */
+  setResolver(fn: ((track: string) => Promise<string | null>) | null): void {
+    this.resolver = fn;
   }
 
   private mapError(el: HTMLAudioElement): ErrorCode {
@@ -170,6 +193,8 @@ export class AudioEngine {
    */
   async load(track: string): Promise<boolean> {
     if (this.currentSrc === track) return false;
+    const seq = ++this.loadSeq;
+    this.pendingSeekMs = null; // 上一首还没落地的 seek 不能落到新曲头上
     if (this.fading) this.finalize(); // 上一场没收完就点了新的：立刻收场，别叠两张
     this.cancelPendingPause(); // 上一首的淡出收尾不能落到这首头上
 
@@ -185,6 +210,8 @@ export class AudioEngine {
     }
 
     const src = await this.resolveSrc(track);
+    // 取源期间又切了别的曲目：本次结果作废，别覆盖后来者
+    if (seq !== this.loadSeq) return false;
     if (!src) {
       this.nearEndFired = false; // 取源失败，把 ended 还给主元素兜底
       return false;
@@ -360,6 +387,17 @@ export class AudioEngine {
    */
   private async resolveSrcQuiet(track: string): Promise<string | null> {
     if (/^https?:\/\//i.test(track)) return streamSrcOf(track);
+    // 在线曲目：队列里存的是 `remote:<音源>:<歌 id>`，直链一次性，起播时才换
+    // （重试也走这里 —— 直链过期时 `reload()` 会重新解析拿到新地址）
+    if (this.resolver) {
+      try {
+        const url = await this.resolver(track);
+        if (url) return /^https?:\/\//i.test(url) ? streamSrcOf(url) : url;
+      } catch {
+        // 未登录 / 无版权：当作取源失败，交给失败自愈（重试或跳下一首）
+        return null;
+      }
+    }
     try {
       const token = await this.media.grant(track);
       return token ? this.media.urlOf(token) : null;
@@ -393,6 +431,11 @@ export class AudioEngine {
     }
     this.cancelPendingPause(); // 淡出收尾还没落地就续播：撤掉，否则刚响就停
     await resumeGraph(this.graph);
+    // 停在末尾时点播放 = 从头放：<audio> 自己不会回绕，直接 play() 会立刻再触发一次 ended
+    const dur = this.el.duration;
+    if (this.el.ended || (Number.isFinite(dur) && dur > 0 && this.el.currentTime >= dur - 0.05)) {
+      this.el.currentTime = 0;
+    }
     try {
       await this.el.play();
       if (this.fading) {
@@ -455,6 +498,9 @@ export class AudioEngine {
   }
 
   pause(): void {
+    // 淡出途中暂停：先把这场 crossfade 收场（待命曲转正，再由下面的淡出停掉）。
+    // 不收场的话定时器到点会自己 swap 并归零，暂停中的歌位置被打乱。
+    if (this.fading) this.finalize();
     // 淡出 150ms 再真停（P0-07）：直接 pause 会有咔哒声。
     // 两路都停：crossfade 中暂停是合法操作，恢复时 play() 会把两路一起拉起
     this.cancelPendingPause();
@@ -468,8 +514,15 @@ export class AudioEngine {
   }
 
   seek(positionMs: number): void {
-    if (this.el.readyState < 1) return;
-    this.el.currentTime = Math.max(0, positionMs) / 1000;
+    const ms = Math.max(0, positionMs);
+    // 元数据没到就 seek 等于白发（恢复上次位置、切歌后立刻定位都会撞上）：
+    // 记住目标，等 loadedmetadata 再落
+    if (this.el.readyState < 1) {
+      this.pendingSeekMs = ms;
+      return;
+    }
+    this.pendingSeekMs = null;
+    this.el.currentTime = ms / 1000;
   }
 
   setVolume(volume: number): void {

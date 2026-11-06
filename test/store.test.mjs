@@ -107,6 +107,196 @@ test("单曲循环下用户点下一首仍切歌（自然结束才重播本曲�
   assert.equal(s.player.trackId, "b");
 });
 
+/* ---------- 当前曲不在队列（在线单曲）：不许把"队列残值"当成位置 ---------- */
+
+test("在线单曲点下一首：从队列开头播，不是谎报「播完了」", () => {
+  reset(["a", "b", "c"], 2); // 光标停在队尾——在线曲目之前留下的残值
+  dispatch({ type: "player/play", trackId: "https://cdn.example/x.mp3", trackTitle: "在线 — 某" });
+  dispatch({ type: "queue/next" });
+  const s = getState();
+  assert.notEqual(s.player.status, "ended");
+  assert.equal(s.player.trackId, "a");
+});
+
+test("在线单曲 + 空队列点下一首：保持播放，不暂停也不改状态", () => {
+  dispatch({ type: "queue/clear" });
+  dispatch({ type: "player/play", trackId: "https://cdn.example/x.mp3", trackTitle: "在线 — 某" });
+  dispatch({ type: "queue/next" });
+  const s = getState();
+  assert.equal(s.player.status, "playing");
+  assert.equal(s.player.trackId, "https://cdn.example/x.mp3");
+});
+
+test("切下一首：状态直接是 playing，元数据到达后也不许退回「已暂停」", () => {
+  reset(["a", "b"], 0);
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.status, "playing", "切歌就是要播");
+
+  // loadedmetadata 迟到（引擎 onReady）：不能把正在播的这首按成暂停
+  dispatch({ type: "player/ready" });
+  assert.equal(getState().player.status, "playing");
+  assert.equal(getState().player.trackId, "b");
+});
+
+test("真的播到队尾：仍然照实报「播完了」", () => {
+  reset(["a", "b"], 1);
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.status, "ended");
+});
+
+/* ---------- 在线列表入队：点每日推荐/榜单任意一首，队列 = 整份列表 ---------- */
+
+const REMOTES = {
+  "remote:netease:1": { sourceId: "netease", songId: "1", title: "新生活", artist: "王齐铭" },
+  "remote:netease:2": {
+    sourceId: "netease",
+    songId: "2",
+    title: "Komorebi",
+    artist: "熊田理秀",
+    coverUrl: "https://img/2",
+  },
+};
+
+test("在线列表入队：标题与音源标识从元数据恢复，不靠直链", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 0, remote: REMOTES });
+  dispatch({ type: "player/play" });
+  const s = getState();
+  assert.equal(s.player.trackId, "remote:netease:1");
+  assert.equal(s.player.trackTitle, "新生活 — 王齐铭");
+  assert.equal(s.player.remote?.sourceId, "netease");
+  assert.equal(s.player.remote?.songId, "1");
+});
+
+test("在线列表：下一首就在队列里，不是 ended", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 0, remote: REMOTES });
+  dispatch({ type: "player/play" });
+  dispatch({ type: "queue/next" });
+  const s = getState();
+  assert.equal(s.player.status, "playing");
+  assert.equal(s.player.trackId, "remote:netease:2");
+  assert.equal(s.player.trackTitle, "Komorebi — 熊田理秀");
+  assert.equal(s.player.remote?.coverUrl, "https://img/2");
+});
+
+test("队列里点播在线曲目：音源标识从队列表补，封面/歌词不丢", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 1, remote: REMOTES });
+  dispatch({ type: "player/play", trackId: "remote:netease:2" });
+  const s = getState();
+  assert.equal(s.player.remote?.sourceId, "netease");
+  assert.equal(s.player.remote?.songId, "2");
+  assert.equal(s.player.trackTitle, "Komorebi — 熊田理秀");
+});
+
+test("重启恢复：cue 到 remote 逻辑 id 时从队列表补标题（不依赖快照带 title）", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 0, remote: REMOTES });
+  dispatch({ type: "player/cue", trackId: "remote:netease:2", positionMs: 1000 });
+  const s = getState();
+  assert.equal(s.player.trackTitle, "Komorebi — 熊田理秀");
+  assert.equal(s.player.remote?.sourceId, "netease");
+  assert.equal(s.player.positionMs, 1000);
+});
+
+test("queue/remove：删掉在线曲目时元数据一起清", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 0, remote: REMOTES });
+  dispatch({ type: "queue/remove", index: 1 });
+  assert.equal("remote:netease:2" in getState().queue.remote, false);
+  assert.deepEqual(getState().queue.items, ["remote:netease:1"]);
+});
+
+test("queue/set：换一整条队列时旧的在线元数据作废", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1"], startAt: 0, remote: REMOTES });
+  dispatch({ type: "queue/set", items: ["a"], startAt: 0 });
+  assert.deepEqual(getState().queue.remote, {});
+});
+
+/* ---------- 漫游 FM 无限流：这批放完自动续下一批 ---------- */
+
+test("FM 流式队列：stream 标记随 queue/set 写入，换队列/清空时作废", () => {
+  dispatch({
+    type: "queue/set",
+    items: ["remote:netease:1"],
+    startAt: 0,
+    remote: REMOTES,
+    stream: { sourceId: "netease" },
+  });
+  assert.equal(getState().queue.stream?.sourceId, "netease");
+
+  reset(["a"], 0); // 普通歌单：不带 stream
+  assert.equal(getState().queue.stream, null);
+
+  dispatch({ type: "queue/clear" });
+  assert.equal(getState().queue.stream, null);
+});
+
+test("queue/trim：裁掉播过的，光标仍指向同一首", () => {
+  const items = Array.from({ length: 30 }, (_, i) => `t${i}`);
+  reset(items, 25);
+  dispatch({ type: "queue/trim", keepBefore: 5 });
+  const s = getState();
+  assert.equal(s.queue.items.length, 10, "只留当前曲往前 5 首 + 后面的");
+  assert.equal(s.queue.items[0], "t20");
+  assert.equal(s.queue.cursor, 5);
+  assert.equal(s.queue.items[s.queue.cursor], "t25");
+  assert.equal(s.player.trackId, "t25");
+});
+
+test("queue/trim：没攒够就不产生新状态（不通知）", () => {
+  reset(["a", "b", "c"], 2);
+  const before = getState();
+  dispatch({ type: "queue/trim", keepBefore: 5 });
+  assert.equal(getState(), before);
+});
+
+test("queue/trim：裁掉的在线元数据不留在表里", () => {
+  dispatch({
+    type: "queue/set",
+    items: ["remote:netease:1", "remote:netease:2", "remote:netease:3"],
+    startAt: 2,
+    remote: { ...REMOTES, "remote:netease:3": { sourceId: "netease", songId: "3", title: "C", artist: "丙" } },
+  });
+  dispatch({ type: "queue/trim", keepBefore: 0 });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["remote:netease:3"]);
+  assert.deepEqual(Object.keys(s.queue.remote), ["remote:netease:3"]);
+});
+
+test("FM 挂机：先裁再追加，下一首仍是新批第一首（队列不会涨到几千）", () => {
+  const items = Array.from({ length: 200 }, (_, i) => `t${i}`);
+  reset(items, 199);
+  dispatch({ type: "queue/trim", keepBefore: 20 });
+  assert.equal(getState().queue.items.length, 21, "裁完只剩 21 首");
+
+  dispatch({ type: "queue/add", items: ["u0", "u1"] });
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.trackId, "u0");
+});
+
+test("FM 续批：queue/add 把新批元数据并进表，光标不动，下一首正好是新批第一首", () => {
+  dispatch({
+    type: "queue/set",
+    items: ["remote:netease:1"],
+    startAt: 0,
+    remote: REMOTES,
+    stream: { sourceId: "netease" },
+  });
+  const before = getState().queue.cursor;
+
+  dispatch({
+    type: "queue/add",
+    items: ["remote:netease:2"],
+    remote: { "remote:netease:2": REMOTES["remote:netease:2"] },
+  });
+  const s = getState();
+  assert.equal(s.queue.cursor, before, "追加不该打断当前播放");
+  assert.equal(s.queue.items.length, 2);
+  assert.equal(s.queue.remote["remote:netease:2"].title, "Komorebi");
+
+  // 续批后前进一格：原来那首是队尾，stepForward 会走到新加的第一首
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.trackId, "remote:netease:2");
+  assert.equal(getState().player.status, "playing");
+});
+
 /* ---------- 倍速（A-15 的一半，抄 lx 的 usePlaybackRate） ---------- */
 
 test("倍速限幅在 0.5–2（抄 lx 的限幅）", () => {

@@ -19,7 +19,8 @@ export interface AccountBlockProps {
   empty: string;
   /** 行右侧的附加说明（如播放次数）；返回 null 就退回时长 */
   extra?(track: RemoteTrack, index: number): string | null;
-  onPlay(sourceId: string, track: RemoteTrack): void;
+  /** list = 这一栏全部曲目：点哪首就从哪首开始（队列 = 整个红心/听歌排行） */
+  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
   /**
    * 给了就在每行挂一颗心（账号红心可取消）。
    * 行为照 folia 的 `handleLike`：**心和提示先答，请求后发**；失败把行放回去并提示一次。
@@ -84,9 +85,9 @@ export function AccountBlock({ title, note, state, empty, extra, onPlay, onUnlik
               className={`acct-row${onUnlike ? " with-like" : ""}${pending.has(track.sourceId) ? " pending" : ""}`}
               role="button"
               tabIndex={0}
-              onClick={() => onPlay(state.sourceId, track)}
+              onClick={() => onPlay(state.sourceId, track, state.songs)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onPlay(state.sourceId, track);
+                if (e.key === "Enter" || e.key === " ") onPlay(state.sourceId, track, state.songs);
               }}
               title={`${track.title} — ${track.artist}`}
             >

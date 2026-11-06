@@ -32,6 +32,8 @@ const pad2 = (n: number): string => String(Math.max(0, n)).padStart(2, "0");
 
 function fileOf(id: string): string {
   if (/^https?:\/\//i.test(id)) return "在线音源";
+  // 队列里的在线项是 `remote:<音源>:<歌 id>`，别把逻辑 id 当歌名摆出来
+  if (id.startsWith("remote:")) return "在线曲目";
   const parts = id.split(/[\\/]/);
   return parts[parts.length - 1] ?? id;
 }
@@ -146,6 +148,23 @@ export function QueuePanel(props: QueuePanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 面板开着时队列被裁（FM 续批）：列表变短后只保证当前曲还在视口里，
+  // 用户自己滚到别处时不抢他的位置
+  const lastLen = useRef(queue.items.length);
+  useEffect(() => {
+    const prevLen = lastLen.current;
+    lastLen.current = queue.items.length;
+    if (queue.items.length >= prevLen) return; // 追加/正常切歌不动滚动
+    const el = listRef.current;
+    if (!el) return;
+    const pos = positionOf(order, queue.cursor);
+    if (pos < 0) return;
+    const top = pos * ROW_H;
+    if (top < el.scrollTop || top + ROW_H > el.scrollTop + el.clientHeight) {
+      el.scrollTop = Math.max(0, (pos - 3) * ROW_H);
+    }
+  }, [queue.items.length, order, queue.cursor]);
+
   const total = queue.items.length;
 
   return (
@@ -168,7 +187,9 @@ export function QueuePanel(props: QueuePanelProps) {
             {order.map((at, pos) => {
               const id = queue.items[at];
               const t = tracks.get(id);
-              const title = t?.title ?? fileOf(id);
+              // 在线曲目：标题/歌手/时长都在队列表里（点每日推荐/榜单时整份写入）
+              const meta = queue.remote[id];
+              const title = meta?.title ?? t?.title ?? fileOf(id);
               const on = at === queue.cursor;
               // 标记按大小写不敏感比：队列存的是原始路径（`C:/x.mp3`），
               // 播放态里的 trackId 是规范化小写（`c:/x.mp3`）—— 直接 === 永远对不上（截图发现的坑）
@@ -195,15 +216,21 @@ export function QueuePanel(props: QueuePanelProps) {
                     <span className="qp-grip off" />
                   )}
                   <i className="qp-no">{on ? "♪" : pad2(pos + 1)}</i>
-                  <button type="button" className="qp-main" onClick={() => jump(id, t?.title ?? null)}>
+                  <button
+                    type="button"
+                    className="qp-main"
+                    onClick={() =>
+                      jump(id, meta ? `${meta.title} — ${meta.artist}` : (t?.title ?? null))
+                    }
+                  >
                     <span className="qp-tx">
                       {title}
                       <small>
-                        {bad ? "播不了 · 点一下重试" : (t?.artist ?? (t ? "未知歌手" : "在线音源"))}
+                        {bad ? "播不了 · 点一下重试" : (meta?.artist ?? t?.artist ?? (t ? "未知歌手" : "在线音源"))}
                       </small>
                     </span>
                   </button>
-                  <time>{fmt(t?.durationMs)}</time>
+                  <time>{fmt(meta?.durationMs ?? t?.durationMs)}</time>
                   <span className="qp-ops">
                     {canReorder ? (
                       <>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { TrackId } from "../../../../contracts/index.js";
+import type { RemoteTrackMeta, TrackId } from "../../../../contracts/index.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { fmt, pad2, fileOf } from "./types.js";
 
@@ -9,25 +9,31 @@ export interface QueueRowsProps {
   playOrder: number[];
   tracks: Map<string, Track>;
   covers: Record<string, string>;
+  /** 在线曲目的标题/歌手/时长（`remote:` 开头的 id，本地曲目查不到） */
+  remote?: Record<TrackId, RemoteTrackMeta>;
   onPlay: (id: TrackId) => void;
   onMove: (index: number, delta: -1 | 1) => void;
   onRemove: (index: number) => void;
   dense?: boolean;
 }
 
-export function QueueRows({ items, indices, playOrder, tracks, covers, onPlay, onMove, onRemove, dense = false }: QueueRowsProps) {
+export function QueueRows({ items, indices, playOrder, tracks, covers, remote, onPlay, onMove, onRemove, dense = false }: QueueRowsProps) {
   return <>
     {indices.map((at) => {
       const id = items[at];
       const track = tracks.get(id);
+      const meta = remote?.[id];
       const orderIndex = playOrder.indexOf(at) + 1;
       return (
         <div className="st-nx" key={id}>
           <button type="button" className="st-nx-main" title="播放这首" onClick={() => onPlay(id)}>
             <i className="no">{pad2(orderIndex)}</i>
             {!dense ? <span className="art" style={covers[id] ? { backgroundImage: `url(${JSON.stringify(covers[id])})` } : undefined} /> : null}
-            <span className="tx">{track?.title ?? fileOf(id)}<small>{track?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small></span>
-            <time>{track ? fmt(track.durationMs) : "--:--"}</time>
+            <span className="tx">
+              {track?.title ?? meta?.title ?? fileOf(id)}
+              <small>{track?.artist ?? meta?.artist ?? (/^https?:\/\//i.test(id) ? "在线音源" : "")}</small>
+            </span>
+            <time>{track ? fmt(track.durationMs) : meta?.durationMs ? fmt(meta.durationMs) : "--:--"}</time>
           </button>
           <span className="st-nx-ops">
             <button type="button" aria-label="上移一位" disabled={at === 0} onClick={() => onMove(at, -1)}>↑</button>

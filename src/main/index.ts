@@ -100,8 +100,14 @@ if (!locked) {
     app.setAsDefaultProtocolClient("afeifei");
   }
 
-  /** 白名单：只有 play 一个 action，参数只收 id（+可选 source）。目录穿越没有入口——id 永远不拼路径。 */
-  function parseSchemeUrl(raw: string): { action: "play"; id: string; source?: string } | null {
+  /**
+   * 白名单：只有 play 一个 action。参数收 id（+可选 source / list）。
+   * list 是逗号分隔的一整列 id（唤起即连播）；不传就是单曲，行为与以前一致。
+   * 目录穿越没有入口——id 永远不拼路径，只当队列 id 存。
+   */
+  function parseSchemeUrl(
+    raw: string,
+  ): { action: "play"; id: string; source?: string; list?: string[] } | null {
     try {
       const u = new URL(raw);
       if (u.protocol !== "afeifei:" || u.hostname !== "play") return null;
@@ -109,14 +115,26 @@ if (!locked) {
       if (!id || id.length === 0 || id.length > 1024) return null;
       const source = u.searchParams.get("source") ?? undefined;
       if (source && !/^[a-z][a-z0-9-]{0,31}$/.test(source)) return null;
-      return { action: "play", id, source };
+      const listRaw = u.searchParams.get("list");
+      let list: string[] | undefined;
+      if (listRaw) {
+        const parts = listRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        // 上限 500 条：URL 长度与队列规模都得有个闸
+        if (parts.length === 0 || parts.length > 500) return null;
+        if (!parts.every((s) => s.length <= 1024)) return null;
+        list = parts;
+      }
+      return { action: "play", id, source, list };
     } catch {
       return null;
     }
   }
 
   // 冷启动时渲染层还没挂订阅，send 会丢 —— 所以同时存 pending，渲染层就绪后主动拉一次
-  let pendingScheme: { action: "play"; id: string; source?: string } | null = null;
+  let pendingScheme: { action: "play"; id: string; source?: string; list?: string[] } | null = null;
 
   function dispatchSchemeUrl(raw: string): void {
     const parsed = parseSchemeUrl(raw);

@@ -1,12 +1,17 @@
 /**
  * 会话级联网缓存（Ring 1）：同一次运行内切页不重拉。
  *
- * 不落盘：账号数据一天一换，跨重启的旧值反而容易误导；启动预取会把首屏需要的那几份
- * 提前装满，所以冷启动只拉一次，之后切页全部命中。
+ * 账号数据（`account:*`）只留内存：一天一换，跨重启的旧值反而容易误导。
+ * **清单类**（`charts:toplists:` / `playlists:list:`）可以落盘：它们是「有哪些榜 / 有哪些歌单」，
+ * 变化慢、丢了也不影响播放，落盘后冷启动首帧就有内容，有网再补（stale-while-revalidate）。
+ * 落盘由 UI 层用 `attachNetPersistence` 注入，本模块不认识 KV。
  *
  * key 约定（调用方负责拼）：
  *   account:<sourceId>:<kind>   kind = daily | liked | week | fm
  *   charts:toplists:<sourceId>
+ *   charts:tracks:<sourceId>:<listId>:<page>
+ *   playlists:list:<sourceId>
+ *   playlists:tracks:<sourceId>:<playlistId>:<page>
  */
 
 type Loader<T> = () => Promise<T>;
@@ -43,6 +48,7 @@ export function loadNet<T>(key: string, loader: Loader<T>): Promise<T> {
     .then((value) => {
       if ((epochs.get(key) ?? 0) === epoch) {
         values.set(key, value);
+        schedulePersist();
         notify();
       }
       return value;
@@ -58,7 +64,62 @@ const bump = (key: string): void => {
   epochs.set(key, (epochs.get(key) ?? 0) + 1);
   values.delete(key);
   inflight.delete(key);
+  schedulePersist(); // 失效也要落盘：否则重启后旧清单又回来了
 };
+
+/* ---------- 落盘（清单类，stale-while-revalidate） ----------
+ * 只存白名单前缀，键里带时间戳；超过 TTL 的条目在 hydrate 时直接丢 ——
+ * 三天前的榜单名比空列表更误导。
+ */
+const MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+interface PersistEntry {
+  at?: unknown;
+  value?: unknown;
+}
+
+let persist: { match(key: string): boolean; save(data: Record<string, unknown>): void } | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** 从磁盘快照恢复清单。坏 JSON / 坏条目逐条跳过，不整份放弃。 */
+export function hydrateNet(raw: string | null): void {
+  if (!raw) return;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  if (!parsed || typeof parsed !== "object") return;
+  const now = Date.now();
+  for (const [key, entry] of Object.entries(parsed as Record<string, unknown>)) {
+    const e = entry as PersistEntry | null;
+    if (!e || typeof e.at !== "number" || e.value === undefined) continue;
+    if (now - e.at > MAX_AGE_MS) continue;
+    values.set(key, e.value);
+  }
+}
+
+/** UI 层注入落盘实现（domain 不认识 KV）。 */
+export function attachNetPersistence(opts: { match(key: string): boolean; save(data: Record<string, unknown>): void }): void {
+  persist = opts;
+}
+
+/** 800ms 合并写：一次进页会同时写入清单和曲目，逐条写会把盘打爆。 */
+function schedulePersist(): void {
+  if (!persist || saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    if (!persist) return;
+    const at = Date.now();
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of values) {
+      if (persist.match(key)) out[key] = { at, value };
+    }
+    persist.save(out);
+  }, 800);
+  (saveTimer as unknown as { unref?: () => void }).unref?.();
+}
 
 /** 手动刷新：让这些 key 失效，下一次 loadNet 重新请求。 */
 export function refreshNet(...keys: string[]): void {
@@ -91,4 +152,7 @@ export function __resetNetCache(): void {
   inflight.clear();
   epochs.clear();
   listeners.clear();
+  persist = null;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
 }

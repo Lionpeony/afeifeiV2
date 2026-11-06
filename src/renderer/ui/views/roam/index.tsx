@@ -11,7 +11,9 @@ import {
   subscribe as subscribeDislikes,
 } from "../../../domain/dislikes/index.js";
 import { getHistory, subscribe as subscribeHistory } from "../../../domain/history/index.js";
+import { getState, remoteTrackId, subscribe as subscribeKernel } from "../../../kernel/index.js";
 import { dailyPicks, dailySeed, reasonOf, shuffledBy } from "../../../domain/recommend/index.js";
+import { cardSource } from "../../../domain/recommend/roam-card.js";
 import { bumpSalt, getSalt, subscribe as subscribeSalt } from "../../../domain/recommend/salt.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
@@ -21,7 +23,11 @@ export interface RoamViewProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
   /** 账号漫游（个人 FM）。有数据就整页走账号，没有才退回本地抽签。 */
   account(): Promise<AccountBundle>;
-  onPlayRemote(sourceId: string, track: RemoteTrack): void;
+  /**
+   * list = 这一批 FM：收下一首要能顺着批次往下播，不能只播一首。
+   * stream = 无限流标记：这批放完由 bootstrap 再要一批接上。
+   */
+  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[], stream?: boolean): void;
   /** 上报「少推这首」给在线源（B-11）。失败返回 false，本地名单照样生效。 */
   onReportDislike(sourceId: string, songId: string): Promise<boolean>;
   cover(id: string, path: string): Promise<string | null>;
@@ -63,6 +69,8 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
   useEffect(() => subscribeHistory(bump), []);
   useEffect(() => subscribeSalt(bump), []);
   useEffect(() => subscribeDislikes(bump), []);
+  // 收下之后牌面要跟着队列走（播到第几首就显示第几首），所以得订阅播放状态
+  useEffect(() => subscribeKernel(bump), []);
 
   const tracks = getTracks();
   const liked = getLikes();
@@ -75,7 +83,36 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
   const fm = acct.songs.filter((t) => !hasDislike(remoteDislikeKey(acct.sourceId, t.sourceId)));
   const onlineMode = acct.songs.length > 0;
   const drawnOnline = draws.filter((d) => d.remote).length;
-  const current = draws[draws.length - 1];
+
+  /**
+   * 正在播的那一档（必须是本页这批 FM）：收下之后队列就是这条流，
+   * 牌面要跟着它走 —— 否则播到第 2 首了卡片还停在第 1 抽，看着像没反应。
+   */
+  const playingTrack = (() => {
+    const st = getState();
+    if (!st.queue.stream || st.queue.stream.sourceId !== acct.sourceId) return null;
+    const id = st.player.trackId;
+    if (!id) return null;
+    return fm.find((t) => remoteTrackId(acct.sourceId, t.sourceId) === id) ?? null;
+  })();
+
+  const drawn = draws[draws.length - 1];
+  // 优先级在 domain 里定（先抽牌、再播放、最后兜底），这里只按结果取数据
+  const source = cardSource(drawn, playingTrack);
+  const fromStream = source === "playing";
+  const current: Draw | undefined =
+    source === "playing" && playingTrack
+      ? {
+          key: `play:${playingTrack.sourceId}`,
+          title: playingTrack.title,
+          artist: playingTrack.artist,
+          album: playingTrack.album,
+          durationMs: playingTrack.durationMs,
+          why: "正在播放这一批 FM，播完会自动续下一批",
+          kept: true,
+          remote: { sourceId: acct.sourceId, track: playingTrack },
+        }
+      : drawn;
 
   const draw = (): void => {
     if (onlineMode) {
@@ -149,7 +186,8 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
     if (!current) return;
     setDraws((prev) => prev.map((d, i) => (i === prev.length - 1 ? { ...d, kept: true } : d)));
     if (current.remote) {
-      onPlayRemote(current.remote.sourceId, current.remote.track);
+      // 队列 = 这一批 FM，从收下的这首开始；stream 让这批放完自动续下一批（FM 是无尽流）
+      onPlayRemote(current.remote.sourceId, current.remote.track, fm, true);
       return;
     }
     if (!current.local) return;
@@ -224,7 +262,8 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
           {current ? (
             <>
               <span className="kick">
-                本轮第 {draws.length} 抽 · {fmtDuration(current.durationMs)}
+                {fromStream ? "正在播放" : `本轮第 ${Math.max(draws.length, 1)} 抽`} ·{" "}
+                {fmtDuration(current.durationMs)}
               </span>
               <h2>{current.title}</h2>
               <p className="who">
@@ -236,8 +275,8 @@ export function RoamView({ onPlayGroup, account, onPlayRemote, onReportDislike, 
                 {current.why}
               </p>
               <div className="acts">
-                <button type="button" className="btn primary" onClick={keep}>
-                  收下 · 开始听
+                <button type="button" className="btn primary" onClick={keep} disabled={current.kept}>
+                  {current.kept ? "正在听" : "收下 · 开始听"}
                 </button>
                 <button type="button" className="btn" onClick={draw} disabled={onlineMode && drawnOnline >= fm.length}>
                   换一首

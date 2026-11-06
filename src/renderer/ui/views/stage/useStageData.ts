@@ -55,7 +55,8 @@ export function useStageData(state: AppState, cover: (trackId: string) => Promis
 
   useEffect(() => {
     let alive = true;
-    const localIds = upNext.filter((id) => !/^https?:\/\//i.test(id));
+    // 只要本地路径：`remote:` 是在线曲目（封面在 queue.remote 里），别拿去查曲库
+    const localIds = upNext.filter((id) => !/^https?:\/\//i.test(id) && !id.startsWith("remote:"));
     Promise.all(localIds.map((id) => cover(id).catch(() => null))).then((urls) => {
       if (!alive) return;
       const next: Record<string, string> = {};
@@ -74,6 +75,8 @@ export function useStageData(state: AppState, cover: (trackId: string) => Promis
     remote, tracksMap, nowTrack, nowTitle, nowArtist, nowAlbum, nowDuration, sourceName,
     lyricOffset, playOrder, cursorPosition, nextIndices, upNext, upNextKey,
     coverUrl, queueCovers,
+    /** 在线曲目的标题/歌手：右栏「接下来」不能显示 `remote:xxx` 这种逻辑 id */
+    queueRemote: queue.remote,
     carouselItems: carouselItemsForStage,
   };
 }

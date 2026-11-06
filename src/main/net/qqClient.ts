@@ -98,6 +98,8 @@ const ALLOWED = new Set([
   "guessYouLike", // 账号：猜你喜欢（/user/guess-you-like，个人 FM 的替代）
   "songInfo", // 红心写入前取数字 songId（/getSongInfo/:songmid）
   "like", // 账号：红心写入（POST /user/song/like）
+  "userPlaylists", // 账号：我的歌单清单（/user/playlist）
+  "ownedPlaylist", // 账号：某张歌单的曲目（/user/playlist-detail?tid=）
 ]);
 
 export async function callQq(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
@@ -131,6 +133,10 @@ export async function callQq(method: string, params: Record<string, unknown> = {
       return qqLikedSongs(params);
     case "guessYouLike":
       return qqGuessYouLike();
+    case "userPlaylists":
+      return qqUserPlaylists();
+    case "ownedPlaylist":
+      return qqOwnedPlaylist(params);
     case "songInfo":
       return qqSongInfo(params);
     case "like":
@@ -320,6 +326,23 @@ async function qqLikedSongs(params: Record<string, unknown>): Promise<unknown> {
 
 async function qqGuessYouLike(): Promise<unknown> {
   return callApi<QqSongsBody>("/user/guess-you-like");
+}
+
+/* ---------- 账号歌单（2026-11-06） ----------
+ * /user/playlist：本人自建 + 收藏的歌单。不带 uid 就读登录账号本人
+ *   （带别人的 uid 会被上游拒，见 qq-music-api 的 getUserPlaylists 注释）。
+ * /user/playlist-detail?tid=：某张歌单的曲目，CgiGetDiss；红心是 dirid=201 的同一分支。
+ */
+async function qqUserPlaylists(): Promise<unknown> {
+  return callApi("/user/playlist");
+}
+
+async function qqOwnedPlaylist(params: Record<string, unknown>): Promise<unknown> {
+  const tid = Math.floor(Number(params.tid ?? 0) || 0);
+  if (!Number.isSafeInteger(tid) || tid <= 0) throw new Error("QQ 歌单 id 不合法");
+  const offset = Math.max(0, Math.floor(Number(params.offset ?? 0) || 0));
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(params.limit ?? 100) || 100)));
+  return callApi<QqSongsBody>(`/user/playlist-detail?tid=${tid}&offset=${offset}&limit=${limit}`);
 }
 
 /** 红心写入要「数字 songId + songmid + type:0」三件套；mid 拿不到数字 id 就不写。 */

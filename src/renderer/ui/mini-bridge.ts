@@ -1,5 +1,5 @@
-import type { ErrorCode } from "../../contracts/index.js";
-import { dispatch, getState, subscribe } from "../kernel/index.js";
+import type { ErrorCode, RemoteTrackMeta } from "../../contracts/index.js";
+import { dispatch, getState, remoteTrackId, subscribe } from "../kernel/index.js";
 import { onTick } from "./compositor.js";
 import { desktopLyricState } from "./desktop-lyric-state.js";
 import { lyricState, subscribeLyric } from "./lyric-source.js";
@@ -96,22 +96,33 @@ export function startMiniBridge(services: Services): void {
   });
 
   // afeifei:// 冷/热启动都汇到这里。无 source = 本地曲库 id；带 source = 在线曲目
-  const handleScheme = (intent: { action: string; id: string; source?: string }): void => {
+  const handleScheme = (intent: {
+    action: string;
+    id: string;
+    source?: string;
+    list?: string[];
+  }): void => {
     if (intent.action !== "play") return;
     if (intent.source) {
-      // 在线分支（M6.1 收尾）：resolveOnlineUrl 拿直链 → player/play，
-      // 失败（未登录/无版权）把 humanize 过的错误码打进播放条
+      // 在线分支（M6.1 收尾）：先验证拿得到地址（失败 → 未登录/无版权，打进播放条），
+      // 队列里落**逻辑 id** 而不是直链 —— 直链会过期，重启与「下一首」都得重新解析
       const sourceId = intent.source;
       void (async () => {
         try {
-          const url = await services.resolveOnlineUrl(sourceId, intent.id, "320k");
-          dispatch({
-            type: "player/play",
-            trackId: url,
-            // scheme 只带 id，拿不到标题/封面元数据（QQ 源无详情接口）——遗留，接上详情接口后补
-            trackTitle: `在线曲目 · ${sourceId}`,
-            remote: { sourceId, songId: intent.id },
-          });
+          // 只验证点的那一首：整列里个别拿不到地址不该让唤起失败
+          await services.resolveOnlineUrl(sourceId, intent.id, "320k");
+          // list = 调用方给的整列（`afeifei://play?id=x&source=s&list=x,y,z` → 唤起即连播）；
+          // 不传就只有点的那一首，行为与以前一致
+          const ids = intent.list && intent.list.length > 0 ? intent.list : [intent.id];
+          const items = ids.map((songId) => remoteTrackId(sourceId, songId));
+          const remote: Record<string, RemoteTrackMeta> = {};
+          for (const songId of ids) {
+            // scheme 只带 id，拿不到标题/封面（QQ 源无详情接口）——遗留，接上详情接口后补
+            remote[remoteTrackId(sourceId, songId)] = { sourceId, songId, title: "在线曲目", artist: sourceId };
+          }
+          const at = items.indexOf(remoteTrackId(sourceId, intent.id));
+          dispatch({ type: "queue/set", items, startAt: at >= 0 ? at : 0, remote });
+          dispatch({ type: "player/play" });
         } catch (err) {
           const code = (err as { code?: ErrorCode }).code;
           if (code) dispatch({ type: "player/error", code });

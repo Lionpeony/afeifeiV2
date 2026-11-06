@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
-import type { AppState } from "../../contracts/index.js";
+import type { AppState, RemoteTrackMeta } from "../../contracts/index.js";
 import { getFiltered, searchTracks } from "../domain/library/state.js";
 import { EQ_BANDS, EQ_DEFAULT, EQ_PRESETS, PREAMP_DEFAULT, sameGains } from "../capability/audio/eq.js";
-import { dispatch, getState, subscribe } from "../kernel/index.js";
+import { dispatch, getState, remoteTrackId, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
 import type { Services } from "./services.js";
 import type { Track } from "../domain/library/schema.js";
@@ -300,6 +300,12 @@ function App() {
             loadNet(accountKey(id, "liked"), () => accountBundle("liked")),
             loadNet(accountKey(id, "fm"), () => accountBundle("fm")),
           ]);
+          // 榜单 / 歌单清单：这两页一进去就要整张清单，等点进去才拉会先闪一次骨架。
+          // 不 await、缓 2 秒再发：启动的带宽先给首页那三份，抢不到也不影响放行。
+          setTimeout(() => {
+            void loadNet(`charts:toplists:${id}`, () => s.listToplists(id)).catch(() => undefined);
+            void loadNet(`playlists:list:${id}`, () => s.listPlaylists(id)).catch(() => undefined);
+          }, 2000);
         }
 
         // 更新提示（M8）：一条线，不弹窗不打断播放
@@ -780,19 +786,42 @@ function App() {
   );
 
   /**
-   * 在线曲目播放（在线页与榜单页共用一条链路）：
-   * 先拿地址再 player/play —— 拿不到（未登录 / 无版权）就抛，由页面显示人话。
+   * 在线曲目播放（每日推荐 / 榜单 / 歌单 / 搜索共用一条链路）：
+   * 点列表里的任意一首 → **整份列表入队**，从这首开始。这是播放器的基本语义，
+   * 只播单曲的话「下一首」永远没有着落。
+   *
+   * 队列里存 `remote:<音源>:<歌 id>` 而不是直链：直链带令牌、会过期，
+   * 真正起播前由 engine 的解析器换成新地址（`AudioEngine.setResolver`）。
+   * 但仍先解析这一首 —— 未登录 / 无版权要在点的一瞬间就说，不能入队后才逐首失败。
    */
-  const playRemote = async (sourceId: string, track: RemoteTrack): Promise<void> => {
+  const playRemote = async (
+    sourceId: string,
+    track: RemoteTrack,
+    list?: RemoteTrack[],
+    stream = false,
+  ): Promise<void> => {
     const svc = services.current;
     if (!svc) return;
-    const url = await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
-    dispatch({
-      type: "player/play",
-      trackId: url,
-      trackTitle: `${track.title} — ${track.artist}`,
-      remote: { sourceId, songId: track.sourceId, coverUrl: track.coverUrl },
-    });
+    await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+
+    const tracks = list && list.length > 0 ? list : [track];
+    const items = tracks.map((t) => remoteTrackId(sourceId, t.sourceId));
+    const remote: Record<string, RemoteTrackMeta> = {};
+    for (const t of tracks) {
+      remote[remoteTrackId(sourceId, t.sourceId)] = {
+        sourceId,
+        songId: t.sourceId,
+        title: t.title,
+        artist: t.artist,
+        coverUrl: t.coverUrl,
+        durationMs: t.durationMs,
+      };
+    }
+    const at = items.indexOf(remoteTrackId(sourceId, track.sourceId));
+    // stream = 无限流（漫游 FM）：这批放完由 bootstrap 再要一批接上，不叫"播完了"
+    dispatch({ type: "queue/set", items, startAt: at >= 0 ? at : 0, remote, stream: stream ? { sourceId } : null });
+    // queue/set 只落 loading —— 补一脚 play（已在播时幂等）
+    dispatch({ type: "player/play" });
   };
 
   /**
@@ -839,9 +868,14 @@ function App() {
     return { sourceId: id, songs, hint: null };
   };
 
-  /** 在线曲目播放带错误提示（四个入口共用，别各写一遍 catch）。 */
-  const playRemoteSafe = (sourceId: string, track: RemoteTrack): void => {
-    void playRemote(sourceId, track).catch((err: unknown) => {
+  /** 在线曲目播放带错误提示（各个入口共用，别各写一遍 catch）。 */
+  const playRemoteSafe = (
+    sourceId: string,
+    track: RemoteTrack,
+    list?: RemoteTrack[],
+    stream = false,
+  ): void => {
+    void playRemote(sourceId, track, list, stream).catch((err: unknown) => {
       setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
     });
   };
@@ -997,7 +1031,7 @@ function App() {
         <LiveHome
           account={() => accountBundle("daily")}
           accountName={sources.find((s) => s.id === getActiveSource())?.name ?? ""}
-          onPlayRemote={(sourceId, track) => playRemoteSafe(sourceId, track)}
+          onPlayRemote={playRemoteSafe}
           onAccount={() => {
             setAccountOpen(true);
             refreshAccountProfiles();
@@ -1443,7 +1477,20 @@ function App() {
                 {playing ? <i /> : null}
               </i>
             </button>
-            <button type="button" className="tb" aria-label="下一首" onClick={() => dispatch({ type: "queue/next" })}>
+            <button
+              type="button"
+              className="tb"
+              aria-label="下一首"
+              onClick={() => {
+                const before = getState().player.trackId;
+                dispatch({ type: "queue/next" });
+                // 没换歌 = 队列里没得切（在线单曲不进队列）。说一句，别让按钮像坏了
+                if (getState().player.trackId === before) {
+                  const stuck = getState();
+                  setNotice({ text: stuck.queue.stream ? "正在续下一批…" : "队列里没有下一首" });
+                }
+              }}
+            >
               <i className="tb-ic ic-next">
                 <i />
                 <i />

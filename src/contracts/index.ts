@@ -64,6 +64,22 @@ export interface PlayerState {
   remote: { sourceId: string; songId: string; coverUrl?: string } | null;
 }
 
+/**
+ * 在线曲目的显示元数据，键是队列 id（`remote:<音源>:<音源内歌 id>`）。
+ *
+ * 队列项**只存逻辑 id，不存直链**：直链带令牌、会过期，存进队列过一会儿就打不开了。
+ * 播放前由 engine 的解析器换成新地址（见 capability/audio 的 `setResolver`）。
+ */
+export interface RemoteTrackMeta {
+  sourceId: string;
+  songId: string;
+  title: string;
+  artist: string;
+  coverUrl?: string;
+  /** 队列面板要显示时长；在线曲目拿不到就留空，显示 --:--（不编数据） */
+  durationMs?: number;
+}
+
 export interface QueueState {
   /** 队列本体。shuffle 不改它（50 §4.2）。 */
   items: TrackId[];
@@ -79,6 +95,13 @@ export interface QueueState {
    * 存在队列里而不是组件局部：切页面/重开面板还得看得见，否则用户不知道刚才跳过了什么。
    */
   failed: TrackId[];
+  /** 在线曲目的元数据（点每日推荐/榜单时随队列一起写入）。本地曲目不在表里。 */
+  remote: Record<TrackId, RemoteTrackMeta>;
+  /**
+   * 流式队列标记（漫游 FM）：一批放完不叫"播完了"，而是再要一批接上。
+   * null = 普通队列，播到队尾就停。
+   */
+  stream: { sourceId: string } | null;
 }
 
 /**
@@ -224,7 +247,16 @@ export type Intent =
   | { type: "player/error"; code: ErrorCode }
   /** 等数据中（P0-26）：`playing` 但在 `waiting`。与"解码中"分开显示。 */
   | { type: "player/buffering"; on: boolean }
-  | { type: "queue/set"; items: TrackId[]; context?: TrackId[]; startAt?: number }
+  | {
+      type: "queue/set";
+      items: TrackId[];
+      context?: TrackId[];
+      startAt?: number;
+      /** 在线曲目的元数据，键与 items 里的一致（`remote:` 开头的那些）。 */
+      remote?: Record<TrackId, RemoteTrackMeta>;
+      /** 流式队列（漫游 FM）：播完自动续批。 */
+      stream?: { sourceId: string } | null;
+    }
   /**
    * 加入直播：队列、当前曲目、曲内偏移一次写入。
    * 拆成 queue/set + player/seek 会在异步 load 完成时用切换瞬间的 0 覆盖偏移，
@@ -239,7 +271,17 @@ export type Intent =
       trackTitle?: string | null;
     }
   /** 追加到队尾（"添加到队列"）：不打断当前播放，cursor 不动。 */
-  | { type: "queue/add"; items: TrackId[] }
+  | {
+      type: "queue/add";
+      items: TrackId[];
+      /** 追加的是在线曲目时元数据一起带上（FM 续批） */
+      remote?: Record<TrackId, RemoteTrackMeta>;
+    }
+  /**
+   * 裁掉队列前面已播过的条目（FM 续批用）：保留当前曲之前 keepBefore 首，后面的不动。
+   * 不裁的话挂机一晚会攒到几千首，队列面板没法用。
+   */
+  | { type: "queue/trim"; keepBefore: number }
   | { type: "queue/next" }
   /** atPositionMs 由 UI 带上来：store 不追实时位置，但 3 秒规则要用它 */
   | { type: "queue/prev"; atPositionMs?: number }

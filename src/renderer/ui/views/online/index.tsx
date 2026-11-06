@@ -21,8 +21,8 @@ export interface SourceOption {
 export interface OnlineViewProps {
   sources: SourceOption[];
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
-  /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。 */
-  onPlay(sourceId: string, track: RemoteTrack): Promise<void>;
+  /** 抛错时由本组件把错误文案显示出来 —— 界面只认人话，不认错误码。list = 本批搜索结果 */
+  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): Promise<void>;
   /** 加入下载队列（M7）。返回给用户看的一句话。 */
   onDownload(sourceId: string, track: RemoteTrack): Promise<string>;
   /** 批量下载（B-10）：一次 toast 汇总，不逐首弹小票。 */
@@ -160,7 +160,7 @@ export function OnlineView({
   const play = async (track: RemoteTrack): Promise<void> => {
     setNote("");
     try {
-      await onPlay(sourceId, track);
+      await onPlay(sourceId, track, rows);
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }

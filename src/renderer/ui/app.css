@@ -498,9 +498,62 @@ html::after {
   grid-template-columns: 220px 1fr;
   gap: 12px;
 }
-/* 歌单页每行多一个「收藏 / 取消收藏」，220px 会把歌单名压成两三个字 */
+/* 歌单页目录与榜单页同宽（240px）：两页在站尺上相邻，切过去左栏边缘不该跳一下 */
 .playlists-page .pl-wrap {
-  grid-template-columns: 270px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+/* 歌单曲目表：序号 + 封套 + 四列。与榜单页同一套骨架，
+   区别只是歌单名次从 01 连续排（没有前三名台柱——曲序不是名次）。 */
+.playlists-page .lib-thead.online-thead,
+.playlists-page .lib-row.online-row {
+  grid-template-columns: 26px 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+}
+.playlists-thead .th-no {
+  text-align: right;
+}
+/* 抬头左缘一道琥珀线，和左栏选中行的 inset 2px 同一条语法：
+   两栏各画各的会读成两张表，这条线把「选中的歌单」和「正在看的曲目」连起来 */
+.playlists-page .list-now {
+  padding-left: 8px;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+/* 收藏动作跟着「正在看的这张歌单」走，不塞进 240px 的左栏。
+   做成有边框的按钮，和页头的「导入/刷新」同一套尺寸语言。 */
+.now-act {
+  align-self: center;
+  flex: none;
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--fg-dim);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.now-act:hover {
+  color: var(--fg);
+  border-color: var(--fg-dim);
+}
+.now-act.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+/* 行是真 <button>（行内没有别的可点元素）：抹掉按钮默认外观，网格与分隔线照旧 */
+.playlists-page .lib-row.online-row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px dotted var(--line-soft);
+  border-radius: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+.playlists-page .lib-row.online-row:hover {
+  background: var(--row-hover);
 }
 /* 榜单页：左目录 240px（榜名普遍比歌单名长，如「网易云音乐电音榜」），右侧曲目占满。
    定义写在基类这边：布局属于页面骨架，不该由 live 壳去改。 */
@@ -599,6 +652,13 @@ html::after {
   }
   50% {
     opacity: 1;
+  }
+}
+/* 骨架屏是装饰性循环动画：系统要求减弱动效时停在半亮，不闪 */
+@media (prefers-reduced-motion: reduce) {
+  .online-skel .sk-bar {
+    animation: none;
+    opacity: 0.7;
   }
 }
 .chart-tx {
@@ -802,34 +862,35 @@ html::after {
   accent-color: var(--accent);
 }
 
-/* 歌单页（M11）：一行 = 歌单 + 一个右侧动作（收藏 / 取消收藏） */
-.pl-line {
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
+/* 目录行：封套 + 名字 + 首数。动作不在这里——收藏在右栏抬头，
+   240px 宽塞不下一个有尺寸的按钮 */
+.pl-line-item {
+  justify-content: flex-start;
+  gap: 8px;
+  /* 28px 行高：夹在榜单页的 26px（65 个榜）与曲目的 38px 之间，
+     两页相邻切换时不至于密度突变 */
+  padding: 3px 8px;
 }
-.pl-line > .pl-item {
-  flex: 1;
-  min-width: 0;
-}
-.pl-save,
-.pl-line > .pl-x {
+/* 22px 封套：一列文字里它是唯一能扫读的锚点 */
+.pl-thumb {
   flex: none;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: none;
-  color: var(--fg-dim);
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  /* 通用 .pl-x 默认隐藏、只在 .pl-row:hover 显形；这里父级叫 .pl-line，
-     不写这一行「取消收藏」会永远看不见，键盘也摸不到 */
-  opacity: 1;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  background: var(--bg-raised);
+  box-shadow: 0 0 0 1px var(--line-soft);
 }
-.pl-save:hover {
-  color: var(--fg);
-  border-color: var(--fg-dim);
+.pl-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pl-thumb i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: color-mix(in srgb, var(--fg) 7%, transparent);
 }
 /* 分组小标题：收藏的 / 账号歌单 */
 .pl-sect {
@@ -840,10 +901,33 @@ html::after {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
-/* 粘贴导入的输入框：占满剩下的宽度，别把「导入」按钮挤到换行 */
-.pl-ref {
-  flex: 1;
-  min-width: 120px;
+/* 收藏段与账号段之间拉一条发丝线：不靠留白分组，3 项时也看得出这是两批来源 */
+.pl-sect:not(:first-child) {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+/* 导入条：低频动作从工具行撤到页头按钮后面，点开才占一行 */
+.pl-import {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pl-import .search {
+  flex: 0 1 420px;
+}
+.pl-import-x {
+  padding: 0 6px;
+  border: 0;
+  background: none;
+  color: var(--fg-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pl-import-x:hover {
+  color: var(--fg);
 }
 
 /* 曲库三视图（M10-1）：唱片墙卡片网格 + 歌手列表 + 组详情 */
@@ -1047,9 +1131,14 @@ html::after {
 .pl-x:hover {
   color: var(--accent);
 }
+/* 空态：和 .lib-empty 同一套虚线框。左栏只有 240px，压缩内距，
+   但要说清「下一步怎么才能有歌单」——空着不等于页面坏了 */
 .pl-empty {
   margin: 10px 0;
-  font-size: 12px;
+  padding: 12px 10px;
+  border: 1px dashed var(--line);
+  font-size: 11.5px;
+  line-height: 1.65;
   color: var(--fg-dim);
 }
 

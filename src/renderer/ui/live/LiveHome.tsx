@@ -49,7 +49,8 @@ export function LiveHome({
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
-  onPlayRemote(sourceId: string, track: RemoteTrack): void;
+  /** 带上整份播出单：点哪首就从哪首开始，队列 = 这份列表 */
+  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
   onAccount(): void;
   /** 正在播放的在线曲目（音源 + 歌 id）。命中本期播出单时左栏跟着切 */
   nowPlaying: { sourceId: string; songId: string } | null;
@@ -78,7 +79,8 @@ export function LiveHome({
   const leadIndex = live ? liveIndex : 0;
   const lead = state.songs[leadIndex];
   const tapes = state.songs.slice(1, 7);
-  const play = (track: RemoteTrack): void => onPlayRemote(state.sourceId, track);
+  // 点播出带里的任意一档：队列 = 整份今日推荐，从这一首开始（连播靠它）
+  const play = (track: RemoteTrack): void => onPlayRemote(state.sourceId, track, state.songs);
 
   const firstVisit = !homeVisited;
   homeVisited = true;

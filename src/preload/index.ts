@@ -84,7 +84,9 @@ contextBridge.exposeInMainWorld("api", {
   pushLyricState: (json: string): void => ipcRenderer.send("lyric:state", json),
 
   // afeifei:// 冷/热启动：主进程解析后的结构化 intent（渲染层不碰原始 URL）
-  onSchemeUrl: (cb: (intent: { action: string; id: string; source?: string }) => void): void => {
+  onSchemeUrl: (
+    cb: (intent: { action: string; id: string; source?: string; list?: string[] }) => void,
+  ): void => {
     ipcRenderer.on("scheme:url", (_e, intent: unknown) => {
       if (
         intent &&
@@ -92,12 +94,19 @@ contextBridge.exposeInMainWorld("api", {
         typeof (intent as { action?: unknown }).action === "string" &&
         typeof (intent as { id?: unknown }).id === "string"
       ) {
-        cb(intent as { action: string; id: string; source?: string });
+        // list 来自进程外：只认字符串，别把对象塞进队列
+        const raw = (intent as { list?: unknown }).list;
+        cb({
+          action: (intent as { action: string }).action,
+          id: (intent as { id: string }).id,
+          source: (intent as { source?: string }).source,
+          list: Array.isArray(raw) ? raw.filter((s): s is string => typeof s === "string") : undefined,
+        });
       }
     });
   },
   /** 启动兜底：send 可能早于订阅，渲染层就绪后主动拉一次 pending。 */
-  schemePoll: (): Promise<{ action: string; id: string; source?: string } | null> =>
+  schemePoll: (): Promise<{ action: string; id: string; source?: string; list?: string[] } | null> =>
     ipcRenderer.invoke("scheme:poll"),
 
   // 媒体键 / 托盘（A-24 A-25）：主进程只发命令名，播放语义在渲染层命令注册表里

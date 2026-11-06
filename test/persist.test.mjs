@@ -117,6 +117,40 @@ test("P0-13：标题与在线源标识一起存，重启后不是裸直链", asy
   assert.deepEqual(snap.remote, remote);
 });
 
+test("在线队列：元数据表随快照往返（重启后标题不退回「在线曲目」）", async () => {
+  const port = memoryPort();
+  const remote = {
+    "remote:netease:1": {
+      sourceId: "netease",
+      songId: "1",
+      title: "晴天",
+      artist: "周杰伦",
+      durationMs: 269_000,
+    },
+  };
+  const withQueue = () => {
+    const s = fakeState();
+    return {
+      ...s,
+      player: {
+        ...s.player,
+        trackId: "remote:netease:1",
+        trackTitle: "晴天 — 周杰伦",
+        remote: { sourceId: "netease", songId: "1" },
+      },
+      queue: { ...s.queue, items: ["remote:netease:1"], cursor: 0, context: ["remote:netease:1"], remote },
+    };
+  };
+
+  const p = createPersister(port, 10);
+  await p.flush(withQueue, () => 0);
+  const snap = JSON.parse(port.saved[0]);
+  assert.deepEqual(snap.queue.remote, remote, "队列表要跟 items 一起落盘");
+
+  const got = await createPersister(memoryPort(port.saved[0]), 10).restore();
+  assert.equal(got.queue.remote["remote:netease:1"].title, "晴天");
+});
+
 test("P0-13：老快照没有 title/remote 也能读（不升版本）", async () => {
   const legacy = { v: 1, trackId: "C:/a.mp3", positionMs: 0, volume: 0.5, queue: fakeState().queue };
   const got = await createPersister(memoryPort(JSON.stringify(legacy)), 10).restore();

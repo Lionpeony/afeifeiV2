@@ -24,7 +24,17 @@ const initialState: AppState = {
     buffering: false,
     remote: null,
   },
-  queue: { items: [], cursor: -1, context: [], history: [], mode: "order", shuffleSeed: 1, failed: [] },
+  queue: {
+    items: [],
+    cursor: -1,
+    context: [],
+    history: [],
+    mode: "order",
+    shuffleSeed: 1,
+    failed: [],
+    remote: {},
+    stream: null,
+  },
   // 10 段与 capability/audio/eq.ts 的 EQ_BANDS 对齐；kernel 不 import capability（环约束），
   // 这条一致性由 test/audio.test.mjs 钉住 —— 上次段数从 6 改 10 就是这里漏了
   audio: { preampDb: 0, eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], crossfadeSec: 0, outputId: "" },
@@ -100,7 +110,20 @@ export function subscribe(fn: Listener): () => void {
  * 切到队列里的某一格：回到 loading，剩下交给引擎。
  * 除 player/queue 外一律 `...current` —— 手抄其余域会在加字段时漏（sleep 就漏过一次）。
  */
-function switchTo(current: AppState, cursor: number): AppState {
+/**
+ * 切到队列里的第 cursor 格，落什么状态由调用方决定：
+ *
+ * - `"play"`（默认）用户切歌 / 播完续播 / 删当前曲时原来在播 —— **切了就要响**
+ * - `"pause"` 暂停中删当前曲 —— 换了曲目但保持暂停，别自己响
+ * - `"load"` `queue/set` 专用：只换队列，播不播由随后的 `player/play` 或
+ *   `player/cue`（重启恢复要停在暂停，P0-13）决定
+ *
+ * 曾经这里一律落 loading，指望引擎的 `onReady` 接上；但 `player/ready`
+ * 的语义是"载入完成、停在暂停等用户"，于是每次切歌都变成「已暂停」。
+ */
+type SwitchMode = "play" | "pause" | "load";
+
+function switchTo(current: AppState, cursor: number, mode: SwitchMode = "play"): AppState {
   const { queue, player } = current;
   if (cursor < 0) {
     return {
@@ -117,20 +140,36 @@ function switchTo(current: AppState, cursor: number): AppState {
     };
   }
   const trackId = queue.items[cursor];
+  // 在线曲目在队列表里有元数据（点每日推荐/榜单时整份写入）；本地曲目查不到，
+  // 标题交给 UI 从路径取，在线标题与封面在这里恢复
+  const meta = queue.remote[trackId];
   return {
     ...current,
-    // 队列里都是本地曲目，标题由 UI 从路径取，这里清掉上一首的在线标题与元数据
     player: {
       ...player,
-      status: "loading",
+      status: mode === "play" ? "playing" : mode === "pause" ? "paused" : "loading",
       trackId,
-      trackTitle: null,
+      trackTitle: meta ? `${meta.title} — ${meta.artist}` : null,
       positionMs: 0,
       error: null,
-      remote: null,
+      remote: meta ? { sourceId: meta.sourceId, songId: meta.songId, coverUrl: meta.coverUrl } : null,
     },
     queue: { ...queue, cursor, history: pushHistory(queue.history, trackId) },
   };
+}
+
+/**
+ * 当前在播的那首在队列里的下标 —— **不要拿 `queue.cursor` 当位置基准**。
+ *
+ * 在线曲目走 `playRemote` 只发 `player/play`、不进队列（docs/03 遗留项），
+ * 此时 `cursor` 是上一次本地播放留下的残值。照着它推进会把"光标在队尾"
+ * 误判成"队列到头"，于是点「下一首」直接变"播完了"并把还在放的歌停掉。
+ *
+ * 返回 -1 表示当前曲不在队列里：`stepForward` / `stepBackward` 见到 -1 会从头开始。
+ */
+function playingCursor(s: AppState): number {
+  if (!s.player.trackId) return s.queue.cursor;
+  return s.queue.items.indexOf(s.player.trackId);
 }
 
 /**
@@ -154,35 +193,50 @@ function reduce(current: AppState, intent: Intent): AppState {
       const trackId = intent.trackId;
       if (!trackId) {
         if (player.status === "playing") return current;
+        // 没有当前曲（队列被删空、或从没播过）：队列里还有歌就从第一首起，
+        // 队列空就什么都别做 —— 否则界面显示「在播」、引擎没东西可放
+        if (!player.trackId) {
+          if (queue.items.length === 0) return current;
+          return switchTo(current, clampCursor(queue.items, 0), "play");
+        }
         return { ...current, player: { ...player, status: "playing", error: null } };
       }
       if (player.trackId === trackId && player.status === "playing") return current;
       const cursor = queue.items.indexOf(trackId);
       const nextQueue =
         cursor >= 0 ? { ...queue, cursor, history: pushHistory(queue.history, trackId) } : queue;
+      // 在队列面板里点播在线曲目时 UI 只给 id：音源标识从队列表补，否则封面与歌词会丢
+      const meta = queue.remote[trackId];
       return {
         ...current,
         player: {
           ...player,
           status: "playing",
           trackId,
-          trackTitle: intent.trackTitle ?? null,
+          trackTitle: intent.trackTitle ?? (meta ? `${meta.title} — ${meta.artist}` : null),
           positionMs: 0,
           error: null,
-          remote: intent.remote ?? null,
+          remote: intent.remote ?? (meta ? { sourceId: meta.sourceId, songId: meta.songId, coverUrl: meta.coverUrl } : null),
         },
         queue: nextQueue,
       };
     }
 
     case "player/pause": {
-      if (player.status !== "playing") return current;
+      // loading 也要接：切歌瞬间按暂停，不能等元数据到了自己响起来
+      if (player.status !== "playing" && player.status !== "loading") return current;
       return { ...current, player: { ...player, status: "paused" } };
     }
 
     case "player/toggle": {
-      if (player.status === "playing") return { ...current, player: { ...player, status: "paused" } };
+      if (player.status === "playing" || player.status === "loading") {
+        return { ...current, player: { ...player, status: "paused" } };
+      }
       if (player.status === "paused" || player.status === "ended") {
+        if (!player.trackId) {
+          if (queue.items.length === 0) return current;
+          return switchTo(current, clampCursor(queue.items, 0), "play");
+        }
         return { ...current, player: { ...player, status: "playing", error: null } };
       }
       return current;
@@ -249,6 +303,8 @@ function reduce(current: AppState, intent: Intent): AppState {
     }
 
     case "player/cue": {
+      // 快照可能缺标题（老存档）：在线曲目从队列表兜底，别让顶栏空着
+      const cueMeta = intent.trackId ? queue.remote[intent.trackId] : undefined;
       return {
         ...current,
         player: {
@@ -256,8 +312,10 @@ function reduce(current: AppState, intent: Intent): AppState {
           status: "loading",
           trackId: intent.trackId,
           // 标题与在线标识一起落，别留着上一首的（P0-13：恢复后顶栏要显示歌名而不是直链）
-          trackTitle: intent.trackTitle ?? null,
-          remote: intent.remote ?? null,
+          trackTitle: intent.trackTitle ?? (cueMeta ? `${cueMeta.title} — ${cueMeta.artist}` : null),
+          remote:
+            intent.remote ??
+            (cueMeta ? { sourceId: cueMeta.sourceId, songId: cueMeta.songId, coverUrl: cueMeta.coverUrl } : null),
           positionMs: Math.max(0, intent.positionMs ?? 0),
           error: null,
         },
@@ -288,17 +346,36 @@ function reduce(current: AppState, intent: Intent): AppState {
             positionMs: 0,
             remote: null,
           },
-          // 换了一整条队列：上一批的失败标记作废（标记是"这一条队列里哪几首坏了"）
-          queue: { ...queue, items: [], cursor: -1, context: intent.context ?? [], history: [], failed: [] },
+          // 换了一整条队列：上一批的失败标记、在线元数据、流式标记一起作废
+          queue: {
+            ...queue,
+            items: [],
+            cursor: -1,
+            context: intent.context ?? [],
+            history: [],
+            failed: [],
+            remote: {},
+            stream: null,
+          },
         };
       }
       const cursor = clampCursor(items, intent.startAt ?? 0);
       const staged: AppState = {
         ...current,
         player,
-        queue: { ...queue, items, cursor, context: intent.context ?? items, history: [], failed: [] },
+        queue: {
+          ...queue,
+          items,
+          cursor,
+          context: intent.context ?? items,
+          history: [],
+          failed: [],
+          remote: intent.remote ?? {},
+          stream: intent.stream ?? null,
+        },
       };
-      return switchTo(staged, cursor);
+      // "load"：只换队列。点列表播的那条随后会 player/play；重启恢复走 player/cue 停在暂停态
+      return switchTo(staged, cursor, "load");
     }
 
     case "player/joinLive": {
@@ -331,18 +408,49 @@ function reduce(current: AppState, intent: Intent): AppState {
       };
     }
 
+    case "queue/trim": {
+      // 只裁"当前曲之前"的部分：光标跟着正在播的那首一起前移，播放不受影响。
+      // shuffle 下被删的可能还没轮到——FM 是流，少了某一首不影响它继续推。
+      const keep = Math.max(0, Math.floor(intent.keepBefore));
+      const drop = queue.cursor - keep;
+      if (drop <= 0) return current; // 还没攒够，不产生新状态（也不通知）
+      const items = queue.items.slice(drop);
+      // 元数据与失败标记跟着 items 走，别留孤儿键
+      const kept = new Set(items);
+      const remote: typeof queue.remote = {};
+      for (const id of items) {
+        const meta = queue.remote[id];
+        if (meta) remote[id] = meta;
+      }
+      return {
+        ...current,
+        queue: {
+          ...queue,
+          items,
+          cursor: queue.cursor - drop,
+          remote,
+          failed: queue.failed.filter((id) => kept.has(id)),
+        },
+      };
+    }
+
     case "queue/add": {
       // 追加到队尾：不打断当前播放，光标不动（唱完这几首才会轮到）
       const add = intent.items.filter((id) => typeof id === "string" && id.length > 0);
       if (add.length === 0) return current;
       const items = [...queue.items, ...add];
-      return { ...current, queue: { ...queue, items } };
+      // FM 续批追加的是在线曲目：元数据一起并进表里，否则新的一批会显示成逻辑 id
+      const remote = intent.remote ? { ...queue.remote, ...intent.remote } : queue.remote;
+      return { ...current, queue: { ...queue, items, remote } };
     }
 
     case "queue/next": {
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
       // byUser=true：用户主动点「下一首」，单曲循环也照常切（自然结束那条路走 player/ended）
-      const next = stepForward(order, queue.cursor, queue.mode, true);
+      const next = stepForward(order, playingCursor(current), queue.mode, true);
+      // 当前曲不在队列（在线单曲）且队列里没有可切的：保持播放。
+      // 把它标成"播完了"并暂停是谎报——歌还在放，用户只是点了下一首
+      if (next < 0 && player.trackId && !queue.items.includes(player.trackId)) return current;
       // 用户自己点了下一首：睡眠定时的"等这首播完"到此为止，别在他换的歌上突然停
       const base: AppState = current.sleep.pending
         ? { ...current, sleep: { ...current.sleep, pending: false } }
@@ -359,7 +467,10 @@ function reduce(current: AppState, intent: Intent): AppState {
         return { ...current, player: { ...player, positionMs: 0 } };
       }
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
-      return switchTo(current, stepBackward(order, queue.cursor, queue.mode, true));
+      const prev = stepBackward(order, playingCursor(current), queue.mode, true);
+      // 同 queue/next：在线单曲没有队列位置时，别把正在播的歌清掉
+      if (prev < 0 && player.trackId && !queue.items.includes(player.trackId)) return current;
+      return switchTo(current, prev);
     }
 
     case "queue/mode": {
@@ -377,19 +488,23 @@ function reduce(current: AppState, intent: Intent): AppState {
       items.splice(at, 1);
       // 删掉的歌不该还留着"播放失败"标记（P0-16），否则同一 id 重新入队就带着旧标记
       const failed = queue.failed.filter((id) => id !== removed);
+      // 在线元数据同理：删了就该丢，别留在表里发霉
+      const remote = { ...queue.remote };
+      delete remote[removed];
 
       // 删的是当前之后的：光标不动，后面整体前移一格
-      if (at > queue.cursor) return { ...current, queue: { ...queue, items, failed } };
+      if (at > queue.cursor) return { ...current, queue: { ...queue, items, failed, remote } };
       // 删的是当前之前的：光标记的"第几格"要减一，否则会指向下一首
-      if (at < queue.cursor) return { ...current, queue: { ...queue, items, failed, cursor: queue.cursor - 1 } };
+      if (at < queue.cursor) return { ...current, queue: { ...queue, items, failed, remote, cursor: queue.cursor - 1 } };
 
-      // 删的就是正在播这首：接到同位置的下一条；删空了就结束（不假装还有歌）
+      // 删的就是正在播这首：接到同位置的下一条；删空了就结束（不假装还有歌）。
+      // 状态跟着原来的走：在放就接着放，暂停中就保持暂停，别因为删一首歌自己响起来
       const nextCursor = at < items.length ? at : -1;
-      const wasPlaying = player.status === "playing";
-      const switched = switchTo({ ...current, queue: { ...queue, items, failed, cursor: nextCursor } }, nextCursor);
-      return wasPlaying && switched.player.trackId
-        ? { ...switched, player: { ...switched.player, status: "playing" } }
-        : switched;
+      return switchTo(
+        { ...current, queue: { ...queue, items, failed, remote, cursor: nextCursor } },
+        nextCursor,
+        player.status === "playing" ? "play" : "pause",
+      );
     }
 
     case "queue/clear": {
@@ -405,7 +520,7 @@ function reduce(current: AppState, intent: Intent): AppState {
           error: null,
           remote: null,
         },
-        queue: { ...queue, items: [], cursor: -1, context: [], history: [], failed: [] },
+        queue: { ...queue, items: [], cursor: -1, context: [], history: [], failed: [], remote: {}, stream: null },
       };
     }
 
@@ -446,10 +561,12 @@ function reduce(current: AppState, intent: Intent): AppState {
       const restored = intent.state;
       return {
         ...current,
-        // 老快照没有 failed 字段：按空数组补，别让 undefined 漏进真相
+        // 老快照没有 failed / remote / stream 字段：按空值补，别让 undefined 漏进真相
         queue: {
           ...restored,
           failed: Array.isArray(restored.failed) ? restored.failed : [],
+          remote: restored.remote && typeof restored.remote === "object" ? restored.remote : {},
+          stream: restored.stream && typeof restored.stream === "object" ? restored.stream : null,
           cursor: clampCursor(restored.items, restored.cursor),
         },
       };

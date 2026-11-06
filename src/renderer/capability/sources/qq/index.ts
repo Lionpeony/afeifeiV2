@@ -1,5 +1,6 @@
 import type {
   LyricDoc,
+  OnlinePlaylist,
   RemoteTrack,
   SearchResult,
   SourceProvider,
@@ -105,6 +106,42 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     data?: { playUrl?: Record<string, { url?: unknown }> };
   }
 
+  interface QqPlaylistsBody {
+    code?: number;
+    playlist?: Record<string, unknown>[];
+  }
+
+  interface QqOwnedBody {
+    code?: number;
+    songs?: Record<string, unknown>[];
+    total?: unknown;
+    more?: unknown;
+  }
+
+  /**
+   * 「我的歌单」条目。**字段名以实测为准**（2026-11-06 对本机真号 dump 过一次）：
+   *   名字在 `dirName`、曲目数在 `songNum`（大写 N）、封面在 `bigpicUrl`/`picUrl`。
+   * 网上常见的 `dissname`/`songnum` 是另一条接口（歌单详情）的字段，套在这里会得到
+   * 一排「未命名歌单 · — 首」。
+   *
+   * id 只认 `tid`：`dirId` 是账号内的目录号（201 = 我喜欢），拿它当歌单 id 会读到别的歌单。
+   */
+  function toPlaylist(p: Record<string, unknown>): OnlinePlaylist | null {
+    const id = Number(p.tid);
+    if (!Number.isSafeInteger(id) || id <= 0) return null;
+    const name = [p.dirName, p.dissname, p.title].find((v) => typeof v === "string" && v.trim()) as string | undefined;
+    const count = Number(p.songNum ?? p.songnum ?? p.song_num);
+    const cover = [p.bigpicUrl, p.picUrl, p.picurl, p.albumPicUrl, p.logo].find(
+      (v) => typeof v === "string" && v,
+    ) as string | undefined;
+    return {
+      id: String(id),
+      name: name?.trim() || "未命名歌单",
+      count: Number.isFinite(count) && count > 0 ? count : 0,
+      coverUrl: cover,
+    };
+  }
+
   const TOP_PREFIX = "top:";
 
   return {
@@ -119,10 +156,11 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canLogin: true, // 本地服务扫码登录（main/net/qqClient.ts）
       canGetAlbum: false,
       canGetArtist: false,
-      // canGetPlaylist 只被 playlistTracks（榜单下钻）消费：实现只认 top: 前缀
-      // （榜单 id），普通 QQ 歌单没接 —— canListPlaylists 仍是 false，我的歌单页不出现 QQ
+      // canGetPlaylist 两条路：top: 前缀 = 榜单下钻；纯数字 = 我的歌单（dirid/tid）
       canGetPlaylist: true,
-      canListPlaylists: false,
+      // 2026-11-06 补：/user/playlist 读本人自建 + 收藏。匿名会 401，
+      // 能力声明说的是协议支持，能不能用由登录态决定（与 canGetUrl 同一条规则）
+      canListPlaylists: true,
       canGetRadio: false,
       canFavorite: false,
       // A-14：榜单匿名可读（yakult /recommend/toplists + /recommend/toplist）。
@@ -218,6 +256,18 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
     },
 
     /**
+     * 我的歌单（2026-11-06）：/user/playlist 回本人自建 + 收藏。
+     * 未登录上游 401 —— 照实抛，UI 落「请先登录」而不是空白列表。
+     */
+    async listPlaylists(): Promise<OnlinePlaylist[]> {
+      const body = await qq<QqPlaylistsBody>("userPlaylists");
+      if (!body || body.code !== 200 || !Array.isArray(body.playlist)) {
+        throw err("network", "QQ 音乐的歌单暂时取不到");
+      }
+      return body.playlist.map(toPlaylist).filter((p): p is OnlinePlaylist => p !== null);
+    },
+
+    /**
      * 榜单清单（A-14）。yakult /recommend/toplists 按组给，摊平成一列给 UI；
      * id 加 top: 前缀——getPlaylist 靠它分流到榜单路由（榜不是歌单）。
      * 没有 total 的榜给 0（UI 显示"首"数只是参考，不参与判据）。
@@ -243,20 +293,31 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       return out;
     },
 
-    /** 只认 top: 前缀（榜单下钻）；QQ 的普通歌单没接，别拿这个方法当歌单入口。 */
+    /**
+     * 两条路：`top:` 前缀 = 榜单下钻（匿名可读）；纯数字 = 我的歌单曲目（要登录）。
+     * UI 拿到的都是不透明 id，契约不变。
+     */
     async getPlaylist(listId: string, page = 0): Promise<SearchResult> {
-      if (!listId.startsWith(TOP_PREFIX)) {
-        throw err("capability-missing", "QQ 音乐的普通歌单暂不支持");
+      if (listId.startsWith(TOP_PREFIX)) {
+        const id = listId.slice(TOP_PREFIX.length);
+        const limit = 30;
+        const body = await qq<QqToplistBody>("toplist", { id, offset: page * limit, limit });
+        if (!body || body.code !== 200 || !Array.isArray(body.songs)) {
+          throw err("network", "这个榜单暂时取不到曲目");
+        }
+        const items = body.songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+        const more = body.more === true;
+        return { items, nextPage: more ? page + 1 : undefined };
       }
-      const id = listId.slice(TOP_PREFIX.length);
-      const limit = 30;
-      const body = await qq<QqToplistBody>("toplist", { id, offset: page * limit, limit });
+
+      if (!/^\d+$/.test(listId)) throw err("capability-missing", "QQ 音乐暂不支持这个歌单");
+      const limit = 100;
+      const body = await qq<QqOwnedBody>("ownedPlaylist", { tid: Number(listId), offset: page * limit, limit });
       if (!body || body.code !== 200 || !Array.isArray(body.songs)) {
-        throw err("network", "这个榜单暂时取不到曲目");
+        throw err("network", "这个歌单暂时取不到曲目");
       }
       const items = body.songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
-      const more = body.more === true;
-      return { items, nextPage: more ? page + 1 : undefined };
+      return { items, nextPage: body.more === true ? page + 1 : undefined };
     },
 
     async getUrl(sourceId: string): Promise<string> {

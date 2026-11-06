@@ -53,6 +53,25 @@ export function positionOf(order: number[], cursor: number): number {
 }
 
 /**
+ * 在线曲目的队列 id：`remote:<音源标识>:<音源内歌 id>`。
+ *
+ * **存逻辑 id，不存直链**：直链带令牌、会过期，存进队列过一会儿就打不开。
+ * 真正起播时由 engine 的解析器换成新地址（`AudioEngine.setResolver`）。
+ */
+export function remoteTrackId(sourceId: string, songId: string): string {
+  return `remote:${sourceId}:${songId}`;
+}
+
+/** 解析队列 id；本地路径返回 null。音源标识不含冒号，歌 id 里可以有。 */
+export function parseRemoteTrackId(trackId: string): { sourceId: string; songId: string } | null {
+  if (!trackId.startsWith("remote:")) return null;
+  const rest = trackId.slice("remote:".length);
+  const at = rest.indexOf(":");
+  if (at <= 0 || at >= rest.length - 1) return null;
+  return { sourceId: rest.slice(0, at), songId: rest.slice(at + 1) };
+}
+
+/**
  * 前进一格。
  * 返回 -1 表示"队列到头且不循环"，调用方据此停播（不要自作聪明回头）。
  *

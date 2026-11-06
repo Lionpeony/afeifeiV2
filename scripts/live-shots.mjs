@@ -197,6 +197,19 @@ const DAILY = [
   dt,
 }));
 
+/* 歌单页 fixture：账号歌单两行。空态那一段会把它清空，验证「两段都没歌单」的文案，
+   所以必须是可变的模块级变量，不能写死在 handler 里。 */
+let MOCK_PLAYLISTS = [
+  { id: 601, name: "夜航精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
+  { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("夜行电台") },
+];
+
+/* 取曲目的失败开关：错误态那一段会把它打开，验证「页面说人话」而不是沉默 */
+let MOCK_TRACK_ERROR = false;
+
+/** 上游调用计数：用来证明「切回页面不再重复拉」（会话缓存真的生效了） */
+const CALLS = { toplists: 0, tracks: 0, userPlaylists: 0 };
+
 /* 原创示例词（不是这几首歌的真词）：只为让播放页的台词本有内容可排。
    时间轴铺到 2:18，三分钟左右的曲目都够用。 */
 const DEMO_LRC = [
@@ -269,6 +282,7 @@ function registerMinimalIpc() {
     if (method === "cloudsearch") return { result: { songs: DAILY.slice(0, 3), songCount: 3 } };
     // 榜单：3 个榜够验「目录 → 下钻 → 选中态」，不用 65 个
     if (method === "toplist") {
+      CALLS.toplists += 1;
       return {
         list: [
           { id: 901, name: "夜航飙升榜", trackCount: 100, coverImgUrl: coverOf("夜行电台") },
@@ -277,8 +291,23 @@ function registerMinimalIpc() {
         ],
       };
     }
+    // 歌单：账号歌单两行 + 导入详情。歌单页要「进页就有内容」，账号歌单必须给
+    if (method === "user_playlist") {
+      CALLS.userPlaylists += 1;
+      return { playlist: MOCK_PLAYLISTS };
+    }
+    if (method === "playlist_detail") {
+      return {
+        code: 200,
+        playlist: { id: 701, name: "导入的歌单 · 测试", trackCount: 6, coverImgUrl: coverOf("第二天堂") },
+      };
+    }
     // 6 首才够让「前三名台柱 + 第 4 名起列表」两段都吃到数据
-    if (method === "playlist_track_all") return { songs: DAILY.slice(0, 6), total: 6 };
+    if (method === "playlist_track_all") {
+      if (MOCK_TRACK_ERROR) throw new Error("fixture：上游这次没给曲目");
+      CALLS.tracks += 1;
+      return { songs: DAILY.slice(0, 6), total: 6 };
+    }
     // 取流：给一条假地址，media:grant 会把它换成 appmedia:// 的本地 WAV
     if (method === "song_url" || method === "song_url_v1") {
       return { data: [{ url: "http://fixture.local/track.wav", fee: 0 }] };
@@ -288,7 +317,29 @@ function registerMinimalIpc() {
   });
   // QQ 源起来后启动就会问一次 profile；fixture 不登录，给空账号免得刷红字
   ipcMain.handle("qq:profile", () => ({ loggedIn: false, nick: null, uid: null }));
-  ipcMain.handle("qq:call", () => ({}));
+  // 我的歌单（2026-11-06 补的 /user/playlist）：给一条，验证歌单页能切到 QQ
+  ipcMain.handle("qq:call", (_e, method) => {
+    if (method === "userPlaylists") {
+      // 字段名照真号实测的回包：dirName / songNum（大写 N）/ bigpicUrl
+      return {
+        code: 200,
+        playlist: [{ tid: 9001, dirId: 12, dirName: "QQ 上的歌单", songNum: 24, bigpicUrl: coverOf("小王") }],
+      };
+    }
+    if (method === "ownedPlaylist") {
+      // QQ 的曲目是 mid/singer[]/album/interval，不是网易云的 id/ar/al/dt
+      const songs = DAILY.slice(0, 4).map((s, i) => ({
+        mid: `qqmid${i}0000`,
+        name: s.name,
+        singer: s.ar.map((a) => ({ name: a.name })),
+        // 不给 album.mid：拼出来的假封面地址会 404，落成破图；留空走占位块
+        album: { name: s.al.name },
+        interval: Math.round(s.dt / 1000),
+      }));
+      return { code: 200, songs, total: songs.length, more: false };
+    }
+    return {};
+  });
   // 外壳订阅了这两个 IPC；fixture 不跑主进程那套主题/轮询，给空实现免得刷红字
   ipcMain.handle("win:overlayTheme", () => undefined);
   ipcMain.handle("scheme:poll", () => null);
@@ -522,6 +573,24 @@ app.whenReady().then(async () => {
       if (!landed.thead) throw new Error("列表有行却没有表头");
       await shoot("charts-landing.png");
 
+      /* 会话缓存：切走再切回，曲目接口不该被再打一次 —— 那 0.3–0.6s 的等待就是它 */
+      // 切到「本地」这种不联网的页：切到歌单页会让它自己发一次曲目请求，把计数搅浑
+      const tracksBefore = CALLS.tracks;
+      await click(
+        `(() => { const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("本地")); t?.click(); return Boolean(t); })()`,
+        "站尺「本地」",
+      );
+      await sleep(600);
+      await click(
+        `(() => { const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("在线")); t?.click(); return Boolean(t); })()`,
+        "站尺「在线」",
+      );
+      await sleep(1000);
+      const backRows = await evalJs(`document.querySelectorAll(".charts-page .lib-row.online-row").length`);
+      console.log(`切回榜单：曲目接口 ${tracksBefore} → ${CALLS.tracks} 次·列表 ${backRows} 行`);
+      if (CALLS.tracks !== tracksBefore) throw new Error(`切回榜单重新拉了曲目：${tracksBefore} → ${CALLS.tracks}`);
+      if (backRows < 1) throw new Error("切回榜单后曲目没从缓存恢复");
+
       const picked = await evalJs(`(() => {
         const items = [...document.querySelectorAll(".pl-item.chart-item")];
         const b = items[1];
@@ -571,6 +640,290 @@ app.whenReady().then(async () => {
         if (over.scrollW > over.clientW + 1) throw new Error(`榜单窄窗横向溢出：${JSON.stringify(over)}`);
         await shoot("charts-stress.png");
       }
+
+      /* 歌单页：进页自动选中一个歌单（右栏不许空着）、曲目带序号与封面、
+         收藏只出现一次（旧版顶部封面墙 + 左栏列表把同一批画了两遍）。 */
+      await click(
+        `(() => {
+          const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("歌单"));
+          t?.click();
+          return Boolean(t);
+        })()`,
+        "站尺「歌单」",
+      );
+      await sleep(1200);
+      const plLanding = await evalJs(`(() => ({
+        on: document.querySelector(".pl-item.pl-line-item.on .pl-name")?.textContent ?? "",
+        rows: document.querySelectorAll(".playlists-page .lib-row.online-row").length,
+        covers: document.querySelectorAll(".playlists-page .lib-row.online-row .row-cover").length,
+        ranks: [...document.querySelectorAll(".playlists-page .lib-row.online-row .lib-no")].map((n) => n.textContent),
+        thead: Boolean(document.querySelector(".playlists-page .lib-thead")),
+        wall: document.querySelectorAll(".pl-card").length,
+        sects: [...document.querySelectorAll(".pl-sect")].map((n) => n.textContent?.trim()).join("|"),
+        acts: document.querySelectorAll(".playlists-page .pl-act").length,
+        nowAct: document.querySelector(".playlists-page .now-act")?.textContent?.trim() ?? "",
+      }))()`);
+      console.log(
+        `进歌单页：选中「${plLanding.on}」·列表 ${plLanding.rows} 行·封面 ${plLanding.covers}·名次 ${JSON.stringify(plLanding.ranks.slice(0, 2))}·段落「${plLanding.sects}」`,
+      );
+      await shoot("playlists-landing.png");
+      if (!plLanding.on) throw new Error("进歌单页没有自动选中，右半屏空着");
+      if (plLanding.rows < 1) throw new Error("自动选中的歌单没取到曲目");
+      if (plLanding.covers !== plLanding.rows) {
+        throw new Error(`曲目行缺封面列：${plLanding.covers} 封面 / ${plLanding.rows} 行`);
+      }
+      if (plLanding.ranks[0] !== "01") throw new Error(`歌单名次没从 01 起：${JSON.stringify(plLanding.ranks.slice(0, 3))}`);
+      if (plLanding.wall > 0) throw new Error("收藏歌单还在顶部封面墙上重复出现（.pl-card）");
+      if (!plLanding.thead) throw new Error("曲目列表没有表头");
+      // 收藏动作从 240px 左栏挪到右栏抬头：左栏不许再挂行内小图标
+      if (plLanding.acts > 0) throw new Error(`左栏还有 ${plLanding.acts} 个行内收藏按钮（.pl-act）`);
+      if (!plLanding.nowAct.includes("收藏")) throw new Error(`抬头没有收藏按钮：「${plLanding.nowAct}」`);
+
+      /* 音源切换：歌单页不该只有网易云（2026-11-06 补了 QQ 的 /user/playlist） */
+      const plChips = await evalJs(`[...document.querySelectorAll(".playlists-page .seg button")].map((b) => b.textContent.trim())`);
+      console.log(`歌单音源切换：${plChips.join(" / ")}`);
+      if (!plChips.some((c) => c.includes("QQ"))) throw new Error(`歌单页只有 ${plChips.join("/")}，QQ 缺席`);
+      await click(
+        `(() => {
+          const b = [...document.querySelectorAll(".playlists-page .seg button")].find((x) => x.textContent.includes("QQ"));
+          b?.click();
+          return Boolean(b);
+        })()`,
+        "切到 QQ",
+      );
+      await sleep(1000);
+      const plQq = await evalJs(`(() => ({
+        sect: [...document.querySelectorAll(".playlists-page .pl-sect")].map((p) => p.textContent.trim()).join("|"),
+        items: document.querySelectorAll(".playlists-page .pl-item").length,
+        rows: document.querySelectorAll(".playlists-page .lib-row.online-row").length,
+        name: document.querySelector(".playlists-page .pl-item .pl-name")?.textContent ?? "",
+        count: document.querySelector(".playlists-page .pl-item .pl-count")?.textContent ?? "",
+      }))()`);
+      console.log(`QQ 歌单：「${plQq.name}」${plQq.count}·段落「${plQq.sect}」·左栏 ${plQq.items} 项·曲目 ${plQq.rows} 行`);
+      if (!plQq.sect.includes("QQ 音乐")) throw new Error(`切到 QQ 后段落没换：${plQq.sect}`);
+      if (plQq.items < 1) throw new Error("切到 QQ 后左栏没有歌单");
+      if (plQq.rows < 1) throw new Error("切到 QQ 后曲目没取到");
+      // 回包字段名读错时这里会退成「未命名歌单 · —」，是上一版的真实 bug
+      if (plQq.name.includes("未命名")) throw new Error(`QQ 歌单名没读到：${plQq.name}`);
+      if (plQq.count.trim() === "—") throw new Error("QQ 歌单曲目数没读到（songNum）");
+      await shoot("playlists-qq.png");
+
+      // 切回网易云：后面的收藏 / 导入判据要它的数据
+      await click(
+        `(() => {
+          const b = [...document.querySelectorAll(".playlists-page .seg button")].find((x) => x.textContent.includes("网易云"));
+          b?.click();
+          return Boolean(b);
+        })()`,
+        "切回网易云",
+      );
+      await sleep(1200);
+
+      // 曲目行必须是真按钮（旧版是 div + onClick，Tab 摸不到）
+      const plKeys = await evalJs(`(() => {
+        const row = document.querySelector(".playlists-page .lib-row.online-row");
+        return row ? { tag: row.tagName, tab: row.tabIndex } : null;
+      })()`);
+      if (!plKeys || plKeys.tag !== "BUTTON" || plKeys.tab < 0) {
+        throw new Error(`曲目行不是可键盘操作的按钮：${JSON.stringify(plKeys)}`);
+      }
+
+      /* 导入：页头一枚按钮 → 展开一行输入（低频操作不常驻工具行）。
+         导入完成后右栏直接落这首新歌单，不用再点一次。 */
+      await click(`(() => { const b = document.querySelector(".pl-import-open"); b?.click(); return Boolean(b); })()`, "页头「导入」");
+      await sleep(300);
+      const typed = await evalJs(`(() => {
+        const i = document.querySelector(".pl-import input");
+        if (!i) return false;
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+        set.call(i, "https://music.163.com/playlist?id=701");
+        i.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      })()`);
+      if (!typed) throw new Error("导入条展开后没有输入框");
+      await click(`(() => { const b = document.querySelector(".pl-import button"); b?.click(); return Boolean(b); })()`, "导入提交");
+      await sleep(1500);
+      const plImported = await evalJs(`(() => {
+        const names = [...document.querySelectorAll(".playlists-page .pl-name")].map((n) => n.textContent?.trim() ?? "");
+        return {
+          items: names.length,
+          dup: names.filter((n, i) => names.indexOf(n) !== i),
+          on: document.querySelector(".pl-item.pl-line-item.on .pl-name")?.textContent ?? "",
+          rows: document.querySelectorAll(".playlists-page .lib-row.online-row").length,
+          sects: [...document.querySelectorAll(".pl-sect")].map((n) => n.textContent?.trim()).join("|"),
+          stillOpen: Boolean(document.querySelector(".pl-import")),
+        };
+      })()`);
+      console.log(
+        `导入歌单：左栏 ${plImported.items} 项·选中「${plImported.on}」·列表 ${plImported.rows} 行·段落「${plImported.sects}」·导入条收起 ${!plImported.stillOpen}`,
+      );
+      if (plImported.items < 3) throw new Error(`导入后左栏应有 3 项（2 账号 + 1 收藏），实际 ${plImported.items}`);
+      if (plImported.dup.length > 0) throw new Error(`同一歌单在左栏出现两次：${JSON.stringify(plImported.dup)}`);
+      if (!plImported.sects.includes("我收藏的")) throw new Error(`左栏没有「我收藏的」分组：${plImported.sects}`);
+      if (!plImported.on.includes("导入的歌单")) throw new Error(`导入后没落在这首新歌单：选中「${plImported.on}」`);
+      if (plImported.rows < 1) throw new Error("导入的歌单没取到曲目");
+      if (plImported.stillOpen) throw new Error("导入成功后输入条没收起");
+      await shoot("playlists-imported.png");
+
+      /* 歌单页同样走会话缓存：切走再切回，账号歌单与曲目都不该重拉 */
+      const plCalls = { lists: CALLS.userPlaylists, tracks: CALLS.tracks };
+      await click(
+        `(() => { const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("本地")); t?.click(); return Boolean(t); })()`,
+        "站尺「本地」",
+      );
+      await sleep(700);
+      await click(
+        `(() => { const t = [...document.querySelectorAll(".ruler-tick")].find((b) => b.textContent?.includes("歌单")); t?.click(); return Boolean(t); })()`,
+        "站尺「歌单」",
+      );
+      await sleep(1000);
+      const plBack = await evalJs(`(() => ({
+        items: document.querySelectorAll(".playlists-page .pl-item").length,
+        rows: document.querySelectorAll(".playlists-page .lib-row.online-row").length,
+      }))()`);
+      console.log(
+        `切回歌单：账号歌单 ${plCalls.lists} → ${CALLS.userPlaylists} 次·曲目 ${plCalls.tracks} → ${CALLS.tracks} 次·左栏 ${plBack.items} 项·右栏 ${plBack.rows} 行`,
+      );
+      if (CALLS.userPlaylists !== plCalls.lists) {
+        throw new Error(`切回歌单重新拉了账号歌单：${plCalls.lists} → ${CALLS.userPlaylists}`);
+      }
+      if (CALLS.tracks !== plCalls.tracks) throw new Error(`切回歌单重新拉了曲目：${plCalls.tracks} → ${CALLS.tracks}`);
+      if (plBack.items < 1 || plBack.rows < 1) throw new Error("切回歌单后内容没从缓存恢复");
+
+      /* 错误态：取曲目失败要落一句人话，不能沉默，也不能把错误码甩给用户。
+         先点刷新让曲目缓存失效 —— 否则「换个歌单」会命中旧曲目，压根不会发请求。 */
+      MOCK_TRACK_ERROR = true;
+      await click(
+        `(() => { const b = document.querySelector('.head-tools button[aria-label="刷新"]'); b?.click(); return Boolean(b); })()`,
+        "页头刷新（清缓存）",
+      );
+      await sleep(900);
+      await click(
+        `(() => {
+          const other = [...document.querySelectorAll(".playlists-page .pl-item")].find(
+            (b) => !b.classList.contains("on"),
+          );
+          other?.click();
+          return Boolean(other);
+        })()`,
+        "换一个歌单",
+      );
+      await sleep(900);
+      const plError = await evalJs(`(() => ({
+        note: document.querySelector(".playlists-page .lib-note")?.textContent ?? "",
+        right: document.querySelector(".playlists-page .lib-empty")?.textContent ?? "",
+        rows: document.querySelectorAll(".playlists-page .lib-row.online-row").length,
+      }))()`);
+      console.log(
+        `歌单错误态：提示「${plError.note.trim()}」·右栏「${plError.right.trim()}」·列表 ${plError.rows} 行`,
+      );
+      if (!plError.note.trim()) throw new Error("取曲目失败时页面没有提示");
+      if (/\b(code|undefined|null|Error:)\b/i.test(plError.note)) throw new Error(`提示里混进了代码味：${plError.note}`);
+      // 加载失败不能写成「这个歌单是空的」——那是在说歌单本身没歌
+      if (!plError.right.includes("没取到")) throw new Error(`加载失败被说成了空歌单：${plError.right}`);
+      await shoot("playlists-error.png");
+      // 关掉失败开关，再点一次同一个歌单把曲目拿回来（后面的最坏数据段要有行可改）
+      MOCK_TRACK_ERROR = false;
+      await click(
+        `(() => {
+          const b = document.querySelector(".playlists-page .pl-item.on");
+          b?.click();
+          return Boolean(b);
+        })()`,
+        "重试当前歌单",
+      );
+      await sleep(900);
+
+      /* 最坏数据（break-ui）：超长歌单名 / 超长歌名 / 超长专辑 / emoji。
+         两栏各自不许横向溢出：左栏靠省略号，右栏靠网格 minmax(0,1fr)。 */
+      if (process.env.STRESS === "1") {
+        await evalJs(`(() => {
+          const names = [...document.querySelectorAll(".playlists-page .pl-name")];
+          names[0].textContent =
+            "这是一个非常非常长的歌单名字用来测试左栏在窄窗口下会不会把首数挤掉并且溢出边界";
+          const rows = [...document.querySelectorAll(".playlists-page .lib-row.online-row")];
+          rows[0].querySelector(".lib-title").textContent =
+            "这是一个非常非常长的歌名用来测试标题列在窄窗口下会不会把乐队和专辑一起挤爆并且溢出边界";
+          const arts = rows[0].querySelectorAll(".lib-artist");
+          arts[0].textContent = "一个名字同样很长的独立音乐人组合";
+          arts[1].textContent = "Extremely Long Album Name That Nobody Would Ever Type Out In Full (Deluxe Edition)";
+          rows[1].querySelector(".lib-title").textContent = "🎵🎵🎵 emoji 标题 🎵🎵🎵";
+          return rows.length;
+        })()`);
+        await sleep(300);
+        const over = await evalJs(`(() => {
+          const list = document.querySelector(".playlists-page .lib-list");
+          const idx = document.querySelector(".playlists-page .pl-list");
+          const page = document.querySelector(".playlists-page");
+          return {
+            list: list.scrollWidth - list.clientWidth,
+            idx: idx.scrollWidth - idx.clientWidth,
+            page: page.scrollWidth - page.clientWidth,
+          };
+        })()`);
+        console.log(`歌单最坏数据：列表 +${over.list} / 左栏 +${over.idx} / 整页 +${over.page}`);
+        if (over.list > 1 || over.idx > 1 || over.page > 1) throw new Error(`歌单窄窗横向溢出：${JSON.stringify(over)}`);
+        await shoot("playlists-stress.png");
+      }
+
+      // 最小窗口（1160×740，主进程定的下限）再验一次：两栏必须还读得下去
+      win.setContentSize(1160, 740);
+      await sleep(600);
+      const plNarrow = await evalJs(`(() => {
+        const page = document.querySelector(".playlists-page");
+        const idx = document.querySelector(".playlists-page .pl-list");
+        return { page: page.scrollWidth - page.clientWidth, idx: idx.scrollWidth - idx.clientWidth };
+      })()`);
+      console.log(`歌单窄窗 1160：整页 +${plNarrow.page} / 左栏 +${plNarrow.idx}`);
+      if (plNarrow.page > 1 || plNarrow.idx > 1) throw new Error(`1160 宽歌单页横向溢出：${JSON.stringify(plNarrow)}`);
+      await shoot("playlists-narrow.png");
+      win.setContentSize(1440, 900);
+      await sleep(400);
+
+      /* 空态：账号没有歌单 + 一个收藏都没有。两段都空时左栏要说清「怎么才能有」，
+         右栏要指向左栏，不能只是两片空白。 */
+      MOCK_PLAYLISTS = [];
+      await click(`(() => { const b = document.querySelector('.head-tools button[aria-label="刷新"]'); b?.click(); return Boolean(b); })()`, "页头刷新");
+      await sleep(1200);
+      // 账号歌单清空后自动选中落到收藏项，点抬头「已收藏 · 取消」把它删掉
+      await click(
+        `(() => {
+          const x = document.querySelector(".playlists-page .now-act");
+          x?.click();
+          return Boolean(x);
+        })()`,
+        "取消收藏",
+      );
+      await sleep(600);
+      const plEmpty = await evalJs(`(() => ({
+        items: document.querySelectorAll(".playlists-page .pl-item").length,
+        left: document.querySelector(".playlists-page .pl-empty")?.textContent ?? "",
+        right: document.querySelector(".playlists-page .lib-empty")?.textContent ?? "",
+      }))()`);
+      console.log(`歌单空态：左栏 ${plEmpty.items} 项·左「${plEmpty.left.trim()}」·右「${plEmpty.right.trim()}」`);
+      if (plEmpty.items > 0) throw new Error(`清空后左栏还剩 ${plEmpty.items} 项`);
+
+      /* 清单落盘：冷启动首帧能不能直接有内容，全靠这份快照（hydrate 逻辑另有单测）。
+         debounce 800ms，这里等一拍再读。 */
+      await sleep(1200);
+      const cachePath = path.join(PROFILE, "store-net-cache.json");
+      if (!fs.existsSync(cachePath)) throw new Error("清单没落盘：store-net-cache.json 不存在");
+      const cacheText = fs.readFileSync(cachePath, "utf8");
+      console.log(`清单落盘：${cacheText.length} 字节`);
+      if (!cacheText.includes("charts:toplists:netease")) throw new Error("落盘快照缺榜单清单");
+      if (!cacheText.includes("playlists:list:netease")) throw new Error("落盘快照缺歌单清单");
+      if (cacheText.includes("account:")) throw new Error("账号数据不该落盘（只存清单类）");
+      if (!plEmpty.left.includes("还没有歌单")) throw new Error(`左栏空态没告诉用户怎么开始：${plEmpty.left}`);
+      if (!plEmpty.right.includes("左边选一个歌单")) throw new Error(`右栏空态没指向左栏：${plEmpty.right}`);
+      await shoot("playlists-empty.png");
+
+      // 还回账号歌单，后面的步骤不该继承这个空状态
+      MOCK_PLAYLISTS = [
+        { id: 601, name: "夜航精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
+        { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("夜行电台") },
+      ];
+      await click(`(() => { const b = document.querySelector('.head-tools button[aria-label="刷新"]'); b?.click(); return Boolean(b); })()`, "页头刷新");
+      await sleep(800);
 
       await evalJs(`(() => {
         const i = document.querySelector(".ruler-search input");
