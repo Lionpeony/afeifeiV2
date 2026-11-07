@@ -198,8 +198,10 @@ const DAILY = [
   dt,
 }));
 
-/* 榜单/歌单曲目 fixture：**不与每日推荐重叠**的 6 首——ON AIR 判据靠它：
-   播一首不在每日推荐里的歌，首页必须整页切到 ON AIR（旧实现左栏钉死在每日推荐）。 */
+/* 榜单/歌单曲目 fixture：**不与每日推荐重叠**——ON AIR 判据靠它：
+   播一首不在每日推荐里的歌，首页必须整页切到 ON AIR（旧实现左栏钉死在每日推荐）。
+   前 6 首固定名（判据引用），后面补到 50 首：播放页右栏队列要滚起来，
+   6 首的队列探不到滚动条（用户实况是 QUEUE 3/50）。 */
 const CHART_SONGS = [
   ["夜行特快", "夜航局", 221000],
   ["午夜快线", "夜航局", 244000],
@@ -207,6 +209,7 @@ const CHART_SONGS = [
   ["频段之外", "潮汐台", 261000],
   ["白噪城市", "夜航局", 236000],
   ["末班电波", "潮汐台", 249000],
+  ...Array.from({ length: 44 }, (_, i) => [`加场 ${i + 1}`, "夜航局", 200000 + i * 7000]),
 ].map(([name, artist, dt], i) => ({
   id: `chart-${i}`,
   name,
@@ -332,6 +335,10 @@ function registerMinimalIpc() {
     if (method === "song_url" || method === "song_url_v1") {
       const token = Buffer.from("C:/live/fixture-online.wav", "utf8").toString("hex");
       return { data: [{ url: `appmedia://${token}`, fee: 0 }] };
+    }
+    // 歌词：在线曲目也要有词，播放页的主视觉/提词器才能复现真实内容高度（探滚动条用）
+    if (method === "lyric" || method === "lyric_new") {
+      return { lrc: { lyric: DEMO_LRC } };
     }
     if (method === "likelist") return { ids: [] };
     return {};
@@ -1142,6 +1149,34 @@ app.whenReady().then(async () => {
     await sleep(500);
     await shoot(`live-stage-${w}x${h}.png`);
   }
+
+  /* 矮窗自适应探针（125% 缩放的笔记本视口更小）：播放页里唯一允许滚的是右栏队列
+     （.st-side-scroll）；其它容器要么不溢出，要么溢出被裁——被裁也是 bug（内容丢了）。 */
+  for (const [w, h] of [
+    [1160, 740], // 主进程窗口下限
+    [1536, 700], // 125% 缩放 + 更矮的窗口
+  ]) {
+    win.setContentSize(w, h);
+    await sleep(500);
+    const spill = await evalJs(`(() => {
+      const out = [];
+      for (const el of [document.documentElement, document.body, ...document.querySelectorAll(".live-plate, .live-plate-body, .stage, .stage *")]) {
+        const cs = getComputedStyle(el);
+        const overY = el.scrollHeight - el.clientHeight;
+        const overX = el.scrollWidth - el.clientWidth;
+        if (overY > 1 && el.clientHeight > 0) {
+          out.push({ el: String(el.className).slice(0, 44) || el.tagName, y: overY, can: cs.overflowY !== "visible" && cs.overflowY !== "hidden" });
+        }
+        if (overX > 1 && el.clientWidth > 0) {
+          out.push({ el: "X:" + (String(el.className).slice(0, 38) || el.tagName), x: overX, can: cs.overflowX !== "visible" && cs.overflowX !== "hidden" });
+        }
+      }
+      return out.slice(0, 12);
+    })()`);
+    console.log(`播放页矮窗 ${w}x${h} 溢出：${JSON.stringify(spill)}`);
+  }
+  win.setContentSize(1280, 800);
+  await sleep(400);
 
   // 视图浮层：灯位命名 + 深色面
   win.setContentSize(1280, 800);
