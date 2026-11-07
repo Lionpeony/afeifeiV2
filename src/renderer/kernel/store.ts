@@ -34,6 +34,7 @@ const initialState: AppState = {
     failed: [],
     remote: {},
     stream: null,
+    origin: null,
   },
   // 10 段与 capability/audio/eq.ts 的 EQ_BANDS 对齐；kernel 不 import capability（环约束），
   // 这条一致性由 test/audio.test.mjs 钉住 —— 上次段数从 6 改 10 就是这里漏了
@@ -356,6 +357,7 @@ function reduce(current: AppState, intent: Intent): AppState {
             failed: [],
             remote: {},
             stream: null,
+            origin: null,
           },
         };
       }
@@ -372,6 +374,7 @@ function reduce(current: AppState, intent: Intent): AppState {
           failed: [],
           remote: intent.remote ?? {},
           stream: intent.stream ?? null,
+          origin: intent.origin ?? null,
         },
       };
       // "load"：只换队列。点列表播的那条随后会 player/play；重启恢复走 player/cue 停在暂停态
@@ -520,7 +523,17 @@ function reduce(current: AppState, intent: Intent): AppState {
           error: null,
           remote: null,
         },
-        queue: { ...queue, items: [], cursor: -1, context: [], history: [], failed: [], remote: {}, stream: null },
+        queue: {
+          ...queue,
+          items: [],
+          cursor: -1,
+          context: [],
+          history: [],
+          failed: [],
+          remote: {},
+          stream: null,
+          origin: null,
+        },
       };
     }
 
@@ -567,6 +580,8 @@ function reduce(current: AppState, intent: Intent): AppState {
           failed: Array.isArray(restored.failed) ? restored.failed : [],
           remote: restored.remote && typeof restored.remote === "object" ? restored.remote : {},
           stream: restored.stream && typeof restored.stream === "object" ? restored.stream : null,
+          // 老快照没有 origin：按 null 补，别让 undefined 漏进真相
+          origin: typeof restored.origin === "string" ? restored.origin : null,
           cursor: clampCursor(restored.items, restored.cursor),
         },
       };

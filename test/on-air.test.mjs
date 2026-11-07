@@ -33,6 +33,13 @@ test("onAirProgram：节目单 = 同音源队列曲目，按播出顺序，编�
   assert.equal(onAir.list[1].durationMs, 0, "元数据没给时长就落 0，不编数据");
 });
 
+test("onAirProgram：origin 透传队列标签，没说就 null（显示层回退音源名）", () => {
+  const remote = { "remote:qq:s1": meta("qq", "s1", "第一首") };
+  const queue = { items: ["remote:qq:s1"], remote, origin: "夜航飙升榜" };
+  assert.equal(onAirProgram("remote:qq:s1", queue, () => "QQ音乐")?.origin, "夜航飙升榜");
+  assert.equal(onAirProgram("remote:qq:s1", { items: ["remote:qq:s1"], remote }, () => "QQ音乐")?.origin, null);
+});
+
 test("onAirProgram：当前曲不在同音源集合里也返回投影（list 至少含它自己）", () => {
   const remote = { "remote:qq:s1": meta("qq", "s1", "第一首") };
   const onAir = onAirProgram("remote:qq:s1", { items: ["remote:qq:s1"], remote }, () => "QQ音乐");

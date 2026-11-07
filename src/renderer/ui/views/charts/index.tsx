@@ -16,8 +16,8 @@ export interface ChartsViewProps {
     listId: string,
     page?: number,
   ): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
-  /** list = 当前榜单全部曲目：点哪首就从哪首开始，队列 = 整个榜 */
-  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): Promise<void>;
+  /** list = 当前榜单全部曲目：点哪首就从哪首开始，队列 = 整个榜。origin = 榜名（首页 ON AIR 标来源用）。 */
+  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[], origin?: string): Promise<void>;
   /** 页头右侧的模式切换（在线 / 榜单合并后由宿主提供） */
   tabs?: ReactNode;
 }
@@ -115,7 +115,7 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
 
   const play = async (track: RemoteTrack): Promise<void> => {
     try {
-      await onPlay(sourceId, track, tracks);
+      await onPlay(sourceId, track, tracks, selectedList?.name ?? undefined);
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }

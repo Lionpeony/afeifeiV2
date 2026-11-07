@@ -56,8 +56,8 @@ export function LiveHome({
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
-  /** 带上整份播出单：点哪首就从哪首开始，队列 = 这份列表 */
-  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
+  /** 带上整份播出单：点哪首就从哪首开始，队列 = 这份列表。origin = 节目来源标签。 */
+  onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[], origin?: string): void;
   onAccount(): void;
   /** 正在播放的在线曲目（音源 + 歌 id）。命中本期播出单时左栏跟着切 */
   nowPlaying: { sourceId: string; songId: string } | null;
@@ -97,10 +97,11 @@ export function LiveHome({
   // 每日推荐的 01 号位就是 hero，播出带从 02 起；ON AIR 节目单从 01 排，hero 与行是同一份列表
   const tapeStart = onAirMode ? 0 : 1;
   const tapes = program.slice(tapeStart, tapeStart + 6);
-  // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）
+  // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）。
+  // origin 跟着节目走：每日推荐重建时标「每日推荐」；ON AIR 原样保住队列自己的来源。
   const play = (track: RemoteTrack): void => {
-    if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list);
-    else onPlayRemote(state.sourceId, track, state.songs);
+    if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list, onAir.origin ?? undefined);
+    else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
   };
 
   const firstVisit = !homeVisited;
@@ -163,7 +164,7 @@ export function LiveHome({
 
             <div className="cs-copy">
               <p className="cs-kicker">
-                {live ? "正在播出 · ON AIR" : "今晚主打 · TONIGHT'S LEAD"}
+                {live ? (playing ? "正在播出 · ON AIR" : "暂停中 · STANDBY") : "今晚主打 · TONIGHT'S LEAD"}
                 <span className="cs-idx">
                   NO.{pad2(leadIndex + 1)} / {total}
                 </span>
@@ -180,7 +181,9 @@ export function LiveHome({
               </p>
               <p className="cs-note">
                 {onAirMode
-                  ? `来自 ${onAir.sourceName} 的节目单正在播出。今晚去哪儿走，由它决定。`
+                  ? `来自 ${onAir.origin || onAir.sourceName} 的节目单${
+                      playing ? "正在播出。今晚去哪儿走，由它决定。" : "停在半路，随时接着走。"
+                    }`
                   : live
                     ? lead.album
                       ? `收录于《${lead.album}》。`
@@ -208,7 +211,7 @@ export function LiveHome({
                 <p className="cs-feed-meta">
                   {onAirMode ? (
                     <>
-                      {onAir.sourceName} · 来自当前队列 · 共 <b>{total}</b> 首
+                      {onAir.origin || onAir.sourceName} · 来自当前队列 · 共 <b>{total}</b> 首
                     </>
                   ) : (
                     <>

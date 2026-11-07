@@ -10,8 +10,10 @@ export interface OnAirProgram {
   meta: RemoteTrackMeta;
   /** 本期节目单 = 当前队列里的同音源曲目，按播出顺序 */
   list: RemoteTrack[];
-  /** 音源显示名（「QQ音乐」），hero 文案标来源 */
+  /** 音源显示名（「QQ音乐」），origin 缺席时的兜底 */
   sourceName: string;
+  /** 节目来源标签（「内地榜」「搜索 · xx」），queue/set 写入；null = 调用方没说 */
+  origin: string | null;
 }
 
 /**
@@ -21,7 +23,7 @@ export interface OnAirProgram {
  */
 export function onAirProgram(
   trackId: string | null,
-  queue: { items: readonly string[]; remote: Record<string, RemoteTrackMeta> },
+  queue: { items: readonly string[]; remote: Record<string, RemoteTrackMeta>; origin?: string | null },
   sourceName: (sourceId: string) => string,
 ): OnAirProgram | null {
   const meta = trackId ? queue.remote[trackId] : undefined;
@@ -40,5 +42,5 @@ export function onAirProgram(
       });
     }
   }
-  return { meta, list, sourceName: sourceName(meta.sourceId) };
+  return { meta, list, sourceName: sourceName(meta.sourceId), origin: queue.origin ?? null };
 }

@@ -326,9 +326,12 @@ function registerMinimalIpc() {
       CALLS.tracks += 1;
       return { songs: CHART_SONGS, total: CHART_SONGS.length };
     }
-    // 取流：给一条假地址，media:grant 会把它换成 appmedia:// 的本地 WAV
+    // 取流：直连本地合成的 WAV（appmedia 协议 handler 在本脚本里）。
+    // 以前给打不开的假地址，音轨永远卡在 buffering，「暂停/继续」判据没法真验；
+    // 现在能真走到 playing，界面的播放状态、频谱、暂停文案都是真的。
     if (method === "song_url" || method === "song_url_v1") {
-      return { data: [{ url: "http://fixture.local/track.wav", fee: 0 }] };
+      const token = Buffer.from("C:/live/fixture-online.wav", "utf8").toString("hex");
+      return { data: [{ url: `appmedia://${token}`, fee: 0 }] };
     }
     if (method === "likelist") return { ids: [] };
     return {};
@@ -543,9 +546,42 @@ app.whenReady().then(async () => {
     }
     await shoot("live-home-playing.png");
 
-    /* 不在这里验「暂停/继续」：fixture 的在线曲目是假地址（services.resolveOnlineUrl 直出
-       CDN URL，不走本地协议），音轨永远卡在 buffering，player/toggle 会被重试链路顶回 playing。
-       暂停分支只有真实曲目能验，留给真机手测。 */
+    /* 同一份节目单里跳档：队列已就位时再点一格走的是光标跳转（不重建队列）——
+       hero 仍要跟着切、换档动画仍要播。队列已被上一次点击装好，这条必走跳转路径。 */
+    const swapTitle = await evalJs(`(() => {
+      const b = document.querySelectorAll(".cs-tape")[2];
+      if (!b) return null;
+      const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
+      window.__swapAnim = [];
+      const t0 = performance.now();
+      const tick = () => {
+        for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
+          const el = document.querySelector(sel);
+          if (!el) continue;
+          for (const a of el.getAnimations()) {
+            const name = String(a.animationName);
+            if (a.playState === "running" && !window.__swapAnim.includes(name)) window.__swapAnim.push(name);
+          }
+        }
+        if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
+        requestAnimationFrame(tick);
+      };
+      b.click();
+      tick();
+      return t;
+    })()`);
+    await sleep(1800);
+    const jumped = await evalJs(`(() => ({
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      anim: window.__swapAnim ?? [],
+    }))()`);
+    console.log(`同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·动画 ${JSON.stringify(jumped.anim)}`);
+    if (!swapTitle) throw new Error("播出带没有第 3 格");
+    if (jumped.title !== swapTitle) throw new Error(`跳档后 hero 没跟上：期望「${swapTitle}」，实际「${jumped.title}」`);
+    if (!jumped.anim.includes("cs-swap-copy")) throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
+
+    /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停
+       会影响后续直播段的现场；ON AIR 段验的是同一套 live 分支，验一次就够）。 */
 
     /* ON AIR：播一首**不在每日推荐里**的歌（榜单列表第一行）→ 回首页。
        判据：hero 换成那首歌、文案标来源、右栏整栏切「正在播出 · 来自当前队列」、
@@ -589,6 +625,25 @@ app.whenReady().then(async () => {
     if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
     if (onAir.liveTape < 1) throw new Error("ON AIR 播出带没有标记正在播的一档");
     await shoot("live-home-onair.png");
+
+    /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——
+       眉标换「暂停中 · STANDBY」、按钮换「继续」，不许再谎称「正在播出」。 */
+    await click(
+      `(() => { const b = document.querySelector(".cs-actions .cs-play"); b?.click(); return Boolean(b); })()`,
+      "hero 播放/暂停",
+    );
+    await sleep(500);
+    const paused = await evalJs(`(() => ({
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      note: document.querySelector(".cs-note")?.textContent ?? "",
+      btn: document.querySelector(".cs-actions .cs-play")?.textContent ?? "",
+    }))()`);
+    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·按钮「${paused.btn.trim()}」·文案「${paused.note.trim()}」`);
+    if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
+    if (!paused.kicker.includes("STANDBY")) throw new Error(`暂停眉标缺 STANDBY：${paused.kicker}`);
+    if (!paused.btn.includes("继续")) throw new Error(`暂停后按钮没换「继续」：${paused.btn}`);
+    if (!paused.note.includes("停在半路")) throw new Error(`暂停文案没换：${paused.note}`);
+    await shoot("live-home-onair-paused.png");
   }
 
   if (process.env.LIVE_EMPTY === "1" || process.env.HOME_ONLY === "1") {
@@ -1056,96 +1111,35 @@ app.whenReady().then(async () => {
   win.setContentSize(1280, 800);
   await sleep(400);
 
-  // 动作一：加入直播 → 落在 stage（r4 引擎的直播壳）
+  // 动作一：底栏「正在播放」整块可点 → 播放页（旧壳的「加入直播」随版式退役）
   await click(
-    `(() => {
-      const b = [...document.querySelectorAll(".live-actions .live-btn")].find((x) => x.textContent.trim() === "加入直播");
-      b?.click();
-      return Boolean(b);
-    })()`,
-    "加入直播",
+    `(() => { const b = document.querySelector(".console .np"); b?.click(); return Boolean(b); })()`,
+    "底栏正在播放",
   );
   await sleep(1200);
   await shoot("live-stage.png");
 
-  // 直播间是旧引擎嵌进壳里：量一下有没有元素顶出板面（右缘被裁=排版坏了，不是风格）
+  // 播放页探针：.stage 根元素在、整页不横向溢出（右缘被裁 = 排版坏了，不是风格）
   const stageProbe = await evalJs(`(() => {
-    const body = document.querySelector(".live-plate-body");
-    const br = body?.getBoundingClientRect();
-    if (!br) return { error: "no body" };
-    const out = [];
-    for (const el of body.querySelectorAll("*")) {
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 && r.height === 0) continue;
-      if (r.right > br.right + 1 || r.left < br.left - 1) {
-        out.push({
-          cls: (el.className && String(el.className).slice(0, 60)) || el.tagName,
-          left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width),
-        });
-      }
-    }
+    const de = document.documentElement;
     return {
-      body: { left: Math.round(br.left), right: Math.round(br.right), w: Math.round(br.width) },
-      scrollW: body.scrollWidth, clientW: body.clientWidth,
-      over: out.slice(0, 8), count: out.length,
+      hasStage: document.querySelector(".stage") !== null,
+      scrollW: de.scrollWidth, clientW: de.clientWidth,
     };
   })()`);
-  console.log(`直播间溢出：${JSON.stringify(stageProbe)}`);
+  console.log(`播放页探针：${JSON.stringify(stageProbe)}`);
+  if (!stageProbe.hasStage) throw new Error("播放页没有 .stage 根元素");
   if (stageProbe.scrollW > stageProbe.clientW + 1) {
-    throw new Error(`直播间横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
+    throw new Error(`播放页横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
   }
 
-  // 版式探针：播出条 / 正文 / 提词器必须全部落在舞台里，正文不能被挤没
-  const stageLayout = await evalJs(`(() => {
-    const rect = (el) => (el ? { top: Math.round(el.getBoundingClientRect().top), bottom: Math.round(el.getBoundingClientRect().bottom), h: Math.round(el.getBoundingClientRect().height) } : null);
-    return {
-      stage: rect(document.querySelector(".live-plate-body > .stage")),
-      air: rect(document.querySelector(".st-air")),
-      body: rect(document.querySelector(".st-body")),
-      script: rect(document.querySelector(".st-script")),
-    };
-  })()`);
-  console.log(`直播间版式：${JSON.stringify(stageLayout)}`);
-  if (!stageLayout.script || !stageLayout.body) throw new Error("直播间缺少提词器或正文");
-  if (stageLayout.script.bottom > stageLayout.stage.bottom + 1) throw new Error("提词器顶出舞台底边");
-  if (stageLayout.body.h < 200) throw new Error(`直播间正文只剩 ${stageLayout.body.h}px`);
-
-  // 点第 6 句（00:42）让歌词主视觉上屏，才能拍到曲中的播出面
-  // 点一句歌词让主视觉上屏。播放时间在走，目标句可能已滚出提词器——
-  // 找不到就退到当前句 / 首行，截图要的是「有一句在大屏」，不是某一句。
-  await click(
-    `(() => {
-      const rows = [...document.querySelectorAll(".st-srow")];
-      const b = rows.find((x) => x.textContent.includes("窗外的雨刚好停"))
-        ?? rows.find((x) => x.classList.contains("cur"))
-        ?? rows[0];
-      b?.click();
-      return Boolean(b);
-    })()`,
-    "提词器任一句",
-  );
-  await sleep(700);
-
-  // 直播间三档：每档重新点一次第 6 句（曲目可能在这几秒里换档，重拍才能保证歌词主视觉在屏）
+  // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
   for (const [w, h] of [
     [1024, 768],
-    [1280, 800],
     [1440, 900],
   ]) {
     win.setContentSize(w, h);
     await sleep(500);
-    await click(
-      `(() => {
-        const rows = [...document.querySelectorAll(".st-srow")];
-        const b = rows.find((x) => x.textContent.includes("窗外的雨刚好停"))
-          ?? rows.find((x) => x.classList.contains("cur"))
-          ?? rows[0];
-        b?.click();
-        return Boolean(b);
-      })()`,
-      "提词器任一句",
-    );
-    await sleep(700);
     await shoot(`live-stage-${w}x${h}.png`);
   }
 
@@ -1165,7 +1159,7 @@ app.whenReady().then(async () => {
   await evalJs(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
   await sleep(300);
 
-  // 动作二：Esc 回落（stage 的 onBack 在 live 壳里指回上一间房）
+  // 动作二：Esc 回落（stage 的 onBack 指回上一间房）
   await evalJs(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);  await sleep(600);
   const backHome = await evalJs(`document.querySelector(".live-home") !== null`);
   if (!backHome) throw new Error("Esc 没回落首页直播面");
@@ -1207,6 +1201,6 @@ app.whenReady().then(async () => {
   app.quit();
 }).catch((err) => {
   console.error(err);
-  app.quit();
-  process.exitCode = 1;
+  // app.exit 强制带码退出：app.quit() 会跟 process.exitCode 竞态，失败也能退出码 0（坑过一回）
+  app.exit(1);
 });

@@ -18,8 +18,8 @@ export interface PlaylistViewProps {
     playlistId: string,
     page?: number,
   ): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
-  /** 与在线页同一条播放链路。list = 整张歌单，点哪首就从哪首开始。 */
-  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): Promise<void>;
+  /** 与在线页同一条播放链路。list = 整张歌单，点哪首就从哪首开始。origin = 歌单名（首页 ON AIR 标来源用）。 */
+  onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[], origin?: string): Promise<void>;
   /* ---- 收藏的在线歌单（M11） ---- */
   onlinePlaylists(): Promise<SavedPlaylistView[]>;
   savePlaylist(
@@ -68,7 +68,7 @@ export function PlaylistsView(props: PlaylistViewProps) {
 
   const play = async (track: RemoteTrack, list: RemoteTrack[]): Promise<void> => {
     try {
-      await props.onPlay(lib.selected?.sourceId ?? lib.sourceId, track, list);
+      await props.onPlay(lib.selected?.sourceId ?? lib.sourceId, track, list, item?.name);
     } catch (err) {
       lib.say(err instanceof Error ? err.message : String(err));
     }

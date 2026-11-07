@@ -800,6 +800,8 @@ function App() {
     track: RemoteTrack,
     list?: RemoteTrack[],
     stream = false,
+    /** 节目来源标签（「内地榜」「搜索 · xx」），queue/set 落进队列给首页 ON AIR 显示 */
+    origin?: string,
   ): Promise<void> => {
     const svc = services.current;
     if (!svc) return;
@@ -819,8 +821,22 @@ function App() {
       };
     }
     const at = items.indexOf(remoteTrackId(sourceId, track.sourceId));
+    /* 同一份节目单里跳档：队列条目一模一样就不重建 —— shuffle 打散的顺序、
+       失败标记、origin 都保住，只把光标切过去（store 的 player/play 自带换档）。 */
+    const cur = getState().queue;
+    if (cur.items.length === items.length && cur.items.every((id, i) => id === items[i])) {
+      if (at >= 0) dispatch({ type: "player/play", trackId: items[at] });
+      return;
+    }
     // stream = 无限流（漫游 FM）：这批放完由 bootstrap 再要一批接上，不叫"播完了"
-    dispatch({ type: "queue/set", items, startAt: at >= 0 ? at : 0, remote, stream: stream ? { sourceId } : null });
+    dispatch({
+      type: "queue/set",
+      items,
+      startAt: at >= 0 ? at : 0,
+      remote,
+      stream: stream ? { sourceId } : null,
+      origin: origin ?? null,
+    });
     // queue/set 只落 loading —— 补一脚 play（已在播时幂等）
     dispatch({ type: "player/play" });
   };
@@ -875,8 +891,9 @@ function App() {
     track: RemoteTrack,
     list?: RemoteTrack[],
     stream = false,
+    origin?: string,
   ): void => {
-    void playRemote(sourceId, track, list, stream).catch((err: unknown) => {
+    void playRemote(sourceId, track, list, stream, origin).catch((err: unknown) => {
       setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
     });
   };
@@ -1032,7 +1049,7 @@ function App() {
         <LiveHome
           account={() => accountBundle("daily")}
           accountName={sources.find((s) => s.id === getActiveSource())?.name ?? ""}
-          onPlayRemote={playRemoteSafe}
+          onPlayRemote={(sourceId, track, list, origin) => playRemoteSafe(sourceId, track, list, false, origin)}
           onAccount={() => {
             setAccountOpen(true);
             refreshAccountProfiles();
@@ -1064,7 +1081,7 @@ function App() {
           <LikedView
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("liked")}
-            onPlayRemote={playRemoteSafe}
+            onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "喜欢的音乐")}
             onUnlike={unlikeAccount}
           />
         );
@@ -1073,7 +1090,7 @@ function App() {
           <RecentView
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("week")}
-            onPlayRemote={playRemoteSafe}
+            onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "最近播放")}
           />
         );
       case "roam":
@@ -1082,7 +1099,9 @@ function App() {
             onPlayGroup={onPlayGroup}
             cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
             account={() => accountBundle("fm")}
-            onPlayRemote={playRemoteSafe}
+            onPlayRemote={(sourceId, track, list, stream) =>
+              playRemoteSafe(sourceId, track, list, stream === true, "私人 FM")
+            }
             onReportDislike={(sourceId, songId) =>
               services.current?.reportDislike(sourceId, songId, "fm") ?? Promise.resolve(false)
             }
@@ -1218,7 +1237,7 @@ function App() {
                 ? svc.playlistTracks(sourceId, playlistId, page)
                 : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
-            onPlay={playRemote}
+            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
             onlinePlaylists={() => services.current?.onlinePlaylists() ?? Promise.resolve([])}
             savePlaylist={(sourceId, playlist) => {
               const svc = services.current;
@@ -1251,7 +1270,7 @@ function App() {
                 ? svc.playlistTracks(sourceId, listId, page)
                 : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
-            onPlay={playRemote}
+            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
           />
         ) : (
           <OnlineView
@@ -1263,7 +1282,7 @@ function App() {
               if (!svc) return Promise.resolve({ items: [] });
               return svc.searchOnline(sourceId, keyword);
             }}
-            onPlay={playRemote}
+            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
             loginStatus={(sourceId) =>
               services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
             }

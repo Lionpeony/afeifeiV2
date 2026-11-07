@@ -228,6 +228,36 @@ test("FM 流式队列：stream 标记随 queue/set 写入，换队列/清空时�
   assert.equal(getState().queue.stream, null);
 });
 
+/* ---------- 节目来源标签（origin）：首页 ON AIR 投影显示用 ---------- */
+
+test("queue/set：origin 随队列写入，换队列/清空时作废，不带按 null", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1"], startAt: 0, remote: REMOTES, origin: "内地榜" });
+  assert.equal(getState().queue.origin, "内地榜");
+
+  reset(["a"], 0); // 普通歌单：不带 origin
+  assert.equal(getState().queue.origin, null, "没说的按 null，不沿用旧标签");
+
+  dispatch({ type: "queue/clear" });
+  assert.equal(getState().queue.origin, null);
+});
+
+test("queue/trim / queue/add：origin 跟着队列活，裁剪追加都不丢", () => {
+  dispatch({ type: "queue/set", items: ["remote:netease:1", "remote:netease:2"], startAt: 1, remote: REMOTES, origin: "夜航飙升榜" });
+  dispatch({ type: "queue/trim", keepBefore: 0 });
+  assert.equal(getState().queue.origin, "夜航飙升榜", "裁剪是同一档节目");
+
+  dispatch({ type: "queue/add", items: ["x"] });
+  assert.equal(getState().queue.origin, "夜航飙升榜", "追加不打断节目");
+});
+
+test("queue/restore：老快照没有 origin 时补 null，别让 undefined 漏进真相", () => {
+  dispatch({
+    type: "queue/restore",
+    state: { items: ["a", "b"], cursor: 0, context: ["a", "b"], history: [], mode: "order", shuffleSeed: 1 },
+  });
+  assert.equal(getState().queue.origin, null);
+});
+
 test("queue/trim：裁掉播过的，光标仍指向同一首", () => {
   const items = Array.from({ length: 30 }, (_, i) => `t${i}`);
   reset(items, 25);

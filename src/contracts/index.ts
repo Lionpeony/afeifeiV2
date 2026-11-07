@@ -102,6 +102,11 @@ export interface QueueState {
    * null = 普通队列，播到队尾就停。
    */
   stream: { sourceId: string } | null;
+  /**
+   * 队列来自哪个节目（「内地榜」「歌单 X」「搜索 · xx」「每日推荐」）。
+   * 首页 ON AIR 投影显示用；null = 调用方没说（老快照 / 唤起播放）。
+   */
+  origin: string | null;
 }
 
 /**
@@ -256,6 +261,8 @@ export type Intent =
       remote?: Record<TrackId, RemoteTrackMeta>;
       /** 流式队列（漫游 FM）：播完自动续批。 */
       stream?: { sourceId: string } | null;
+      /** 节目来源标签（「内地榜」「搜索 · xx」）；不传按 null。 */
+      origin?: string | null;
     }
   /**
    * 加入直播：队列、当前曲目、曲内偏移一次写入。
