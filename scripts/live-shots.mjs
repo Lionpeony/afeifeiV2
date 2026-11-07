@@ -3,6 +3,7 @@
  *
  * 跑法：先 node scripts/build.mjs，再 npx electron scripts/live-shots.mjs
  * 产物：docs/assets/mockups/live-home-<w>.png ×3、live-home-empty-<w>.png ×3、
+ *       live-home-playing.png、live-home-onair.png、
  *       live-stage.png、live-room-local.png、live-room-local-1024x768.png
  *
  * fixture 纪律与 page-shots/stage-shots 一致：自开窗口 + 最小 IPC + 临时 userData，
@@ -197,6 +198,23 @@ const DAILY = [
   dt,
 }));
 
+/* 榜单/歌单曲目 fixture：**不与每日推荐重叠**的 6 首——ON AIR 判据靠它：
+   播一首不在每日推荐里的歌，首页必须整页切到 ON AIR（旧实现左栏钉死在每日推荐）。 */
+const CHART_SONGS = [
+  ["夜行特快", "夜航局", 221000],
+  ["午夜快线", "夜航局", 244000],
+  ["雾中信号", "潮汐台", 208000],
+  ["频段之外", "潮汐台", 261000],
+  ["白噪城市", "夜航局", 236000],
+  ["末班电波", "潮汐台", 249000],
+].map(([name, artist, dt], i) => ({
+  id: `chart-${i}`,
+  name,
+  ar: [{ name: artist }],
+  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  dt,
+}));
+
 /* 歌单页 fixture：账号歌单两行。空态那一段会把它清空，验证「两段都没歌单」的文案，
    所以必须是可变的模块级变量，不能写死在 handler 里。 */
 let MOCK_PLAYLISTS = [
@@ -306,7 +324,7 @@ function registerMinimalIpc() {
     if (method === "playlist_track_all") {
       if (MOCK_TRACK_ERROR) throw new Error("fixture：上游这次没给曲目");
       CALLS.tracks += 1;
-      return { songs: DAILY.slice(0, 6), total: 6 };
+      return { songs: CHART_SONGS, total: CHART_SONGS.length };
     }
     // 取流：给一条假地址，media:grant 会把它换成 appmedia:// 的本地 WAV
     if (method === "song_url" || method === "song_url_v1") {
@@ -528,6 +546,49 @@ app.whenReady().then(async () => {
     /* 不在这里验「暂停/继续」：fixture 的在线曲目是假地址（services.resolveOnlineUrl 直出
        CDN URL，不走本地协议），音轨永远卡在 buffering，player/toggle 会被重试链路顶回 playing。
        暂停分支只有真实曲目能验，留给真机手测。 */
+
+    /* ON AIR：播一首**不在每日推荐里**的歌（榜单列表第一行）→ 回首页。
+       判据：hero 换成那首歌、文案标来源、右栏整栏切「正在播出 · 来自当前队列」、
+       播出带换成榜单队列且标出在播档。旧实现左栏永远钉死在每日推荐，这条必红。 */
+    await click(
+      `(() => { const t = document.querySelector('.ruler-tick[data-page="online"]'); t?.click(); return Boolean(t); })()`,
+      "站尺「在线」",
+    );
+    await sleep(1000);
+    const chartPick = await evalJs(`(() => {
+      const row = document.querySelector(".charts-page .lib-row.online-row");
+      if (!row) return null;
+      const title = row.querySelector(".lib-title")?.textContent ?? "";
+      row.click();
+      return title;
+    })()`);
+    await sleep(1200);
+    await click(
+      `(() => { const t = document.querySelector('.ruler-tick[data-page="home"]'); t?.click(); return Boolean(t); })()`,
+      "站尺「首页」",
+    );
+    await sleep(800);
+    const onAir = await evalJs(`(() => ({
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      note: document.querySelector(".cs-note")?.textContent ?? "",
+      feed: document.querySelector(".cs-feed-kicker")?.textContent ?? "",
+      meta: document.querySelector(".cs-feed-meta")?.textContent ?? "",
+      tapes: document.querySelectorAll(".cs-tape").length,
+      liveTape: document.querySelectorAll(".cs-tape.is-live").length,
+    }))()`);
+    console.log(
+      `首页 ON AIR：播榜单「${chartPick}」→ 大字「${onAir.title}」·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·在播标记 ${onAir.liveTape}`,
+    );
+    if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
+    if (onAir.title !== chartPick) throw new Error(`ON AIR 后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
+    if (!onAir.kicker.includes("ON AIR")) throw new Error(`ON AIR 后眉标没变成「正在播出」：${onAir.kicker}`);
+    if (!onAir.note.includes("来自")) throw new Error(`ON AIR 文案没标来源：${onAir.note}`);
+    if (!onAir.feed.includes("ON AIR")) throw new Error(`右栏没切到 ON AIR：${onAir.feed}`);
+    if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
+    if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
+    if (onAir.liveTape < 1) throw new Error("ON AIR 播出带没有标记正在播的一档");
+    await shoot("live-home-onair.png");
   }
 
   if (process.env.LIVE_EMPTY === "1" || process.env.HOME_ONLY === "1") {

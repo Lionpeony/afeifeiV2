@@ -46,6 +46,7 @@ import { CommandPalette } from "./input/CommandPalette.js";
 import type { DailyBundle } from "./views/home/index.js";
 import { StationRuler } from "./live/StationRuler.js";
 import { LiveHome } from "./live/LiveHome.js";
+import { onAirProgram } from "./live/on-air.js";
 import { BootSplash } from "./BootSplash.js";
 import { invalidatePrefix, loadNet } from "../domain/net-cache/index.js";
 import { accountKey } from "./account-data.js";
@@ -1039,6 +1040,7 @@ function App() {
           nowPlaying={state.player.remote ?? null}
           playing={playing}
           onToggle={() => dispatch({ type: "player/toggle" })}
+          onAir={onAirProgram(state.player.trackId, state.queue, (id) => sources.find((s) => s.id === id)?.name ?? id)}
         />
       );
     }

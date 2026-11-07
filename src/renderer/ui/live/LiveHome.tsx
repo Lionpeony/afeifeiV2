@@ -6,10 +6,16 @@ import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
 import { issueOf, nightOfYear } from "./night.js";
 import { splitLatinRuns } from "./typography.js";
+import { onAirProgram, type OnAirProgram } from "./on-air.js";
+
+export { onAirProgram };
+export type { OnAirProgram };
 
 /**
- * 首页 = 当前账号的每日推荐，按「深夜广播 · 唱片舞台」组织：
- * 左侧是整高封套 + 压在封套上的主打信息，右侧是每日推荐与横向播出带。
+ * 首页 = 「电台总控台」，按「深夜广播 · 唱片舞台」组织：
+ * 左侧是整高封套 + 压在封套上的主打信息，右侧是本期节目单与横向播出带。
+ * hero 跟随全局播放（onAirProgram 投影）：在播的歌来自每日推荐就按每日推荐展示，
+ * 来自榜单/歌单/搜索/FM 就整页切 ON AIR、节目单 = 当前队列；空闲回落今日第 1 档。
  * 所有叙事字段来自真实数据或日期派生；不编造播出时间。
  */
 
@@ -46,6 +52,7 @@ export function LiveHome({
   nowPlaying,
   playing,
   onToggle,
+  onAir,
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
@@ -57,6 +64,8 @@ export function LiveHome({
   playing: boolean;
   /** 左栏正在播的那一档：播放 / 暂停切换 */
   onToggle(): void;
+  /** 全局正在播的远程节目（onAirProgram 投影）。null = 没在播远程歌 */
+  onAir: OnAirProgram | null;
 }) {
   const state = useAccountBundle(account, "daily");
   const [showAll, setShowAll] = useState(false);
@@ -65,22 +74,34 @@ export function LiveHome({
   const day = today.getDate();
   const night = nightOfYear(today);
   const issue = issueOf(today);
-  const total = state.songs.length;
   /*
-   * 左栏显示哪一档：**正在播放的那首**优先（且必须属于本期播出单），否则回落到第 1 档。
-   * 单一事实源——播放器状态是唯一的「当前」，这里不另存一份 selected，
-   * 免得底栏切歌、上一首/下一首之后左栏和底栏各说各话。
+   * hero 显示哪一档——两个模式，同一投影：
+   *  - 每日推荐（默认）：正在播的歌属于今日推荐，或没在播（回落第 1 档）；
+   *  - ON AIR：正在播的远程歌来自别处（榜单/歌单/搜索/FM），整页切过去，
+   *    节目单 = 当前队列——在任何页选的歌，回首页都能看到它上台和整份节目单。
+   * 单一事实源不变：播放状态由 store 唯一持有，这里只做投影，不另存 selected。
    */
   const liveIndex =
     nowPlaying && nowPlaying.sourceId === state.sourceId
       ? state.songs.findIndex((t) => t.sourceId === nowPlaying.songId)
       : -1;
-  const live = liveIndex >= 0;
-  const leadIndex = live ? liveIndex : 0;
-  const lead = state.songs[leadIndex];
-  const tapes = state.songs.slice(1, 7);
-  // 点播出带里的任意一档：队列 = 整份今日推荐，从这一首开始（连播靠它）
-  const play = (track: RemoteTrack): void => onPlayRemote(state.sourceId, track, state.songs);
+  const onAirIdx = onAir ? onAir.list.findIndex((t) => t.sourceId === onAir.meta.songId) : -1;
+  const onAirMode = onAir != null && liveIndex < 0 && onAirIdx >= 0;
+
+  const live = onAirMode || liveIndex >= 0;
+  const leadIndex = onAirMode ? onAirIdx : liveIndex >= 0 ? liveIndex : 0;
+  const lead: RemoteTrack | undefined = onAirMode ? onAir.list[onAirIdx] : state.songs[leadIndex];
+  // 本期节目单：ON AIR = 当前队列，每日推荐 = 账号推荐列表
+  const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
+  const total = program.length;
+  // 每日推荐的 01 号位就是 hero，播出带从 02 起；ON AIR 节目单从 01 排，hero 与行是同一份列表
+  const tapeStart = onAirMode ? 0 : 1;
+  const tapes = program.slice(tapeStart, tapeStart + 6);
+  // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）
+  const play = (track: RemoteTrack): void => {
+    if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list);
+    else onPlayRemote(state.sourceId, track, state.songs);
+  };
 
   const firstVisit = !homeVisited;
   homeVisited = true;
@@ -158,11 +179,13 @@ export function LiveHome({
                 </span>
               </p>
               <p className="cs-note">
-                {live
-                  ? lead.album
-                    ? `收录于《${lead.album}》。`
-                    : `今晚第 ${leadIndex + 1} 档正在播出。`
-                  : "今晚从这一首开始。先把它放完，再决定往哪儿走。"}
+                {onAirMode
+                  ? `来自 ${onAir.sourceName} 的节目单正在播出。今晚去哪儿走，由它决定。`
+                  : live
+                    ? lead.album
+                      ? `收录于《${lead.album}》。`
+                      : `今晚第 ${leadIndex + 1} 档正在播出。`
+                    : "今晚从这一首开始。先把它放完，再决定往哪儿走。"}
               </p>
               <div className="cs-actions">
                 <button
@@ -181,12 +204,20 @@ export function LiveHome({
           <section className="cs-feed" aria-label="今日推荐">
             <header className="cs-feed-head">
               <div>
-                <p className="cs-feed-kicker">每日推荐 · DAILY FEED</p>
+                <p className="cs-feed-kicker">{onAirMode ? "正在播出 · ON AIR" : "每日推荐 · DAILY FEED"}</p>
                 <p className="cs-feed-meta">
-                  {accountName || "当前音源"} · 每天 <b>06:00</b> 换新 · 共 <b>{total}</b> 首
+                  {onAirMode ? (
+                    <>
+                      {onAir.sourceName} · 来自当前队列 · 共 <b>{total}</b> 首
+                    </>
+                  ) : (
+                    <>
+                      {accountName || "当前音源"} · 每天 <b>06:00</b> 换新 · 共 <b>{total}</b> 首
+                    </>
+                  )}
                 </p>
               </div>
-              <RefreshButton onClick={state.reload} busy={state.loading} title="刷新推荐" />
+              {onAirMode ? null : <RefreshButton onClick={state.reload} busy={state.loading} title="刷新推荐" />}
             </header>
 
             <div className="cs-strip-head">
@@ -204,15 +235,15 @@ export function LiveHome({
 
             {showAll ? (
               <ol className="cs-all" aria-label="完整播出单，按播出顺序">
-                {state.songs.slice(1).map((track, i) => (
+                {program.slice(tapeStart).map((track, i) => (
                   <li key={track.sourceId}>
                     <button
                       type="button"
-                      className={`cs-all-row${live && leadIndex === i + 1 ? " is-live" : ""}`}
-                      aria-current={live && leadIndex === i + 1 ? "true" : undefined}
+                      className={`cs-all-row${live && leadIndex === i + tapeStart ? " is-live" : ""}`}
+                      aria-current={live && leadIndex === i + tapeStart ? "true" : undefined}
                       onClick={() => play(track)}
                     >
-                      <span className="cs-all-no">{pad2(i + 2)}</span>
+                      <span className="cs-all-no">{pad2(i + tapeStart + 1)}</span>
                       <span className="cs-all-title daily-title">{track.title}</span>
                       <span className="cs-all-artist">{track.artist}</span>
                       <span className="cs-all-dur">{fmtDuration(track.durationMs)}</span>
@@ -226,12 +257,12 @@ export function LiveHome({
                 <li key={track.sourceId}>
                   <button
                     type="button"
-                    className={`cs-tape${live && leadIndex === i + 1 ? " is-live" : ""}`}
-                    aria-current={live && leadIndex === i + 1 ? "true" : undefined}
+                    className={`cs-tape${live && leadIndex === i + tapeStart ? " is-live" : ""}`}
+                    aria-current={live && leadIndex === i + tapeStart ? "true" : undefined}
                     onClick={() => play(track)}
-                    aria-label={`播放 ${pad2(i + 2)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
+                    aria-label={`播放 ${pad2(i + tapeStart + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                   >
-                    <span className="cs-tape-no">{pad2(i + 2)}</span>
+                    <span className="cs-tape-no">{pad2(i + tapeStart + 1)}</span>
                     <span className="cs-tape-rule" aria-hidden="true" />
                     <span className="cs-tape-title daily-title">{track.title}</span>
                     <span className="cs-tape-artist">{track.artist}</span>

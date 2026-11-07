@@ -57,6 +57,7 @@ if (TEST) {
       "listening-stats": "src/renderer/projection/stats.ts",
       "ui-theme": "src/renderer/ui/theme.ts",
       "night-issue": "src/renderer/ui/live/night.ts",
+      "on-air": "src/renderer/ui/live/on-air.ts",
       "global-theme": "src/renderer/ui/global-theme.ts",
       "active-source": "src/renderer/ui/active-source.ts",
       recommend: "src/renderer/domain/recommend/index.ts",
