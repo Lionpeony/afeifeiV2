@@ -312,12 +312,13 @@ async function main() {
   console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
 
   /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在弹层里，且真的落到状态 ---- */
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent.includes("睡眠"))?.click()`);
+  // 睡眠钮是图标钮（NavIcon），名字只在 aria-label —— 走 btnBy，textContent 找不到它
+  await app.evaluate(`${btnBy(["睡眠定时"])}.click()`);
   assert.ok(await app.waitFor(`!!document.querySelector(".sleep-wait input")`, 3000), "睡眠弹层应有「播完当前曲再停」勾选");
   await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`);
   assert.equal(await app.evaluate(`document.querySelector(".sleep-wait input")?.checked`), true, "勾上后应保持选中");
   await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`); // 复原，别把偏好写进存档
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent.includes("睡眠"))?.click()`);
+  await app.evaluate(`${btnBy(["睡眠定时"])}.click()`);
   console.log("  睡眠定时 OK：播完当前曲再停可选");
 
   /* ---- 设置页：输出设备下拉（P0-09）---- */
@@ -611,8 +612,9 @@ async function main() {
     console.log(`  文件被删 OK：界面落进 ${shown}`);
 
     /* 队列面板（P0-10/12/16）：失败曲目要标出来，清空要两步确认 */
+    // 队列钮是图标钮，名字在 aria-label —— textContent 只剩 SVG（与睡眠钮同坑）
     await app4.evaluate(
-      `[...document.querySelectorAll(".tools button")].find((b) => b.textContent === "队列")?.click()`,
+      `document.querySelector('.tools button[aria-label="播放队列"]')?.click()`,
     );
     const qpOpen = await app4.waitFor(`!!document.querySelector(".qp-row")`, 3000);
     assert.ok(qpOpen, "队列面板打不开（P0-10）");
