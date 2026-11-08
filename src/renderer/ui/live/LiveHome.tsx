@@ -299,12 +299,8 @@ export function LiveHome({
                     onClick={() => play(track)}
                     aria-label={`播放 ${pad2(i + tapeStart + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                   >
-                    <span className="cs-tape-no">{pad2(i + tapeStart + 1)}</span>
-                    <span className="cs-tape-rule" aria-hidden="true" />
-                    <span className="cs-tape-title daily-title">{track.title}</span>
-                    <span className="cs-tape-artist">{track.artist}</span>
-                    {/* 专辑封面：img 直接当格子中段（flex item 自身弹性，无嵌套拉伸）。
-                        无封面或加载失败换小黑胶垫底，按 coverUrl 记失败。 */}
+                    {/* 专辑封面：方形整幅在卡顶（现代专辑卡），img 直接做 flex item。
+                        无封面或加载失败换黑胶垫底，按 coverUrl 记失败。 */}
                     {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
                       <img
                         className="cs-tape-art"
@@ -318,6 +314,9 @@ export function LiveHome({
                     ) : (
                       <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
                     )}
+                    <span className="cs-tape-no">{pad2(i + tapeStart + 1)}</span>
+                    <span className="cs-tape-title daily-title">{track.title}</span>
+                    <span className="cs-tape-artist">{track.artist}</span>
                     <span className="cs-tape-foot">
                       <span className="cs-tape-dur">{fmtDuration(track.durationMs)}</span>
                       <i className="cs-tape-play" aria-hidden="true" />

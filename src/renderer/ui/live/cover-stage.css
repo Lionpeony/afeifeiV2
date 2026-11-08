@@ -17,7 +17,9 @@
   background: var(--live-bg);
 }
 
-/* —— 左：「正在播放」大图卡 —— */
+/* —— 左：「正在播放」开放舞台 ——
+   不再是卡片盒：封面悬浮 + 超大歌名直接压在页面上，背后一层封面色晕（场景层）。
+   去掉盒子的边界后，「氛围舞台」和右侧「内容列表」形成两种空间——这是这一页的身份。 */
 .cs-stage {
   position: relative;
   min-width: 0;
@@ -25,17 +27,14 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  border-radius: 16px;
-  /* 场景层：卡底带封面色温——紫封面 → 淡紫卡（浅色档）/ 深紫卡（深色档）。
-     tint 失败时 transparent → 纯面板兜底，取色永不影响可读性（M9-2 管线 L 已夹取） */
-  background-color: var(--live-panel);
-  background-image:
-    radial-gradient(120% 90% at 18% 0%, color-mix(in oklch, var(--cs-tint) 28%, transparent), transparent 60%),
-    linear-gradient(168deg, color-mix(in oklch, var(--cs-tint) 16%, var(--live-panel)), var(--live-panel) 78%);
-  box-shadow:
-    0 18px 44px -20px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 7%, transparent);
+  padding: 2px 4px 0;
+  /* 场景层色晕：封面正后方一团封面色温，向下渐隐进纸面——
+     tint 失败时 transparent → 纯页面底，取色永不影响可读性（M9-2 管线 L 已夹取） */
+  background: radial-gradient(
+    110% 62% at 34% 6%,
+    color-mix(in oklch, var(--cs-tint) 34%, transparent),
+    transparent 64%
+  );
 }
 
 /* 封面 = flex item 弹性占满上部（文档流，信息区永不会越出卡片）。
@@ -46,15 +45,18 @@
   min-height: 0;
   width: 100%;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 18px;
+  /* 细描边贴内缘：暗封面在深色底上不失边界（阴影在深底不可见，线可以） */
+  outline: 1px solid color-mix(in srgb, var(--live-fg) 16%, transparent);
+  outline-offset: -1px;
   box-shadow:
-    0 24px 60px -22px rgba(0, 0, 0, 0.65),
-    0 4px 14px -6px rgba(0, 0, 0, 0.5);
+    0 30px 70px -24px rgba(0, 0, 0, 0.6),
+    0 6px 18px -8px rgba(0, 0, 0, 0.42);
 }
 
 .cs-copy {
   flex: none;
-  margin: 16px 2px 0;
+  margin: 18px 4px 6px;
 }
 
 .cs-kicker {
@@ -101,11 +103,12 @@
   text-align: left;
   cursor: pointer;
   font-family: var(--font-sans);
-  font-size: clamp(28px, 3.4vw, 40px);
+  /* 超大歌名：这一页最大的排印——直接压在色晕上，不进卡片盒 */
+  font-size: clamp(40px, 4.6vw, 62px);
   font-weight: 700;
   white-space: normal;
-  line-height: 1.18;
-  letter-spacing: 0.01em;
+  line-height: 1.06;
+  letter-spacing: 0.005em;
   color: var(--live-fg);
   overflow-wrap: anywhere;
 }
@@ -124,10 +127,10 @@
 
 .cs-artist b {
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--live-fg) 92%, transparent);
+  color: var(--live-amber);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -345,7 +348,8 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -360,11 +364,12 @@
 
 .cs-tapes li {
   display: flex;
-  flex: 1 0 92px;
-  min-width: 92px;
+  flex: 1 0 104px;
+  min-width: 104px;
 }
 
-/* 封面卡：无边框圆角卡片，hover 抬升；在播格用琥珀底光标记 */
+/* 专辑卡：方形封面整幅在顶（全出血，卡圆角即封面圆角），信息压在面板底上。
+   无边框 + 阴影浮起，hover 再抬——现代专辑网格语言，竖长条裁切的老问题随结构消失。 */
 .cs-tape {
   position: relative;
   flex: 1;
@@ -372,33 +377,34 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 12px 12px 10px;
-  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
-  border-radius: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
   text-align: left;
-  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
+  background: var(--live-panel);
   color: inherit;
   cursor: pointer;
-  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.38);
+  transition: box-shadow 140ms ease, transform 140ms ease;
 }
 
 .cs-tape:hover {
-  background: color-mix(in srgb, var(--live-fg) 8%, transparent);
-  box-shadow: 0 10px 26px -14px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 34px -14px rgba(0, 0, 0, 0.5);
   transform: translateY(-2px);
 }
 
-/* 正在播出那一档：琥珀底光 + 收窄的琥珀顶线 */
+/* 正在播出那一档：琥珀描边整卡圈住（封面贴边，顶线压不住图），编号同步变琥珀 */
 .cs-tape.is-live {
-  background: color-mix(in srgb, var(--live-amber) 12%, color-mix(in srgb, var(--live-fg) 5%, transparent));
-  box-shadow: inset 0 2px 0 var(--live-amber);
+  outline: 2px solid var(--live-amber);
+  outline-offset: -2px;
 }
 
 .cs-tape-no {
+  margin: 10px 12px 0;
   font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--live-fg-faint);
   font-variant-numeric: tabular-nums;
 }
@@ -407,18 +413,15 @@
   color: var(--live-amber);
 }
 
-.cs-tape-rule {
-  display: none;
-}
-
 .shell.live .cs-tape-title {
   min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.6em;
-  margin-top: 4px;
+  min-height: 2.4em;
+  margin-top: 3px;
+  padding: 0 12px;
   white-space: normal;
   font-family: var(--font-sans);
   font-size: 13.5px;
@@ -432,6 +435,7 @@
 .cs-tape-artist {
   min-width: 0;
   margin-top: 2px;
+  padding: 0 12px;
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
@@ -441,17 +445,17 @@
   text-overflow: ellipsis;
 }
 
-/* 格子中段 = 专辑封面：img 直接做 flex item（自身弹性，object-fit 裁切），
-   无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素，不靠叠层渐变）。 */
+/* 卡顶 = 专辑封面：方形整幅（aspect-ratio 定高，不再被格子拉成竖条），
+   img 直接做 flex item；无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素）。 */
 .cs-tape-art {
-  flex: 1;
-  min-height: 44px;
-  margin: 10px 0 8px;
-  border-radius: 8px;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 0;
+  border-radius: 0;
   /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
   background: var(--live-slot);
   overflow: hidden;
-  box-shadow: 0 3px 10px -4px rgba(0, 0, 0, 0.4);
 }
 
 img.cs-tape-art {
@@ -463,9 +467,9 @@ img.cs-tape-art {
   object-fit: cover;
 }
 
-/* 垫底黑胶：closest-side 定半径，色标全用百分比，四主题 token 上色 */
+/* 垫底黑胶：closest-side 定半径，色标全用百分比，四主题 token 上色（居中一方块黑胶） */
 .cs-tape-vinyl {
-  margin: 12% 16%;
+  margin: 14%;
   background:
     radial-gradient(circle closest-side, var(--live-slot) 0 6%, transparent 7%),
     radial-gradient(circle closest-side, var(--live-amber) 0 26%, transparent 27%),
@@ -479,6 +483,8 @@ img.cs-tape-art {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  margin-top: 7px;
+  padding: 0 12px 11px;
 }
 
 .cs-tape-dur {
@@ -751,11 +757,6 @@ img.cs-tape-art {
 
   .cs-play {
     height: 32px;
-  }
-
-  .cs-tape-art {
-    min-height: 24px;
-    margin: 7px 0 6px;
   }
 
   .cs-signal {
