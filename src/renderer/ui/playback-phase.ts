@@ -17,6 +17,12 @@ export type PlaybackPhase =
   | "ended"
   | "error";
 
+/** `ms → m:ss`。控制台与进度条泡共用一份（两处各写一遍迟早一个舍一个入）。 */
+export function fmt(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
 export function phaseOf(status: PlayerStatus, buffering: boolean): PlaybackPhase {
   if (status === "playing") return buffering ? "buffering" : "playing";
   return status;
