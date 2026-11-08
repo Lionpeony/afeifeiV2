@@ -91,13 +91,21 @@
   box-shadow: 0 0 8px color-mix(in srgb, var(--live-amber) 70%, transparent);
 }
 
+/* 序号跟状态词串成一行（左对齐短行，不甩到右端）：
+   左栏所有行共用一条左轴 —— kicker / 标题 / 艺人 / note 宽度都由内容决定 */
 .cs-idx {
-  margin-left: auto;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
   color: var(--live-fg-faint);
   font-variant-numeric: tabular-nums;
+}
+
+/* 间隔点：与状态词之间 8px（kicker 的 gap），与序号之间 8px（自身 margin） */
+.cs-idx::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--live-fg-faint);
 }
 
 .shell.live .cs-title {
@@ -151,6 +159,13 @@
   font-size: 13px;
   color: var(--live-fg-faint);
   font-variant-numeric: tabular-nums;
+}
+
+/* 艺人与时长的间隔点：与 kicker 的「·」同一套分隔语言（左 10px 是 cs-artist 的 gap） */
+.cs-dur::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--live-fg-faint);
 }
 
 .cs-note {

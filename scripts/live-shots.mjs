@@ -559,6 +559,21 @@ app.whenReady().then(async () => {
     }
     console.log(`右栏分诊：${JSON.stringify(state0)}`);
 
+    /* 左轴线判据：序号必须坐在状态词旁边（左轴短行）——谁把 .cs-idx 的
+       margin-left:auto 加回去，序号就贴到 copy 右缘、中间空一大截，这条就红
+       （2026-11-09 左下角轴线轮）。量序号左缘在 copy 内的偏移，阈值 50%。 */
+    const axis = await evalJs(`(() => {
+      const idx = document.querySelector(".cs-idx")?.getBoundingClientRect();
+      const copy = document.querySelector(".cs-copy")?.getBoundingClientRect();
+      if (!idx || !copy) return { idxLeft: -1, copyW: 0 };
+      return { idxLeft: Math.round(idx.left - copy.left), copyW: Math.round(copy.width) };
+    })()`);
+    if (axis.idxLeft < 0) throw new Error("cs-idx 读不到（白屏或结构丢了）");
+    if (axis.idxLeft > axis.copyW * 0.5) {
+      throw new Error(`左轴线破了：序号在 copy 内偏移 ${axis.idxLeft}px / 宽 ${axis.copyW}px——又甩回右端了`);
+    }
+    console.log(`左轴线：序号偏移 ${axis.idxLeft}px / copy ${axis.copyW}px（贴状态词 < 50%）`);
+
     /* 播出带等宽等高网格：宽差/高差 ≤ 2px。长标题撑宽（min-content）或撑高
        （line-clamp 失效折三行）都是网格破功（2026-11-08 用户两张圈图）。 */
     const tapeGrid = await evalJs(`(() => {
