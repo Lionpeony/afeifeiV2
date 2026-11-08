@@ -618,9 +618,11 @@ html::after {
   border: 1px solid var(--line);
 }
 
-/* 搜索骨架行（QQ 上游实测 20–45s）：纸面风格 = 虚线行 + 灰条，不闪不跳 */
+/* 搜索骨架行（QQ 上游实测 20–45s）：纸面风格 = 虚线行 + 灰条 + 流光。
+   骨架出现本身也淡入（150ms），别瞬间摆出一片灰条。 */
 .online-skel {
   padding: 2px 0;
+  animation: list-in 150ms ease-out both;
 }
 .online-skel .sk-row {
   display: flex;
@@ -630,10 +632,28 @@ html::after {
   padding: 0 4px;
   border-bottom: 1px dotted var(--line-soft);
 }
+/* 灰条 + 流光扫过（shimmer）：加载中唯一的「活着」的信号——纯灰条 + 微弱呼吸
+   看起来像卡死（用户 2026-11-09 三张骨架截图都停在加载中）。高光走伪元素
+   translateX（合成层，不 paint 不 layout），行间 0.15s 级联错开。 */
 .online-skel .sk-bar {
+  position: relative;
   height: 10px;
   background: var(--line-soft);
-  animation: sk-pulse 1.4s ease-in-out calc(var(--i) * 0.12s) infinite;
+  overflow: hidden;
+}
+.online-skel .sk-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--fg) 9%, transparent) 42%,
+    color-mix(in srgb, var(--fg) 16%, transparent) 55%,
+    transparent 100%
+  );
+  animation: sk-shimmer 1.8s ease-in-out calc(var(--i) * 0.15s) infinite;
 }
 .online-skel .sk-bar.t {
   flex: 0 1 220px;
@@ -645,13 +665,10 @@ html::after {
   flex: 0 0 40px;
   margin-left: auto;
 }
-@keyframes sk-pulse {
-  0%,
+@keyframes sk-shimmer {
+  60%,
   100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 1;
+    transform: translateX(100%);
   }
 }
 /* 骨架 → 内容的入场过渡（2026-11-09 用户点单「硬生生加载出来很影响使用感受」）：
@@ -674,14 +691,19 @@ html::after {
 .pl-item {
   animation: list-in 200ms ease-out both;
 }
-/* 骨架屏是装饰性循环动画：系统要求减弱动效时停在半亮，不闪；内容入场同此，reduce 下直接出现 */
+/* 骨架屏流光是装饰性循环动画：系统要求减弱动效时收掉高光（灰条半亮即静态占位）；
+   内容入场同此，reduce 下直接出现 */
 @media (prefers-reduced-motion: reduce) {
-  .online-skel .sk-bar,
+  .online-skel,
+  .online-skel .sk-bar::after,
   .online-thead,
   .online-row,
   .chart-hero-cell,
   .pl-item {
     animation: none;
+  }
+  .online-skel .sk-bar::after {
+    display: none;
   }
   .online-skel .sk-bar {
     opacity: 0.7;
