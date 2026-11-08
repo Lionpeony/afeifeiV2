@@ -18,25 +18,13 @@ import { StatsView } from "./views/stats/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
-import { clearLyric, loadLyric, setManualLyric, setUserOffset } from "./lyric-source.js";
+import { setManualLyric } from "./lyric-source.js";
 import { lyricBindKey } from "../domain/lyrics/bindings.js";
-import { isLiked, subscribe as subscribeLikes, toggleLike } from "../domain/likes/index.js";
-import {
-  beginAccount,
-  getAccountLikes,
-  isAccountLiked,
-  pressAccountLike,
-  readLiked,
-  shouldRefreshOnFocus,
-  subscribe as subscribeAccountLikes,
-  type AccountLikesPort,
-} from "../domain/account-likes/index.js";
-import { SEEK_STEP_MS } from "./input/keymap.js";
-import { browserNetEnv, createNetStatus } from "./net-status.js";
+import { isLiked } from "../domain/likes/index.js";
+import { beginAccount, isAccountLiked } from "../domain/account-likes/index.js";
 import { phaseLabel, phaseOf } from "./playback-phase.js";
 import { FindLyric } from "./FindLyric.js";
-import { registerCommand, runCommand } from "./input/commands.js";
-import { commandIdFor } from "./input/media.js";
+import { registerCommand } from "./input/commands.js";
 import { currentTheme, type Theme } from "./theme.js";
 import { getActiveSource, setActiveSource, subscribeActiveSource } from "./active-source.js";
 import { AccountMenu, type AccountProfile } from "./live/AccountMenu.js";
@@ -53,8 +41,6 @@ import { accountKey } from "./account-data.js";
 
 
 /** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。 */
-type AccountKind = "daily" | "liked" | "week" | "fm";
-
 const accountHint = (kind: AccountKind, sourceName: string): string => {
   switch (kind) {
     case "daily":
@@ -81,12 +67,15 @@ import { LibraryView } from "./views/library/index.js";
 import { OnlineView, type SourceOption } from "./views/online/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
 import { PAGE_LABEL, type PageId } from "./pages.js";
-import { createMediaSession, type MediaSessionController } from "./media-session.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
 import { QueuePanel } from "./QueuePanel.js";
 import { pushPanel } from "./input/panels.js";
 import { errorText } from "../capability/errors.js";
-import { createShortcuts, type ShortcutStatus, type ShortcutsController } from "./shortcuts.js";
+import { useMediaSession } from "./hooks/use-media-session.js";
+import { usePlaybackChannels } from "./hooks/use-playback-channels.js";
+import { useLyricSync } from "./hooks/use-lyric-sync.js";
+import { useAccountLikes, type AccountKind } from "./hooks/use-account-likes.js";
+import type { ShortcutStatus } from "./shortcuts.js";
 import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -167,7 +156,6 @@ function App() {
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [lyricFiltersText, setLyricFiltersText] = useState("");
   const [globalTokenCount, setGlobalTokenCount] = useState(0);
-  const [npCover, setNpCover] = useState<string | null>(null);
   const services = useRef<Services | null>(null);
   /*
    * 装配完成的信号。首页在首帧就挂载，早于 bootstrap 完成；
@@ -359,8 +347,17 @@ function App() {
   /* 最新状态镜像：媒体会话的 handler 闭包里要读当前值，不能吃渲染那一刻的旧快照 */
   const stateRef = useRef(state);
   stateRef.current = state;
-  const npCoverRef = useRef<string | null>(null);
-  npCoverRef.current = npCover;
+
+  /* 媒体会话 + console 封面（原先 60 行散在两处，见 hooks/use-media-session.ts） */
+  const npCover = useMediaSession({
+    stateRef,
+    services,
+    baseName,
+    trackId,
+    trackTitle,
+    status,
+    remote,
+  });
 
   /**
    * 睡眠定时（A-23）：只在截止时刻挂一个 setTimeout 触发 `sleep/expire`。
@@ -372,84 +369,6 @@ function App() {
     const id = setTimeout(() => dispatch({ type: "sleep/expire" }), Math.max(0, sleepEndsAt - Date.now()));
     return () => clearTimeout(id);
   }, [sleepEndsAt]);
-
-  /* console 的 56px 封面：本地曲目走文件封面，在线曲目用音源给的封面地址。 */
-  useEffect(() => {
-    let alive = true;
-    const svc = services.current;
-    if (!svc || !trackId) {
-      setNpCover(null);
-      return;
-    }
-    void svc
-      .cover(trackId, remote?.coverUrl ?? trackId)
-      .then((url) => {
-        if (alive) setNpCover(url);
-      })
-      .catch(() => {
-        if (alive) setNpCover(null);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [trackId, remote?.coverUrl]);
-
-  /*
-   * 系统媒体会话（Windows SMTC / 系统媒体面板 + 媒体键）：抄 lx-music-desktop 的
-   * useMediaSessionInfo.ts（结构语义 1:1，含静音保活与 9 个 action handler）。
-   * 位置每秒同步一次；曲目 / 播放态 / 封面变化立刻同步。
-   */
-  const mediaSessionRef = useRef<MediaSessionController | null>(null);
-  useEffect(() => {
-    const ctrl = createMediaSession({
-      read: () => {
-        const st = stateRef.current;
-        const id = st.player.trackId;
-        if (!id) return null;
-        const track = trackById(id);
-        return {
-          title: st.player.trackTitle ?? baseName(id),
-          artist: track?.artist ?? "",
-          album: track?.album ?? "",
-          artwork: st.player.remote?.coverUrl ?? npCoverRef.current,
-          playbackState: st.player.status === "playing" ? "playing" : "paused",
-          positionMs: services.current?.positionMs() ?? 0,
-          durationMs: services.current?.engine.durationMs() ?? 0,
-        };
-      },
-      toggle: () => dispatch({ type: "player/toggle" }),
-      next: () => dispatch({ type: "queue/next" }),
-      prev: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
-      seek: (positionMs) => dispatch({ type: "player/seek", positionMs }),
-      seekBy: (deltaMs) =>
-        dispatch({
-          type: "player/seek",
-          positionMs: Math.max(0, (services.current?.positionMs() ?? 0) + deltaMs),
-        }),
-    });
-    mediaSessionRef.current = ctrl;
-    // 上报能力：主进程据此决定媒体键归 Chromium 的 MediaSession（Windows SMTC）还是 globalShortcut 兜底
-    window.api.setMediaSessionSupported(ctrl.supported);
-    return () => {
-      ctrl.dispose();
-      mediaSessionRef.current = null;
-    };
-  }, []);
-
-  /* 曲目 / 播放态 / 封面变化 → 立刻同步系统媒体会话 */
-  useEffect(() => {
-    mediaSessionRef.current?.update();
-  }, [trackId, trackTitle, status, npCover, remote?.coverUrl]);
-
-  /* 位置推进：每 500ms 同步一次 positionState（系统面板的进度条）。不跟帧走 —— 那是白烧。 */
-  useEffect(() => {
-    let last = 0;
-    return onFrame((now) => {
-      if (now - last < 500) return;
-      last = now;
-      mediaSessionRef.current?.update();
-    });
-  }, []);
 
   const onPlay = (index: number): void => {
     const rows = getFiltered();
@@ -611,136 +530,26 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ---- 媒体键 / 托盘命令（A-24）：走命令注册表，不另写一套播放语义 ---- */
-  useEffect(() => {
-    window.api.onPlaybackCommand((cmd) => {
-      const id = commandIdFor(cmd);
-      if (id) runCommand(id);
-    });
-  }, []);
-
-  /*
-   * 全局快捷键（A-24 可配置那半）：读档 → 注册到主进程 → 按键回来执行动作。
-   * 动作语义仍走命令注册表（播放语义只有一份）。
-   */
-  /**
-   * seek（窗口内 `←/→` 与全局 `Ctrl+Alt+←/→` 共用一份）：两端都夹住整曲范围。
-   * 两处各写一份的话，"往前到底"和"往后越界"迟早会不一致。
-   */
-  /* 离线态（P0-25）：事件驱动 + 300ms 去抖（切换 Wi-Fi 会瞬断瞬连，别闪屏） */
-  useEffect(() => {
-    const net = createNetStatus(browserNetEnv());
-    const off = net.subscribe((s) => setOffline(s === "offline"));
-    const stop = net.start();
-    return () => {
-      off();
-      stop();
-    };
-  }, []);
-
-  const seekByDelta = (deltaMs: number): void => {
-    const svc = services.current;
-    if (!svc) return;
-    const dur = svc.engine.durationMs();
-    const target = svc.positionMs() + deltaMs;
-    const next = Math.max(0, dur > 0 ? Math.min(dur, target) : target);
-    dispatch({ type: "player/seek", positionMs: next });
-  };
-
-  const shortcutsRef = useRef<ShortcutsController | null>(null);
+  /* 媒体键 / 托盘 / 离线态 / 全局快捷键：语义走命令注册表（hooks/use-playback-channels.ts）。
+     绑定与状态这两份留在 App：设置页的快捷键面板直接读值，hook 负责填它们。 */
   const [shortcutStatus, setShortcutStatus] = useState<ShortcutStatus[]>([]);
   const [shortcutBindings, setShortcutBindings] = useState<ShortcutBinding[]>(
     DEFAULT_BINDINGS.map((b) => ({ ...b })),
   );
-  useEffect(() => {
-    const ctrl = createShortcuts(
-      {
-        readStore: (key) => window.api.readStore(key),
-        writeStore: (key, json) => window.api.writeStore(key, json),
-        setGlobalShortcuts: (bindings) => window.api.setGlobalShortcuts(bindings),
-        onGlobalShortcut: (cb) => window.api.onGlobalShortcut(cb),
-        onGlobalShortcutStatus: (cb) => window.api.onGlobalShortcutStatus(cb),
-      },
-      (action) => {
-        // 能落到命令注册表的都走命令（播放语义只有一份）
-        const id = commandIdFor(action);
-        if (id) {
-          runCommand(id);
-          return;
-        }
-        if (action === "seek-forward") {
-          seekByDelta(SEEK_STEP_MS);
-          return;
-        }
-        if (action === "seek-back") {
-          seekByDelta(-SEEK_STEP_MS);
-          return;
-        }
-        if (action === "volume-up" || action === "volume-down") {
-          const cur = getState().player;
-          const delta = action === "volume-up" ? 0.05 : -0.05;
-          dispatch({ type: "player/setVolume", volume: cur.volume + delta });
-        }
-      },
-    );
-    shortcutsRef.current = ctrl;
-    const off = ctrl.onStatus(setShortcutStatus);
-    void ctrl.init().then((b) => setShortcutBindings(b));
-    return () => {
-      off();
-      shortcutsRef.current = null;
-    };
-  }, []);
+  const { shortcutsRef, seekByDelta } = usePlaybackChannels({
+    services,
+    baseName,
+    playing,
+    trackId,
+    trackTitle,
+    setOffline,
+    setShortcutStatus,
+    setShortcutBindings,
+  });
 
-  /**
-   * 托盘（A-25）：把「在播什么 + 是否在播」推给主进程。
-   * 用最后发送值去重 —— 音量/进度每次变化都会触发订阅，但托盘只关心这两项。
-   */
-  const traySent = useRef("");
-  useEffect(() => {
-    const title = trackId ? (trackTitle ?? baseName(trackId)) : null;
-    const key = `${playing ? "1" : "0"}|${title ?? ""}`;
-    if (key === traySent.current) return;
-    traySent.current = key;
-    window.api.pushTrayState({ playing, title });
-  }, [playing, trackId, trackTitle]);
-
-  /**
-   * 歌词（A-02）：切歌时由外壳统一取，播放页只订阅。
-   * 桌面歌词窗的判据是"与主窗同步"，不该以"用户点开过播放页"为前提——
-   * 之前 doc 由 StageView 写入，没进播放页就一直是空的。
-   */
-  const lyricKey = remote ? `${remote.sourceId}:${remote.songId}` : `local:${trackId ?? ""}`;
-  useEffect(() => {
-    if (remote) {
-      void loadLyric(remote.sourceId, remote.songId, (sourceId, songId) => {
-        const svc = services.current;
-        return svc ? svc.lyric(sourceId, songId) : Promise.reject(new Error("还没准备好，请稍后再试"));
-      });
-      return;
-    }
-    if (!trackId) {
-      clearLyric("");
-      return;
-    }
-    // 本地曲目（P0-20）：同名 .lrc → 内嵌标签 → LRCLIB，都没有就是「纯音乐」。
-    // 取词与缓存都在 bootstrap 的 services 里，这里只挑曲目。
-    const track = trackById(trackId);
-    void loadLyric("local", trackId, () => {
-      const svc = services.current;
-      return svc ? svc.localLyric(track) : Promise.reject(new Error("还没准备好，请稍后再试"));
-    });
-  }, [lyricKey]);
-
-  /**
-   * 歌词校准（P0-18）：把这**这一首**的偏移推给 lyric-source。
-   * 放在取词 effect 之后：切歌时 loadLyric 先发起（异步），这里同步把偏移换掉，
-   * 等词回来时用的就是新偏移。改同一首的校准则立刻重排。
-   */
+  /* 歌词取词 + 校准推送（hooks/use-lyric-sync.ts） */
   const lyricOffset = state.lyrics.offsets[trackId ?? ""] ?? 0;
-  useEffect(() => {
-    setUserOffset(lyricOffset);
-  }, [lyricOffset, lyricKey]);
+  useLyricSync({ remote, trackId, lyricOffset, services });
 
   /**
    * 窗控三键（titleBarOverlay）跟着**可见页面**走，不是跟着全局主题走。
@@ -909,126 +718,12 @@ function App() {
     });
   };
 
-  /**
-   * 取消账号红心。照 folia `handleLike` 的三条：提示先答、失败说一次、失败要把状态放回去。
-   * 这里是 `throw` 给 AccountBlock 的：它负责让行回到可用状态（reject = 没成功）。
-   */
-  /** 当前登录的账号源；底栏红心与 focus 重读都靠它 */
-  const accountSource = useRef("");
-  /*
-   * 两套红心任一变化就重渲染：底栏那颗心读的是 isAccountLiked() / isLiked()，
-   * 都不是本地 state —— 不订阅就等于点了不亮（smoke 的「底栏红心」这条抓到过）。
-   */
-  const [, setLikeRev] = useState(0);
-  useEffect(() => subscribeAccountLikes(() => setLikeRev((r) => r + 1)), []);
-  useEffect(() => subscribeLikes(() => setLikeRev((r) => r + 1)), []);
-
-  /** 域不持有 port：每次现取。账号换了也不会把请求发到旧账号上。 */
-  const portOf = (sourceId: string): AccountLikesPort => {
-    const svc = services.current;
-    if (!svc) throw new Error("服务还没准备好");
-    return {
-      likedIds: () => svc.accountLikedIds(sourceId),
-      likedTotal: () => svc.accountLikedTotal(sourceId),
-      setLiked: (songId, liked) => svc.accountSetLiked(sourceId, songId, liked),
-    };
-  };
-
-  const unlikeAccount = async (sourceId: string, songId: string): Promise<void> => {
-    try {
-      await pressAccountLike(portOf(sourceId), songId, false);
-      invalidatePrefix(accountKey(sourceId, "liked"));
-      setNotice({ text: "已从账号红心移除" });
-    } catch (err) {
-      setNotice({ text: err instanceof Error ? err.message : "取消红心失败，已恢复" });
-      throw err;
-    }
-  };
-
-  /** 底栏那颗心：在线曲目走账号红心，本地曲目走本机红心——两套 id，A 方案的延伸。 */
-  const toggleCurrentLike = (): void => {
-    const p = getState().player;
-    if (!p.trackId) return;
-    if (!p.remote) {
-      toggleLike(p.trackId);
-      return;
-    }
-    const songId = p.remote.songId;
-    void (async () => {
-      let id = accountSource.current;
-      if (!id) {
-        // 启动那一刻 services 可能还没就绪、或者用户没进过账号页：点的时候再找一次
-        const found = await resolveAccountSource();
-        if (found.id) {
-          ensureAccount(found.id);
-          id = found.id;
-        }
-      }
-      if (!id) {
-        const resolved = await resolveAccountSource();
-        setNotice({ text: resolved.hint("liked") ?? "登录后才能红心在线曲目" });
-        return;
-      }
-      const wanted = !isAccountLiked(songId);
-      try {
-        await pressAccountLike(portOf(id), songId, wanted);
-        invalidatePrefix(accountKey(id, "liked"));
-        setNotice({ text: wanted ? "已加入账号红心" : "已从账号红心移除" });
-      } catch (err) {
-        setNotice({ text: err instanceof Error ? err.message : "红心没改成" });
-      }
-    })();
-  };
-  // 快捷键注册在依赖 [page] 的 effect 里，闭包会吃到旧值；用 ref 拿最新的这一份
-  const likeActionRef = useRef(toggleCurrentLike);
-  likeActionRef.current = toggleCurrentLike;
-
-  /** 绑定当前账号并读一次红心。重复调用同一个账号是空操作。 */
-  const ensureAccount = (id: string): void => {
-    if (accountSource.current === id) return;
-    accountSource.current = id;
-    beginAccount(id);
-    void readLiked(portOf(id)).catch(() => undefined);
-  };
-
-  /*
-   * 切音源 = 切账号：当前源没有账号能力（或没登录）就先清绑，
-   * 绝不把上一个账号的红心挂在新音源的界面上；有账号且已登录则重新绑定并读一次。
-   */
-  useEffect(
-    () =>
-      subscribeActiveSource(() => {
-        void (async () => {
-          const svc = services.current;
-          if (!svc) return;
-          const src = svc.sources().find((s) => s.id === getActiveSource());
-          const clear = (): void => {
-            if (!accountSource.current) return;
-            accountSource.current = "";
-            beginAccount("");
-          };
-          if (!src?.canAccount) return clear();
-          const st = await svc.loginStatus(src.id).catch(() => ({ loggedIn: false, nick: null }));
-          if (st.loggedIn) ensureAccount(src.id);
-          else clear();
-        })();
-      }),
-    [],
-  );
-
-  /*
-   * 窗口重新获得焦点：在网易云 App 里改过红心，切回来要跟上。
-   * folia 的 readMoments.ts 做的是同一件事（它更细：按时间窗+歌单计数决定要不要读）。
-   */
-  useEffect(() => {
-    const onFocus = (): void => {
-      const id = accountSource.current;
-      if (!id || !shouldRefreshOnFocus()) return;
-      void readLiked(portOf(id)).catch(() => undefined);
-    };
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
+  /* 账号红心（底栏 + 喜欢页取消红心 + 绑定生命周期）：hooks/use-account-likes.ts */
+  const { accountSource, ensureAccount, unlikeAccount, toggleCurrentLike, likeActionRef } = useAccountLikes({
+    services,
+    notify: setNotice,
+    resolveAccountSource,
+  });
 
   /* ---- 外壳切换：直播带 ⇄ 旧标签页 ---- */
   useEffect(() => {
