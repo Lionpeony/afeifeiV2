@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RemoteTrack } from "../../../contracts/capability.js";
 import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
@@ -6,6 +6,7 @@ import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
 import { issueOf, nightOfYear } from "./night.js";
 import { splitLatinRuns } from "./typography.js";
+import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
 
 export { onAirProgram };
@@ -27,10 +28,8 @@ const pad2 = (n: number): string => String(n).padStart(2, "0");
 /** 仅本次运行第一次进入首页时放一次入场；切页回来不重播。 */
 let homeVisited = false;
 
-const VU = [
-  22, 38, 54, 31, 63, 45, 72, 36, 58, 27, 49, 66, 33, 57, 41, 70, 46, 29, 61, 44,
-  76, 39, 55, 24, 67, 48, 34, 59, 42, 73, 37, 52, 26, 64, 47, 69, 35, 56, 43, 71,
-];
+/** 信号条柱数：与控制台/舞台同源（engine.spectrum 聚合桶），写死就是假仪器。 */
+const VU_BARS = 40;
 
 function MixedTitle({ text }: { text: string }) {
   return (
@@ -53,6 +52,7 @@ export function LiveHome({
   playing,
   onToggle,
   onAir,
+  spectrum,
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
@@ -66,9 +66,26 @@ export function LiveHome({
   onToggle(): void;
   /** 全局正在播的远程节目（onAirProgram 投影）。null = 没在播远程歌 */
   onAir: OnAirProgram | null;
+  /** 真实频谱采样（engine.spectrum）。null = 音频图未建，信号条贴底待机。 */
+  spectrum(bins: number): number[] | null;
 }) {
   const state = useAccountBundle(account, "daily");
   const [showAll, setShowAll] = useState(false);
+  const [failedCovers, setFailedCovers] = useState<ReadonlySet<string>>(new Set());
+  const vuRefs = useRef<Array<HTMLSpanElement | null>>([]);
+
+  /*
+   * 信号条：每帧从引擎取真频谱写 scaleY（composite-only，不走 React 渲染）。
+   * 没在播时 analyser 数据衰减为 0，条子自然贴底——空态就是仪器的待机态，不造假波形。
+   */
+  useEffect(() => onTick(() => {
+    const values = spectrum(VU_BARS);
+    for (let i = 0; i < vuRefs.current.length; i++) {
+      const el = vuRefs.current[i];
+      if (el) el.style.transform = `scaleY(${(values?.[i] ?? 0.02).toFixed(3)})`;
+    }
+  }), [spectrum]);
+
   const today = new Date();
   const month = today.getMonth() + 1;
   const day = today.getDate();
@@ -269,11 +286,21 @@ export function LiveHome({
                     <span className="cs-tape-rule" aria-hidden="true" />
                     <span className="cs-tape-title daily-title">{track.title}</span>
                     <span className="cs-tape-artist">{track.artist}</span>
-                    <span className="cs-tape-window" aria-hidden="true">
-                      <i />
-                      <i />
-                    </span>
-                    <span className="cs-tape-meter" aria-hidden="true" />
+                    {/* 专辑封面：img 直接当格子中段（flex item 自身弹性，无嵌套拉伸）。
+                        无封面或加载失败换小黑胶垫底，按 coverUrl 记失败。 */}
+                    {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
+                      <img
+                        className="cs-tape-art"
+                        src={track.coverUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        onError={() => setFailedCovers((s) => new Set(s).add(track.coverUrl as string))}
+                      />
+                    ) : (
+                      <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
+                    )}
                     <span className="cs-tape-foot">
                       <span className="cs-tape-dur">{fmtDuration(track.durationMs)}</span>
                       <i className="cs-tape-play" aria-hidden="true" />
@@ -290,8 +317,13 @@ export function LiveHome({
                 <span>88.1 MHz</span>
               </div>
               <div className="cs-vu">
-                {VU.map((h, i) => (
-                  <i key={i} style={{ height: `${h}%` }} />
+                {Array.from({ length: VU_BARS }, (_, i) => (
+                  <i
+                    key={i}
+                    ref={(el) => {
+                      vuRefs.current[i] = el;
+                    }}
+                  />
                 ))}
               </div>
               <div className="cs-sig-foot">

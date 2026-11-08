@@ -558,6 +558,31 @@ app.whenReady().then(async () => {
     for (const want of ["cs-swap-copy", "cs-swap-cover"]) {
       if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
     }
+
+    /* 播出带格子 = 真封面：img 直接做格子中段，fixture 至少 1 格加载成功且真的画出来了（宽>0）。 */
+    const covers = await evalJs(`(() => {
+      const arts = [...document.querySelectorAll(".cs-tape-art")];
+      const imgs = arts.filter((el) => el.tagName === "IMG");
+      const vinyl = arts.filter((el) => el.classList.contains("cs-tape-vinyl")).length;
+      const r = imgs[0]?.getBoundingClientRect();
+      return { total: arts.length, img: imgs.length, vinyl, ok: imgs.filter((i) => i.naturalWidth > 0).length, w: r?.width ?? 0, h: r?.height ?? 0 };
+    })()`);
+    console.log(`播出带封面：${JSON.stringify(covers)}`);
+    if (covers.ok < 1 || covers.w < 10) throw new Error(`播出带真封面没画出来：${JSON.stringify(covers)}`);
+    if (covers.vinyl > 0) throw new Error(`有封面数据却落到了黑胶垫底（${covers.vinyl} 格）——失败态误判`);
+
+    /* 信号条 = 真频谱：在播时柱子应该跳起来（几何量测：柱高/容器高），贴底就是死数据。 */
+    await sleep(400);
+    const vu = await evalJs(`(() => {
+      const bars = [...document.querySelectorAll(".cs-vu i")];
+      const box = document.querySelector(".cs-vu").getBoundingClientRect().height;
+      const ratio = Math.max(...bars.map((b) => b.getBoundingClientRect().height / box));
+      return { bars: bars.length, max: ratio.toFixed(3) };
+    })()`);
+    console.log(`信号条：${JSON.stringify(vu)}`);
+    if (vu.bars === 0) throw new Error("信号条一根柱子都没有");
+    if (Number(vu.max) < 0.05) throw new Error(`在播时信号条全贴底（${vu.max}）—— 还是死数据`);
+
     await shoot("live-home-playing.png");
 
     /* 同一份节目单里跳档：队列已就位时再点一格走的是光标跳转（不重建队列）——

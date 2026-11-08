@@ -487,62 +487,36 @@
   text-overflow: ellipsis;
 }
 
-.cs-tape-window {
+/* 格子中段 = 专辑封面：img 直接做 flex item（自身弹性，object-fit 裁切），
+   无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素，不靠叠层渐变）。 */
+.cs-tape-art {
   flex: 1;
-  min-height: 36px;
+  min-height: 44px;
   margin: 10px 0 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  position: relative;
   border: 1px solid color-mix(in srgb, var(--live-fg) 16%, transparent);
-  /* 凹槽用 panel-2（比 panel 深一档）：日间是浅灰槽、夜间是深黑槽，两档都是「比卡片更深」。
-     原来写死 --live-ink 66%，日间会变成一块中灰 —— 控制室换灯后这里就露馅了。 */
+  background: linear-gradient(180deg, var(--live-panel-2), color-mix(in srgb, var(--live-panel) 42%, transparent));
+  overflow: hidden;
+}
+
+img.cs-tape-art {
+  display: block;
+  /* 宽度显式 100%：img 的 intrinsic 尺寸 + 自动 aspect-ratio 会把交叉轴顶成 320px，
+     不钉住就溢出格子右缘被裁掉一半 */
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+}
+
+/* 垫底黑胶：closest-side 定半径，色标全用百分比，四主题 token 上色 */
+.cs-tape-vinyl {
+  border-radius: 50%;
+  margin: 14px 22px;
   background:
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--live-fg) 4.5%, transparent) 0 1px, transparent 1px 9px),
-    linear-gradient(180deg, var(--live-panel-2), color-mix(in srgb, var(--live-panel) 42%, transparent));
-}
-
-.cs-tape-window::before {
-  content: "";
-  position: absolute;
-  left: 7px;
-  right: 7px;
-  top: 50%;
-  height: 1px;
-  background: color-mix(in srgb, var(--live-fg) 12%, transparent);
-}
-
-.cs-tape-window i {
-  position: relative;
-  z-index: 1;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--live-signal) 50%, transparent);
-  /* 轴孔：凹槽再深一档。原来写 --live-ink 80%，浅底上是对的（深墨），
-     深绿底上就跟槽同色了 —— 四档统一用 --live-slot。 */
-  background: var(--live-slot);
-}
-
-.cs-tape-window i::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--live-signal) 62%, transparent);
-}
-
-.cs-tape-meter {
-  height: 7px;
-  margin: 0 0 7px;
-  background: repeating-linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--live-signal) 32%, transparent) 0 2px,
-    transparent 2px 5px
-  );
-  opacity: 0.55;
+    radial-gradient(circle closest-side, var(--live-slot) 0 6%, transparent 7%),
+    radial-gradient(circle closest-side, var(--live-amber) 0 26%, transparent 27%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--live-fg) 8%, var(--live-ink)) 0, var(--live-ink) 80%),
+    repeating-radial-gradient(circle, transparent 0 3px, color-mix(in srgb, var(--live-fg) 6%, transparent) 3px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 22%, transparent);
 }
 
 .cs-tape-foot {
@@ -606,10 +580,16 @@
   gap: 2px;
   height: 44px;
   margin: 6px 0 6px;
+  /* 静默基线：没在播时柱子贴底，这条线说明"仪器在，只是没信号" */
+  border-bottom: 1px solid color-mix(in srgb, var(--live-signal) 26%, transparent);
 }
 
+/* 柱高由 onTick 每帧写 transform（composite-only）；height 满格、scaleY 控视觉 */
 .cs-vu i {
   flex: 1;
+  height: 100%;
+  transform-origin: bottom;
+  transform: scaleY(0.02);
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--live-signal) 88%, transparent),
@@ -845,13 +825,9 @@
     height: 32px;
   }
 
-  .cs-tape-window {
+  .cs-tape-art {
     min-height: 24px;
     margin: 7px 0 6px;
-  }
-
-  .cs-tape-meter {
-    display: none;
   }
 
   .cs-signal {
@@ -888,7 +864,7 @@
   padding: 0;
   list-style: none;
   border: 1px solid var(--live-line-strong);
-  /* 同 .cs-tape-window：凹槽跟 panel-2，别用 ink（日间会糊成一块中灰） */
+  /* 凹槽底跟 .cs-tape-art：panel-2，别用 ink（日间会糊成一块中灰） */
   background: var(--live-panel-2);
   scrollbar-width: thin;
 }

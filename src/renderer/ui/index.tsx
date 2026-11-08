@@ -747,6 +747,7 @@ function App() {
           }}
           nowPlaying={state.player.remote ?? null}
           playing={playing}
+          spectrum={(bins) => services.current?.spectrum(bins) ?? null}
           onToggle={() => dispatch({ type: "player/toggle" })}
           onAir={onAirProgram(state.player.trackId, state.queue, (id) => sources.find((s) => s.id === id)?.name ?? id)}
         />
