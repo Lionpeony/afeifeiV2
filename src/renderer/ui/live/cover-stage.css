@@ -290,10 +290,12 @@
   flex: 1;
   min-height: 0;
   /* grid 而非 flex 均分：minmax(0,1fr) 轨道等宽是布局层的硬保证——
-     flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训） */
+     flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训）。
+     align-items start：卡高各自独立，行内互不拉伸（卡高恒定由 img 方形 + title 恒定保证） */
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+  align-items: start;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -308,6 +310,7 @@
 .cs-tape {
   position: relative;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -378,11 +381,14 @@
 }
 
 /* 卡顶 = 专辑封面：方形整幅（aspect-ratio 定高，不再被格子拉成竖条），
-   img 直接做 flex item；无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素）。 */
+   img 直接做 flex item；无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素）。
+   height auto 显式：图片按宽度走正方形高，任何机制都不许它另立高度。 */
 .cs-tape-art {
   flex: none;
   width: 100%;
-  aspect-ratio: 1;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
   min-height: 0;
   border-radius: 0;
   /* 细描边贴内缘：白/浅色封面在浅卡上不失边界 */
