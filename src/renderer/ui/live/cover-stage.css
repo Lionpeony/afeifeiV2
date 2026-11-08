@@ -356,13 +356,15 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.4em;
+  /* 高度恒定两行：一行标题时下方留白——卡高不随歌名长度跳（同封面恒定的逻辑）。
+     之前用 min-height 2.4em，两行标题比下限高 0.3em，卡高就差出一截 */
+  height: 2.7em;
   margin-top: 3px;
   padding: 0 12px;
   white-space: normal;
-  /* anywhere：长中英混排标题（「也许Maybe得不下去」）在窄卡里也能断词，
-     min-content 锁到单字符——文字再多也不把卡撑宽 */
-  overflow-wrap: anywhere;
+  /* break-all 而非 overflow-wrap:anywhere：anywhere 在 -webkit-box 里会破坏
+     line-clamp 计数（Chromium 已知坑，标题折出三行把卡撑高）——break-all 兼容 */
+  word-break: break-all;
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 600;

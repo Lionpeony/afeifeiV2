@@ -539,15 +539,22 @@ app.whenReady().then(async () => {
     }
     console.log(`封面白边反制：hero transform ${trimShot.t}`);
 
-    /* 播出带等宽网格：各卡宽度差 ≤ 2px。长标题（min-content）撑宽个别卡 = 网格破功（2026-11-08 用户圈图）。 */
-    const tapeWidths = await evalJs(`(() => {
-      const ws = [...document.querySelectorAll(".cs-tapes .cs-tape")].map((el) => el.offsetWidth);
-      return { n: ws.length, min: Math.min(...ws), max: Math.max(...ws) };
+    /* 播出带等宽等高网格：宽差/高差 ≤ 2px。长标题撑宽（min-content）或撑高
+       （line-clamp 失效折三行）都是网格破功（2026-11-08 用户两张圈图）。 */
+    const tapeGrid = await evalJs(`(() => {
+      const cards = [...document.querySelectorAll(".cs-tapes .cs-tape")];
+      const ws = cards.map((el) => el.offsetWidth);
+      const hs = cards.map((el) => el.offsetHeight);
+      return {
+        n: cards.length,
+        wMin: Math.min(...ws), wMax: Math.max(...ws),
+        hMin: Math.min(...hs), hMax: Math.max(...hs),
+      };
     })()`);
-    if (tapeWidths.n >= 2 && tapeWidths.max - tapeWidths.min > 2) {
-      throw new Error(`播出带卡宽不齐：${JSON.stringify(tapeWidths)}——标题把卡撑开了`);
+    if (tapeGrid.n >= 2 && (tapeGrid.wMax - tapeGrid.wMin > 2 || tapeGrid.hMax - tapeGrid.hMin > 2)) {
+      throw new Error(`播出带网格不齐：${JSON.stringify(tapeGrid)}——长标题把卡撑开了`);
     }
-    console.log(`播出带等宽：${tapeWidths.n} 档 ${tapeWidths.min}-${tapeWidths.max}px`);
+    console.log(`播出带网格：${tapeGrid.n} 档 宽 ${tapeGrid.wMin}-${tapeGrid.wMax} 高 ${tapeGrid.hMin}-${tapeGrid.hMax}`);
 
     /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
        旧实现把左栏锁死在 songs[0]，这条必红。 */
