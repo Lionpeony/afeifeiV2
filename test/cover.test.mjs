@@ -48,3 +48,10 @@ test("并发请求同一张图只发一次（快速滚动时会重复挂载）",
 test("peekCover：没查过返回 undefined", () => {
   assert.equal(peekCover("id-never"), undefined);
 });
+
+test("在线直链不进主进程：https:// 封面直接短路返回，不烧读文件的端口", async () => {
+  const port = fakePort({});
+  const url = "https://p1.music.126.net/abc.jpg";
+  assert.equal(await loadCover(port, "id-remote", url), url);
+  assert.equal(port.calls(), 0, "https 封面不该走读文件的端口（底栏黑胶占位的根因）");
+});

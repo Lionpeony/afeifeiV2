@@ -41,6 +41,8 @@ export function Console(props: {
   npCover: string | null;
   phase: PlaybackPhase;
   likedNow: boolean;
+  /** 在线曲目当前音源名（「网易云」）：副行报「信号来自哪」，比「在线音源」有信息量 */
+  sourceName: string | null;
   title: string | null;
   trackId: string | null;
   error: AppState["player"]["error"];
@@ -76,6 +78,7 @@ export function Console(props: {
     npCover,
     phase,
     likedNow,
+    sourceName,
     title,
     trackId,
     error,
@@ -126,7 +129,11 @@ export function Console(props: {
                 {errorText(error)}
               </span>
             ) : (
-              <span>{phaseLabel(phase, !!remote)}</span>
+              /* 在播的在线曲目副行报具体源名（「网易云」）——「在线音源」每首一样，等于没说；
+                 其余阶段词（解码中/缓冲中/已暂停…）与本地曲库照旧 */
+              <span>
+                {phase === "playing" && remote ? sourceName ?? "在线音源" : phaseLabel(phase, false)}
+              </span>
             )}
           </span>
         </button>

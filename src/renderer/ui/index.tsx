@@ -315,6 +315,10 @@ function App() {
 
   const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+  /* 底栏副行的信号源名（「网易云」）：比「在线音源」多一句实话。sources 列表启动后不变。 */
+  const sourceName = remote
+    ? services.current?.sources().find((s) => s.id === remote.sourceId)?.name ?? null
+    : null;
   /*
    * 底栏那颗心的状态：
    * 在线曲目看账号红心域（songId），本地曲目看本机红心（trackId）。
@@ -1154,6 +1158,7 @@ function App() {
         npCover={npCover}
         phase={phase}
         likedNow={likedNow}
+        sourceName={sourceName}
         title={trackTitle ?? baseName(trackId)}
         trackId={trackId}
         error={error}
