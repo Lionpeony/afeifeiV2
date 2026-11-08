@@ -671,7 +671,7 @@ app.whenReady().then(async () => {
           let el = document.querySelector(".cs-home")?.parentElement;
           while (el && out.length < 6) {
             const cs = getComputedStyle(el);
-            out.push(`${el.tagName}.${String(el.className).split(" ")[0]}:${Math.round(el.getBoundingClientRect().height)}(${cs.height}/${cs.overflow})`);
+            out.push(el.tagName + "." + String(el.className).split(" ")[0] + ":" + Math.round(el.getBoundingClientRect().height) + "(" + cs.height + "/" + cs.overflow + ")");
             el = el.parentElement;
           }
           return out;
@@ -1505,9 +1505,10 @@ app.whenReady().then(async () => {
     await shoot(`${name}.png`);
   }
 
-  /* 四档全局配色：控制室跟着换灯，舞台恒暗（2026-11-08「深浅要能看出区别」）。
+  /* 四档全局配色：控制室跟着换灯，播放页舞台恒暗（2026-11-08「深浅要能看出区别」）。
      判据取 --live-bg 的实际值：改前四档完全相同（--live-bg 是固定值），这条会红。
-     第二条判据取首页封面台的 --live-bg：它必须四档都等于 --night-bg。 */
+     第二条判据取首页封面台的 --live-bg：封面台 2026-11-08 起跟主题（tint 场景层），
+     四档都必须等于当档壳底色（原「恒 = --night-bg」断言随设计更新反转）。 */
   const themeProbe = () => evalJs(`(() => {
     const shell = document.querySelector(".shell.live");
     const hero = document.querySelector(".cs-stage");
@@ -1549,7 +1550,7 @@ app.whenReady().then(async () => {
     const got = await themeProbe();
     console.log(`配色 ${id}：${JSON.stringify(got)}`);
     if (got.theme !== id) throw new Error(`配色 ${id} 没切生效：${JSON.stringify(got)}`);
-    if (got.heroBg !== "#0a0e13") throw new Error(`配色 ${id} 把首页封面台也点亮了（舞台应恒暗）：${got.heroBg}`);
+    if (got.heroBg !== got.shellBg) throw new Error(`首页封面台应跟主题（tint 场景层）却读到 ${got.heroBg} ≠ ${got.shellBg}`);
     themeBg.set(id, String(got.shellBg));
     await shoot(`live-theme-home-${id}.png`);
   }

@@ -30,12 +30,10 @@
   height: 100vh;
 }
 
-/* 暗区：播放页与首页封面台恒暗（tokens.css ⑤ / A-10）。
-   把直播带那一层钉回夜航值 —— 这 2000 行里的 .st-air / .cs-stage / NightCoverArt 一个字都不用改。
+/* 暗区：播放页恒暗（tokens.css ⑤ / A-10：播放页与主题独立）。
+   首页封面台 2026-11-08 起退出暗房：hero 跟主题走，封面取色（--cs-tint）做场景层供色。
    注意顺序：这条必须在 `.shell.live` 之后，靠更具体的选择器而不是源码顺序生效。 */
-:root[data-theme] .stage.is-live,
-:root[data-theme] .cs-stage,
-:root[data-theme] .cs-empty-art {
+:root[data-theme] .stage.is-live {
   --live-bg: var(--night-bg);
   --live-panel: var(--night-panel);
   --live-panel-2: var(--night-panel-2);

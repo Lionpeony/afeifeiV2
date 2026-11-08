@@ -4,7 +4,6 @@ import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
-import { issueOf, nightOfYear } from "./night.js";
 import { sampleCoverTint } from "../views/stage/tint-client.js";
 import { splitLatinRuns } from "./typography.js";
 import { onTick } from "../compositor.js";
@@ -177,11 +176,8 @@ export function LiveHome({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <NightCoverArt className="cs-cover" dark />
+              <NightCoverArt className="cs-cover" />
             )}
-            <span className="cs-stamp-corner" aria-hidden="true">
-              不夜台 · 第 {nightOfYear(new Date())} 夜
-            </span>
 
             <div className="cs-copy">
               <p className="cs-kicker">

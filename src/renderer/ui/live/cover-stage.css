@@ -1,7 +1,8 @@
 /* ================= 首页 · 现代播放器（COVER STAGE v2） =================
-   视觉语言换代：无衬线为主、圆角卡片、阴影层次、大封面主导——
-   去掉票根/印刷语言的方框与全等宽排版。左：「正在播放」大图卡；
-   右：接下来播放的圆角封面卡网格 + 真频谱。主题 token 体系不变。
+   视觉语言：无衬线为主、圆角卡片、阴影层次、大封面主导。
+   左：「正在播放」大图卡 = 首页的场景层（§9.3）——底色 = 封面取色 × 主题面板，
+   每首歌进来页面换一次氛围（tint 只进这一块，UI 骨架不跟色）；
+   右：接下来播放的圆角封面卡网格 + 真频谱（结构层，跟主题不跟封面）。
    动效只保留「本次运行第一次进入首页」的一次入场；切页不重播。 */
 
 .shell.live .cs-home {
@@ -26,27 +27,15 @@
   flex-direction: column;
   padding: 16px;
   border-radius: 16px;
-  /* 恒深舞台 + 封面取色（--cs-tint 来自 M9-2 管线）：卡底带封面色温——
-     紫封面 → 深紫卡、橙封面 → 深棕卡，浅色壳上的大黑块不再突兀。
-     tint 失败时 transparent → 纯墨兜底，取色永不影响可读性 */
-  background-color: var(--live-ink);
+  /* 场景层：卡底带封面色温——紫封面 → 淡紫卡（浅色档）/ 深紫卡（深色档）。
+     tint 失败时 transparent → 纯面板兜底，取色永不影响可读性（M9-2 管线 L 已夹取） */
+  background-color: var(--live-panel);
   background-image:
-    radial-gradient(120% 90% at 18% 0%, color-mix(in oklch, var(--cs-tint) 42%, transparent), transparent 60%),
-    linear-gradient(168deg, color-mix(in oklch, var(--cs-tint) 20%, var(--live-ink)), var(--live-ink) 78%);
-  box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.5);
-}
-
-/* 电台身份戳：现代结构里保留的一枚 mono 印章——只在角落，不参与排版 */
-.cs-stamp-corner {
-  position: absolute;
-  top: 26px;
-  right: 28px;
-  z-index: 4;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  color: color-mix(in srgb, var(--live-fg) 48%, transparent);
-  pointer-events: none;
+    radial-gradient(120% 90% at 18% 0%, color-mix(in oklch, var(--cs-tint) 28%, transparent), transparent 60%),
+    linear-gradient(168deg, color-mix(in oklch, var(--cs-tint) 16%, var(--live-panel)), var(--live-panel) 78%);
+  box-shadow:
+    0 18px 44px -20px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 7%, transparent);
 }
 
 /* 封面 = flex item 弹性占满上部（文档流，信息区永不会越出卡片）。
@@ -118,7 +107,6 @@
   line-height: 1.18;
   letter-spacing: 0.01em;
   color: var(--live-fg);
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
   overflow-wrap: anywhere;
 }
 
@@ -188,7 +176,8 @@
   border: none;
   border-radius: 50%;
   background: var(--live-amber);
-  color: var(--live-ink);
+  /* 琥珀/赭石填充上的字色：--live-accent-ink 四档各自保证对比（浅底档近白、深底档近黑） */
+  color: var(--live-accent-ink);
   cursor: pointer;
   box-shadow:
     0 10px 26px -10px color-mix(in srgb, var(--live-amber) 62%, transparent),
@@ -459,8 +448,8 @@
   min-height: 44px;
   margin: 10px 0 8px;
   border-radius: 8px;
-  /* 加载中/无图的底：偏深（ink 为主），图一到位就被盖住 */
-  background: color-mix(in srgb, var(--live-ink) 55%, var(--live-panel-2));
+  /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
+  background: var(--live-slot);
   overflow: hidden;
   box-shadow: 0 3px 10px -4px rgba(0, 0, 0, 0.4);
 }
@@ -873,7 +862,7 @@ img.cs-tape-art {
   height: 36px;
   border-radius: 6px;
   object-fit: cover;
-  background: color-mix(in srgb, var(--live-ink) 55%, var(--live-panel-2));
+  background: var(--live-slot);
 }
 
 /* 无封面垫底：迷你黑胶（同 .cs-tape-vinyl 语言，缩小版） */

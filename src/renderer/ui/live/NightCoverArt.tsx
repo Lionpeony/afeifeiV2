@@ -1,11 +1,11 @@
 /**
- * 无真实封面时的「台版封套」：夜蓝底 + 半出的黑胶 + 琥珀标签。
+ * 无真实封面时的「台版封套」：面板底 + 半出的黑胶 + 琥珀标签。
  * 纯装饰（aria-hidden），真实曲名/艺人在覆盖层文字里。
- * dark：恒深变体——hero 卡是恒深舞台，浅色主题下占位不能比卡底还浅。
+ * 颜色全走 --live-* token，四档主题自适应。
  */
-export function NightCoverArt({ className, dark = false }: { className?: string; dark?: boolean }) {
-  const bgTop = dark ? "var(--live-ink)" : "var(--live-panel)";
-  const bgMid = dark ? "color-mix(in srgb, var(--live-ink) 88%, var(--live-fg))" : "var(--live-bg)";
+export function NightCoverArt({ className }: { className?: string }) {
+  const bgTop = "var(--live-panel)";
+  const bgMid = "var(--live-bg)";
   return (
     <svg
       className={className}
