@@ -5,12 +5,22 @@ import { dispatch, getState } from "../kernel/index.js";
 import type { Services } from "./services.js";
 import { errorText } from "../capability/errors.js";
 import { fmt, phaseLabel, type PlaybackPhase } from "./playback-phase.js";
-import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
+import { PLAY_MODE_LABEL, nextPlayMode } from "./play-mode.js";
+import type { PlayMode } from "../../contracts/index.js";
+import { NavIcon, type IconName } from "./icons.js";
 import type { PageId } from "./pages.js";
 import type { PlayerRemote } from "./hooks/use-media-session.js";
 
 /** 睡眠定时档位（A-23）。30 分钟是主档，验收就按它。 */
 const SLEEP_OPTIONS = [15, 30, 60];
+
+/** 播放模式 → 图标：四种模式一眼可辨（文字收进 hover title 与 aria-label）。 */
+const PLAY_MODE_ICON: Record<PlayMode, IconName> = {
+  order: "order",
+  "repeat-all": "repeat",
+  "repeat-one": "repeat-one",
+  shuffle: "shuffle",
+};
 
 /** 倍速档位（抄 lx 的 0.5–2 限幅，取常用档位做按钮）。 */
 const RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -239,31 +249,33 @@ export function Console(props: {
       </div>
 
       <div className="tools">
-        {/* 播出区：控制"怎么播" */}
+        {/* 播出区：控制"怎么播"。图标钮 + hover 文字（title/aria-label）——文字胶囊换图标后排更轻 */}
         <button
           type="button"
           title={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}
           aria-label={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}
           onClick={() => dispatch({ type: "queue/mode", mode: nextPlayMode(queueMode) })}
         >
-          {PLAY_MODE_SHORT[queueMode]}
+          <NavIcon name={PLAY_MODE_ICON[queueMode]} />
         </button>
         <button
           type="button"
           className={`pop${volOpen || muted ? " on" : ""}`}
           aria-expanded={volOpen}
+          aria-label={muted ? "已静音" : "音量"}
           onClick={() => {
             setVolOpen(!volOpen);
             setSleepOpen(false);
           }}
           title={muted ? "已静音" : "音量"}
         >
-          {muted ? "静音" : "音量"}
+          <NavIcon name={muted ? "mute" : "volume"} />
         </button>
         <button
           type="button"
           className={`pop${sleepOpen || sleepEndsAt || sleepPending ? " on" : ""}`}
           aria-expanded={sleepOpen}
+          aria-label="睡眠定时"
           onClick={() => {
             setSleepOpen(!sleepOpen);
             setVolOpen(false);
@@ -276,13 +288,14 @@ export function Console(props: {
                 : "睡眠定时：到点暂停，不退出"
           }
         >
-          睡眠
+          <NavIcon name="sleep" />
           {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
           {sleepPending ? <span className="sleep-left">等这首完</span> : null}
         </button>
         <button
           type="button"
           className="pop"
+          aria-label={`播放速度：${playbackRate.toFixed(2)}x`}
           onClick={() => {
             setRateOpen(!rateOpen);
             setVolOpen(false);
@@ -290,7 +303,7 @@ export function Console(props: {
           }}
           title={`播放速度：${playbackRate.toFixed(2)}x`}
         >
-          {playbackRate.toFixed(2)}x
+          <NavIcon name="rate" />
         </button>
         {/* 面板区：控制"打开什么"——队列/音效开侧面板（有 on 态），词/迷你开新窗口 */}
         <span className="sep" aria-hidden="true" />
@@ -298,19 +311,37 @@ export function Console(props: {
           type="button"
           className={queueOpen ? "on" : ""}
           aria-expanded={queueOpen}
+          aria-label="播放队列"
           onClick={() => setQueueOpen((v) => !v)}
           title="播放队列（P0-10）"
         >
-          队列
+          <NavIcon name="queue" />
         </button>
-        <button type="button" className={fxOpen ? "on" : ""} aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
-          音效
+        <button
+          type="button"
+          className={fxOpen ? "on" : ""}
+          aria-expanded={fxOpen}
+          aria-label="音效"
+          onClick={() => setFxOpen(!fxOpen)}
+          title="音效"
+        >
+          <NavIcon name="eq" />
         </button>
-        <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
-          词
+        <button
+          type="button"
+          aria-label="桌面歌词"
+          onClick={() => void services.current?.openLyric()}
+          title="桌面歌词"
+        >
+          <NavIcon name="lyrics" />
         </button>
-        <button type="button" onClick={() => void services.current?.openMini()} title="迷你窗">
-          迷你
+        <button
+          type="button"
+          aria-label="迷你窗"
+          onClick={() => void services.current?.openMini()}
+          title="迷你窗"
+        >
+          <NavIcon name="mini" />
         </button>
       </div>
       {/* 音量条常驻 DOM、只切 visibility：滑杆语义与键盘可达性不因开合而丢 */}

@@ -158,13 +158,31 @@
   transform: scale(0.97);
 }
 
-/* 工具钮：胶囊化（无边框、弱底、hover 提亮、激活琥珀） */
+/* 工具钮：图标胶囊（无边框、弱底、hover 提亮、激活琥珀；文字在 hover title 里） */
 .shell.live .console .tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
   border: none;
   border-radius: 999px;
-  padding: 6px 12px;
   background: color-mix(in srgb, var(--live-fg) 5%, transparent);
   transition: background-color 140ms ease, color 140ms ease;
+}
+
+.shell.live .console .tools button svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* 睡眠倒计时：图标旁的小字余量（只在定时激活时出现） */
+.shell.live .console .tools .sleep-left {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .shell.live .console .tools button:hover {
