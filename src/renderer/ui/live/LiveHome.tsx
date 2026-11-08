@@ -47,7 +47,6 @@ export function LiveHome({
   onAccount,
   nowPlaying,
   playing,
-  onToggle,
   onAir,
   spectrum,
 }: {
@@ -59,8 +58,6 @@ export function LiveHome({
   /** 正在播放的在线曲目（音源 + 歌 id）。命中本期播出单时左栏跟着切 */
   nowPlaying: { sourceId: string; songId: string } | null;
   playing: boolean;
-  /** 左栏正在播的那一档：播放 / 暂停切换 */
-  onToggle(): void;
   /** 全局正在播的远程节目（onAirProgram 投影）。null = 没在播远程歌 */
   onAir: OnAirProgram | null;
   /** 真实频谱采样（engine.spectrum）。null = 音频图未建，信号条贴底待机。 */
@@ -195,9 +192,6 @@ export function LiveHome({
               <p className="cs-artist">
                 <b>{lead.artist}</b>
                 <span className="cs-dur">{fmtDuration(lead.durationMs)}</span>
-                <span className="cs-ord">
-                  第 {leadIndex + 1} 首 / 共 {total} 首
-                </span>
               </p>
               <p className="cs-note">
                 {onAirMode
@@ -210,17 +204,6 @@ export function LiveHome({
                       : `今晚第 ${leadIndex + 1} 档正在播出。`
                     : "今晚从这一首开始。先把它放完，再决定往哪儿走。"}
               </p>
-              <div className="cs-actions">
-                <button
-                  type="button"
-                  className={`cs-play${live && playing ? " is-pause" : ""}`}
-                  aria-label={live ? (playing ? "暂停" : "继续") : "播放主打"}
-                  onClick={() => (live ? onToggle() : play(lead))}
-                >
-                  <i aria-hidden="true" />
-                </button>
-                <span className="cs-play-label">{live ? (playing ? "暂停" : "继续") : "播放主打"}</span>
-              </div>
             </div>
           </section>
 
@@ -253,7 +236,7 @@ export function LiveHome({
                 aria-expanded={showAll}
                 onClick={() => setShowAll((v) => !v)}
               >
-                {showAll ? "收起播出单" : `完整播出单 · 共 ${total} 首`}
+                {showAll ? "收起播出单" : "完整播出单"}
               </button>
             </div>
 

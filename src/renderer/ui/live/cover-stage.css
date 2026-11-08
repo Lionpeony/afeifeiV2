@@ -148,15 +148,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cs-ord {
-  margin-left: auto;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--live-fg-faint);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
 .cs-note {
   margin: 10px 0 0;
   max-width: 34em;
@@ -164,69 +155,6 @@
   font-size: 13.5px;
   line-height: 1.7;
   color: color-mix(in srgb, var(--live-fg) 76%, transparent);
-}
-
-.cs-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-/* 主播放钮：56px 圆形实心——现代播放器的标志 */
-.cs-play {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--live-amber);
-  /* 琥珀/赭石填充上的字色：--live-accent-ink 四档各自保证对比（浅底档近白、深底档近黑） */
-  color: var(--live-accent-ink);
-  cursor: pointer;
-  box-shadow:
-    0 10px 26px -10px color-mix(in srgb, var(--live-amber) 62%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  transition: transform 140ms ease, filter 140ms ease;
-}
-
-.cs-play i {
-  width: 0;
-  height: 0;
-  border-left: 13px solid currentColor;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  margin-left: 3px;
-}
-
-/* 正在播那一档时按钮变「暂停」：三角换两条竖杠 */
-.cs-play.is-pause i {
-  width: 13px;
-  height: 15px;
-  border: none;
-  border-left: 4px solid currentColor;
-  border-right: 4px solid currentColor;
-  margin-left: 0;
-}
-
-.cs-play:hover {
-  transform: scale(1.05);
-}
-
-.cs-play:active {
-  transform: scale(0.98);
-  filter: brightness(0.97);
-}
-
-/* 圆钮旁的文字：语义标签（按钮本体只有图标 + aria-label） */
-.cs-play-label {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: color-mix(in srgb, var(--live-fg) 72%, transparent);
 }
 
 /* —— 右：接下来播放 + 封面卡网格 —— */
@@ -517,8 +445,7 @@ img.cs-tape-art {
 }
 
 .cs-tape:focus-visible,
-.shell.live .cs-title:focus-visible,
-.cs-play:focus-visible {
+.shell.live .cs-title:focus-visible {
   outline: 2px solid var(--live-amber);
   outline-offset: -2px;
 }
@@ -759,14 +686,6 @@ img.cs-tape-art {
     display: none;
   }
 
-  .cs-actions {
-    margin-top: 8px;
-  }
-
-  .cs-play {
-    height: 32px;
-  }
-
   .cs-signal {
     display: none;
   }
@@ -786,8 +705,7 @@ img.cs-tape-art {
 
   .cs-tape,
   .cs-tape::before,
-  .cs-tape-play,
-  .cs-play {
+  .cs-tape-play {
     transition: none;
   }
 }

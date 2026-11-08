@@ -549,7 +549,6 @@ app.whenReady().then(async () => {
       title: document.querySelector(".cs-title")?.textContent ?? "",
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       idx: document.querySelector(".cs-idx")?.textContent ?? "",
-      ord: document.querySelector(".cs-ord")?.textContent ?? "",
       liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
     }))()`);
@@ -750,20 +749,19 @@ app.whenReady().then(async () => {
     await shoot("live-home-onair.png");
 
     /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——
-       眉标换「暂停中 · STANDBY」、按钮换「继续」，不许再谎称「正在播出」。 */
+       眉标换「暂停中」、文案换「停在半路」，不许再谎称「正在播出」。
+       点击走底栏主键（hero 大钮已随去重移除，全局控制台是唯一的播放/暂停入口）。 */
     await click(
-      `(() => { const b = document.querySelector(".cs-actions .cs-play"); b?.click(); return Boolean(b); })()`,
-      "hero 播放/暂停",
+      `(() => { const b = document.querySelector(".console .tb.main"); b?.click(); return Boolean(b); })()`,
+      "底栏主键 播放/暂停",
     );
     await sleep(500);
     const paused = await evalJs(`(() => ({
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       note: document.querySelector(".cs-note")?.textContent ?? "",
-      btn: document.querySelector(".cs-actions .cs-play-label")?.textContent ?? "",
     }))()`);
-    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·按钮「${paused.btn.trim()}」·文案「${paused.note.trim()}」`);
+    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」`);
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
-    if (!paused.btn.includes("继续")) throw new Error(`暂停后按钮没换「继续」：${paused.btn}`);
     if (!paused.note.includes("停在半路")) throw new Error(`暂停文案没换：${paused.note}`);
     await shoot("live-home-onair-paused.png");
   }
