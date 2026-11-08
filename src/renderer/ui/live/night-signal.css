@@ -150,7 +150,7 @@
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 16%, transparent),
     0 4px 14px -6px rgba(0, 0, 0, 0.42);
-  animation: np-spin 4.5s linear infinite;
+  animation: np-spin 9s linear infinite;
   animation-play-state: paused;
   /* 悬停浮起走独立 scale 属性：旋转占着 transform，动画的 transform 优先级
      会压过普通 transform 声明——scale 属性与它互不覆盖，hover 才敢放大 */
