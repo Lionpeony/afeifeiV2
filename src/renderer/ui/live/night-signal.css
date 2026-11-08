@@ -1,19 +1,27 @@
 /* ================= 夜航台（NIGHT SIGNAL）：站尺与控制台 =================
    首页布局见 cover-stage.css；这里只管频率刻度和调音台控制条。 */
 
-/* —— 站尺：频率刻度带 —— */
+/* —— 站尺：频率刻度带 ——
+   每个 tick 是一枚"双行刻度签"：房名 + 频率，居中对齐；
+   选中不再只换字色——整枚签子浮起一层琥珀底，一眼锁定当前房间。 */
 .ruler-tick {
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
-  padding: 0 2px 3px;
+  justify-content: center;
+  gap: 2px;
+  margin: 8px 0;
+  /* 横向 padding 9px：10 枚签子在 1024 窗只剩 ~466px，12px 会贴到折行 */
+  padding: 3px 9px 4px;
+  border-radius: 10px;
+  transition: background-color 140ms ease;
 }
 
 .ruler-tick > span:first-child {
   font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0.06em;
   line-height: 1.2;
+  color: var(--live-fg-dim);
 }
 
 .ruler-tick::after {
@@ -35,25 +43,16 @@
 }
 
 .ruler-tick i {
-  position: static;
-  left: auto;
-  bottom: auto;
-  transform: none;
-  width: 1px;
-  height: 8px;
-  background: var(--live-line-strong);
+  display: none; /* 竖线刻度让位给双行签子：名字 + 频率已经足够读 */
+}
+
+/* 选中 = 整枚签子亮起：琥珀底光 + 琥珀字，比"只变字色"的选中感强一个量级 */
+.ruler-tick.on {
+  background: color-mix(in srgb, var(--live-amber) 14%, transparent);
 }
 
 .ruler-tick.on::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 10px;
-  transform: translateX(-50%);
-  background: var(--live-amber);
-  box-shadow: 0 0 8px var(--live-amber);
+  content: none;
 }
 
 .ruler-tick.on > span:first-child {
@@ -65,15 +64,31 @@
   color: var(--live-amber);
 }
 
-.ruler-tick.on i {
-  width: 2px;
-  height: 10px;
-  background: var(--live-amber);
-  box-shadow: 0 0 10px var(--live-amber);
+.ruler-tick:hover {
+  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
+}
+
+.ruler-tick.on:hover {
+  background: color-mix(in srgb, var(--live-amber) 18%, transparent);
 }
 
 .ruler-tick:hover::after {
   color: var(--live-fg-dim);
+}
+
+/* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
+@media (max-width: 1180px) {
+  .ruler-tick {
+    padding: 3px 7px 4px;
+  }
+
+  .ruler-tick > span:first-child {
+    font-size: 11px;
+  }
+
+  .ruler-tick::after {
+    font-size: 9px;
+  }
 }
 
 /* —— 控制台：现代控制条 ——
@@ -96,15 +111,22 @@
   box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
 }
 
+/* 监听区只留两行：曲名（主角）+ 状态行（琥珀呼吸点 = 播放指示灯）。
+   之前的"正在播放"眉标是第三行冗余——状态行本身就是它。 */
 .shell.live .console .np-tx::before {
-  content: "正在播放";
-  display: block;
-  margin-bottom: 2px;
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--live-amber);
+  content: none;
+}
+
+.shell.live .console .np-tx span::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--live-amber);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--live-amber) 70%, transparent);
+  animation: live-pulse 2.6s ease-in-out infinite;
 }
 
 .shell.live .console .np-tx b {
@@ -112,14 +134,14 @@
   font-weight: 600;
 }
 
-/* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言 */
+/* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言（字色走 accent-ink，四档对比由 token 保证） */
 .shell.live .console .tb.main {
   width: 44px;
   height: 44px;
   border: none;
   border-radius: 50%;
   background: var(--live-amber);
-  color: var(--live-ink);
+  color: var(--live-accent-ink);
   box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--live-amber) 55%, transparent);
   transition: transform 140ms ease, filter 140ms ease;
 }
@@ -127,7 +149,7 @@
 .shell.live .console .tb.main:hover {
   border-color: transparent;
   background: var(--live-amber);
-  color: var(--live-ink);
+  color: var(--live-accent-ink);
   transform: scale(1.05);
   filter: brightness(1.06);
 }
@@ -222,14 +244,19 @@
   gap: 8px;
   flex: none;
   width: 216px;
-  height: 26px;
-  padding: 0 2px;
+  height: 30px;
+  padding: 0 12px;
   border: none;
-  /* 底边用强线：搜索是全局入口，不能比刻度读数还暗 */
-  border-bottom: 1px solid var(--live-line-strong);
-  background: none;
+  /* 实底浅槽：只有底边线的输入框在整条尺上没有存在感 */
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--live-fg) 6%, transparent);
   -webkit-app-region: no-drag;
-  transition: border-color 140ms ease-out;
+  transition: background-color 140ms ease-out;
+}
+
+.ruler-search:focus-within {
+  background: color-mix(in srgb, var(--live-fg) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-amber) 45%, transparent);
 }
 
 .ruler-search svg {
@@ -258,12 +285,7 @@
   color: var(--live-fg-dim);
 }
 
-/* 聚焦：底边变琥珀并加一条 1px 的压影，等效 2px 焦点线但不改变盒高 */
-.ruler-search:focus-within {
-  border-bottom-color: var(--live-amber);
-  box-shadow: 0 1px 0 0 var(--live-amber);
-}
-
+/* 聚焦：svg 提琥珀（槽底色变化在上方 background 规则里） */
 .ruler-search:focus-within svg {
   color: var(--live-amber);
 }

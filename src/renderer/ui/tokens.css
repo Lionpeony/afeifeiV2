@@ -88,7 +88,7 @@
   --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
   --live-paper: #f3f2ed; /* 锁定页冷纸 */
   --live-ink: #14171a;
-  --live-ruler-h: 50px;
+  --live-ruler-h: 56px;
 
   /* ⑤ 舞台暗区：播放页恒暗（A-10 播放页与主题独立 / 2026-11-05「播出面进暗房」）。
      首页封面台 2026-11-08 起跟主题走（封面取色做场景层），不再钉这套。
