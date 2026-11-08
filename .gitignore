@@ -16,3 +16,13 @@ release/
 # 真实账号截图：含昵称/头像/个人歌单与听歌记录，只留本机，不入库
 # 需要时跑 node scripts/account-shots.mjs 重新生成
 docs/assets/mockups/real-*.png
+
+# 设计过程产物与 AI 工具资产：只留本地，不进仓库。
+# （design-demos 是被否掉的静态 demo，.impeccable 是工具生成的 mockup，
+#  .codebuddy/skills 是技能包模板 —— 按字节算会把 HTML / Python 顶进语言条）
+design-demos/
+.impeccable/
+.codebuddy/skills/
+.codebuddy/tmp-*
+design/
+
