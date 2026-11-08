@@ -670,7 +670,8 @@ html::after {
 }
 .online-thead,
 .online-row,
-.chart-hero-cell {
+.chart-hero-cell,
+.pl-item {
   animation: list-in 200ms ease-out both;
 }
 /* 骨架屏是装饰性循环动画：系统要求减弱动效时停在半亮，不闪；内容入场同此，reduce 下直接出现 */
@@ -678,7 +679,8 @@ html::after {
   .online-skel .sk-bar,
   .online-thead,
   .online-row,
-  .chart-hero-cell {
+  .chart-hero-cell,
+  .pl-item {
     animation: none;
   }
   .online-skel .sk-bar {
