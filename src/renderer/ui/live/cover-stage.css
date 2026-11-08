@@ -289,27 +289,17 @@
 .cs-tapes {
   flex: 1;
   min-height: 0;
-  display: flex;
-  align-items: flex-start;
+  /* grid 而非 flex 均分：minmax(0,1fr) 轨道等宽是布局层的硬保证——
+     flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训） */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
   list-style: none;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-
-.cs-tapes::-webkit-scrollbar {
-  height: 0;
 }
 
 .cs-tapes li {
-  display: flex;
-  /* shrink 允许 + min-width 0：6→5 张卡正好均分一行（等宽网格）。
-     shrink 0 的老写法在长标题下会靠 min-content 把个别卡撑宽，等宽网格破功
-     （2026-11-08 用户圈「10 也许Maybe得不下去」卡比别的宽一圈）。 */
-  flex: 1 1 104px;
   min-width: 0;
 }
 
@@ -317,7 +307,7 @@
    无边框 + 阴影浮起，hover 再抬——现代专辑网格语言，竖长条裁切的老问题随结构消失。 */
 .cs-tape {
   position: relative;
-  flex: 1;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -652,15 +642,6 @@ img.cs-tape-art {
 
   .cs-note {
     font-size: 14px;
-  }
-
-  .cs-tapes::-webkit-scrollbar {
-    height: 0;
-  }
-
-  .cs-tapes li {
-    flex: 1 1 80px;
-    min-width: 0;
   }
 
   .cs-vu {
