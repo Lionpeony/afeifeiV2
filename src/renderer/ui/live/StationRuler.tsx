@@ -61,7 +61,6 @@ export function StationRuler({
         <span className="ruler-dot" aria-hidden="true" />
         <h1>afeifei</h1>
         <span className="ruler-cn">不夜台</span>
-        <span className="ruler-en">AFEIFEI BROADCAST</span>
       </div>
 
       <nav className="ruler-ticks" aria-label="房间">

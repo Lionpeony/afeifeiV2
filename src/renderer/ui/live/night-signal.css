@@ -4,6 +4,7 @@
 /* —— 站尺：频率刻度带 —— */
 .ruler-tick {
   flex-direction: column;
+  align-items: center;
   justify-content: flex-end;
   gap: 3px;
   padding: 0 2px 3px;
@@ -78,6 +79,10 @@
 /* —— 控制台：现代控制条 ——
    浮起的一条：上缘发丝线 + 向上投影（elevation），主键圆形实心、工具钮胶囊化。 */
 .shell.live .console {
+  /* 工具排按内容自适应宽：全局壳的固定 250px 装不下 8 个胶囊 + 分隔线，
+     溢出会压进走带区，读成"排序混乱"（2026-11-08 用户圈图实锤）。
+     中列必须 minmax(0,1fr)：裸 1fr 的 min 是 auto，走带区 min-content 会把它撑爆（1024 窗实测 +52px）。 */
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) auto;
   border-top: 1px solid var(--live-line);
   background: linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
   box-shadow: 0 -10px 28px -20px rgba(0, 0, 0, 0.55);
@@ -149,9 +154,16 @@
   color: var(--live-amber);
 }
 
-/* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点 */
+/* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点。
+   input 的固有尺寸 + flex min-width:auto 会把中列撑出 52px（1024 窗实测）——
+   seek 行与 bar 都要清收缩下限，进度条才有资格被压窄。 */
+.shell.live .console .seek {
+  min-width: 0;
+}
+
 .shell.live .console input.bar {
   height: 22px;
+  min-width: 0;
 }
 
 .shell.live .console input.bar::-webkit-slider-runnable-track {

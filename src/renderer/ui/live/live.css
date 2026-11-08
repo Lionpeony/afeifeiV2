@@ -140,13 +140,6 @@
   color: var(--live-fg-dim);
 }
 
-.ruler-en {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.24em;
-  color: var(--live-fg-faint);
-}
-
 .ruler-ticks {
   flex: 1;
   min-width: 0;
@@ -1214,7 +1207,6 @@
     padding-right: 146px;
   }
 
-  .ruler-en,
   .live-foot i {
     display: none;
   }
