@@ -646,11 +646,14 @@ html::after {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
+  /* 白光而非 fg 暗带：纸面浅底上「把灰条再压暗 16%」只有几个灰阶差，肉眼无感
+     （用户四轮截图都没看出 shimmer 的原因）。白光在四档主题的灰条上全部可见。 */
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--fg) 9%, transparent) 42%,
-    color-mix(in srgb, var(--fg) 16%, transparent) 55%,
+    rgba(255, 255, 255, 0.35) 40%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.35) 60%,
     transparent 100%
   );
   animation: sk-shimmer 1.8s ease-in-out calc(var(--i) * 0.15s) infinite;
