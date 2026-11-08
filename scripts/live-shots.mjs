@@ -573,16 +573,22 @@ app.whenReady().then(async () => {
       title: document.querySelector(".cs-title")?.textContent ?? "",
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       idx: document.querySelector(".cs-idx")?.textContent ?? "",
+      /* 「真接下来」判据：换档后播出带第一格的编号必须等于 hero 的下一首
+         （idx 是当前，tapeNo 是当前+1），is-live 不该再出现在播出带里（全是之后的歌） */
+      tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
       liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
     }))()`);
     console.log(
-      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·在播标记 ${hero.liveTape}·动画 ${JSON.stringify(hero.anim)}`,
+      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}`,
     );
     if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
     if (!hero.kicker.includes("正在播出")) throw new Error("换档后眉标没变成「正在播出」");
-    if (hero.liveTape < 1) throw new Error("播出带没有标记正在播的那一档");
+    if (hero.liveTape > 0) throw new Error("播出带里不该有 is-live：它是「接下来」，全是之后的歌");
+    if (Number(hero.idx.trim().split("/")[0].trim()) + 1 !== Number(hero.tapeNo.trim())) {
+      throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${Number(hero.idx.trim().split("/")[0].trim()) + 1}，实际首位 ${hero.tapeNo.trim()}`);
+    }
     if (!hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
       throw new Error(`换档没有播动画：${JSON.stringify(hero.anim)}`);
     }
@@ -757,10 +763,12 @@ app.whenReady().then(async () => {
       feed: document.querySelector(".cs-feed-kicker")?.textContent ?? "",
       meta: document.querySelector(".cs-feed-meta")?.textContent ?? "",
       tapes: document.querySelectorAll(".cs-tape").length,
-      liveTape: document.querySelectorAll(".cs-tape.is-live").length,
+      /* 「真接下来」ON AIR 版：hero idx 的下一首必须坐在播出带首位 */
+      idx: document.querySelector(".cs-idx")?.textContent ?? "",
+      tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
     }))()`);
     console.log(
-      `首页 ON AIR：播榜单「${chartPick}」→ 大字「${onAir.title}」·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·在播标记 ${onAir.liveTape}`,
+      `首页 ON AIR：播榜单「${chartPick}」→ 大字「${onAir.title}」·${onAir.idx.trim()}·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·首位 ${onAir.tapeNo.trim()}`,
     );
     if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
     if (onAir.title !== chartPick) throw new Error(`ON AIR 后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
@@ -769,7 +777,9 @@ app.whenReady().then(async () => {
     if (!onAir.feed.includes("正在播出")) throw new Error(`右栏没切到 ON AIR：${onAir.feed}`);
     if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
     if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
-    if (onAir.liveTape < 1) throw new Error("ON AIR 播出带没有标记正在播的一档");
+    if (Number(onAir.idx.trim().split("/")[0].trim()) + 1 !== Number(onAir.tapeNo.trim())) {
+      throw new Error(`ON AIR 播出带不是「接下来」：hero ${onAir.idx.trim()} 之后首位应是 ${Number(onAir.idx.trim().split("/")[0].trim()) + 1}，实际 ${onAir.tapeNo.trim()}`);
+    }
     await shoot("live-home-onair.png");
 
     /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——

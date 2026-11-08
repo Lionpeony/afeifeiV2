@@ -724,6 +724,20 @@ img.cs-tape-art {
   }
 }
 
+/* 节目单到头：右栏中段的收尾话术（ tapes/all 都空时替代它们的位置） */
+.cs-end {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--live-fg-faint);
+}
+
 /* —— 完整播出单（展开态，替代横向磁带） —— */
 /* 完整播出单：现代队列列表——一体式圆角容器 + 缩略图行 + 双行文本。
    行贴行、发丝分隔，hover 整行提亮，在播行琥珀左标 + 底光。 */

@@ -120,9 +120,11 @@ export function LiveHome({
   // 本期节目单：ON AIR = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
-  // 每日推荐的 01 号位就是 hero，播出带从 02 起；ON AIR 节目单从 01 排，hero 与行是同一份列表
-  const tapeStart = onAirMode ? 0 : 1;
-  const tapes = program.slice(tapeStart, tapeStart + 6);
+  // 播出带 = 真正的「接下来」：从正在播那一档的下一首起，切歌自动推进（两种模式同一语义）。
+  // 节目单到头（lead 是最后一首）时 upcoming 为空，右栏给出到头话术而不是空白。
+  const tapeStart = leadIndex + 1;
+  const upcoming = program.slice(tapeStart);
+  const tapes = upcoming.slice(0, 6);
   // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）。
   // origin 跟着节目走：每日推荐重建时标「每日推荐」；ON AIR 原样保住队列自己的来源。
   const play = (track: RemoteTrack): void => {
@@ -249,19 +251,31 @@ export function LiveHome({
             </header>
 
             <div className="cs-strip-head">
-              <h2>{showAll ? "完整播出单" : "接下来播放"}</h2>
-              <span className="cs-strip-sub">{showAll ? "共 " + total + " 首 · 按播出顺序" : "按顺序播放"}</span>
-              <button
-                type="button"
-                className="cs-more"
-                aria-expanded={showAll}
-                onClick={() => setShowAll((v) => !v)}
-              >
-                {showAll ? "收起播出单" : "完整播出单"}
-              </button>
+              <h2>
+                {upcoming.length === 0 ? "今晚的节目单到头了" : showAll ? "完整播出单" : "接下来播放"}
+              </h2>
+              <span className="cs-strip-sub">
+                {upcoming.length === 0
+                  ? `播过了 ${total} 首，今晚到此`
+                  : showAll
+                    ? `剩 ${upcoming.length} 首 · 按播出顺序`
+                    : "按顺序播放"}
+              </span>
+              {upcoming.length > 0 ? (
+                <button
+                  type="button"
+                  className="cs-more"
+                  aria-expanded={showAll}
+                  onClick={() => setShowAll((v) => !v)}
+                >
+                  {showAll ? "收起播出单" : "完整播出单"}
+                </button>
+              ) : null}
             </div>
 
-            {showAll ? (
+            {upcoming.length === 0 ? (
+              <p className="cs-end">接下来没有歌了。回完整播放器换一首，或者刷新一份新的推荐。</p>
+            ) : showAll ? (
               <ol className="cs-all" aria-label="完整播出单，按播出顺序">
                 {program.slice(tapeStart).map((track, i) => (
                   <li key={track.sourceId}>
