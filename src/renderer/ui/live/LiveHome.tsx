@@ -120,11 +120,15 @@ export function LiveHome({
   // 本期节目单：ON AIR = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
-  // 播出带 = 真正的「接下来」：从正在播那一档的下一首起，切歌自动推进（两种模式同一语义）。
-  // 节目单到头（lead 是最后一首）时 upcoming 为空，右栏给出到头话术而不是空白。
-  const tapeStart = leadIndex + 1;
-  const upcoming = program.slice(tapeStart);
+  // 播出带 = 真正的「接下来」：从正在播那一档的下一首起，切歌自动推进。
+  // 尾曲之后**环回**节目单开头（列表循环语义，2026-11-08 用户定：播完不该是"没了"）——
+  // upcoming 是环列的全部其余曲目（不含 lead），编号按环列位置算（尾曲之后是 01）。
+  // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
+  const upcoming: RemoteTrack[] = [];
+  for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
   const tapes = upcoming.slice(0, 6);
+  /** 环列第 k 项的节目单编号（1 起）：lead 29/30 之后是 01。 */
+  const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
   // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）。
   // origin 跟着节目走：每日推荐重建时标「每日推荐」；ON AIR 原样保住队列自己的来源。
   const play = (track: RemoteTrack): void => {
@@ -276,16 +280,14 @@ export function LiveHome({
             {upcoming.length === 0 ? (
               <p className="cs-end">接下来没有歌了。回完整播放器换一首，或者刷新一份新的推荐。</p>
             ) : showAll ? (
-              <ol className="cs-all" aria-label="完整播出单，按播出顺序">
-                {program.slice(tapeStart).map((track, i) => (
+              <ol className="cs-all" aria-label="接下来的播出单，按播出顺序（循环回节目单开头）">
+                {upcoming.map((track, i) => (
                   <li key={track.sourceId}>
                     <button
                       type="button"
-                      className={`cs-all-row${live && leadIndex === i + tapeStart ? " is-live" : ""}`}
-                      aria-current={live && leadIndex === i + tapeStart ? "true" : undefined}
                       onClick={() => play(track)}
                     >
-                      <span className="cs-all-no">{pad2(i + tapeStart + 1)}</span>
+                      <span className="cs-all-no">{noOf(i + 1)}</span>
                       {/* 缩略图：与播出带格子同一封面链路；失败切迷你黑胶垫底 */}
                       {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
                         <img
@@ -310,15 +312,13 @@ export function LiveHome({
                 ))}
               </ol>
             ) : (
-              <ol className="cs-tapes" aria-label="待播曲目，按播出顺序">
+              <ol className="cs-tapes" aria-label="待播曲目，按播出顺序（循环回节目单开头）">
               {tapes.map((track, i) => (
                 <li key={track.sourceId}>
                   <button
                     type="button"
-                    className={`cs-tape${live && leadIndex === i + tapeStart ? " is-live" : ""}`}
-                    aria-current={live && leadIndex === i + tapeStart ? "true" : undefined}
                     onClick={() => play(track)}
-                    aria-label={`播放 ${pad2(i + tapeStart + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
+                    aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                   >
                     {/* 专辑封面：方形整幅在卡顶（现代专辑卡），img 直接做 flex item。
                         无封面或加载失败换黑胶垫底，按 coverUrl 记失败。 */}
@@ -337,7 +337,7 @@ export function LiveHome({
                     ) : (
                       <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
                     )}
-                    <span className="cs-tape-no">{pad2(i + tapeStart + 1)}</span>
+                    <span className="cs-tape-no">{noOf(i + 1)}</span>
                     <span className="cs-tape-title daily-title">{track.title}</span>
                     <span className="cs-tape-artist">{track.artist}</span>
                     <span className="cs-tape-foot">

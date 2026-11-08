@@ -335,12 +335,6 @@
   transform: translateY(-2px);
 }
 
-/* 正在播出那一档：琥珀描边整卡圈住（封面贴边，顶线压不住图），编号同步变琥珀 */
-.cs-tape.is-live {
-  outline: 2px solid var(--live-amber);
-  outline-offset: -2px;
-}
-
 .cs-tape-no {
   margin: 10px 12px 0;
   font-family: var(--font-sans);
@@ -351,9 +345,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cs-tape.is-live .cs-tape-no {
-  color: var(--live-amber);
-}
+
 
 .shell.live .cs-tape-title {
   min-width: 0;
@@ -792,12 +784,6 @@ img.cs-tape-art {
   background: color-mix(in srgb, var(--live-fg) 7%, transparent);
 }
 
-/* 在播行：琥珀左标 + 底光，编号同步变琥珀 */
-.cs-all-row.is-live {
-  background: color-mix(in srgb, var(--live-amber) 11%, transparent);
-  box-shadow: inset 2px 0 0 var(--live-amber);
-}
-
 .cs-all-no {
   font-family: var(--font-sans);
   font-size: 12px;
@@ -807,9 +793,7 @@ img.cs-tape-art {
   font-variant-numeric: tabular-nums;
 }
 
-.cs-all-row.is-live .cs-all-no {
-  color: var(--live-amber);
-}
+
 
 /* 行缩略图：36px 圆角小封面 */
 .cs-all-art {

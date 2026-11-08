@@ -29,7 +29,9 @@ const initialState: AppState = {
     cursor: -1,
     context: [],
     history: [],
-    mode: "order",
+    /* 默认列表循环：歌单播完自动绕回第一首（2026-11-08 用户定「歌单播放了不应该没了」）。
+       老会话快照里存了 order 的照旧恢复——只改新会话默认，不覆盖用户显式选择。 */
+    mode: "repeat-all",
     shuffleSeed: 1,
     failed: [],
     remote: {},
