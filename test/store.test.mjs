@@ -138,10 +138,28 @@ test("切下一首：状态直接是 playing，元数据到达后也不许退回
   assert.equal(getState().player.trackId, "b");
 });
 
-test("真的播到队尾：仍然照实报「播完了」", () => {
+test("order 模式（显式选顺序）：真的播到队尾仍照实报「播完了」", () => {
   reset(["a", "b"], 1);
+  // 2026-11-09 起默认 repeat-all（队尾绕回）；「如实结束」只在 order 下成立，显式声明
+  dispatch({ type: "queue/mode", mode: "order" });
   dispatch({ type: "queue/next" });
   assert.equal(getState().player.status, "ended");
+});
+
+test("列表循环：点下一首到队尾 = 重头再来（2026-11-09 用户定「播完最后一首应该重头再来」）", () => {
+  reset(["a", "b"], 1);
+  dispatch({ type: "queue/mode", mode: "repeat-all" });
+  dispatch({ type: "queue/next" });
+  assert.equal(getState().player.trackId, "a");
+  assert.equal(getState().player.status, "playing");
+});
+
+test("列表循环：最后一首自然播完也重头再来，不再停在「播不了」", () => {
+  reset(["a", "b"], 1);
+  dispatch({ type: "queue/mode", mode: "repeat-all" });
+  dispatch({ type: "player/ended" });
+  assert.equal(getState().player.trackId, "a");
+  assert.equal(getState().player.status, "playing");
 });
 
 /* ---------- 在线列表入队：点每日推荐/榜单任意一首，队列 = 整份列表 ---------- */
@@ -256,6 +274,26 @@ test("queue/restore：老快照没有 origin 时补 null，别让 undefined 漏�
     state: { items: ["a", "b"], cursor: 0, context: ["a", "b"], history: [], mode: "order", shuffleSeed: 1 },
   });
   assert.equal(getState().queue.origin, null);
+});
+
+test("queue/restore：老快照的 order 升级为 repeat-all（2026-11-09 默认列表循环迁移）", () => {
+  dispatch({
+    type: "queue/restore",
+    state: { items: ["a", "b"], cursor: 0, context: ["a", "b"], history: [], mode: "order", shuffleSeed: 1 },
+  });
+  assert.equal(getState().queue.mode, "repeat-all");
+});
+
+test("queue/restore：用户显式选过的其他模式原样保留，迁移不越界", () => {
+  for (const mode of ["repeat-all", "repeat-one", "shuffle"]) {
+    dispatch({
+      type: "queue/restore",
+      state: { items: ["a", "b"], cursor: 0, context: ["a", "b"], history: [], mode, shuffleSeed: 1 },
+    });
+    assert.equal(getState().queue.mode, mode, mode);
+  }
+  // 恢复默认：restore 直接写 mode，循环最后留下的 shuffle 会漏给后面的用例（FM 挂机踩过）
+  dispatch({ type: "queue/mode", mode: "repeat-all" });
 });
 
 test("queue/trim：裁掉播过的，光标仍指向同一首", () => {

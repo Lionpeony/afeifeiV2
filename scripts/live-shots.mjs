@@ -549,7 +549,14 @@ app.whenReady().then(async () => {
       gate: document.querySelector(".daily-state")?.textContent ?? "",
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       home: document.querySelector(".live-home") !== null,
+      /* 播放模式（底栏模式钮 title）：order 快照应已被迁移成列表循环 */
+      playMode: [...document.querySelectorAll(".console .tools button")]
+        .map((b) => b.getAttribute("title") ?? "")
+        .find((t) => t.includes("播放模式")) ?? "",
     }))()`);
+    if (!state0.playMode.includes("列表循环")) {
+      throw new Error(`默认列表循环迁移没生效（底栏模式 = ${state0.playMode || "读不到"}）`);
+    }
     console.log(`右栏分诊：${JSON.stringify(state0)}`);
 
     /* 播出带等宽等高网格：宽差/高差 ≤ 2px。长标题撑宽（min-content）或撑高

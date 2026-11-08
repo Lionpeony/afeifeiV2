@@ -80,6 +80,9 @@ test("矩阵 · 空队列：任何「播」的动作都不许进 playing", () =>
 
 test("矩阵 · 切歌：中间进下一首，队尾如实结束，再点不假装", () => {
   reset(["a", "b"]);
+  // 2026-11-09 起默认 repeat-all（队尾绕回重头再来）；本条钉的是 order 的「如实结束」，
+  // 必须显式声明 —— 97 行的「播完后点播放」当年就是漏设被默认模式坑过
+  dispatch({ type: "queue/mode", mode: "order" });
   dispatch({ type: "queue/next" });
   assert.equal(P().trackId, "b");
   assert.equal(P().status, "playing");

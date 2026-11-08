@@ -574,11 +574,16 @@ function reduce(current: AppState, intent: Intent): AppState {
 
     case "queue/restore": {
       const restored = intent.state;
+      /* 2026-11-09 默认列表循环迁移：老快照里的 order 是旧默认的产物，不是用户显式选择——
+         恢复时升级为 repeat-all（用户诉求「播完最后一首应该重头再来」）。
+         误伤面：真想要顺序播放的用户点一下底栏模式钮即回 order。 */
+      const migratedMode = restored.mode === "order" ? "repeat-all" : restored.mode;
       return {
         ...current,
         // 老快照没有 failed / remote / stream 字段：按空值补，别让 undefined 漏进真相
         queue: {
           ...restored,
+          mode: migratedMode,
           failed: Array.isArray(restored.failed) ? restored.failed : [],
           remote: restored.remote && typeof restored.remote === "object" ? restored.remote : {},
           stream: restored.stream && typeof restored.stream === "object" ? restored.stream : null,
