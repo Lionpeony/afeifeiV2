@@ -134,6 +134,44 @@
   font-weight: 600;
 }
 
+/* 监听区封面位：圆形黑胶盘（与首页卡垫底同一套盘纹语言），
+   有封面时圆形裁切 + 内描边；无封面时黑胶占位——同心圆纹 + 琥珀标环。 */
+.shell.live .console .np-art {
+  border: none;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 16%, transparent),
+    0 4px 14px -6px rgba(0, 0, 0, 0.42);
+}
+
+.shell.live .console .np-art.blank {
+  background-color: var(--live-ink);
+  background-image:
+    radial-gradient(circle closest-side, var(--live-slot) 0 5%, transparent 6%),
+    radial-gradient(circle closest-side, var(--live-amber) 0 15%, transparent 16%),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0 2px,
+      color-mix(in srgb, var(--live-fg) 7%, transparent) 2px 3px
+    );
+}
+
+/* 红心图标化：描边心 + on 态实心填充（♥ 字符和描边图标体系不统一） */
+.shell.live .console .np-like {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell.live .console .np-like svg {
+  width: 15px;
+  height: 15px;
+}
+
+.shell.live .console .np-like.on svg {
+  fill: currentColor;
+}
+
 /* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言（字色走 accent-ink，四档对比由 token 保证） */
 .shell.live .console .tb.main {
   width: 44px;

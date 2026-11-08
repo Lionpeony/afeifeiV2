@@ -139,7 +139,7 @@ export function Console(props: {
           title={remote ? "账号红心（同步到网易云）" : "本机红心"}
           onClick={toggleCurrentLike}
         >
-          ♥
+          <NavIcon name="liked" />
         </button>
       </div>
 
