@@ -116,7 +116,7 @@ export function LiveHome({
   homeVisited = true;
 
   return (
-    <section className={`live-home daily-home cs-home${firstVisit ? " cs-enter" : ""}`}>
+    <section className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}>
       {!lead ? (
         <div className="cs-state-wrap">
           {state.loading ? <p className="daily-state">正在接通今晚的节目单…</p> : null}
@@ -144,7 +144,7 @@ export function LiveHome({
         <>
           {/* 左：「正在播放」大图卡。stage 按 lead.sourceId 重挂 —— 换档时封面与文案各播一次入场
               （见 cover-stage.css）。key 放在 section 上而不是子元素上：img 单独换 key 实测不重挂。 */}
-          <section className="cs-stage daily-card" key={lead.sourceId} aria-labelledby="leadTitle">
+          <section className="cs-stage" key={lead.sourceId} aria-labelledby="leadTitle">
             {lead.coverUrl ? (
               <img
                 className="cs-cover"
@@ -244,8 +244,24 @@ export function LiveHome({
                       onClick={() => play(track)}
                     >
                       <span className="cs-all-no">{pad2(i + tapeStart + 1)}</span>
-                      <span className="cs-all-title daily-title">{track.title}</span>
-                      <span className="cs-all-artist">{track.artist}</span>
+                      {/* 缩略图：与播出带格子同一封面链路；失败切迷你黑胶垫底 */}
+                      {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
+                        <img
+                          className="cs-all-art"
+                          src={track.coverUrl}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          onError={() => setFailedCovers((s) => new Set(s).add(track.coverUrl as string))}
+                        />
+                      ) : (
+                        <span className="cs-all-art cs-all-art-blank" aria-hidden="true" />
+                      )}
+                      <span className="cs-all-tx">
+                        <span className="cs-all-title">{track.title}</span>
+                        <span className="cs-all-artist">{track.artist}</span>
+                      </span>
                       <span className="cs-all-dur">{fmtDuration(track.durationMs)}</span>
                     </button>
                   </li>

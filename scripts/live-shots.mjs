@@ -559,6 +559,31 @@ app.whenReady().then(async () => {
       if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
     }
 
+    /* 完整播出单（cs-more 展开）：一体式队列列表——行数 = 节目单总数、
+       缩略图与在播标记就位。列表空或缩略图缺失都是列表坏了。 */
+    await evalJs(`document.querySelector(".cs-more")?.click()`);
+    await sleep(500);
+    const allList = await evalJs(`(() => {
+      const rows = [...document.querySelectorAll(".cs-all-row")];
+      const arts = [...document.querySelectorAll(".cs-all-art")];
+      const okArt = arts.filter((el) => el.tagName !== "IMG" || el.naturalWidth > 0).length;
+      return {
+        rows: rows.length,
+        liveRow: rows.filter((r) => r.classList.contains("is-live")).length,
+        arts: arts.length,
+        okArt,
+        artW: arts[0]?.getBoundingClientRect().width ?? 0,
+      };
+    })()`);
+    console.log(`完整播出单：${JSON.stringify(allList)}`);
+    if (allList.rows < 1) throw new Error("展开后播出单是空的");
+    if (allList.liveRow !== 1) throw new Error(`播出单在播标记应 1 行，实际 ${allList.liveRow}`);
+    if (allList.okArt < Math.min(6, allList.rows)) throw new Error(`播出单缩略图不足：${JSON.stringify(allList)}`);
+    if (allList.artW < 20) throw new Error(`缩略图塌了（宽 ${allList.artW}）`);
+    await shoot("live-home-all-list.png");
+    await evalJs(`document.querySelector(".cs-more")?.click()`);
+    await sleep(400);
+
     /* 播出带格子 = 真封面：img 直接做格子中段，fixture 至少 1 格加载成功且真的画出来了（宽>0）。 */
     const covers = await evalJs(`(() => {
       const arts = [...document.querySelectorAll(".cs-tape-art")];
@@ -613,19 +638,61 @@ app.whenReady().then(async () => {
     const jumped = await evalJs(`(() => {
       const b = document.querySelector(".cs-artist b");
       const cs = getComputedStyle(b);
+      const note = document.querySelector(".cs-note");
+      const nc = getComputedStyle(note);
+      const copy = document.querySelector(".cs-copy");
+      const stage = document.querySelector(".cs-stage");
+      const cover = document.querySelector(".cs-cover");
+      const home = document.querySelector(".cs-home");
+      const hc = getComputedStyle(home);
       return {
         title: document.querySelector(".cs-title")?.textContent ?? "",
         anim: window.__swapAnim ?? [],
         artist: b?.textContent ?? "",
         color: cs.color,
         h: b?.getBoundingClientRect().height ?? 0,
+        note: note?.textContent.slice(0, 16) ?? "",
+        noteOpacity: nc.opacity,
+        noteRect: note?.getBoundingClientRect().toJSON(),
+        copyRect: copy?.getBoundingClientRect().toJSON(),
+        copyPos: getComputedStyle(copy).position,
+        stageRect: stage?.getBoundingClientRect().toJSON(),
+        coverRect: cover?.getBoundingClientRect().toJSON(),
+        stagePos: stage ? getComputedStyle(stage).position : "",
+        stageDisp: stage ? getComputedStyle(stage).display : "",
+        home: {
+          disp: hc.display,
+          rows: hc.gridTemplateRows,
+          h: Math.round(home.getBoundingClientRect().height),
+          cls: home.className,
+        },
+        chain: (() => {
+          const out = [];
+          let el = document.querySelector(".cs-home")?.parentElement;
+          while (el && out.length < 6) {
+            const cs = getComputedStyle(el);
+            out.push(`${el.tagName}.${String(el.className).split(" ")[0]}:${Math.round(el.getBoundingClientRect().height)}(${cs.height}/${cs.overflow})`);
+            el = el.parentElement;
+          }
+          return out;
+        })(),
       };
     })()`);
-    console.log(`同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·艺人「${jumped.artist}」(${jumped.color} h=${jumped.h})·动画 ${JSON.stringify(jumped.anim)}`);
+    console.log(
+      `同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·艺人「${jumped.artist}」(${jumped.color} h=${jumped.h})` +
+        `·note「${jumped.note}」op=${jumped.noteOpacity} y=${Math.round(jumped.noteRect?.y ?? -1)}` +
+        `·copy pos=${jumped.copyPos} y=${Math.round(jumped.copyRect?.y ?? -1)} h=${Math.round(jumped.copyRect?.height ?? 0)}` +
+        `·stage pos=${jumped.stagePos} disp=${jumped.stageDisp} y=${Math.round(jumped.stageRect?.y ?? -1)} h=${Math.round(jumped.stageRect?.height ?? 0)}` +
+        `·cover y=${Math.round(jumped.coverRect?.y ?? -1)} h=${Math.round(jumped.coverRect?.height ?? 0)}` +
+        `·home disp=${jumped.home.disp} rows=[${jumped.home.rows}] h=${jumped.home.h}` +
+        `·链 ${jumped.chain.join(" <- ")}` +
+        `·动画 ${JSON.stringify(jumped.anim)}`,
+    );
     if (!swapTitle) throw new Error("播出带没有第 3 格");
     if (jumped.title !== swapTitle) throw new Error(`跳档后 hero 没跟上：期望「${swapTitle}」，实际「${jumped.title}」`);
     if (!jumped.artist) throw new Error("hero 艺人名为空");
     if (jumped.h < 10) throw new Error(`hero 艺人行塌了（h=${jumped.h}）`);
+    if (Number(jumped.noteOpacity) < 0.5) throw new Error(`note 透明（op=${jumped.noteOpacity}）`);
     if (!jumped.anim.includes("cs-swap-copy")) throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
 
     /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停

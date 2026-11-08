@@ -25,6 +25,9 @@
   color: var(--live-fg);
   /* 原生控件（select 弹层 / checkbox / 滚条默认皮）也跟着控制室的灯走 */
   color-scheme: light;
+  /* 保险丝：壳高恒等于窗口。height:100% 链上任何一环失效（祖先高度 auto）
+     时内容会把壳撑开，行内 minmax(0,1fr) 全部失灵 —— 首页信息区被窗口裁掉就是它 */
+  height: 100vh;
 }
 
 /* 暗区：播放页与首页封面台恒暗（tokens.css ⑤ / A-10）。
