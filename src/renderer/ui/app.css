@@ -666,8 +666,8 @@ html::after {
   margin-left: auto;
 }
 @keyframes sk-shimmer {
-  60%,
-  100% {
+  /* 无停留段：扫完立即回卷再扫——之前 60%,100% 的写法让高光扫 1.08s 停 1.08s，一半时间是死区 */
+  to {
     transform: translateX(100%);
   }
 }
