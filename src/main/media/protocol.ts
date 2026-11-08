@@ -17,10 +17,12 @@ function mimeOf(filePath: string): string {
   return MIME[filePath.slice(filePath.lastIndexOf(".")).toLowerCase()] ?? "application/octet-stream";
 }
 
-/** 与其他 scheme 一次性注册（多次调用会互相覆盖，见 host/index.ts 的说明）。 */
+/** 与其他 scheme 一次性注册（多次调用会互相覆盖，见 host/index.ts 的说明）。
+    corsEnabled：封面取色（tint-client）用 crossOrigin 采样，响应必须允许跨源，
+    否则本地封面的 canvas 一样被污染，取色永远静默失败。 */
 export const MEDIA_SCHEME = {
   scheme: "appmedia",
-  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+  privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true },
 } as const;
 
 /** 必须在 app ready 之后调用。 */
@@ -46,7 +48,12 @@ export function registerMediaProtocol(): void {
       const body = await fs.promises.readFile(filePath);
       return new Response(body, {
         status: 200,
-        headers: { "content-type": type, "content-length": String(size), "accept-ranges": "bytes" },
+        headers: {
+          "content-type": type,
+          "content-length": String(size),
+          "accept-ranges": "bytes",
+          "access-control-allow-origin": "*",
+        },
       });
     }
 
@@ -65,6 +72,7 @@ export function registerMediaProtocol(): void {
         "content-range": `bytes ${start}-${end}/${size}`,
         "content-length": String(end - start + 1),
         "accept-ranges": "bytes",
+        "access-control-allow-origin": "*",
       },
     });
   });

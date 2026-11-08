@@ -13,8 +13,12 @@
   padding: 14px;
   gap: 14px;
   overflow: hidden;
-  /* 画布 = 壳底色：左栏是一张深色唱片卡浮在浅壳上（浅色主题也读得清） */
-  background: var(--live-bg);
+  /* 全页氛围：封面色的淡晕从左上（舞台方向）铺向右下——
+     页面底不是死白，它跟着正在播的歌换温度（Apple Music 式色彩氛围）。
+     tint 失败 → transparent → 纯壳底，永不影响可读性。 */
+  background:
+    radial-gradient(130% 120% at 14% 0%, color-mix(in oklch, var(--cs-tint) 16%, transparent), transparent 62%),
+    var(--live-bg);
 }
 
 /* —— 左：「正在播放」开放舞台 ——
@@ -28,12 +32,13 @@
   display: flex;
   flex-direction: column;
   padding: 2px 4px 0;
-  /* 场景层色晕：封面正后方一团封面色温，向下渐隐进纸面——
+  /* 场景层色晕：从封面背后一直漫到大字区（纵向半径必须越过封面下缘，
+     否则整团色全被封面挡住，页面就"没有主题"）——
      tint 失败时 transparent → 纯页面底，取色永不影响可读性（M9-2 管线 L 已夹取） */
   background: radial-gradient(
-    110% 62% at 34% 6%,
-    color-mix(in oklch, var(--cs-tint) 34%, transparent),
-    transparent 64%
+    115% 88% at 34% 8%,
+    color-mix(in oklch, var(--cs-tint) 42%, transparent),
+    transparent 72%
   );
 }
 
@@ -453,6 +458,9 @@
   aspect-ratio: 1;
   min-height: 0;
   border-radius: 0;
+  /* 细描边贴内缘：白/浅色封面在浅卡上不失边界 */
+  outline: 1px solid color-mix(in srgb, var(--live-fg) 12%, transparent);
+  outline-offset: -1px;
   /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
   background: var(--live-slot);
   overflow: hidden;

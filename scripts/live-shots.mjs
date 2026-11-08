@@ -19,7 +19,8 @@ const OUT = path.resolve("docs/assets/mockups");
 const PROFILE = path.join(os.tmpdir(), `afeifei-live-${process.pid}`);
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: "appmedia", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+  // corsEnabled 与主进程 MEDIA_SCHEME 对齐：封面取色 crossOrigin 采样需要（fixture 截图才能看见 tint 氛围）
+  { scheme: "appmedia", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } },
 ]);
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.setPath("userData", PROFILE);
@@ -133,7 +134,9 @@ const COVER_ART = {
   叶惠美: ["#d8c7a0", "#3b2f1c", "#9a7734"],
   第二天堂: ["#1d3a52", "#e6e1d4", "#5aa0c8"],
   U87: ["#3b2333", "#eee2dc", "#b46f8a"],
-  夜行电台: ["#101820", "#e8e2d6", "#5f7f9a"],
+  /* 深青而非近灰黑：tint 取色量化后 chroma 太低（0.02）混什么都看不出，
+     fixture 封面必须自带彩度，色晕链路才验得动 */
+  夜行电台: ["#123a4a", "#e8e2d6", "#7fc4d8"],
 };
 
 const hashOf = (s) => {
@@ -390,7 +393,12 @@ function registerMinimalIpc() {
     const wav = wavOf(requested);
     return new Response(wav, {
       status: 200,
-      headers: { "content-type": "audio/wav", "content-length": String(wav.length), "accept-ranges": "bytes" },
+      headers: {
+        "content-type": "audio/wav",
+        "content-length": String(wav.length),
+        "accept-ranges": "bytes",
+        "access-control-allow-origin": "*",
+      },
     });
   });
 }
@@ -1516,6 +1524,8 @@ app.whenReady().then(async () => {
       theme: document.documentElement.dataset.theme ?? "light",
       shellBg: shell ? getComputedStyle(shell).getPropertyValue("--live-bg").trim() : null,
       heroBg: hero ? getComputedStyle(hero).getPropertyValue("--live-bg").trim() : null,
+      /* tint 实际值：取色链路（crossOrigin/worker/采样）任何一环断了它就是 transparent —— 直接读数不猜 */
+      heroTint: hero ? getComputedStyle(hero).getPropertyValue("--cs-tint").trim() : null,
     };
   })()`);
 
@@ -1551,6 +1561,11 @@ app.whenReady().then(async () => {
     console.log(`配色 ${id}：${JSON.stringify(got)}`);
     if (got.theme !== id) throw new Error(`配色 ${id} 没切生效：${JSON.stringify(got)}`);
     if (got.heroBg !== got.shellBg) throw new Error(`首页封面台应跟主题（tint 场景层）却读到 ${got.heroBg} ≠ ${got.shellBg}`);
+    /* fixture 封面是 data URL（同源必可采样）→ tint 必须有实值。
+       读到 transparent = 取色链路断了（crossOrigin/worker/CORS 任一环），直接红。 */
+    if (!got.heroTint || got.heroTint === "transparent") {
+      throw new Error(`封面取色链路断了（--cs-tint = ${got.heroTint}）：crossOrigin/worker/CORS 有一环没通`);
+    }
     themeBg.set(id, String(got.shellBg));
     await shoot(`live-theme-home-${id}.png`);
   }

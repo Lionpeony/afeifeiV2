@@ -31,9 +31,12 @@ function ensureWorker(): Worker | null {
   }
 }
 
-/** 从封面 URL 采样取色。结果经回调返回；失败回调 null。 */
+/** 从封面 URL 采样取色。结果经回调返回；失败回调 null。
+    crossOrigin 必须在 src 之前给：远程 CDN 不回 CORS 头时图直接加载失败（onerror 回落），
+    不给的话图能加载但 canvas 被污染，getImageData 抛 SecurityError —— 静默失败里最隐蔽的一种。 */
 export function sampleCoverTint(src: string, cb: TintCb): void {
   const img = new Image();
+  img.crossOrigin = "anonymous";
   img.onload = () => {
     try {
       const w = img.naturalWidth;

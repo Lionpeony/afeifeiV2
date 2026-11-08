@@ -132,7 +132,11 @@ export function LiveHome({
   }, [lead?.coverUrl]);
 
   return (
-    <section className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}>
+    <section
+      className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
+      /* tint 写在页面根：全页氛围底（cs-home）与舞台色晕（cs-stage）共用同一封面色 */
+      style={{ "--cs-tint": tint ?? "transparent" } as React.CSSProperties}
+    >
       {!lead ? (
         <div className="cs-state-wrap">
           {state.loading ? <p className="daily-state">正在接通今晚的节目单…</p> : null}
@@ -163,7 +167,6 @@ export function LiveHome({
           <section
             className="cs-stage"
             key={lead.sourceId}
-            style={{ "--cs-tint": tint ?? "transparent" } as React.CSSProperties}
             aria-labelledby="leadTitle"
           >
             {lead.coverUrl ? (
