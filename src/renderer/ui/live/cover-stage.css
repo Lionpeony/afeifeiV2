@@ -306,8 +306,11 @@
 
 .cs-tapes li {
   display: flex;
-  flex: 1 0 104px;
-  min-width: 104px;
+  /* shrink 允许 + min-width 0：6→5 张卡正好均分一行（等宽网格）。
+     shrink 0 的老写法在长标题下会靠 min-content 把个别卡撑宽，等宽网格破功
+     （2026-11-08 用户圈「10 也许Maybe得不下去」卡比别的宽一圈）。 */
+  flex: 1 1 104px;
+  min-width: 0;
 }
 
 /* 专辑卡：方形封面整幅在顶（全出血，卡圆角即封面圆角），信息压在面板底上。
@@ -357,6 +360,9 @@
   margin-top: 3px;
   padding: 0 12px;
   white-space: normal;
+  /* anywhere：长中英混排标题（「也许Maybe得不下去」）在窄卡里也能断词，
+     min-content 锁到单字符——文字再多也不把卡撑宽 */
+  overflow-wrap: anywhere;
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 600;
@@ -647,12 +653,12 @@ img.cs-tape-art {
   }
 
   .cs-tapes::-webkit-scrollbar {
-  height: 0;
-}
+    height: 0;
+  }
 
-.cs-tapes li {
-    flex: 1 0 80px;
-    min-width: 80px;
+  .cs-tapes li {
+    flex: 1 1 80px;
+    min-width: 0;
   }
 
   .cs-vu {

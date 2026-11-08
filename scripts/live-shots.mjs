@@ -539,6 +539,16 @@ app.whenReady().then(async () => {
     }
     console.log(`封面白边反制：hero transform ${trimShot.t}`);
 
+    /* 播出带等宽网格：各卡宽度差 ≤ 2px。长标题（min-content）撑宽个别卡 = 网格破功（2026-11-08 用户圈图）。 */
+    const tapeWidths = await evalJs(`(() => {
+      const ws = [...document.querySelectorAll(".cs-tapes .cs-tape")].map((el) => el.offsetWidth);
+      return { n: ws.length, min: Math.min(...ws), max: Math.max(...ws) };
+    })()`);
+    if (tapeWidths.n >= 2 && tapeWidths.max - tapeWidths.min > 2) {
+      throw new Error(`播出带卡宽不齐：${JSON.stringify(tapeWidths)}——标题把卡撑开了`);
+    }
+    console.log(`播出带等宽：${tapeWidths.n} 档 ${tapeWidths.min}-${tapeWidths.max}px`);
+
     /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
        旧实现把左栏锁死在 songs[0]，这条必红。 */
     const heroBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);

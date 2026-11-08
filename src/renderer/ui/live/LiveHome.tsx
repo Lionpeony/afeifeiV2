@@ -126,7 +126,7 @@ export function LiveHome({
   // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
   const upcoming: RemoteTrack[] = [];
   for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
-  const tapes = upcoming.slice(0, 6);
+  const tapes = upcoming.slice(0, 5);
   /** 环列第 k 项的节目单编号（1 起）：lead 29/30 之后是 01。 */
   const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
   // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）。
