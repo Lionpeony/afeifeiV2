@@ -285,6 +285,7 @@ export function LiveHome({
                   <li key={track.sourceId}>
                     <button
                       type="button"
+                      className="cs-all-row"
                       onClick={() => play(track)}
                     >
                       <span className="cs-all-no">{noOf(i + 1)}</span>
@@ -317,6 +318,7 @@ export function LiveHome({
                 <li key={track.sourceId}>
                   <button
                     type="button"
+                    className="cs-tape"
                     onClick={() => play(track)}
                     aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                   >

@@ -596,16 +596,16 @@ img.cs-tape-art {
 }
 
 /* —— 换档：正在播放的那一档顶到左栏 ——
-   封套与文案按 lead.sourceId 重挂，各播一次；只碰 opacity / transform。
-   封套从 1.035 缩回 1（始终盖满容器，不会露边），文案抬 10px；都是单向收敛。 */
+   封套与文案按 lead.sourceId 重挂，各播一次；只碰 opacity（原因见 keyframes 内注释）。 */
 @keyframes cs-swap-cover {
+  /* 只碰 opacity：transform 分量（scale 1.035→1）会以 forwards 结束态**永久压制**
+     img 的内联 trimScale（白边反制 scale 1.07+）——动画优先级高于内联样式，
+     结束态恒等矩阵一压，白边裁切就再也不生效（2026-11-09 探针 matrix(1,0,0,1) 实锤） */
   from {
     opacity: 0;
-    transform: scale(1.035);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 

@@ -172,7 +172,6 @@ const coverMotif = (kind, motif) => {
 
 const coverOf = (album) => {
   const [bg, fg, motif] = COVER_ART[album] ?? ["#2a2c30", "#e8e4da", "#8a8f98"];
-  const kind = hashOf(album) % 3;
   /* 夜行电台带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
      白边 24/400 = 6%，落在 2%-15% 检测窗口内 → trim 必触发，img 必带 scale transform。 */
   if (album === "夜行电台") {
@@ -528,16 +527,30 @@ app.whenReady().then(async () => {
   }
 
   if (process.env.LIVE_EMPTY !== "1") {
-    /* 白边反制判据：fixture 封面自带 6% 白边，hero 大图必须带着 scale 反制 transform。
-       transform 还是 none = 检测链路断了（onload → canvas → 状态没接上），直接红。 */
+    /* 白边反制判据：fixture 封面自带 6% 白边 → scale(1.069)。
+       恒等矩阵 / none 都算断链：恒等 = trimScale 被换档动画 forwards 结束态压制（踩过）。 */
     const trimShot = await evalJs(`(() => {
       const img = document.querySelector(".cs-cover");
-      return { t: img ? getComputedStyle(img).transform : "missing" };
+      const t = img ? getComputedStyle(img).transform : "missing";
+      const m = t.match(/^matrix\\(([-\\d.]+)/);
+      return { t, sx: m ? Number(m[1]) : 0 };
     })()`);
-    if (trimShot.t === "none" || trimShot.t === "missing") {
-      throw new Error(`白边封面没触发反制（transform = ${trimShot.t}）：detectCoverTrim 链路断了`);
+    if (trimShot.sx < 1.03) {
+      throw new Error(`白边反制没生效（transform = ${trimShot.t}，sx = ${trimShot.sx}）：检测链断或被动画压制`);
     }
-    console.log(`封面白边反制：hero transform ${trimShot.t}`);
+    console.log(`封面白边反制：hero transform ${trimShot.t}（sx = ${trimShot.sx}）`);
+
+    /* 分诊：右栏此刻的渲染态——0 档时先看它停在哪句话上
+       （到头话术 = total≤1；「正在接通」= daily 还没回来；登录提示 = 账号没生效）。 */
+    const state0 = await evalJs(`(() => ({
+      head: document.querySelector(".cs-strip-head h2")?.textContent ?? "",
+      sub: document.querySelector(".cs-strip-sub")?.textContent ?? "",
+      end: document.querySelector(".cs-end")?.textContent ?? "",
+      gate: document.querySelector(".daily-state")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      home: document.querySelector(".live-home") !== null,
+    }))()`);
+    console.log(`右栏分诊：${JSON.stringify(state0)}`);
 
     /* 播出带等宽等高网格：宽差/高差 ≤ 2px。长标题撑宽（min-content）或撑高
        （line-clamp 失效折三行）都是网格破功（2026-11-08 用户两张圈图）。 */
@@ -631,7 +644,8 @@ app.whenReady().then(async () => {
     })()`);
     console.log(`完整播出单：${JSON.stringify(allList)}`);
     if (allList.rows < 1) throw new Error("展开后播出单是空的");
-    if (allList.liveRow !== 1) throw new Error(`播出单在播标记应 1 行，实际 ${allList.liveRow}`);
+    /* 播出单 = 「接下来」的展开态（569551e），全是之后的歌——is-live 不该出现（fc08af3 已删死类） */
+    if (allList.liveRow !== 0) throw new Error(`播出单里不该有在播标记（是接下来，不是在播）：${allList.liveRow}`);
     if (allList.okArt < Math.min(6, allList.rows)) throw new Error(`播出单缩略图不足：${JSON.stringify(allList)}`);
     if (allList.artW < 20) throw new Error(`缩略图塌了（宽 ${allList.artW}）`);
     await shoot("live-home-all-list.png");
