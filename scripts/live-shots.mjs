@@ -630,10 +630,15 @@ app.whenReady().then(async () => {
       tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
       liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
+      /* 黑胶判据：在播必须真的在转（play-state running），谁把 spin 类或动画删了就红 */
+      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
     }))()`);
     console.log(
-      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}`,
+      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}·黑胶 ${hero.npSpin}`,
     );
+    if (hero.npSpin !== "running") {
+      throw new Error(`播放中黑胶没在转（animation-play-state = ${hero.npSpin}）：spin 类或动画丢了`);
+    }
     if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
     if (!hero.kicker.includes("正在播出")) throw new Error("换档后眉标没变成「正在播出」");
@@ -846,11 +851,39 @@ app.whenReady().then(async () => {
     const paused = await evalJs(`(() => ({
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       note: document.querySelector(".cs-note")?.textContent ?? "",
+      /* 暂停后黑胶必须停在当前角度（paused 而不是 running）：唱针抬起来了 */
+      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
     }))()`);
-    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」`);
+    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·黑胶 ${paused.npSpin}`);
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
     if (!paused.note.includes("停在半路")) throw new Error(`暂停文案没换：${paused.note}`);
+    if (paused.npSpin !== "paused") {
+      throw new Error(`暂停后黑胶还在转（animation-play-state = ${paused.npSpin}）`);
+    }
     await shoot("live-home-onair-paused.png");
+
+    /* 悬停浮起判据：CSS :hover 只认真实指针，用 sendInputEvent 把指针移到盘心，
+       scale 应到 1.07（独立 scale 属性，与旋转的 transform 并存）。这条红说明规则或选择器丢了。 */
+    const artBox = await evalJs(`(() => {
+      const r = document.querySelector(".console .np-art")?.getBoundingClientRect();
+      return r ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } : null;
+    })()`);
+    if (!artBox) throw new Error("找不到黑胶盘：hover 判据没意义");
+    win.webContents.sendInputEvent({ type: "mouseMove", x: artBox.x, y: artBox.y });
+    await sleep(250);
+    const hoverScale = await evalJs(`getComputedStyle(document.querySelector(".console .np-art")).scale`);
+    console.log(`黑胶悬停：指针移到盘心 → scale = ${hoverScale}`);
+    if (Math.abs(parseFloat(hoverScale) - 1.07) > 0.01) {
+      throw new Error(`悬停浮起没生效（scale = ${hoverScale}，期望 1.07）`);
+    }
+    // 不走 shoot：它会先把光标挪走。悬停证据就要带着光标拍。
+    await win.webContents.executeJavaScript(
+      `new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`,
+      true,
+    );
+    const hoverShot = await win.webContents.capturePage();
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, "live-home-hover.png"), hoverShot.toPNG());
   }
 
   if (process.env.LIVE_EMPTY === "1" || process.env.HOME_ONLY === "1") {

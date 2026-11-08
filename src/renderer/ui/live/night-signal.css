@@ -135,13 +135,38 @@
 }
 
 /* 监听区封面位：圆形黑胶盘（与首页卡垫底同一套盘纹语言），
-   有封面时圆形裁切 + 内描边；无封面时黑胶占位——同心圆纹 + 琥珀标环。 */
+   有封面时圆形裁切 + 内描边；无封面时黑胶占位——同心圆纹 + 琥珀标环。
+   黑胶隐喻：唱针压上（playing）才转，抬起（暂停/缓冲）停在当前角度——
+   用 animation-play-state 切换而不是增删 animation，恢复播放时不跳回 0 点。 */
+@keyframes np-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
 .shell.live .console .np-art {
   border: none;
   border-radius: 50%;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 16%, transparent),
     0 4px 14px -6px rgba(0, 0, 0, 0.42);
+  animation: np-spin 4.5s linear infinite;
+  animation-play-state: paused;
+  /* 悬停浮起走独立 scale 属性：旋转占着 transform，动画的 transform 优先级
+     会压过普通 transform 声明——scale 属性与它互不覆盖，hover 才敢放大 */
+  transition: scale 140ms ease-out, box-shadow 140ms ease-out;
+}
+
+.shell.live .console .np-art.spin {
+  animation-play-state: running;
+}
+
+/* 悬停：盘轻微浮起 + 阴影加深（按钮反馈档 140ms）；只对盘本身，文字区 hover 不打扰 */
+.shell.live .console .np-art:hover {
+  scale: 1.07;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 28%, transparent),
+    0 8px 22px -6px rgba(0, 0, 0, 0.58);
 }
 
 .shell.live .console .np-art.blank {
@@ -434,5 +459,12 @@
   .ruler-search svg,
   .ruler-acct img {
     transition: none;
+  }
+
+  /* 旋转与悬停缩放都是位移类：reduce 下停掉，阴影加深保留（瞬时，颜色类） */
+  .shell.live .console .np-art {
+    animation: none;
+    transition: none;
+    scale: 1;
   }
 }

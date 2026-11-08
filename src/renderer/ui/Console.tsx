@@ -118,7 +118,7 @@ export function Console(props: {
       <div className="np-zone">
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
           <span
-            className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}`}
+            className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}${playing ? " spin" : ""}`}
             style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
           />
           <span className="np-tx">
