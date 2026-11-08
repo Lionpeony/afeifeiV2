@@ -550,7 +550,7 @@ app.whenReady().then(async () => {
     );
     if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
-    if (!hero.kicker.includes("ON AIR")) throw new Error("换档后眉标没变成「正在播出」");
+    if (!hero.kicker.includes("正在播出")) throw new Error("换档后眉标没变成「正在播出」");
     if (hero.liveTape < 1) throw new Error("播出带没有标记正在播的那一档");
     if (!hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
       throw new Error(`换档没有播动画：${JSON.stringify(hero.anim)}`);
@@ -610,13 +610,22 @@ app.whenReady().then(async () => {
       return t;
     })()`);
     await sleep(1800);
-    const jumped = await evalJs(`(() => ({
-      title: document.querySelector(".cs-title")?.textContent ?? "",
-      anim: window.__swapAnim ?? [],
-    }))()`);
-    console.log(`同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·动画 ${JSON.stringify(jumped.anim)}`);
+    const jumped = await evalJs(`(() => {
+      const b = document.querySelector(".cs-artist b");
+      const cs = getComputedStyle(b);
+      return {
+        title: document.querySelector(".cs-title")?.textContent ?? "",
+        anim: window.__swapAnim ?? [],
+        artist: b?.textContent ?? "",
+        color: cs.color,
+        h: b?.getBoundingClientRect().height ?? 0,
+      };
+    })()`);
+    console.log(`同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·艺人「${jumped.artist}」(${jumped.color} h=${jumped.h})·动画 ${JSON.stringify(jumped.anim)}`);
     if (!swapTitle) throw new Error("播出带没有第 3 格");
     if (jumped.title !== swapTitle) throw new Error(`跳档后 hero 没跟上：期望「${swapTitle}」，实际「${jumped.title}」`);
+    if (!jumped.artist) throw new Error("hero 艺人名为空");
+    if (jumped.h < 10) throw new Error(`hero 艺人行塌了（h=${jumped.h}）`);
     if (!jumped.anim.includes("cs-swap-copy")) throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
 
     /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停
@@ -657,9 +666,9 @@ app.whenReady().then(async () => {
     );
     if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
     if (onAir.title !== chartPick) throw new Error(`ON AIR 后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
-    if (!onAir.kicker.includes("ON AIR")) throw new Error(`ON AIR 后眉标没变成「正在播出」：${onAir.kicker}`);
+    if (!onAir.kicker.includes("正在播出")) throw new Error(`ON AIR 后眉标没变成「正在播出」：${onAir.kicker}`);
     if (!onAir.note.includes("来自")) throw new Error(`ON AIR 文案没标来源：${onAir.note}`);
-    if (!onAir.feed.includes("ON AIR")) throw new Error(`右栏没切到 ON AIR：${onAir.feed}`);
+    if (!onAir.feed.includes("正在播出")) throw new Error(`右栏没切到 ON AIR：${onAir.feed}`);
     if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
     if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
     if (onAir.liveTape < 1) throw new Error("ON AIR 播出带没有标记正在播的一档");
@@ -675,11 +684,10 @@ app.whenReady().then(async () => {
     const paused = await evalJs(`(() => ({
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       note: document.querySelector(".cs-note")?.textContent ?? "",
-      btn: document.querySelector(".cs-actions .cs-play")?.textContent ?? "",
+      btn: document.querySelector(".cs-actions .cs-play-label")?.textContent ?? "",
     }))()`);
     console.log(`首页暂停：眉标「${paused.kicker.trim()}」·按钮「${paused.btn.trim()}」·文案「${paused.note.trim()}」`);
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
-    if (!paused.kicker.includes("STANDBY")) throw new Error(`暂停眉标缺 STANDBY：${paused.kicker}`);
     if (!paused.btn.includes("继续")) throw new Error(`暂停后按钮没换「继续」：${paused.btn}`);
     if (!paused.note.includes("停在半路")) throw new Error(`暂停文案没换：${paused.note}`);
     await shoot("live-home-onair-paused.png");

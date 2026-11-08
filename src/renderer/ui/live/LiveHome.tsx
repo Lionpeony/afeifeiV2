@@ -4,7 +4,6 @@ import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
-import { issueOf, nightOfYear } from "./night.js";
 import { splitLatinRuns } from "./typography.js";
 import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
@@ -13,16 +12,13 @@ export { onAirProgram };
 export type { OnAirProgram };
 
 /**
- * 首页 = 「电台总控台」，按「深夜广播 · 唱片舞台」组织：
- * 左侧是整高封套 + 压在封套上的主打信息，右侧是本期节目单与横向播出带。
+ * 首页 = 「正在播放」+「接下来播放」的现代桌面播放器布局：
+ * 左侧是悬浮大封面 + 主打信息（不夜台暗色舞台），右侧是圆角封面卡网格与真频谱。
  * hero 跟随全局播放（onAirProgram 投影）：在播的歌来自每日推荐就按每日推荐展示，
  * 来自榜单/歌单/搜索/FM 就整页切 ON AIR、节目单 = 当前队列；空闲回落今日第 1 档。
- * 所有叙事字段来自真实数据或日期派生；不编造播出时间。
+ * 所有叙事字段来自真实数据；不编造播出时间。
  */
 
-const WEEK = ["日", "一", "二", "三", "四", "五", "六"];
-const MONTH = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-const DAY = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
 /** 仅本次运行第一次进入首页时放一次入场；切页回来不重播。 */
@@ -86,11 +82,6 @@ export function LiveHome({
     }
   }), [spectrum]);
 
-  const today = new Date();
-  const month = today.getMonth() + 1;
-  const day = today.getDate();
-  const night = nightOfYear(today);
-  const issue = issueOf(today);
   /*
    * hero 显示哪一档——两个模式，同一投影：
    *  - 每日推荐（默认）：正在播的歌属于今日推荐，或没在播（回落第 1 档）；
@@ -124,9 +115,6 @@ export function LiveHome({
   const firstVisit = !homeVisited;
   homeVisited = true;
 
-  const slateCode = `${MONTH[today.getMonth()]} ${pad2(day)} / ${today.getFullYear()} · ${DAY[today.getDay()]}`;
-  const slateDate = `${month} 月 ${day} 日 星期${WEEK[today.getDay()]}`;
-
   return (
     <section className={`live-home daily-home cs-home${firstVisit ? " cs-enter" : ""}`}>
       {!lead ? (
@@ -154,7 +142,7 @@ export function LiveHome({
         </div>
       ) : (
         <>
-          {/* 左：整高唱片舞台。stage 按 lead.sourceId 重挂 —— 换档时封套与文案各播一次入场
+          {/* 左：「正在播放」大图卡。stage 按 lead.sourceId 重挂 —— 换档时封面与文案各播一次入场
               （见 cover-stage.css）。key 放在 section 上而不是子元素上：img 单独换 key 实测不重挂。 */}
           <section className="cs-stage daily-card" key={lead.sourceId} aria-labelledby="leadTitle">
             {lead.coverUrl ? (
@@ -169,21 +157,12 @@ export function LiveHome({
             ) : (
               <NightCoverArt className="cs-cover" />
             )}
-            <span className="cs-frame" aria-hidden="true" />
-
-            <aside className="cs-slate" aria-label="日期与期号">
-              <span className="cs-slate-code">{slateCode}</span>
-              <strong className="cs-slate-date">{slateDate}</strong>
-              <span className="cs-slate-sub">
-                {issue} · 第 {night} 夜
-              </span>
-            </aside>
 
             <div className="cs-copy">
               <p className="cs-kicker">
-                {live ? (playing ? "正在播出 · ON AIR" : "暂停中 · STANDBY") : "今晚主打 · TONIGHT'S LEAD"}
+                {live ? (playing ? "正在播出" : "暂停中") : "今晚主打"}
                 <span className="cs-idx">
-                  NO.{pad2(leadIndex + 1)} / {total}
+                  {pad2(leadIndex + 1)} / {total}
                 </span>
               </p>
               <button type="button" className="cs-title daily-title" id="leadTitle" onClick={() => play(lead)}>
@@ -211,11 +190,12 @@ export function LiveHome({
                 <button
                   type="button"
                   className={`cs-play${live && playing ? " is-pause" : ""}`}
+                  aria-label={live ? (playing ? "暂停" : "继续") : "播放主打"}
                   onClick={() => (live ? onToggle() : play(lead))}
                 >
                   <i aria-hidden="true" />
-                  {live ? (playing ? "暂停" : "继续") : "播放主打"}
                 </button>
+                <span className="cs-play-label">{live ? (playing ? "暂停" : "继续") : "播放主打"}</span>
               </div>
             </div>
           </section>
@@ -224,7 +204,7 @@ export function LiveHome({
           <section className="cs-feed" aria-label="今日推荐">
             <header className="cs-feed-head">
               <div>
-                <p className="cs-feed-kicker">{onAirMode ? "正在播出 · ON AIR" : "每日推荐 · DAILY FEED"}</p>
+                <p className="cs-feed-kicker">{onAirMode ? "正在播出" : "每日推荐"}</p>
                 <p className="cs-feed-meta">
                   {onAirMode ? (
                     <>
@@ -241,8 +221,8 @@ export function LiveHome({
             </header>
 
             <div className="cs-strip-head">
-              <h2>{showAll ? "完整播出单" : "播出带"}</h2>
-              <span className="cs-strip-sub">{showAll ? "ALL TRACKS · 按播出顺序" : "ON DECK · 按顺序"}</span>
+              <h2>{showAll ? "完整播出单" : "接下来播放"}</h2>
+              <span className="cs-strip-sub">{showAll ? "共 " + total + " 首 · 按播出顺序" : "按顺序播放"}</span>
               <button
                 type="button"
                 className="cs-more"
@@ -312,10 +292,6 @@ export function LiveHome({
             )}
 
             <div className="cs-signal" aria-hidden="true">
-              <div className="cs-sig-head">
-                <span>信号 · SIGNAL</span>
-                <span>88.1 MHz</span>
-              </div>
               <div className="cs-vu">
                 {Array.from({ length: VU_BARS }, (_, i) => (
                   <i
