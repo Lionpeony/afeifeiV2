@@ -26,13 +26,27 @@
   flex-direction: column;
   padding: 16px;
   border-radius: 16px;
-  /* 恒深舞台（A-10 精神）：background-color 是保险丝——就算渐变链失效也有实色，
-     文字永远压在深底上，浅色主题不再出现白字压浅底 */
+  /* 恒深舞台 + 封面取色（--cs-tint 来自 M9-2 管线）：卡底带封面色温——
+     紫封面 → 深紫卡、橙封面 → 深棕卡，浅色壳上的大黑块不再突兀。
+     tint 失败时 transparent → 纯墨兜底，取色永不影响可读性 */
   background-color: var(--live-ink);
   background-image:
-    radial-gradient(120% 90% at 18% 0%, color-mix(in srgb, var(--live-amber) 7%, transparent), transparent 58%),
-    linear-gradient(168deg, color-mix(in srgb, var(--live-ink) 88%, var(--live-fg)), var(--live-ink) 74%);
+    radial-gradient(120% 90% at 18% 0%, color-mix(in oklch, var(--cs-tint) 42%, transparent), transparent 60%),
+    linear-gradient(168deg, color-mix(in oklch, var(--cs-tint) 20%, var(--live-ink)), var(--live-ink) 78%);
   box-shadow: 0 18px 44px -20px rgba(0, 0, 0, 0.5);
+}
+
+/* 电台身份戳：现代结构里保留的一枚 mono 印章——只在角落，不参与排版 */
+.cs-stamp-corner {
+  position: absolute;
+  top: 26px;
+  right: 28px;
+  z-index: 4;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--live-fg) 48%, transparent);
+  pointer-events: none;
 }
 
 /* 封面 = flex item 弹性占满上部（文档流，信息区永不会越出卡片）。
@@ -445,7 +459,8 @@
   min-height: 44px;
   margin: 10px 0 8px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--live-ink) 26%, var(--live-panel-2));
+  /* 加载中/无图的底：偏深（ink 为主），图一到位就被盖住 */
+  background: color-mix(in srgb, var(--live-ink) 55%, var(--live-panel-2));
   overflow: hidden;
   box-shadow: 0 3px 10px -4px rgba(0, 0, 0, 0.4);
 }
@@ -858,7 +873,7 @@ img.cs-tape-art {
   height: 36px;
   border-radius: 6px;
   object-fit: cover;
-  background: color-mix(in srgb, var(--live-ink) 26%, var(--live-panel-2));
+  background: color-mix(in srgb, var(--live-ink) 55%, var(--live-panel-2));
 }
 
 /* 无封面垫底：迷你黑胶（同 .cs-tape-vinyl 语言，缩小版） */

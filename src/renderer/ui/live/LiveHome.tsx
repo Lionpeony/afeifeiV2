@@ -4,6 +4,8 @@ import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
+import { issueOf, nightOfYear } from "./night.js";
+import { sampleCoverTint } from "../views/stage/tint-client.js";
 import { splitLatinRuns } from "./typography.js";
 import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
@@ -68,6 +70,7 @@ export function LiveHome({
   const state = useAccountBundle(account, "daily");
   const [showAll, setShowAll] = useState(false);
   const [failedCovers, setFailedCovers] = useState<ReadonlySet<string>>(new Set());
+  const [tint, setTint] = useState<string | null>(null);
   const vuRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
   /*
@@ -115,6 +118,20 @@ export function LiveHome({
   const firstVisit = !homeVisited;
   homeVisited = true;
 
+  /* hero 取色（复用播放页 M9-2 管线）：封面主色 → --cs-tint，卡片底色跟着封面色温走。
+     失败静默回落 transparent（纯墨底），取色不影响任何东西。 */
+  useEffect(() => {
+    const url = lead?.coverUrl;
+    if (!url) return;
+    let active = true;
+    sampleCoverTint(url, (t) => {
+      if (active) setTint(t);
+    });
+    return () => {
+      active = false;
+    };
+  }, [lead?.coverUrl]);
+
   return (
     <section className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}>
       {!lead ? (
@@ -144,7 +161,12 @@ export function LiveHome({
         <>
           {/* 左：「正在播放」大图卡。stage 按 lead.sourceId 重挂 —— 换档时封面与文案各播一次入场
               （见 cover-stage.css）。key 放在 section 上而不是子元素上：img 单独换 key 实测不重挂。 */}
-          <section className="cs-stage" key={lead.sourceId} aria-labelledby="leadTitle">
+          <section
+            className="cs-stage"
+            key={lead.sourceId}
+            style={{ "--cs-tint": tint ?? "transparent" } as React.CSSProperties}
+            aria-labelledby="leadTitle"
+          >
             {lead.coverUrl ? (
               <img
                 className="cs-cover"
@@ -155,8 +177,11 @@ export function LiveHome({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <NightCoverArt className="cs-cover" />
+              <NightCoverArt className="cs-cover" dark />
             )}
+            <span className="cs-stamp-corner" aria-hidden="true">
+              不夜台 · 第 {nightOfYear(new Date())} 夜
+            </span>
 
             <div className="cs-copy">
               <p className="cs-kicker">

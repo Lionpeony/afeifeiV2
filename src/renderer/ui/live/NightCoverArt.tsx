@@ -1,8 +1,11 @@
 /**
  * 无真实封面时的「台版封套」：夜蓝底 + 半出的黑胶 + 琥珀标签。
  * 纯装饰（aria-hidden），真实曲名/艺人在覆盖层文字里。
+ * dark：恒深变体——hero 卡是恒深舞台，浅色主题下占位不能比卡底还浅。
  */
-export function NightCoverArt({ className }: { className?: string }) {
+export function NightCoverArt({ className, dark = false }: { className?: string; dark?: boolean }) {
+  const bgTop = dark ? "var(--live-ink)" : "var(--live-panel)";
+  const bgMid = dark ? "color-mix(in srgb, var(--live-ink) 88%, var(--live-fg))" : "var(--live-bg)";
   return (
     <svg
       className={className}
@@ -13,8 +16,8 @@ export function NightCoverArt({ className }: { className?: string }) {
     >
       <defs>
         <linearGradient id="ns-bg" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0" stopColor="var(--live-panel)" />
-          <stop offset="0.55" stopColor="var(--live-bg)" />
+          <stop offset="0" stopColor={bgTop} />
+          <stop offset="0.55" stopColor={bgMid} />
           <stop offset="1" stopColor="var(--live-ink)" />
         </linearGradient>
         <radialGradient id="ns-glow" cx="0.5" cy="0.5" r="0.5">
@@ -23,8 +26,8 @@ export function NightCoverArt({ className }: { className?: string }) {
           <stop offset="1" stopColor="var(--live-amber)" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="ns-vinyl" cx="0.38" cy="0.32" r="0.86">
-          <stop offset="0" stopColor="var(--live-panel)" />
-          <stop offset="0.55" stopColor="var(--live-bg)" />
+          <stop offset="0" stopColor={bgTop} />
+          <stop offset="0.55" stopColor={bgMid} />
           <stop offset="1" stopColor="var(--live-ink)" />
         </radialGradient>
         <radialGradient id="ns-label" cx="0.38" cy="0.3" r="0.92">
