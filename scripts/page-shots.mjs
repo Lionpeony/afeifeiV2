@@ -46,7 +46,7 @@ const PAGES = [
   ["本地", "local"],
   ["在线", "online"],
   ["首页", "home"],
-  ["电台", "radio"],
+  // 「电台」tick 已于站尺重构移除（StationRuler.TICKS 无 radio）——保留会在这里崩断整条截图链
   ["漫游", "roam"],
   ["喜欢的音乐", "liked"],
   ["最近播放", "recent"],

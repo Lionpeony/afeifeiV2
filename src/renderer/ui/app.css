@@ -654,10 +654,34 @@ html::after {
     opacity: 1;
   }
 }
-/* 骨架屏是装饰性循环动画：系统要求减弱动效时停在半亮，不闪 */
+/* 骨架 → 内容的入场过渡（2026-11-09 用户点单「硬生生加载出来很影响使用感受」）：
+   表头 / 曲目行 / 榜单台柱挂载即 200ms 淡入 + 4px 上浮。加载更多的新行也各自淡入。
+   注意：本项目的 hover 都是背景色变化，与 fill both 的 transform 终态无冲突——
+   若将来给行加带 transform 的 hover，会被这里的 both 压制（黑胶轮踩过同坑）。 */
+@keyframes list-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.online-thead,
+.online-row,
+.chart-hero-cell {
+  animation: list-in 200ms ease-out both;
+}
+/* 骨架屏是装饰性循环动画：系统要求减弱动效时停在半亮，不闪；内容入场同此，reduce 下直接出现 */
 @media (prefers-reduced-motion: reduce) {
-  .online-skel .sk-bar {
+  .online-skel .sk-bar,
+  .online-thead,
+  .online-row,
+  .chart-hero-cell {
     animation: none;
+  }
+  .online-skel .sk-bar {
     opacity: 0.7;
   }
 }
