@@ -488,12 +488,14 @@ async function main() {
     await press("m"); // 复原，别把静音态带给后面的阶段
     console.log("  键位 OK：↑/↓ 音量、M 静音");
 
-    /* 底栏红心（R1）：本地曲目走本机红心，点一下就切换，再点回去 */
-    const heartBefore = await app2.evaluate(`document.querySelector(".tools .like")?.className ?? ""`);
-    await app2.evaluate(`document.querySelector(".tools .like")?.click()`);
+    /* 底栏红心（R1）：本地曲目走本机红心，点一下就切换，再点回去
+       （红心已从工具排迁到监听区，类名 np-like） */
+    const heartSel = `.np-like`;
+    const heartBefore = await app2.evaluate(`document.querySelector("${heartSel}")?.className ?? ""`);
+    await app2.evaluate(`document.querySelector("${heartSel}")?.click()`);
     await sleep(250);
-    const heartAfter = await app2.evaluate(`document.querySelector(".tools .like")?.className ?? ""`);
-    await app2.evaluate(`document.querySelector(".tools .like")?.click()`);
+    const heartAfter = await app2.evaluate(`document.querySelector("${heartSel}")?.className ?? ""`);
+    await app2.evaluate(`document.querySelector("${heartSel}")?.click()`);
     assert.ok(
       heartBefore.includes("on") !== heartAfter.includes("on"),
       `底栏红心应可切换：${heartBefore} → ${heartAfter}`,

@@ -30,7 +30,9 @@ export function useStageData(state: AppState, cover: (trackId: string) => Promis
   const nowTitle = player.trackTitle ?? nowTrack?.title ?? (player.trackId ? fileOf(player.trackId) : "未在播放");
   const nowArtist = nowTrack?.artist ?? (remote ? "在线音源" : "");
   const nowAlbum = nowTrack?.album ?? "";
-  const nowDuration = nowTrack?.durationMs ?? 0;
+  // 时长三级兜底：曲库元数据 → 队列在线元数据（在线曲目不在曲库表，
+  // appstream 流的引擎 duration 恒 0）→ 0
+  const nowDuration = nowTrack?.durationMs ?? (player.trackId ? queue.remote[player.trackId]?.durationMs : undefined) ?? 0;
   const sourceName = remote ? (getProvider(remote.sourceId)?.name ?? remote.sourceId) : "本地曲库";
   const lyricOffset = state.lyrics.offsets[player.trackId ?? ""] ?? 0;
   const playOrder = useMemo(() => orderOf(queue.items, queue.mode, queue.shuffleSeed), [queue.items, queue.mode, queue.shuffleSeed]);

@@ -16,7 +16,9 @@ const SLEEP_OPTIONS = [15, 30, 60];
 const RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 /**
- * 底栏控制台：正在播放 + 走带 + seek 条 + 工具排（红心/模式/音量/睡眠/倍速/歌词/迷你/队列/音效）。
+ * 底栏控制台，按调音台分区语法排布：监听区（曲目 + 红心）→ 走带区（transport + seek）
+ * → 播出区（模式/音量/睡眠/倍速）→ 面板区（队列/音效/词/迷你）。组间用分隔线，
+ * 带弹层的按钮统一加 pop 角标，让"点了会弹东西"看得出来。
  *
  * 三个弹层开关（音量 / 睡眠 / 倍速）是本组件的私有 UI 态，互斥关系只在按钮间成立；
  * `queueOpen` / `fxOpen` 的面板渲染在 footer 之外（队列面板、音效面板），开关留在 App 传入。
@@ -99,24 +101,37 @@ export function Console(props: {
 
   return (
     <footer className="console">
-      {/* 左：正在播放。整块可点跳播放页（旧仓 console 行为） */}
-      <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
-        <span
-          className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}`}
-          style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
-        />
-        <span className="np-tx">
-          <b>{title}</b>
-          {/* 直播壳没有顶栏：错误徽标挂在控制台副行，否则播放错误看不见 */}
-          {error ? (
-            <span className="status" data-status={status} title={error}>
-              {errorText(error)}
-            </span>
-          ) : (
-            <span>{phaseLabel(phase, !!remote)}</span>
-          )}
-        </span>
-      </button>
+      {/* 监听区：正在播放 + 红心。整块可点跳播放页；红心是对"这一首"的表态，跟曲目走 */}
+      <div className="np-zone">
+        <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
+          <span
+            className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}`}
+            style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
+          />
+          <span className="np-tx">
+            <b>{title}</b>
+            {/* 直播壳没有顶栏：错误徽标挂在控制台副行，否则播放错误看不见 */}
+            {error ? (
+              <span className="status" data-status={status} title={error}>
+                {errorText(error)}
+              </span>
+            ) : (
+              <span>{phaseLabel(phase, !!remote)}</span>
+            )}
+          </span>
+        </button>
+        <button
+          type="button"
+          className={likedNow ? "np-like on" : "np-like"}
+          aria-label={likedNow ? "取消红心" : "加红心"}
+          aria-pressed={likedNow}
+          disabled={!trackId}
+          title={remote ? "账号红心（同步到网易云）" : "本机红心"}
+          onClick={toggleCurrentLike}
+        >
+          ♥
+        </button>
+      </div>
 
       <div className="mid">
         <div className="transport">
@@ -224,17 +239,7 @@ export function Console(props: {
       </div>
 
       <div className="tools">
-        <button
-          type="button"
-          className={likedNow ? "like on" : "like"}
-          aria-label={likedNow ? "取消红心" : "加红心"}
-          aria-pressed={likedNow}
-          disabled={!trackId}
-          title={remote ? "账号红心（同步到网易云）" : "本机红心"}
-          onClick={toggleCurrentLike}
-        >
-          ♥
-        </button>
+        {/* 播出区：控制"怎么播" */}
         <button
           type="button"
           title={`播放模式：${PLAY_MODE_LABEL[queueMode]}`}
@@ -245,7 +250,7 @@ export function Console(props: {
         </button>
         <button
           type="button"
-          className={volOpen || muted ? "on" : ""}
+          className={`pop${volOpen || muted ? " on" : ""}`}
           aria-expanded={volOpen}
           onClick={() => {
             setVolOpen(!volOpen);
@@ -257,7 +262,7 @@ export function Console(props: {
         </button>
         <button
           type="button"
-          className={sleepOpen || sleepEndsAt || sleepPending ? "on" : ""}
+          className={`pop${sleepOpen || sleepEndsAt || sleepPending ? " on" : ""}`}
           aria-expanded={sleepOpen}
           onClick={() => {
             setSleepOpen(!sleepOpen);
@@ -277,6 +282,7 @@ export function Console(props: {
         </button>
         <button
           type="button"
+          className="pop"
           onClick={() => {
             setRateOpen(!rateOpen);
             setVolOpen(false);
@@ -286,12 +292,8 @@ export function Console(props: {
         >
           {playbackRate.toFixed(2)}x
         </button>
-        <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
-          词
-        </button>
-        <button type="button" onClick={() => void services.current?.openMini()} title="迷你窗">
-          迷你
-        </button>
+        {/* 面板区：控制"打开什么"——队列/音效开侧面板（有 on 态），词/迷你开新窗口 */}
+        <span className="sep" aria-hidden="true" />
         <button
           type="button"
           className={queueOpen ? "on" : ""}
@@ -303,6 +305,12 @@ export function Console(props: {
         </button>
         <button type="button" className={fxOpen ? "on" : ""} aria-expanded={fxOpen} onClick={() => setFxOpen(!fxOpen)}>
           音效
+        </button>
+        <button type="button" onClick={() => void services.current?.openLyric()} title="桌面歌词">
+          词
+        </button>
+        <button type="button" onClick={() => void services.current?.openMini()} title="迷你窗">
+          迷你
         </button>
       </div>
       {/* 音量条常驻 DOM、只切 visibility：滑杆语义与键盘可达性不因开合而丢 */}

@@ -762,7 +762,9 @@ function App() {
             exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
             importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
             durationMs={() => services.current?.engine.durationMs() ?? 0}
+            positionMs={() => services.current?.positionMs() ?? 0}
             findLyric={() => setFindOpen(true)}
+            notify={setNotice}
             onBack={() => setPage(lastRoom.current)}
             live
           />

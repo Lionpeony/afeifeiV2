@@ -1350,9 +1350,42 @@
 
 .st-air-tools {
   display: flex;
+  align-items: center;
   gap: 14px;
   padding-left: 18px;
   border-left: 1px solid var(--live-line);
+}
+
+/* 导播走带：舞台是主播出面，切歌不该逼用户移到底栏。
+   图标复用 player.css 的 .tb-ic（currentColor CSS 三角），这里只给壳色。 */
+.st-air-tools .st-tb {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--live-fg-dim);
+  cursor: pointer;
+}
+.st-air-tools .st-tb:hover {
+  color: var(--live-fg);
+}
+.st-air-tools .st-tb.main {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--live-amber);
+  background: var(--live-amber);
+  color: var(--live-accent-ink);
+}
+.st-air-tools .st-tb.main:hover {
+  border-color: var(--live-fg);
+  background: var(--live-fg);
+  color: var(--live-bg);
+}
+.st-air-tools .st-tb:focus-visible {
+  outline: 2px solid var(--live-amber);
+  outline-offset: 2px;
 }
 
 .st-air-main {
@@ -1390,21 +1423,42 @@
   text-overflow: ellipsis;
 }
 
-.st-air-progress {
+/* 播出条底边 = 整条可拖走带轨：原生 range 语义（键盘/拖拽）不动，
+   视觉 2px 琥珀已播（--fill 由 onTick 每帧喂），hover 加热区。 */
+input.st-air-progress {
   position: absolute;
   left: 0;
   right: 0;
   bottom: -1px;
-  height: 2px;
-  background: color-mix(in srgb, var(--live-phosphor) 13%, transparent);
-  pointer-events: none;
+  height: 14px;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
 }
-
-.st-air-progress i {
-  display: block;
-  width: 0;
-  height: 100%;
+input.st-air-progress::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(
+    to right,
+    var(--live-amber) var(--fill, 0%),
+    color-mix(in srgb, var(--live-phosphor) 13%, transparent) var(--fill, 0%)
+  );
+  transition: height 0.16s ease;
+}
+input.st-air-progress::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 2px;
+  height: 12px;
+  margin-top: -5px;
   background: var(--live-amber);
+}
+input.st-air-progress:hover::-webkit-slider-runnable-track {
+  height: 5px;
+}
+input.st-air-progress:hover::-webkit-slider-thumb {
+  height: 16px;
+  margin-top: -7px;
 }
 
 /* 右栏：节目单 */

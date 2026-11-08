@@ -1,5 +1,6 @@
 /* 票根控制台与音效面板（ref pages-v11/shell.css）：
-   104px 三栏 —— 左正在播放（封面 + 两行文案）/ 中走带 + 细线进度 / 右工具。 */
+   调音台分区 —— 监听区（封面曲名 + 红心）/ 走带区（transport + 细线进度）/
+   播出区（模式/音量/睡眠/倍速）/ 面板区（队列/音效/词/迷你），组间发丝线。 */
 .console {
   grid-column: 1 / -1;
   position: relative;
@@ -10,6 +11,17 @@
   padding: 10px 22px 12px 16px;
   background: var(--bg);
   border-top: 1px solid var(--fg);
+}
+
+/* 监听区：np + 红心。红心是对"这一首"的表态，跟曲目走，不进工具排 */
+.np-zone {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.np-zone .np {
+  flex: 1;
 }
 
 /* 左：正在播放。整块可点跳播放页，hover 左缘朱砂标尺 */
@@ -271,12 +283,34 @@ input.bar.playing::-webkit-slider-thumb {
   opacity: 1;
 }
 
-/* 右：工具（词 / 迷你 / 音效）。设计稿的「队列」等队列视图落地后再加 */
+/* 右：工具排，按调音台分两组 —— 播出区（怎么播）| 面板区（打开什么） */
 .tools {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
+}
+/* 组间发丝线：让"参数"与"面板"的边界看得见 */
+.tools .sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 5px;
+  background: var(--line-soft);
+}
+/* 弹层钮角标：这颗点了会弹面板，不是跳转/切换。
+   纯 CSS 三角，不用字符 glyph —— 字形随平台字体漂移。 */
+.tools button.pop::after {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+  margin-left: 5px;
+  vertical-align: 1px;
+  opacity: 0.55;
 }
 .tools button {
   min-width: 34px;
@@ -897,29 +931,37 @@ button.primary:hover:not(:disabled) {
   color: var(--accent);
 }
 
-/* ---- 底栏那颗心（R1）：在线曲目 = 账号红心，本地曲目 = 本机红心 ---- */
-.tools .like {
+/* ---- 监听区那颗心（R1）：在线曲目 = 账号红心，本地曲目 = 本机红心。
+   原在工具排末位，跟曲目信息隔了整个控制台；现在贴着曲名。 ---- */
+.np-like {
+  flex: none;
+  width: 34px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--accent);
   font-size: 15px;
   line-height: 1;
+  cursor: pointer;
   opacity: 0.3;
   transition:
     opacity 120ms ease,
     transform 120ms ease;
 }
 
-.tools .like.on {
+.np-like.on {
   opacity: 1;
 }
 
-.tools .like:hover:not(:disabled),
-.tools .like:focus-visible {
+.np-like:hover:not(:disabled),
+.np-like:focus-visible {
   opacity: 1;
   transform: scale(1.12);
   outline: none;
 }
 
-.tools .like:disabled {
+.np-like:disabled {
   opacity: 0.1;
 }
 

@@ -1147,6 +1147,65 @@ app.whenReady().then(async () => {
     throw new Error(`播放页横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
   }
 
+  /* 导播走带（播出条）：三键在、底边进度是可拖 range、主键能切换播放态。
+     舞台是主播出面，这组键失灵就等于舞台不能控制播出。 */
+  const desk = await evalJs(`(() => {
+    const keys = [...document.querySelectorAll(".st-air-tools .st-tb")];
+    const main = keys.find((b) => b.classList.contains("main"));
+    const before = main?.querySelector(".tb-ic")?.className ?? "";
+    main?.click();
+    return {
+      count: keys.length,
+      bar: Boolean(document.querySelector("input.st-air-progress[type=range]")),
+      icBefore: before,
+    };
+  })()`);
+  await sleep(700);
+  const deskAfter = await evalJs(
+    `document.querySelector(".st-air-tools .st-tb.main .tb-ic")?.className ?? ""`,
+  );
+  console.log(`导播走带：${JSON.stringify(desk)} → 主键图标 ${deskAfter}`);
+  if (desk.count !== 3) throw new Error(`播出条走带应 3 键，实际 ${desk.count}`);
+  if (!desk.bar) throw new Error("播出条底边不是可拖进度（input range 丢了）");
+  if (deskAfter === desk.icBefore) throw new Error(`走带主键没切换播放态：${desk.icBefore} → ${deskAfter}`);
+  // 拨回去，别把播放态带给后面的「首页暂停」截图
+  await evalJs(`document.querySelector(".st-air-tools .st-tb.main")?.click()`);
+  await sleep(700);
+
+  /* 拖拽 seek 判据：先等引擎 metadata 就绪（在线流加载期总时长显示 --:--，
+     那个窗口里 range 的 max 还是 1，拖了也没有区分度），再拖到中点断言 clock。
+     同时验证加载期显示的是 --:-- 而不是假的 0:00。 */
+  const waitReady = async () => {
+    for (let i = 0; i < 40; i++) {
+      const text = await evalJs(`document.querySelector(".st-air-clock")?.textContent ?? ""`);
+      if (/\/ [1-9]/.test(text)) return text;
+      await sleep(250);
+    }
+    return null;
+  };
+  const readyClock = await waitReady();
+  if (!readyClock) throw new Error("播出条总时长 10s 内没就绪（引擎 duration 一直 0）");
+  const seeked = await evalJs(`(() => {
+    const bar = document.querySelector("input.st-air-progress");
+    if (!bar) return null;
+    const clock = document.querySelector(".st-air-clock");
+    const before = clock?.textContent ?? "";
+    bar.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
+    bar.value = String(Math.round(Number(bar.max) / 2));
+    bar.dispatchEvent(new Event("input", { bubbles: true }));
+    bar.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+    return { before, max: bar.max };
+  })()`);
+  await sleep(400);
+  const seekClock = await evalJs(`document.querySelector(".st-air-clock")?.textContent ?? ""`);
+  console.log(`播出条拖拽：${JSON.stringify(seeked)} → clock "${seekClock}"`);
+  if (!seeked) throw new Error("播出条进度不在");
+  const halfSec = Math.round(Number(seeked.max) / 2000);
+  const half = `${Math.floor(halfSec / 60)}:${String(halfSec % 60).padStart(2, "0")}`;
+  if (!seekClock.startsWith(half)) {
+    throw new Error(`播出条拖到中点后 clock 应从 ${half} 起，实际 "${seekClock}"`);
+  }
+
   /* 窗控三键（titleBarOverlay）跟「可见页面」走：播放页恒定深色（LIVE_PRESETS），
      三键必须读场景层 --stage-bg。全局是浅色时若还读结构层 --bg，深底右上角就是一块白——
      用户报的「只有右上角会变色」正是这一处。判据取两层的实际值比对，不写死色号。 */
@@ -1176,6 +1235,29 @@ app.whenReady().then(async () => {
   ]) {
     win.setContentSize(w, h);
     await sleep(500);
+    /* 控制台在窄窗下不许溢出也不许折行：工具排 8 钮 + 分隔线必须在一条基线上
+       （nowrap 溢出 scrollWidth 测不出，offsetTop 分布才抓得住） */
+    const consoleFit = await evalJs(`(() => {
+      const fit = (sel) => {
+        const el = document.querySelector(sel);
+        return el ? el.scrollWidth - el.clientWidth : -1;
+      };
+      const tops = [...document.querySelectorAll(".console .tools button")].map((b) => b.getBoundingClientRect().top);
+      const rows = [...new Set(tops.map((t) => Math.round(t)))];
+      return {
+        tools: fit(".console .tools"),
+        mid: fit(".console .mid"),
+        np: fit(".console .np-zone"),
+        rows: rows.length,
+      };
+    })()`);
+    console.log(`控制台 ${w}x${h} 溢出探针：${JSON.stringify(consoleFit)}`);
+    if (consoleFit.tools > 1 || consoleFit.mid > 1 || consoleFit.np > 1) {
+      throw new Error(`控制台窄窗溢出 ${w}x${h}：${JSON.stringify(consoleFit)}`);
+    }
+    if (consoleFit.rows > 1) {
+      throw new Error(`工具排 ${w}x${h} 折成 ${consoleFit.rows} 行，不在一条基线`);
+    }
     await shoot(`live-stage-${w}x${h}.png`);
   }
 
@@ -1312,7 +1394,7 @@ app.whenReady().then(async () => {
   // 归档带证据：先给当前曲目点一颗红心，再截「喜欢 / 最近」两间房
   win.setContentSize(1280, 800);
   await sleep(300);
-  await click(`(() => { const b = document.querySelector(".tools .like"); b?.click(); return Boolean(b); })()`, "底栏红心");
+  await click(`(() => { const b = document.querySelector(".np-like"); b?.click(); return Boolean(b); })()`, "底栏红心");
   await sleep(400);
   for (const [page, name] of [
     ["liked", "live-room-liked"],

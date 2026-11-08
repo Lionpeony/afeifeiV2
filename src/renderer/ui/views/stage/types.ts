@@ -7,7 +7,11 @@ export interface StageViewProps {
   exportTheme(): Promise<boolean>;
   importTheme(): Promise<Record<string, string> | null>;
   durationMs(): number;
+  /** 当前已播毫秒：queue/prev 要拿它判断"3 秒内 = 重头播"（与控制台同一时钟，I1） */
+  positionMs(): number;
   findLyric(): void;
+  /** 播出条"队列里没得切"之类的轻提示，与控制台共用一个 notice 位 */
+  notify: (n: { text: string; url?: string } | null) => void;
   /** 直播壳：Esc 在菜单关掉后，退回上一个房间。普通壳不传。 */
   onBack?(): void;
   /** 直播壳：播放页改穿不夜台灯位。普通壳不传。 */

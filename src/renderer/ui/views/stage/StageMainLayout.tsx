@@ -1,6 +1,6 @@
 import { PageHead } from "../../PageHead.js";
 import type { AppState, TrackId } from "../../../../contracts/index.js";
-import { dispatch } from "../../../kernel/index.js";
+import { dispatch, getState } from "../../../kernel/index.js";
 import { lineStartMs } from "../../../domain/lyrics/cursor.js";
 import { onTick } from "../../compositor.js";
 import { useEffect, useRef } from "react";
@@ -19,6 +19,11 @@ export interface StageMainLayoutProps {
   live: boolean;
   menuOpen: boolean;
   onToggleMenu(): void;
+  /** 引擎时长（I1 同源）：在线曲目不在本地曲库表，元数据时长恒 0，走带只认引擎 */
+  durationMs(): number;
+  /** 走带上一首要读当前已播（3 秒内 = 重头播），与控制台同一时钟 */
+  positionMs(): number;
+  notify(n: { text: string; url?: string } | null): void;
 }
 
 /**
@@ -31,36 +36,97 @@ function AirHeader({
   sub,
   queue,
   line,
-  duration,
+  durationMs,
+  metaDuration,
+  playing,
   menuOpen,
   onToggleMenu,
-
+  positionMs,
+  notify,
 }: {
   title: string;
   sub: string;
   queue: string;
   line: string;
-  duration: number;
+  durationMs(): number;
+  /** 引擎时长为 0（在线流 metadata 恒缺）时的回落值：队列在线元数据时长 */
+  metaDuration: number;
+  playing: boolean;
   menuOpen: boolean;
   onToggleMenu(): void;
+  positionMs(): number;
+  notify(n: { text: string; url?: string } | null): void;
 }) {
   const timeRef = useRef<HTMLSpanElement>(null);
-  const fillRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLInputElement>(null);
+  const dragging = useRef(false);
+  // 走带时长：引擎优先（本地曲目实时准），在线流拿不到就回落队列元数据
+  const resolveDuration = (): number => {
+    const fromEngine = durationMs();
+    return fromEngine > 0 ? fromEngine : metaDuration;
+  };
   useEffect(() => onTick((time) => {
-    if (timeRef.current) {
-      const text = `${fmt(time)} / ${fmt(duration)}`;
+    // 每帧读一次时长（曲切换了也不会显示上一首的）。两路都缺时总时长显示 --:--，
+    // 不摆一个假的 0:00。拖动中不写已播：那时显示的应该是"要跳到哪儿"，
+    // 不是"现在在哪"（与控制台 P0-03 同语义）
+    const duration = resolveDuration();
+    const total = duration > 0 ? fmt(duration) : "--:--";
+    if (timeRef.current && !dragging.current) {
+      const text = `${fmt(time)} / ${total}`;
       if (timeRef.current.textContent !== text) timeRef.current.textContent = text;
     }
-    if (fillRef.current) fillRef.current.style.width = duration > 0 ? `${Math.min(100, (time / duration) * 100).toFixed(2)}%` : "0%";
-  }), [duration]);
+    if (barRef.current && !dragging.current) {
+      barRef.current.max = String(Math.max(1, Math.round(duration)));
+      barRef.current.value = String(Math.round(Math.min(time, duration || time)));
+      const pct = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
+      barRef.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+    }
+  }), [durationMs, metaDuration]);
   return (
     <header className="st-air">
       <div className="st-air-top">
         <span className="st-air-badge"><i aria-hidden="true" />ON AIR</span>
         <span className="st-air-slot">{queue}</span>
         <span className="st-air-line">{line}</span>
-        <span className="st-air-clock tabnum" ref={timeRef}>0:00 / {fmt(duration)}</span>
+        <span className="st-air-clock tabnum" ref={timeRef}>0:00 / {resolveDuration() > 0 ? fmt(resolveDuration()) : "--:--"}</span>
         <span className="st-air-tools">
+          {/* 导播走带：舞台是主播出面，切歌不该逼用户移到底栏（图标与控制台同一套 CSS 三角） */}
+          <button
+            type="button"
+            className="st-tb"
+            aria-label="上一首"
+            onClick={() => dispatch({ type: "queue/prev", atPositionMs: positionMs() })}
+          >
+            <i className="tb-ic ic-prev">
+              <i />
+              <i />
+            </i>
+          </button>
+          <button type="button" className="st-tb main" aria-label={playing ? "暂停" : "播放"} onClick={() => dispatch({ type: "player/toggle" })}>
+            <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
+              <i />
+              {playing ? <i /> : null}
+            </i>
+          </button>
+          <button
+            type="button"
+            className="st-tb"
+            aria-label="下一首"
+            onClick={() => {
+              const before = getState().player.trackId;
+              dispatch({ type: "queue/next" });
+              // 没换歌 = 队列里没得切（在线单曲不进队列），与控制台同一句提示
+              if (getState().player.trackId === before) {
+                const stuck = getState();
+                notify({ text: stuck.queue.stream ? "正在续下一批…" : "队列里没有下一首" });
+              }
+            }}
+          >
+            <i className="tb-ic ic-next">
+              <i />
+              <i />
+            </i>
+          </button>
           <button type="button" className="st-viewbtn" aria-expanded={menuOpen} onClick={onToggleMenu}>视图</button>
 
         </span>
@@ -69,12 +135,50 @@ function AirHeader({
         <h1>{title}</h1>
         <p>{sub || "—"}</p>
       </div>
-      <span className="st-air-progress" aria-hidden="true"><i ref={fillRef} /></span>
+      {/* 底边整条是走带轨：原生 range 保住键盘/拖拽语义，松手才提交（P0-03） */}
+      <input
+        ref={barRef}
+        className="st-air-progress"
+        type="range"
+        min="0"
+        max="1"
+        step="1"
+        defaultValue="0"
+        aria-label="播放进度"
+        onPointerDown={() => {
+          dragging.current = true;
+        }}
+        onPointerUp={(e) => {
+          dragging.current = false;
+          dispatch({ type: "player/seek", positionMs: Number(e.currentTarget.value) });
+        }}
+        // 指针在窗外交代时 pointerup 可能收不到：丢捕获也要收尾
+        onLostPointerCapture={(e) => {
+          if (!dragging.current) return;
+          dragging.current = false;
+          dispatch({ type: "player/seek", positionMs: Number(e.currentTarget.value) });
+        }}
+        onPointerCancel={() => {
+          dragging.current = false;
+        }}
+        onChange={(e) => {
+          // 拖动中：只画预览（琥珀填充 + 时间），不触发 seek
+          if (!dragging.current) {
+            dispatch({ type: "player/seek", positionMs: Number(e.target.value) });
+            return;
+          }
+          const v = Number(e.target.value);
+          const duration = resolveDuration();
+          if (timeRef.current) timeRef.current.textContent = `${fmt(v)} / ${duration > 0 ? fmt(duration) : "--:--"}`;
+          const pct = duration > 0 ? Math.min(100, (v / duration) * 100) : 0;
+          e.currentTarget.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+        }}
+      />
     </header>
   );
 }
 
-export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMenu }: StageMainLayoutProps) {
+export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMenu, durationMs, positionMs, notify }: StageMainLayoutProps) {
   const { player, stage, queue } = state;
   const renderer: LyricRenderer = stage.lyricRenderer;
   const rowProps: QueueRowsProps = {
@@ -134,9 +238,13 @@ export function StageMainLayout({ state, data, lyric, live, menuOpen, onToggleMe
           sub={[data.nowArtist, data.nowAlbum, data.sourceName].filter(Boolean).join(" · ")}
           queue={`QUEUE ${queue.items.length ? `${pad2(Math.max(1, data.cursorPosition + 1))} / ${queue.items.length}` : "—"}`}
           line={lyric.doc && lyric.lineIndex >= 0 ? `LINE ${pad2(lyric.lineIndex + 1)} / ${lyric.doc.lines.length}` : "LINE —"}
-          duration={data.nowDuration}
+          durationMs={durationMs}
+          metaDuration={data.nowDuration}
+          playing={player.status === "playing"}
           menuOpen={menuOpen}
           onToggleMenu={onToggleMenu}
+          positionMs={positionMs}
+          notify={notify}
 
         />
       ) : (

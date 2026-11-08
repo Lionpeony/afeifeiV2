@@ -13,7 +13,7 @@ import type { StageViewProps } from "./types.js";
 export type { StageViewProps } from "./types.js";
 
 export function StageView(props: StageViewProps) {
-  const { state, cover, spectrum, exportTheme, importTheme, findLyric, onBack, live = false } = props;
+  const { state, cover, spectrum, exportTheme, importTheme, findLyric, durationMs, positionMs, notify, onBack, live = false } = props;
   const { stage } = state;
   const preset = PRESETS.find((item) => item.id === stage.preset) ?? PRESETS[0];
   const rootRef = useRef<HTMLElement>(null);
@@ -58,7 +58,7 @@ export function StageView(props: StageViewProps) {
   return <StageRoot state={state} wallPaperUrl={data.coverUrl} rootRef={rootRef} onMouseMove={visuals.onMouseMove} live={live}>
     {stage.layers.wallpaper ? <div className={`st-wallpaper ${preset.wallpaperFromCover ? "from-cover" : ""}`} /> : null}
     {stage.layers.visual ? <canvas className="st-spectrum" width={480} height={120} data-mode={stage.visualMode} /> : null}
-    <StageMainLayout state={state} data={data} lyric={lyric} live={live} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} />
+    <StageMainLayout state={state} data={data} lyric={lyric} live={live} menuOpen={menuOpen} onToggleMenu={() => setMenuOpen((value) => !value)} durationMs={durationMs} positionMs={positionMs} notify={notify} />
     {menuOpen ? <StageSettings state={state} live={live} exportTheme={exportTheme} importTheme={importTheme} findLyric={findLyric} /> : null}
   </StageRoot>;
 }
