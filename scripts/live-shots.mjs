@@ -265,6 +265,10 @@ const wavOf = (p) => {
   return WAV_BY_PATH.get(p);
 };
 
+/** 窗控三键（titleBarOverlay）的每次同步：用来验「三键跟可见页面走」。
+    真窗口里这块是系统绘制的，截图拍不到，只能从 IPC 记录里读。 */
+const OVERLAY_CALLS = [];
+
 function registerMinimalIpc() {
   const file = (name) => path.join(PROFILE, name);
   const readFile = (p) => (fs.existsSync(p) ? fs.readFileSync(p, "utf8") : null);
@@ -369,7 +373,10 @@ function registerMinimalIpc() {
     return {};
   });
   // 外壳订阅了这两个 IPC；fixture 不跑主进程那套主题/轮询，给空实现免得刷红字
-  ipcMain.handle("win:overlayTheme", () => undefined);
+  ipcMain.handle("win:overlayTheme", (_e, bg, fg) => {
+    OVERLAY_CALLS.push({ bg, fg });
+    return true;
+  });
   ipcMain.handle("scheme:poll", () => null);
 
   protocol.handle("appmedia", async (request) => {
@@ -1140,6 +1147,28 @@ app.whenReady().then(async () => {
     throw new Error(`播放页横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
   }
 
+  /* 窗控三键（titleBarOverlay）跟「可见页面」走：播放页恒定深色（LIVE_PRESETS），
+     三键必须读场景层 --stage-bg。全局是浅色时若还读结构层 --bg，深底右上角就是一块白——
+     用户报的「只有右上角会变色」正是这一处。判据取两层的实际值比对，不写死色号。 */
+  const layerTokens = await evalJs(`(() => {
+    const stage = document.querySelector(".stage");
+    const s = getComputedStyle(stage);
+    const de = getComputedStyle(document.documentElement);
+    return {
+      stageBg: s.getPropertyValue("--stage-bg").trim(),
+      globalBg: de.getPropertyValue("--bg").trim(),
+    };
+  })()`);
+  const overlayInStage = OVERLAY_CALLS.at(-1);
+  console.log(`播放页三键：${JSON.stringify(overlayInStage)}（场景层 ${layerTokens.stageBg} / 结构层 ${layerTokens.globalBg}）`);
+  if (!overlayInStage) throw new Error("切进播放页后没同步窗控三键");
+  if (overlayInStage.bg.toLowerCase() !== layerTokens.stageBg.toLowerCase()) {
+    throw new Error(`播放页三键读错了层：${overlayInStage.bg} ≠ --stage-bg ${layerTokens.stageBg}`);
+  }
+  if (layerTokens.stageBg.toLowerCase() === layerTokens.globalBg.toLowerCase()) {
+    throw new Error("场景层与结构层同色，这条判据没有区分度（换一套预设再跑）");
+  }
+
   // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
   for (const [w, h] of [
     [1024, 768],
@@ -1150,11 +1179,14 @@ app.whenReady().then(async () => {
     await shoot(`live-stage-${w}x${h}.png`);
   }
 
-  /* 矮窗自适应探针（125% 缩放的笔记本视口更小）：播放页里唯一允许滚的是右栏队列
-     （.st-side-scroll）；其它容器要么不溢出，要么溢出被裁——被裁也是 bug（内容丢了）。 */
+  /* 矮窗自适应探针（125% 缩放的笔记本视口更小）：窗口下限 740 / 125% 缩放的 700 两档，
+     播放页**不该出现任何滚动**——「有滑动条、没有自适应」就是用户报的那个问题。
+     `.st-script` 靠 -28px 负 margin 通栏（正好铺满 .stage 的左右 padding），
+     它会让 .st-page 的 scrollWidth 多出 28px，那是设计不是溢出，豁免掉。 */
   for (const [w, h] of [
     [1160, 740], // 主进程窗口下限
     [1536, 700], // 125% 缩放 + 更矮的窗口
+    [1280, 790], // 矮窗档（max-height: 780）切换点上方：相纸不压缩，靠剩余空间也得放得下
   ]) {
     win.setContentSize(w, h);
     await sleep(500);
@@ -1167,14 +1199,55 @@ app.whenReady().then(async () => {
         if (overY > 1 && el.clientHeight > 0) {
           out.push({ el: String(el.className).slice(0, 44) || el.tagName, y: overY, can: cs.overflowY !== "visible" && cs.overflowY !== "hidden" });
         }
-        if (overX > 1 && el.clientWidth > 0) {
+        // 提词器通栏（stage 里的 -28px margin）不算：它铺的是 .stage 的 padding
+        if (overX > 1 && el.clientWidth > 0 && !el.classList.contains("st-page")) {
           out.push({ el: "X:" + (String(el.className).slice(0, 38) || el.tagName), x: overX, can: cs.overflowX !== "visible" && cs.overflowX !== "hidden" });
         }
       }
       return out.slice(0, 12);
     })()`);
     console.log(`播放页矮窗 ${w}x${h} 溢出：${JSON.stringify(spill)}`);
+    const scrolling = spill.filter((item) => item.y > 1);
+    if (scrolling.length) throw new Error(`播放页矮窗 ${w}x${h} 还在滚：${JSON.stringify(scrolling)}`);
+
+    /* 细探针：.st-page 横向越界到底是哪个元素撑的。
+       只测 scrollWidth 不够——那告诉你「超了 28px」，不告诉你「谁超的」。 */
+    const wide = await evalJs(`(() => {
+      const page = document.querySelector(".st-page");
+      if (!page) return [];
+      const box = page.getBoundingClientRect();
+      const out = [];
+      for (const el of page.querySelectorAll("*")) {
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 && r.height === 0) continue;
+        const overRight = r.right - box.right;
+        const overLeft = box.left - r.left;
+        if (overRight > 1 || overLeft > 1) {
+          out.push({
+            el: (String(el.className).slice(0, 40) || el.tagName) + ">" + (el.textContent ?? "").trim().slice(0, 18),
+            over: Math.round(Math.max(overRight, overLeft)),
+            right: Math.round(r.right),
+          });
+        }
+      }
+      return { pageRight: Math.round(box.right), items: out.sort((a, b) => b.over - a.over).slice(0, 8) };
+    })()`);
+    console.log(`播放页矮窗 ${w}x${h} 横向越界：${JSON.stringify(wide)}`);
+    await shoot(`live-stage-short-${w}x${h}.png`);
   }
+
+  /* 滚动条样式证据：矮窗两档已经不滚了，把窗口再压低逼出滚动条，确认它是场景色细条
+     而不是原生亮条（用户截图那根）。这一档低于窗口下限 740，只验样式，不进零滚动断言。 */
+  win.setContentSize(1536, 620);
+  await sleep(500);
+  const scrollbar = await evalJs(`(() => {
+    const el = document.querySelector(".st-side-scroll");
+    if (!el) return null;
+    return { over: el.scrollHeight - el.clientHeight, thumb: getComputedStyle(el).getPropertyValue("--stage-line").trim() };
+  })()`);
+  console.log(`滚动条证据 1536x620：${JSON.stringify(scrollbar)}`);
+  if (!scrollbar || scrollbar.over <= 1) throw new Error("620 高没逼出滚动条，这条证据无效（相纸收过头了）");
+  await shoot("live-stage-scrollbar.png");
   win.setContentSize(1280, 800);
   await sleep(400);
 
@@ -1198,6 +1271,26 @@ app.whenReady().then(async () => {
   await evalJs(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);  await sleep(600);
   const backHome = await evalJs(`document.querySelector(".live-home") !== null`);
   if (!backHome) throw new Error("Esc 没回落首页直播面");
+
+  // 出播放页三键要读回**控制室**的底（壳把 --bg 重映射成 --live-bg，两者差一档）
+  const homeTokens = await evalJs(`(() => {
+    const shell = document.querySelector(".shell.live");
+    const css = getComputedStyle(shell);
+    return {
+      liveBg: css.getPropertyValue("--live-bg").trim(),
+      rootBg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
+      hasStage: document.querySelector(".stage") !== null,
+    };
+  })()`);
+  const overlayBackHome = OVERLAY_CALLS.at(-1);
+  console.log(`回首页三键：${JSON.stringify(overlayBackHome)}（壳 ${homeTokens.liveBg} / 结构层 ${homeTokens.rootBg}·stage ${homeTokens.hasStage}）`);
+  if (homeTokens.hasStage) throw new Error("回到首页后 .stage 还在，三键没法回落");
+  if (!overlayBackHome || overlayBackHome.bg.toLowerCase() !== homeTokens.liveBg.toLowerCase()) {
+    throw new Error(`回首页后三键没读回控制室：${JSON.stringify(overlayBackHome)} ≠ --live-bg ${homeTokens.liveBg}`);
+  }
+  if (homeTokens.liveBg.toLowerCase() === homeTokens.rootBg.toLowerCase()) {
+    throw new Error("壳与结构层同色，这条判据没区分度");
+  }
 
   // 动作三：站尺切房间（本地）
   await click(
@@ -1229,6 +1322,67 @@ app.whenReady().then(async () => {
     await sleep(600);
     await shoot(`${name}.png`);
   }
+
+  /* 四档全局配色：控制室跟着换灯，舞台恒暗（2026-11-08「深浅要能看出区别」）。
+     判据取 --live-bg 的实际值：改前四档完全相同（--live-bg 是固定值），这条会红。
+     第二条判据取首页封面台的 --live-bg：它必须四档都等于 --night-bg。 */
+  const themeProbe = () => evalJs(`(() => {
+    const shell = document.querySelector(".shell.live");
+    const hero = document.querySelector(".cs-stage");
+    return {
+      theme: document.documentElement.dataset.theme ?? "light",
+      shellBg: shell ? getComputedStyle(shell).getPropertyValue("--live-bg").trim() : null,
+      heroBg: hero ? getComputedStyle(hero).getPropertyValue("--live-bg").trim() : null,
+    };
+  })()`);
+
+  const themeBg = new Map();
+  for (const [id, name] of [["light", "纸色"], ["dark", "墨色"], ["sepia", "旧档"], ["forest", "夜航"]]) {
+    await click(
+      `(() => { const b = document.querySelector('.ruler-tick[data-page="settings"]'); b?.click(); return Boolean(b); })()`,
+      "站尺 · 设置",
+    );
+    await sleep(400);
+    await click(
+      `(() => {
+        const b = [...document.querySelectorAll(".seg button")].find((x) => x.textContent.trim() === "${name}");
+        b?.click(); return Boolean(b);
+      })()`,
+      `配色 · ${name}`,
+    );
+    await sleep(300);
+    // 用户就是在这里点的：选中态本身也要跟着换（设置页是唯一能一眼看出"点了有反应"的地方）
+    await shoot(`live-theme-settings-${id}.png`);
+    await click(
+      `(() => { const b = document.querySelector('.ruler-tick[data-page="local"]'); b?.click(); return Boolean(b); })()`,
+      "站尺 · 本地",
+    );
+    await sleep(600);
+    await shoot(`live-theme-room-${id}.png`);
+    await click(
+      `(() => { const b = document.querySelector('.ruler-tick[data-page="home"]'); b?.click(); return Boolean(b); })()`,
+      "站尺 · 首页",
+    );
+    await sleep(600);
+    const got = await themeProbe();
+    console.log(`配色 ${id}：${JSON.stringify(got)}`);
+    if (got.theme !== id) throw new Error(`配色 ${id} 没切生效：${JSON.stringify(got)}`);
+    if (got.heroBg !== "#0a0e13") throw new Error(`配色 ${id} 把首页封面台也点亮了（舞台应恒暗）：${got.heroBg}`);
+    themeBg.set(id, String(got.shellBg));
+    await shoot(`live-theme-home-${id}.png`);
+  }
+  if (new Set(themeBg.values()).size !== 4) {
+    throw new Error(`四档控制室底色没全部区分开：${JSON.stringify([...themeBg])}`);
+  }
+
+  // 回到日间，给后续脚本一个确定状态
+  await click(`(() => { const b = document.querySelector('.ruler-tick[data-page="settings"]'); b?.click(); return Boolean(b); })()`, "站尺 · 设置");
+  await sleep(400);
+  await click(`(() => {
+    const b = [...document.querySelectorAll(".seg button")].find((x) => x.textContent.trim() === "纸色");
+    b?.click(); return Boolean(b);
+  })()`, "配色 · 纸色");
+  await sleep(300);
 
   // 排版判据（三档）已在首页那一轮跑过，这里不再重复——同一组断言只留一处
 

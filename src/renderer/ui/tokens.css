@@ -67,24 +67,46 @@
   --nav-w: 96px;
   --console-h: 104px;
 
-  /* ④ 直播带（不夜台）：夜间控制室是固定色，不跟明暗主题翻转。
-     只给 .shell.live 消费；其余三层继续服务普通房间与播放页。 */
-  --live-bg: #0a0e13;
-  --live-panel: #121820;
-  --live-panel-2: #0d131a;
-  --live-fg: #f2eee6; /* 暖白 */
-  --live-fg-dim: #8b96a3;
-  --live-fg-faint: #55606d;
-  --live-line: rgba(143, 224, 192, 0.16); /* 磷光青弱线 */
-  --live-line-strong: rgba(242, 238, 230, 0.26);
-  --live-onair: #e4483f;
-  --live-amber: #e8a34a;
-  --live-phosphor: #8fe0c0;
-  --live-signal: #8ecfdf; /* 夜航台：信号冰蓝，只做第二强调 */
+  /* ④ 直播带（不夜台）：只给 .shell.live 消费。
+     控制室是**随灯**的一层——日间冷纸控制室（这里），夜间夜航控制室（见 [data-theme="dark"]）。
+     换主题只换这一层的值，版式、刻度、节目带结构一律不动。
+     舞台（播放页 / 首页封面台）是暗区，不吃这一层，用下面的 ⑤ 钉死。 */
+  --live-bg: #eeece5;
+  --live-panel: #f6f5f0; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
+  --live-panel-2: #e7e5dc;
+  --live-fg: #14171a;
+  --live-fg-dim: #4f5660;
+  --live-fg-faint: #656b74; /* 9px mono 标签：对 --live-bg 4.55:1，压线但不越线 */
+  --live-line: rgba(20, 23, 26, 0.14);
+  --live-line-strong: rgba(20, 23, 26, 0.34);
+  --live-onair: #b83229; /* ON AIR 红在浅底上必须压暗，原 #e4483f 只有 2.4:1 */
+  --live-amber: #8a5a14; /* 琥珀 → 赭石：同一 hue，浅底上 5:1 */
+  --live-phosphor: #2a7059; /* 磷光青 → 深青 */
+  --live-signal: #2f6e80; /* 信号冰蓝 → 深蓝 */
+  --live-slot: #d9d6cb; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档，四档都得有 */
+  --live-accent-ink: #fbfaf6; /* 琥珀**填充**上的字；琥珀当字用 --live-amber 本身 */
   --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
   --live-paper: #f3f2ed; /* 锁定页冷纸 */
   --live-ink: #14171a;
   --live-ruler-h: 50px;
+
+  /* ⑤ 舞台暗区：播放页与首页封面台恒暗。
+     这不是"主题"，是两条既有决定（A-10 播放页与主题独立 / 2026-11-05「播出面进暗房」）的落点：
+     控制室的灯跟着日升日落，台上那盏不跟。live.css 在暗区作用域里把 --live-* 钉回这一套。 */
+  --night-bg: #0a0e13;
+  --night-panel: #121820;
+  --night-panel-2: #0d131a;
+  --night-fg: #f2eee6;
+  --night-fg-dim: #8b96a3;
+  --night-fg-faint: #55606d;
+  --night-line: rgba(143, 224, 192, 0.16);
+  --night-line-strong: rgba(242, 238, 230, 0.26);
+  --night-onair: #e4483f;
+  --night-amber: #e8a34a;
+  --night-phosphor: #8fe0c0;
+  --night-signal: #8ecfdf;
+  --night-slot: #080b0f;
+  --night-accent-ink: #14171a;
 
   color-scheme: light;
 }
@@ -117,6 +139,22 @@
   --grain-opacity: 0.025;
   --grain-blend: soft-light;
 
+  /* 夜间控制室 = 舞台暗区同一套：夜航台只有一种夜，控制室和台上是同一盏灯 */
+  --live-bg: var(--night-bg);
+  --live-panel: var(--night-panel);
+  --live-panel-2: var(--night-panel-2);
+  --live-fg: var(--night-fg);
+  --live-fg-dim: var(--night-fg-dim);
+  --live-fg-faint: var(--night-fg-faint);
+  --live-line: var(--night-line);
+  --live-line-strong: var(--night-line-strong);
+  --live-onair: var(--night-onair);
+  --live-amber: var(--night-amber);
+  --live-phosphor: var(--night-phosphor);
+  --live-signal: var(--night-signal);
+  --live-slot: var(--night-slot);
+  --live-accent-ink: var(--night-accent-ink);
+
   color-scheme: dark;
 }
 
@@ -142,6 +180,23 @@
     0 1px 0 rgba(43, 33, 24, 0.12);
   --grain-opacity: 0.06;
   --grain-blend: multiply;
+
+  /* 牛皮纸控制室：纸与墨跟着换，琥珀压成暖赭石（同一 hue 家族，暖纸上不发灰） */
+  --live-bg: #efe6d3;
+  --live-panel: #f8f1e0;
+  --live-panel-2: #e6dac1;
+  --live-fg: #2b2118;
+  --live-fg-dim: #5c4b39;
+  --live-fg-faint: #6f5c45;
+  --live-line: rgba(43, 33, 24, 0.16);
+  --live-line-strong: rgba(43, 33, 24, 0.36);
+  --live-onair: #a8352a;
+  --live-amber: #7d4a12;
+  --live-phosphor: #2a6b55;
+  --live-signal: #2a6478;
+  --live-accent-ink: #fdf8ec;
+  --live-slot: #dccfb3;
+
   color-scheme: light;
 }
 
@@ -165,5 +220,22 @@
     0 1px 0 rgba(227, 236, 229, 0.08);
   --grain-opacity: 0.025;
   --grain-blend: soft-light;
+
+  /* 松绿控制室：同夜间族，只把底与字换成松绿，信号色用苔绿系 */
+  --live-bg: #0c1512;
+  --live-panel: #14201c;
+  --live-panel-2: #0f1a16;
+  --live-fg: #e3ece5;
+  --live-fg-dim: #a8bdb2;
+  --live-fg-faint: #7e9488;
+  --live-line: rgba(111, 191, 139, 0.18);
+  --live-line-strong: rgba(227, 236, 229, 0.26);
+  --live-onair: #d4564a;
+  --live-amber: #c2a75c;
+  --live-phosphor: #6fbf8b;
+  --live-signal: #9ec4d8;
+  --live-accent-ink: #0d1512;
+  --live-slot: #08110e;
+
   color-scheme: dark;
 }

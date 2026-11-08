@@ -111,7 +111,7 @@ import {
   type LyricBindings,
 } from "../domain/lyrics/bindings.js";
 import { searchLrclib } from "../domain/lyrics/fetch-lrclib.js";
-import { applyTheme, isTheme, THEME_KEY, type Theme } from "./theme.js";
+import { applyTheme, isTheme, rgbToHex, THEME_KEY, type Theme } from "./theme.js";
 import {
   GLOBAL_THEME_KEY,
   getGlobalTokens,
@@ -128,15 +128,46 @@ declare global {
 
 /**
  * 无框窗口的系统三键（titleBarOverlay）颜色同步：
- * 现场从 DOM 读 --bg/--fg（此时主题与全局配色包都已落到 token），
- * 主进程不存第二份色值。桥不可用（老包/测试环境）时静默跳过。
+ * 现场从 DOM 读，主进程不存第二份色值。桥不可用（老包/测试环境）时静默跳过。
+ *
+ * **读哪一层跟着「当前可见页面」走**：三键压在窗口右上角，底下是什么底色就该跟什么。
+ * 现场有三层，优先级从上到下：
+ *   1. `.stage`   播放页 —— 场景层重映射 + 恒深（LIVE_PRESETS）
+ *   2. `.shell.live` 控制室 —— 直播带把 --bg 重映射成 --live-bg，四档配色各不相同
+ *   3. `:root`    兜底 —— 没有壳的页面（旧挂载点 / 测试环境）
+ * 只看结构层的 --bg 是不够的：壳自己改过底色，三键会比眼前的底亮一档
+ * （实测 dark 下 #171613 vs #0a0e13，浅色下 #f3f1ea vs #eeece5，右上角一道浅边）。
  */
 function syncWindowOverlay(): void {
-  const css = getComputedStyle(document.documentElement);
-  const bg = css.getPropertyValue("--bg").trim();
-  const fg = css.getPropertyValue("--fg").trim();
+  const stage = document.querySelector<HTMLElement>(".stage");
+  const shell = stage ? null : document.querySelector<HTMLElement>(".shell.live");
+  const host = stage ?? shell ?? document.documentElement;
+  const prefix = stage ? "--stage" : shell ? "--live" : "--";
+  const css = getComputedStyle(host);
+  const bg = cssHex(css.getPropertyValue(`${prefix}-bg`));
+  const fg = cssHex(css.getPropertyValue(prefix === "--" ? "--fg" : `${prefix}-fg`));
   // 截图工具等自建窗口的环境没注册 win:overlayTheme handler，失败静默——三键颜色只在真窗口有意义
   if (bg && fg) window.api.setWindowOverlayTheme(bg, fg).catch(() => {});
+}
+
+/**
+ * 任意 CSS 颜色 → `#rrggbb`。主进程的 handler 只收 hex（`ipc/window.ts` 里的形状校验），
+ * 而导入主题包可以把 --stage-bg 写成 rgb()/oklch()，所以在这里归一化，别指望预设值永远是 hex。
+ */
+function cssHex(value: string): string | null {
+  const raw = value.trim();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  if (!raw) return null;
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  // 哨兵色：值解析失败时 style.color 会留在这上面，据此判定"不是合法颜色"
+  probe.style.color = "rgb(1, 2, 3)";
+  probe.style.color = raw;
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  if (resolved === "rgb(1, 2, 3)") return null;
+  return rgbToHex(resolved);
 }
 
 /**
@@ -712,6 +743,7 @@ export async function bootstrap(): Promise<Services> {
       syncWindowOverlay(); // 系统三键跟着换色，夜间下右侧不挂白条
       return next;
     },
+    syncWindowOverlay, // 切页后重算：三键跟「当前可见页面」走（播放页恒深色）
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
     cover: (id, path) => loadCover(library, id, path),

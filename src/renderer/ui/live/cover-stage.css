@@ -497,9 +497,11 @@
   gap: 8px;
   position: relative;
   border: 1px solid color-mix(in srgb, var(--live-fg) 16%, transparent);
+  /* 凹槽用 panel-2（比 panel 深一档）：日间是浅灰槽、夜间是深黑槽，两档都是「比卡片更深」。
+     原来写死 --live-ink 66%，日间会变成一块中灰 —— 控制室换灯后这里就露馅了。 */
   background:
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--live-fg) 4.5%, transparent) 0 1px, transparent 1px 9px),
-    linear-gradient(180deg, color-mix(in srgb, var(--live-ink) 66%, transparent), color-mix(in srgb, var(--live-panel) 42%, transparent));
+    linear-gradient(180deg, var(--live-panel-2), color-mix(in srgb, var(--live-panel) 42%, transparent));
 }
 
 .cs-tape-window::before {
@@ -519,7 +521,9 @@
   height: 16px;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--live-signal) 50%, transparent);
-  background: color-mix(in srgb, var(--live-ink) 80%, transparent);
+  /* 轴孔：凹槽再深一档。原来写 --live-ink 80%，浅底上是对的（深墨），
+     深绿底上就跟槽同色了 —— 四档统一用 --live-slot。 */
+  background: var(--live-slot);
 }
 
 .cs-tape-window i::after {
@@ -884,7 +888,8 @@
   padding: 0;
   list-style: none;
   border: 1px solid var(--live-line-strong);
-  background: color-mix(in srgb, var(--live-ink) 24%, transparent);
+  /* 同 .cs-tape-window：凹槽跟 panel-2，别用 ink（日间会糊成一块中灰） */
+  background: var(--live-panel-2);
   scrollbar-width: thin;
 }
 

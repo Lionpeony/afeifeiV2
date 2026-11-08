@@ -29,3 +29,17 @@ export function currentTheme(): Theme {
   const v = document.documentElement.dataset.theme;
   return isTheme(v) ? v : "light";
 }
+
+/**
+ * `rgb(r, g, b)` / `rgba(r, g, b, a)` → `#rrggbb`。
+ *
+ * 存在的理由：无框窗口的系统三键（titleBarOverlay）只收 `#rrggbb`（`main/ipc/window.ts`
+ * 的白名单校验），而 token 可以是 rgba()/oklch()（导入的配色包、`--stage-line`）。
+ * 三键取的是 bg/fg 两个实色 token，转换失败返回 null —— 调用方跳过这次同步即可。
+ */
+export function rgbToHex(resolved: string): string | null {
+  const m = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/.exec(resolved);
+  if (!m) return null;
+  const to = (v: string): string => Math.round(Number(v)).toString(16).padStart(2, "0");
+  return `#${to(m[1])}${to(m[2])}${to(m[3])}`;
+}

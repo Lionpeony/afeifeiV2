@@ -9,13 +9,13 @@
   --fg-dim: var(--live-fg-dim);
   --line: var(--live-line-strong);
   --line-soft: var(--live-line);
-  --row-hover: rgba(242, 238, 230, 0.06);
+  --row-hover: color-mix(in srgb, var(--live-fg) 6%, transparent);
   --accent: var(--live-amber);
-  --accent-ink: var(--live-ink);
+  --accent-ink: var(--live-accent-ink);
   --brass: var(--live-phosphor);
   --danger: var(--live-onair);
   --bg-raised: var(--live-panel);
-  --mask: rgba(0, 0, 0, 0.62);
+  --mask: color-mix(in srgb, var(--live-ink) 62%, transparent);
   --glass-bg: var(--live-panel);
   --glass-border: var(--live-line-strong);
 
@@ -23,6 +23,31 @@
   grid-template-rows: var(--live-ruler-h) minmax(0, 1fr) var(--console-h);
   background: var(--live-bg);
   color: var(--live-fg);
+  /* 原生控件（select 弹层 / checkbox / 滚条默认皮）也跟着控制室的灯走 */
+  color-scheme: light;
+}
+
+/* 暗区：播放页与首页封面台恒暗（tokens.css ⑤ / A-10）。
+   把直播带那一层钉回夜航值 —— 这 2000 行里的 .st-air / .cs-stage / NightCoverArt 一个字都不用改。
+   注意顺序：这条必须在 `.shell.live` 之后，靠更具体的选择器而不是源码顺序生效。 */
+:root[data-theme] .stage.is-live,
+:root[data-theme] .cs-stage,
+:root[data-theme] .cs-empty-art {
+  --live-bg: var(--night-bg);
+  --live-panel: var(--night-panel);
+  --live-panel-2: var(--night-panel-2);
+  --live-fg: var(--night-fg);
+  --live-fg-dim: var(--night-fg-dim);
+  --live-fg-faint: var(--night-fg-faint);
+  --live-line: var(--night-line);
+  --live-line-strong: var(--night-line-strong);
+  --live-onair: var(--night-onair);
+  --live-amber: var(--night-amber);
+  --live-phosphor: var(--night-phosphor);
+  --live-signal: var(--night-signal);
+  --live-slot: var(--night-slot);
+  --live-accent-ink: var(--night-accent-ink);
+  /* --live-ink 不用钉：#14171a 四档同值（它是"墨"，不是"字色"），NightCoverArt 靠它画黑胶 */
   color-scheme: dark;
 }
 
@@ -31,24 +56,25 @@
   outline-offset: 2px;
 }
 
-/* 房间里沿用旧引擎的滚动容器：滚条也要跟着进夜间控制室。
-   只给 .live-room —— 直播间是纸面预设，深色轨道会变成纸边上的一条黑缝。 */
-.shell.live .live-room ::-webkit-scrollbar {
+/* 控制室里所有滚动容器共用一套滚条：房间里是旧引擎的滚动区，设置页是原生滚动区，
+   两边都吃 --live-*，所以通配到整个壳 —— 少一处就是一格亮条（设置页深色档就是这样漏的）。
+   直播间（.stage.is-live）内部已被钉成夜航值，套上去也是深色；右栏另有更具体的 .st-side-scroll 覆盖。 */
+.shell.live ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.shell.live .live-room ::-webkit-scrollbar-track,
-.shell.live .live-room ::-webkit-scrollbar-corner {
+.shell.live ::-webkit-scrollbar-track,
+.shell.live ::-webkit-scrollbar-corner {
   background: var(--live-bg);
 }
 
-.shell.live .live-room ::-webkit-scrollbar-thumb {
+.shell.live ::-webkit-scrollbar-thumb {
   background: var(--live-line-strong);
 }
 
-.shell.live .live-room ::-webkit-scrollbar-thumb:hover {
-  background: rgba(242, 238, 230, 0.28);
+.shell.live ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--live-fg) 28%, transparent);
 }
 
 @keyframes live-pulse {
@@ -189,7 +215,7 @@
 }
 
 .ruler .theme-toggle:hover {
-  background: rgba(242, 238, 230, 0.06);
+  background: color-mix(in srgb, var(--live-fg) 6%, transparent);
   color: var(--live-fg);
 }
 
@@ -664,13 +690,13 @@
 .live-btn.primary {
   background: var(--live-amber);
   border-color: var(--live-amber);
-  color: var(--live-ink);
+  color: var(--live-accent-ink);
   font-weight: 600;
 }
 
 .live-btn.primary:hover {
   filter: brightness(1.12);
-  color: var(--live-ink);
+  color: var(--live-accent-ink);
 }
 
 /* 空台 */
@@ -785,7 +811,7 @@
 }
 
 .tape .slot:hover {
-  background: rgba(242, 238, 230, 0.04);
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
   color: var(--live-fg);
 }
 
@@ -1423,7 +1449,7 @@
 }
 
 .stage.is-live .st-nx:hover {
-  background: rgba(242, 238, 230, 0.04);
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
 }
 
 .stage.is-live .st-nx .no {
@@ -1807,7 +1833,7 @@
 
 .shell.live .live-room .tape-cell:hover {
   border-color: var(--live-line-strong);
-  background: rgba(242, 238, 230, 0.05);
+  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
 }
 
 .shell.live .live-room .tape-cell b {

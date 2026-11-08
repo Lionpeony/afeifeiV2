@@ -129,6 +129,8 @@ export interface Services {
   theme: Theme;
   /** 切换并持久化，返回生效值。 */
   setTheme(theme: Theme): Theme;
+  /** 重算窗口三键（titleBarOverlay）颜色：现场读「当前可见页面」的底色，切页后调用。 */
+  syncWindowOverlay(): void;
   pick(): Promise<string[]>;
   positionMs(): number;
   /** 按已保存的目录列表扫描；一个都没有时先让你选一个（M9）。取消返回 null。 */

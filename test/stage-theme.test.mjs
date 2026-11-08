@@ -120,3 +120,17 @@ test("四套预设本身不含结构层引用，且 token 齐全", () => {
     }
   }
 });
+
+test("窗控三键读「当前可见页面」的色：场景层 → 控制室 → 结构层，三层都要在", () => {
+  const src = readSrc("../src/renderer/ui/bootstrap.ts");
+  const at = src.indexOf("function syncWindowOverlay");
+  assert.ok(at > 0, "找不到 syncWindowOverlay");
+  const body = src.slice(at, src.indexOf("\n}", at));
+  assert.ok(body.includes('".stage"'), "syncWindowOverlay 不看 .stage：播放页恒深色，右上角会留一块白");
+  assert.ok(
+    body.includes('".shell.live"'),
+    "syncWindowOverlay 不看 .shell.live：壳把 --bg 重映射成 --live-bg，三键会比眼前的底亮一档",
+  );
+  assert.ok(body.includes("--stage"), "syncWindowOverlay 没读场景层");
+  assert.ok(body.includes("--live"), "syncWindowOverlay 没读控制室（--live-bg / --live-fg）");
+});

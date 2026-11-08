@@ -742,6 +742,17 @@ function App() {
     setUserOffset(lyricOffset);
   }, [lyricOffset, lyricKey]);
 
+  /**
+   * 窗控三键（titleBarOverlay）跟着**可见页面**走，不是跟着全局主题走。
+   * 播放页在自己的根节点上重映射场景层且恒深色（LIVE_PRESETS），
+   * 全局切浅色时若三键仍读结构层，右上角就会在深底上留一块白。
+   * 直接同步读：`.stage` 的 token 由 StageRoot 的 effect 写进 inline style，
+   * 子组件的 effect 先于本组件执行，此刻已经是最终值。
+   */
+  useEffect(() => {
+    services.current?.syncWindowOverlay();
+  }, [page]);
+
   /* 换词弹窗（P0-19）的初始查询：本地「歌名 歌手」，在线用标题（那里已经是「歌名 — 歌手」）。 */
   const findTrack = findOpen && !remote && trackId ? trackById(trackId) : undefined;
   const findQuery = remote

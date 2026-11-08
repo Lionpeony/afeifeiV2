@@ -14,6 +14,25 @@
   overflow-x: hidden;
   overflow-y: auto;
 }
+/* 滚条也归场景层：矮窗下右栏要滚，原生亮条压在深色台上就是一根白缝
+   （用户截图那根）。只给 .st-side-scroll —— 播放页别的容器不该滚。
+   箭头是默认皮肤的一部分，深色台上像两个白三角，去掉。 */
+.st-side-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.st-side-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.st-side-scroll::-webkit-scrollbar-thumb {
+  background: var(--stage-line);
+}
+.st-side-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--stage-fg-dim);
+}
+.st-side-scroll::-webkit-scrollbar-button {
+  display: none;
+}
 .st-side-h {
   position: relative;
   display: flex;
@@ -360,5 +379,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 矮窗（740 是窗口下限，700 是 125% 缩放的笔记本视口）：相纸跟着高度收。
+   不收的话「队列 + 票据 + 相纸」高过右栏，要滚到底才看得全 —— 那就叫没有自适应。
+   20vh 在 740 高时给 148px、700 高时 140px，正好把这段差额吃掉；
+   780 以上不触发（800 高时本来就放得下，不该无故缩小）。
+   margin-bottom 从 10 加到 22：SIDE A 章向下探 9px，留够余量，滚到底也不裁。 */
+@media (max-height: 780px) {
+  .st-photo {
+    width: min(214px, 100%, 20vh);
+    margin-bottom: 22px;
+  }
+  .st-photo .art {
+    /* 原来的 130px 是"别再小了"的下限，矮窗里正是它挡住收缩 */
+    min-height: 0;
+  }
 }
 
