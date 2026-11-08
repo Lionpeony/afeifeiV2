@@ -46,8 +46,10 @@
    img 的 intrinsic 尺寸 + 自动 aspect-ratio 会把宽度顶出格子，width 显式 100% 钉住。 */
 .cs-cover {
   display: block;
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 auto;
+  /* 封面高度必须稳：文案行数（大字折行/note 换句）一变，弹性补位就会让封面跳大跳小——
+     下限钳住最小展示高度，copy 区恒定占位（见 .cs-copy min-height），封面 = 剩余空间，恒定 */
+  min-height: clamp(180px, 45%, 420px);
   width: 100%;
   object-fit: cover;
   border-radius: 18px;
@@ -61,6 +63,9 @@
 
 .cs-copy {
   flex: none;
+  /* 恒定占位：按"大字两行 + 四行内容"的满容量算——单行标题时下方多出的留白
+     换封面高度恒定（封面跳大跳小比 copy 区多点空白难看得多） */
+  min-height: 246px;
   margin: 18px 4px 6px;
 }
 
@@ -151,6 +156,10 @@
 .cs-note {
   margin: 10px 0 0;
   max-width: 34em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-family: var(--font-sans);
   font-size: 13.5px;
   line-height: 1.7;
@@ -684,6 +693,11 @@ img.cs-tape-art {
 
   .cs-note {
     display: none;
+  }
+
+  /* 矮窗：copy 恒定占位收缩一档，保封面有 180px 以上的展示高度 */
+  .cs-copy {
+    min-height: 200px;
   }
 
   .cs-signal {
