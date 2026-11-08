@@ -4,7 +4,7 @@ import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
-import { sampleCoverTint } from "../views/stage/tint-client.js";
+import { detectCoverTrim, sampleCoverTint, type CoverTrim } from "../views/stage/tint-client.js";
 import { splitLatinRuns } from "./typography.js";
 import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
@@ -67,7 +67,26 @@ export function LiveHome({
   const [showAll, setShowAll] = useState(false);
   const [failedCovers, setFailedCovers] = useState<ReadonlySet<string>>(new Set());
   const [tint, setTint] = useState<string | null>(null);
+  const [trims, setTrims] = useState<Record<string, CoverTrim>>({});
   const vuRefs = useRef<Array<HTMLSpanElement | null>>([]);
+
+  /** 白边图的反制：按检测到的最大白边比例放大（中心对称，白边被挤出圆角容器外）。
+      正常封面 trim=null 不动；上限 1.17（15% 白边全量反制）。 */
+  const trimScale = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    const t = trims[url];
+    if (!t) return undefined;
+    const peak = Math.max(t.top, t.right, t.bottom, t.left);
+    return peak > 0 ? `scale(${(1 + Math.min(0.15, peak) * 1.15).toFixed(3)})` : undefined;
+  };
+  /** 图片加载成功后检测一次白边（onload 时机天然就绪，canvas 采样 ~2ms）。 */
+  const detectTrim = (url: string | undefined): void => {
+    if (!url || trims[url] !== undefined) return;
+    detectCoverTrim(url, (t) => {
+      if (t) setTrims((s) => ({ ...s, [url]: t }));
+      else setTrims((s) => ({ ...s, [url]: { top: 0, right: 0, bottom: 0, left: 0 } }));
+    });
+  };
 
   /*
    * 信号条：每帧从引擎取真频谱写 scaleY（composite-only，不走 React 渲染）。
@@ -174,6 +193,8 @@ export function LiveHome({
                 loading="lazy"
                 decoding="async"
                 referrerPolicy="no-referrer"
+                onLoad={() => detectTrim(lead.coverUrl)}
+                style={{ transform: trimScale(lead.coverUrl) }}
               />
             ) : (
               <NightCoverArt className="cs-cover" />
@@ -296,6 +317,8 @@ export function LiveHome({
                         decoding="async"
                         referrerPolicy="no-referrer"
                         onError={() => setFailedCovers((s) => new Set(s).add(track.coverUrl as string))}
+                        onLoad={() => detectTrim(track.coverUrl)}
+                        style={{ transform: trimScale(track.coverUrl) }}
                       />
                     ) : (
                       <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />

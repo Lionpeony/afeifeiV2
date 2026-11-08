@@ -173,6 +173,19 @@ const coverMotif = (kind, motif) => {
 const coverOf = (album) => {
   const [bg, fg, motif] = COVER_ART[album] ?? ["#2a2c30", "#e8e4da", "#8a8f98"];
   const kind = hashOf(album) % 3;
+  /* 夜行电台带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
+     白边 24/400 = 6%，落在 2%-15% 检测窗口内 → trim 必触发，img 必带 scale transform。 */
+  if (album === "夜行电台") {
+    const pad = 24;
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">` +
+      `<rect width="400" height="400" fill="#f4f1ea"/>` +
+      `<rect x="${pad}" y="${pad}" width="${400 - pad * 2}" height="${400 - pad * 2}" fill="${bg}"/>` +
+      `<text x="200" y="206" text-anchor="middle" font-family="Georgia, serif" font-size="42" fill="${motif}">${album}</text>` +
+      `</svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+  }
+  const kind = hashOf(album) % 3;
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">` +
     `<rect width="400" height="400" fill="${bg}"/>` +
@@ -515,6 +528,17 @@ app.whenReady().then(async () => {
   }
 
   if (process.env.LIVE_EMPTY !== "1") {
+    /* 白边反制判据：fixture 封面自带 6% 白边，hero 大图必须带着 scale 反制 transform。
+       transform 还是 none = 检测链路断了（onload → canvas → 状态没接上），直接红。 */
+    const trimShot = await evalJs(`(() => {
+      const img = document.querySelector(".cs-cover");
+      return { t: img ? getComputedStyle(img).transform : "missing" };
+    })()`);
+    if (trimShot.t === "none" || trimShot.t === "missing") {
+      throw new Error(`白边封面没触发反制（transform = ${trimShot.t}）：detectCoverTrim 链路断了`);
+    }
+    console.log(`封面白边反制：hero transform ${trimShot.t}`);
+
     /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
        旧实现把左栏锁死在 songs[0]，这条必红。 */
     const heroBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);

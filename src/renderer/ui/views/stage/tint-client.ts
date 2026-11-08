@@ -64,3 +64,58 @@ export function sampleCoverTint(src: string, cb: TintCb): void {
   img.onerror = () => cb(null);
   img.src = src;
 }
+
+export type CoverTrim = { top: number; right: number; bottom: number; left: number };
+
+/** 检测封面四边白边占比（0-1）。检测不出回调 null：
+    - 单边 > 15% 不算白边（那是设计留白/纯白底封面，裁了反而毁图）；
+    - < 2% 视为无（肉眼不可见）。
+    素材背景：搜索来源的封面不少是「内容 + 白底」合成图，object-fit 裁不掉图内白边。
+    crossOrigin 语义同 sampleCoverTint——没有它 canvas 就是污染的。 */
+export function detectCoverTrim(src: string, cb: (trim: CoverTrim | null) => void): void {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    try {
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (w === 0 || h === 0) return cb(null);
+      const canvas = document.createElement("canvas");
+      const SW = 160;
+      const SH = Math.max(80, Math.round((h / w) * SW));
+      canvas.width = SW;
+      canvas.height = SH;
+      const ctx2d = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx2d) return cb(null);
+      ctx2d.drawImage(img, 0, 0, SW, SH);
+      const data = ctx2d.getImageData(0, 0, SW, SH).data;
+      // 白 = 低饱和亮色：min 通道过 226、通道差 < 30（米白 245/240/230 与纯白都算）
+      const isWhite = (i: number) =>
+        Math.min(data[i], data[i + 1], data[i + 2]) > 226 &&
+        Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]) < 30;
+      const rowWhite = (y: number) => {
+        let ok = 0;
+        for (let x = 0; x < SW; x++) if (isWhite((y * SW + x) * 4)) ok++;
+        return ok / SW > 0.92;
+      };
+      const colWhite = (x: number) => {
+        let ok = 0;
+        for (let y = 0; y < SH; y++) if (isWhite((y * SW + x) * 4)) ok++;
+        return ok / SH > 0.92;
+      };
+      const MAX = 0.15;
+      const MIN = 0.02;
+      const trim: CoverTrim = { top: 0, right: 0, bottom: 0, left: 0 };
+      for (let y = 0; y < SH * MAX && rowWhite(y); y++) trim.top = (y + 1) / SH;
+      for (let y = SH - 1; y >= SH * (1 - MAX) && rowWhite(y); y--) trim.bottom = (SH - y) / SH;
+      for (let x = 0; x < SW * MAX && colWhite(x); x++) trim.left = (x + 1) / SW;
+      for (let x = SW - 1; x >= SW * (1 - MAX) && colWhite(x); x--) trim.right = (SW - x) / SW;
+      const peak = Math.max(trim.top, trim.right, trim.bottom, trim.left);
+      cb(peak >= MIN ? trim : null);
+    } catch {
+      cb(null); // 跨域污染等，静默回落
+    }
+  };
+  img.onerror = () => cb(null);
+  img.src = src;
+}
