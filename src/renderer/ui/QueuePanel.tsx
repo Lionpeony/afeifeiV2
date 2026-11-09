@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import LiquidGlass from "liquid-glass-react";
 import type { QueueState } from "../../contracts/index.js";
 import type { Track } from "../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../domain/library/state.js";
 import { dispatch, dropTargetIndex, orderOf, positionOf } from "../kernel/index.js";
 import { onFrame } from "./compositor.js";
+import { QueueCover } from "./queue-cover.js";
 
 /**
  * 完整队列面板（P0-10/11/12/16，抄 SPlayer 的 `SongPlayList.vue` + `useDragSort.ts`）。
@@ -19,16 +21,28 @@ import { onFrame } from "./compositor.js";
  * 升级路径：抄 SPlayer 的 `VirtualScroll` 或换 react-window；队列长度超过 1000 再动。
  */
 
-const ROW_H = 46; // 与 player.css 的 .qp-row 高度一致；拖拽靠它换算落点
+const ROW_H = 60; // 与 player.css 的 .qp-row 高度一致（v2 加了 44px 封面列）；拖拽靠它换算落点
 const EDGE = 36; // 拖到列表上下 36px 内自动滚动
 const SCROLL_STEP = 12;
 
 export interface QueuePanelProps {
   queue: QueueState;
+  /** 取封面（services.cover，带缓存与去重；本地曲目 id 兼作 path） */
+  cover?: (id: string, path: string) => Promise<string | null>;
   onClose(): void;
 }
 
 const pad2 = (n: number): string => String(Math.max(0, n)).padStart(2, "0");
+/** 头部总时长：小时以上换 h:mm:ss，其余 m:ss */
+function fmtTotal(ms: number): string {
+  if (ms <= 0) return "--:--";
+  const total = Math.floor(ms / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const two = (v: number): string => String(v).padStart(2, "0");
+  return h > 0 ? `${h}:${two(m)}:${two(s)}` : `${m}:${two(s)}`;
+}
 
 function fileOf(id: string): string {
   if (/^https?:\/\//i.test(id)) return "在线音源";
@@ -45,7 +59,7 @@ function fmt(ms: number | undefined): string {
 }
 
 export function QueuePanel(props: QueuePanelProps) {
-  const { queue, onClose } = props;
+  const { queue, cover, onClose } = props;
   const listRef = useRef<HTMLDivElement>(null);
   const dragFrom = useRef(-1);
   const dirRef = useRef(0); // 拖到边缘时的滚动方向（-1 / 0 / 1）
@@ -167,134 +181,176 @@ export function QueuePanel(props: QueuePanelProps) {
 
   const total = queue.items.length;
 
+  // 头部总时长（在线曲目元数据优先级与行内一致：队列 remote → 曲库 → 0）
+  const totalMs = useMemo(() => {
+    let sum = 0;
+    for (const id of queue.items) {
+      sum += queue.remote[id]?.durationMs ?? tracks.get(id)?.durationMs ?? 0;
+    }
+    return sum;
+  }, [queue.items, queue.remote, tracks]);
+
   return (
     <div className="qp-mask" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="qp" role="dialog" aria-label="播放队列">
-        <header className="qp-head">
-          <b>播放队列</b>
-          <span>{total} 首</span>
-          {!canReorder ? <small>随机模式 · 按播放序显示，拖拽已关</small> : null}
-          <span className="sp" />
-          <button type="button" className="qp-x" onClick={onClose} title="关闭（Esc）">
-            ✕
-          </button>
-        </header>
+      {/* 玻璃容器（liquid-glass-react）：位移玻璃 + 饱和背板，纸墨内容叠在上面。
+          库默认的居中 transform / 内边距 / 字体在 player.css 的 .qp-glass 里压回。 */}
+      <LiquidGlass
+        className="qp-glass"
+        cornerRadius={0}
+        displacementScale={64}
+        blurAmount={0.25}
+        saturation={130}
+        aberrationIntensity={1.2}
+        elasticity={0}
+        padding="0"
+        mode="standard"
+      >
+        <aside className="qp" role="dialog" aria-label="播放队列">
+          <header className="qp-head">
+            <b>播放队列</b>
+            <span>
+              {total} 首{totalMs > 0 ? ` · ${fmtTotal(totalMs)}` : ""}
+            </span>
+            {!canReorder ? <small>随机模式 · 按播放序显示，拖拽已关</small> : null}
+            <span className="sp" />
+            <button type="button" className="qp-x" onClick={onClose} title="关闭（Esc）">
+              ✕
+            </button>
+          </header>
 
-        {total === 0 ? (
-          <p className="qp-empty">队列是空的 · 从曲库选一首开始</p>
-        ) : (
-          <div className="qp-list" ref={listRef}>
-            {order.map((at, pos) => {
-              const id = queue.items[at];
-              const t = tracks.get(id);
-              // 在线曲目：标题/歌手/时长都在队列表里（点每日推荐/榜单时整份写入）
-              const meta = queue.remote[id];
-              const title = meta?.title ?? t?.title ?? fileOf(id);
-              const on = at === queue.cursor;
-              // 标记按大小写不敏感比：队列存的是原始路径（`C:/x.mp3`），
-              // 播放态里的 trackId 是规范化小写（`c:/x.mp3`）—— 直接 === 永远对不上（截图发现的坑）
-              const low = id.toLowerCase();
-              const bad = queue.failed.some((f) => f.toLowerCase() === low);
-              return (
-                <div
-                  key={`${id}-${at}`}
-                  className={`qp-row${on ? " on" : ""}${bad ? " bad" : ""}${gap === pos ? " gap" : ""}`}
-                >
-                  {canReorder ? (
-                    <span
-                      className="qp-grip"
-                      title="拖动排序"
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        dragFrom.current = at;
-                        setGap(pos);
-                      }}
-                    >
-                      ⋮⋮
-                    </span>
-                  ) : (
-                    <span className="qp-grip off" />
-                  )}
-                  <i className="qp-no">{on ? "♪" : pad2(pos + 1)}</i>
-                  <button
-                    type="button"
-                    className="qp-main"
-                    onClick={() =>
-                      jump(id, meta ? `${meta.title} — ${meta.artist}` : (t?.title ?? null))
-                    }
+          {total === 0 ? (
+            <p className="qp-empty">队列是空的 · 从曲库选一首开始</p>
+          ) : (
+            <div className="qp-list" ref={listRef}>
+              {order.map((at, pos) => {
+                const id = queue.items[at];
+                const t = tracks.get(id);
+                // 在线曲目：标题/歌手/时长都在队列表里（点每日推荐/榜单时整份写入）
+                const meta = queue.remote[id];
+                const title = meta?.title ?? t?.title ?? fileOf(id);
+                const on = at === queue.cursor;
+                // 标记按大小写不敏感比：队列存的是原始路径（`C:/x.mp3`），
+                // 播放态里的 trackId 是规范化小写（`c:/x.mp3`）—— 直接 === 永远对不上（截图发现的坑）
+                const low = id.toLowerCase();
+                const bad = queue.failed.some((f) => f.toLowerCase() === low);
+                return (
+                  <div
+                    key={`${id}-${at}`}
+                    className={`qp-row${on ? " on" : ""}${bad ? " bad" : ""}${gap === pos ? " gap" : ""}`}
                   >
-                    <span className="qp-tx">
-                      {title}
-                      <small>
-                        {bad ? "播不了 · 点一下重试" : (meta?.artist ?? t?.artist ?? (t ? "未知歌手" : "在线音源"))}
-                      </small>
-                    </span>
-                  </button>
-                  <time>{fmt(meta?.durationMs ?? t?.durationMs)}</time>
-                  <span className="qp-ops">
                     {canReorder ? (
-                      <>
-                        <button
-                          type="button"
-                          aria-label="上移一位"
-                          disabled={at === 0}
-                          onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="下移一位"
-                          disabled={at === total - 1}
-                          onClick={() => dispatch({ type: "queue/move", from: at, to: at + 1 })}
-                        >
-                          ↓
-                        </button>
-                      </>
-                    ) : null}
+                      <span
+                        className="qp-grip"
+                        title="拖动排序"
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          dragFrom.current = at;
+                          setGap(pos);
+                        }}
+                      >
+                        ⋮⋮
+                      </span>
+                    ) : (
+                      <span className="qp-grip off" />
+                    )}
+                    <i className="qp-no">
+                      {on ? (
+                        <span className="qp-eq" aria-hidden="true">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                      ) : (
+                        pad2(pos + 1)
+                      )}
+                    </i>
+                    <QueueCover id={id} index={pos + 1} coverUrl={meta?.coverUrl} cover={cover} />
                     <button
                       type="button"
-                      aria-label="从队列移除"
-                      onClick={() => dispatch({ type: "queue/remove", index: at })}
+                      className="qp-main"
+                      onClick={() =>
+                        jump(id, meta ? `${meta.title} — ${meta.artist}` : (t?.title ?? null))
+                      }
                     >
-                      ×
+                      <span className="qp-tx">
+                        {title}
+                        <small>
+                          {bad
+                            ? "播不了 · 点一下重试"
+                            : (meta?.artist ?? t?.artist ?? (t ? "未知歌手" : "在线音源"))}
+                        </small>
+                      </span>
                     </button>
-                  </span>
-                </div>
-              );
-            })}
-            {gap === total ? <span className="qp-drop" /> : null}
-          </div>
-        )}
-
-        <footer className="qp-foot">
-          <button
-            type="button"
-            onClick={() => {
-              const el = listRef.current;
-              const pos = positionOf(order, queue.cursor);
-              if (el && pos >= 0) el.scrollTop = Math.max(0, (pos - 3) * ROW_H);
-            }}
-          >
-            定位当前
-          </button>
-          <span className="sp" />
-          {confirmClear ? (
-            <>
-              <button type="button" className="qp-danger" onClick={() => dispatch({ type: "queue/clear" })}>
-                确认清空 {total} 首
-              </button>
-              <button type="button" onClick={() => setConfirmClear(false)}>
-                取消
-              </button>
-            </>
-          ) : (
-            <button type="button" disabled={total === 0} onClick={() => setConfirmClear(true)}>
-              清空
-            </button>
+                    <time>{fmt(meta?.durationMs ?? t?.durationMs)}</time>
+                    <span className="qp-ops">
+                      {canReorder ? (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="上移一位"
+                            disabled={at === 0}
+                            onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="下移一位"
+                            disabled={at === total - 1}
+                            onClick={() => dispatch({ type: "queue/move", from: at, to: at + 1 })}
+                          >
+                            ↓
+                          </button>
+                        </>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label="从队列移除"
+                        onClick={() => dispatch({ type: "queue/remove", index: at })}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  </div>
+                );
+              })}
+              {gap === total ? <span className="qp-drop" /> : null}
+            </div>
           )}
-        </footer>
-      </aside>
+
+          <footer className="qp-foot">
+            <button
+              type="button"
+              onClick={() => {
+                const el = listRef.current;
+                const pos = positionOf(order, queue.cursor);
+                if (el && pos >= 0) el.scrollTop = Math.max(0, (pos - 3) * ROW_H);
+              }}
+            >
+              定位当前
+            </button>
+            <span className="sp" />
+            {confirmClear ? (
+              <>
+                <button
+                  type="button"
+                  className="qp-danger"
+                  onClick={() => dispatch({ type: "queue/clear" })}
+                >
+                  确认清空 {total} 首
+                </button>
+                <button type="button" onClick={() => setConfirmClear(false)}>
+                  取消
+                </button>
+              </>
+            ) : (
+              <button type="button" disabled={total === 0} onClick={() => setConfirmClear(true)}>
+                清空
+              </button>
+            )}
+          </footer>
+        </aside>
+      </LiquidGlass>
     </div>
   );
 }

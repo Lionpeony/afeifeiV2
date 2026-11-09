@@ -1358,7 +1358,13 @@ function App() {
         />
       ) : null}
 
-      {queueOpen ? <QueuePanel queue={state.queue} onClose={() => setQueueOpen(false)} /> : null}
+      {queueOpen ? (
+        <QueuePanel
+          queue={state.queue}
+          cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+          onClose={() => setQueueOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }

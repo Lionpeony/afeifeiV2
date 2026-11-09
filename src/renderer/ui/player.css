@@ -734,22 +734,50 @@ button.primary:hover:not(:disabled) {
 .palette-hint { color: var(--fg-dim); font-size: 11px; }
 
 /* ===== 完整队列面板（P0-10/11/12，结构抄 SPlayer SongPlayList，视觉走本项目纸墨） =====
-   行高 46px 是硬约定：QueuePanel.tsx 用 ROW_H 换算拖拽落点，改这里必须同步改那里。 */
+   v2 重设计：面板容器换 liquid-glass-react 的位移玻璃（.qp-glass），行内加 44px 封面列。
+   行高 60px 是硬约定：QueuePanel.tsx 用 ROW_H 换算拖拽落点，改这里必须同步改那里。 */
 .qp-mask {
   position: fixed;
   inset: 0;
   z-index: 40;
   background: rgba(0, 0, 0, 0.26);
 }
+/* liquid-glass-react 压回：库默认把容器 translate(-50%,-50%) 居中、内层 .glass 强制
+   inline-flex + padding + 系统字体 —— 全部接管。玻璃容器只罩右侧面板区域：
+   它要是占满整个遮罩，warp 的 backdrop-filter 会把主界面整屏模糊掉。 */
+.qp-glass {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  width: min(420px, 92vw);
+  transform: none !important;
+  transition: none !important;
+}
+.qp-glass > .glass {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+/* 玻璃本体（.glass__warp）由库内联提供 backdrop-filter + 位移滤镜，不盖；
+   内容层继承 shell 字体（库强制 font: 500 20px/1 system-ui，必须压回） */
+.qp-glass > .glass > div:last-child {
+  font: inherit;
+  width: 100%;
+  height: 100%;
+}
 .qp {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  width: min(420px, 92vw);
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
   border-left: 1px solid var(--fg);
   font-variant-numeric: tabular-nums;
 }
@@ -796,14 +824,77 @@ button.primary:hover:not(:disabled) {
   color: var(--fg-dim);
   font-size: 13px;
 }
-/* 一行：手柄 / 序号 / 标题 / 时长 / 操作。高度与 ROW_H 一致 */
+/* 一行：手柄 / 序号 / 封面 / 标题 / 时长 / 操作。高度与 ROW_H 一致（v2：60px，加了封面列） */
 .qp-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 46px;
+  height: 60px;
   padding: 0 10px 0 4px;
   border-bottom: 1px solid var(--line-soft);
+}
+/* 封面列：44px 方块；没封面时显示序号空封套（细线框） */
+.qp-art {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--bg);
+}
+.qp-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.qp-art.ph i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-style: normal;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 5px, var(--line-soft) 5px 6px);
+}
+/* 正在播行的均衡器：3 根柱子交替起伏，替代原来的 ♪ */
+.qp-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.qp-eq i {
+  width: 2px;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: qp-eq-bounce 0.9s ease-in-out infinite;
+}
+.qp-eq i:nth-child(2) {
+  animation-delay: 0.25s;
+}
+.qp-eq i:nth-child(3) {
+  animation-delay: 0.5s;
+}
+@keyframes qp-eq-bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qp-eq i {
+    animation: none;
+  }
 }
 .qp-row.on {
   box-shadow: inset 3px 0 0 var(--accent);
