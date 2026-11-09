@@ -104,6 +104,15 @@ function App() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountProfiles, setAccountProfiles] = useState<Record<string, AccountProfile | undefined>>({});
   const [loginFor, setLoginFor] = useState<string | null>(null);
+  /* 切源「换台闪变」：>0 时渲染全页扫描线覆盖层，动画结束（或 600ms 兜底）归零。
+     key 用计数值——连切两次也能重播。 */
+  const [tuneFlash, setTuneFlash] = useState(0);
+  const flashTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (tuneFlash <= 0) return;
+    flashTimer.current = window.setTimeout(() => setTuneFlash(0), 600);
+    return () => window.clearTimeout(flashTimer.current);
+  }, [tuneFlash]);
 
   /** 读所有可登录源的头像/昵称（站尺账号区 + 面板共用）。 */
   const refreshAccountProfiles = (): void => {
@@ -1079,6 +1088,7 @@ function App() {
         profiles={accountProfiles}
         onClose={() => setAccountOpen(false)}
         onSwitch={(id) => {
+          setTuneFlash((k) => k + 1); // 换台闪变先落弦，数据换源在动画后半程接上
           setActiveSource(id);
           setAccountOpen(false);
         }}
@@ -1098,6 +1108,11 @@ function App() {
           })();
         }}
       />
+
+      {/* 切源换台闪变：琥珀扫描线扫过全页 + 轻微压暗（animationend 或 600ms 兜底移除） */}
+      {tuneFlash > 0 ? (
+        <div className="tune-flash" key={tuneFlash} aria-hidden="true" onAnimationEnd={() => setTuneFlash(0)} />
+      ) : null}
 
       {loginFor ? (
         <LoginDialog
@@ -1121,6 +1136,7 @@ function App() {
             const id = loginFor;
             setLoginFor(null);
             if (id) {
+              setTuneFlash((k) => k + 1); // 接入成功也是一次换台
               setActiveSource(id);
               // 新账号的数据不能沿用上一个账号的缓存
               invalidatePrefix(`account:${id}:`);

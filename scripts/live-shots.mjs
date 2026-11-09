@@ -314,6 +314,8 @@ const wavOf = (p) => {
 /** 窗控三键（titleBarOverlay）的每次同步：用来验「三键跟可见页面走」。
     真窗口里这块是系统绘制的，截图拍不到，只能从 IPC 记录里读。 */
 const OVERLAY_CALLS = [];
+/* QQ 账号登录态开关（模块级：IPC handler 与主流程都能读写） */
+let qqLoggedIn = false;
 
 function registerMinimalIpc() {
   const file = (name) => path.join(PROFILE, name);
@@ -393,8 +395,11 @@ function registerMinimalIpc() {
     if (method === "likelist") return { ids: [] };
     return {};
   });
-  // QQ 源起来后启动就会问一次 profile；fixture 不登录，给空账号免得刷红字
-  ipcMain.handle("qq:profile", () => ({ loggedIn: false, nick: null, uid: null }));
+  // QQ 源起来后启动就会问一次 profile；登录态由模块级开关控制（主流程中段未登录，
+  // 尾段翻成已登录才能拍到「切换」钮与换台闪变）
+  ipcMain.handle("qq:profile", () =>
+    qqLoggedIn ? { loggedIn: true, nick: "码头中继站", uid: "qq9528" } : { loggedIn: false, nick: null, uid: null },
+  );
   // 我的歌单（2026-11-06 补的 /user/playlist）：给一条，验证歌单页能切到 QQ
   ipcMain.handle("qq:call", (_e, method) => {
     if (method === "userPlaylists") {
@@ -500,6 +505,16 @@ app.whenReady().then(async () => {
   };
 
   const evalJs = (code) => win.webContents.executeJavaScript(code, true);
+
+  /* 瞬态动画专用：跳过 shoot 的双 rAF 等待（那 100-200ms 会把 560ms 的闪变睡过头），
+     立刻抓帧。动画帧内会有轻微撕裂风险，换来的是抓得住那一刻。 */
+  const quickShot = async (name) => {
+    const img = await win.webContents.capturePage();
+    if (img.isEmpty()) throw new Error(`${name} 截到空图`);
+    fs.writeFileSync(path.join(OUT, name), img.toPNG());
+    console.log(`shot → docs/assets/mockups/${name}`);
+  };
+
   const click = async (code, label) => {
     const ok = await evalJs(code);
     if (!ok) throw new Error(`点不到：${label}`);
@@ -1525,6 +1540,87 @@ app.whenReady().then(async () => {
   await shoot("live-login-qr.png");
   // 弹层关掉再回主流程：后面的房间/主题截图不能带浮层
   await click(`(() => { const b = [...document.querySelectorAll(".dialog-actions button")].find((x) => x.textContent === "关闭"); b?.click(); return Boolean(b); })()`, "登录弹层 · 关闭");
+  await sleep(400);
+
+  /* 换台闪变（切源动画）：QQ 翻成已登录 → 面板出现「切换」钮 → 点下后
+     行内琥珀脉冲 200ms → 面板离场 + 全页琥珀扫描线（460ms）。
+     evalJs 直点不带 sleep：闪变是瞬态，click() 的 500ms 会把它睡过去。
+     放在播放页截图段**之前**：矮窗 2px 存量探针不该挡证据；
+     切完马上切回网易云，后面房间/主题判据吃的还是网易云数据。 */
+  qqLoggedIn = true;
+  await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（QQ 已登录）");
+  await sleep(600);
+  const switchProbe = await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
+    const btn = row?.querySelector("button.acct-act");
+    return { btnText: btn?.textContent.trim() ?? "", rows: document.querySelectorAll(".acct-menu .acct-row").length };
+  })()`);
+  console.log(`换台闪变 · 面板：${JSON.stringify(switchProbe)}`);
+  if (switchProbe.btnText !== "切换") throw new Error(`QQ 登录后没有出现「切换」钮：${JSON.stringify(switchProbe)}`);
+  await shoot("live-acct-menu-both.png");
+  // capturePage/evalJs 单程 100-200ms，原速 200ms 脉冲/560ms 闪变的瞬态赶不上帧——
+  // fixture 注入 style 慢放（只影响本截图进程，产品代码不动），拍完即移除
+  await evalJs(`(() => {
+    const st = document.createElement("style");
+    st.id = "flash-slowmo";
+    st.textContent =
+      ".acct-row.tuning { animation-duration: 1s !important } .tune-flash { animation-duration: 1.6s !important } .tune-flash::after { animation-duration: 1.6s !important }";
+    document.head.appendChild(st);
+    return true;
+  })()`);
+  // 直点切换：80ms 抓行内脉冲最强帧（慢放后 8%-30% 渐强段），随后抓扫描线段
+  await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
+    const b = row?.querySelector("button.acct-act");
+    b?.click();
+    return Boolean(b);
+  })()`);
+  await sleep(80);
+  const pulseShot = await evalJs(`document.querySelector(".acct-row.tuning") !== null`);
+  console.log(`换台闪变 · 行内脉冲在拍：${pulseShot}`);
+  await quickShot("live-tune-pulse.png");
+  await sleep(120);
+  const flashSeen = await evalJs(`document.querySelector(".tune-flash") !== null`);
+  console.log(`换台闪变 · 全页扫描线在拍：${JSON.stringify(flashSeen)}`);
+  if (!flashSeen) throw new Error("切源时 .tune-flash 不在：换台闪变没接上");
+  await quickShot("live-tune-flash.png");
+  await evalJs(`document.getElementById("flash-slowmo")?.remove()`);
+  await sleep(800);
+  // 切回网易云：后面 liked/recent/主题判据继续吃网易云账号数据。
+  // 查询严格限定在面板内（设置页自己也有 .acct-row，裸查会点错），并断言按钮真的是「切换」。
+  await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（切回）");
+  await sleep(700);
+  const backBtn = await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("网易云"));
+    const b = row?.querySelector("button.acct-act");
+    return { text: b?.textContent.trim() ?? "", disabled: b?.disabled ?? true };
+  })()`);
+  console.log(`切回网易云 · 按钮：${JSON.stringify(backBtn)}`);
+  if (backBtn.text !== "切换") throw new Error(`网易云行没有「切换」钮：${JSON.stringify(backBtn)}`);
+  await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("网易云"));
+    row?.querySelector("button.acct-act")?.click();
+    return true;
+  })()`);
+  // 面板离场（160ms 触发 + 190ms 动画）后重开，对时序不敏感地验 ON AIR 归属
+  await sleep(900);
+  await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（复核）");
+  await sleep(700);
+  const backProbe = await evalJs(`(() => {
+    const rows = [...document.querySelectorAll(".acct-menu .acct-row")].map(
+      (r) => (r.querySelector(".onair-badge") ? "ON:" : "off:") + (r.querySelector("b")?.textContent ?? ""),
+    );
+    const now = document.querySelector(".acct-now b")?.textContent ?? "";
+    return { rows, now };
+  })()`);
+  console.log(`切回网易云：${JSON.stringify(backProbe)}`);
+  const onRow = backProbe.rows.find((t) => t.startsWith("ON:"));
+  if (!onRow || !onRow.includes("网易云")) {
+    throw new Error(`切回网易云没生效（ON AIR 在：${onRow ?? "无"}，now=${backProbe.now}）`);
+  }
+  // 面板关掉，别带浮层进后面的房间截图
+  await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
+  await sleep(600);
   for (const [w, h] of [
     [1024, 768],
     [1440, 900],
@@ -1769,7 +1865,6 @@ app.whenReady().then(async () => {
     b?.click(); return Boolean(b);
   })()`, "配色 · 纸色");
   await sleep(300);
-
   // 排版判据（三档）已在首页那一轮跑过，这里不再重复——同一组断言只留一处
 
   win.destroy();

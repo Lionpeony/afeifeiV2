@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 export interface AccountOption {
   id: string;
@@ -38,16 +38,63 @@ export function AccountMenu({
   onLogin(id: string): void;
   onLogout(id: string): void;
 }) {
-  if (!open) return null;
+  /* 离场动画的所有权在组件里：关闭请求先播 190ms 上滑淡出，再真调 onClose。
+     组件实例常驻（open=false 只是不渲染 DOM），状态必须跟着 open 重置——
+     否则上一次的 leaving 会把下一次打开的面板钉在离场末帧（透明），
+     用户看到的就是"没有动画，直接切过去了"。 */
+  const [leaving, setLeaving] = useState(false);
+  /* 切换时的行内脉冲：像把指针拨到新频段，拨完才真切 */
+  const [tuning, setTuning] = useState<string | null>(null);
+  const leaveTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (open) {
+      window.clearTimeout(leaveTimer.current);
+      setLeaving(false);
+      setTuning(null);
+    }
+  }, [open]);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+
+  const requestClose = (): void => {
+    if (leaving) return;
+    setLeaving(true);
+    leaveTimer.current = window.setTimeout(() => {
+      setLeaving(false);
+      onClose();
+    }, 190);
+  };
+
+  const handleSwitch = (id: string): void => {
+    if (tuning) return;
+    setTuning(id);
+    leaveTimer.current = window.setTimeout(() => {
+      // 先进离场态撑住 DOM（父级 onSwitch 会立刻置 open=false），再真切
+      setLeaving(true);
+      leaveTimer.current = window.setTimeout(() => {
+        setLeaving(false);
+        onClose();
+      }, 190);
+      onSwitch(id);
+    }, 160);
+  };
+
+  const handleLogin = (id: string): void => {
+    // 面板滑出、登录弹层随后落位——两个浮层不叠脸
+    requestClose();
+    leaveTimer.current = window.setTimeout(() => onLogin(id), 190);
+  };
+
+  if (!open && !leaving) return null;
   const current = profiles[active];
   return (
     <>
-      <button type="button" className="acct-scrim" aria-label="关闭账号面板" onClick={onClose} />
-      <div className="acct-menu" role="dialog" aria-label="账号">
+      <button type="button" className={`acct-scrim${leaving ? " leaving" : ""}`} aria-label="关闭账号面板" onClick={requestClose} />
+      <div className={`acct-menu${leaving ? " leaving" : ""}`} role="dialog" aria-label="账号">
         <header className="acct-menu-head">
           {/* 电台叙事：音源 = 频段，面板就是调频台的本机频段表 */}
           <span>账号 · 频段表</span>
-          <button type="button" className="acct-menu-x" aria-label="关闭" onClick={onClose}>
+          <button type="button" className="acct-menu-x" aria-label="关闭" onClick={requestClose}>
             ×
           </button>
         </header>
@@ -71,7 +118,11 @@ export function AccountMenu({
             const bars = profile?.loggedIn ? 3 : 0;
             return (
               /* style 是进场错落的节拍：每行晚 40ms 浮入（纯展示延迟，css 变量不走状态） */
-              <div className={`acct-row${on ? " on" : ""}`} key={source.id} style={{ "--row-i": i } as CSSProperties}>
+              <div
+                className={`acct-row${on ? " on" : ""}${tuning === source.id ? " tuning" : ""}`}
+                key={source.id}
+                style={{ "--row-i": i } as CSSProperties}
+              >
                 <Avatar name={profile?.nick ?? null} url={profile?.avatarUrl ?? null} small />
                 <div className="acct-row-tx">
                   <b>{source.name}</b>
@@ -96,7 +147,7 @@ export function AccountMenu({
                         ON AIR
                       </span>
                     ) : (
-                      <button type="button" className="acct-act" onClick={() => onSwitch(source.id)}>
+                      <button type="button" className="acct-act" onClick={() => handleSwitch(source.id)}>
                         切换
                       </button>
                     )}
@@ -109,7 +160,7 @@ export function AccountMenu({
                     type="button"
                     className="acct-act"
                     disabled={!source.canAuth}
-                    onClick={() => onLogin(source.id)}
+                    onClick={() => handleLogin(source.id)}
                   >
                     {source.canAuth ? "登录" : "不可登录"}
                   </button>

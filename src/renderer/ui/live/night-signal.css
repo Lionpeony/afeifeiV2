@@ -538,22 +538,25 @@
   }
 }
 
-/* ================= 登录弹层（接入信号）· live 皮肤 =================
-   弹层骨架在 app.css（.dlg-head/.dlg-ruler/.qr-win/.sig-status），
-   这里只上电台材质：纸面板、琥珀刻度、扫描呼吸、mono 眉标。 */
 
-.shell.live .dialog {
-  border: 1px solid var(--glass-border);
-  /* 弹窗吃材质层（④ 纪律：浮层专用，夜里有暗值），不碰 --live-paper（锁定页冷纸，夜里不翻） */
-  background: var(--glass-bg);
-  color: var(--live-fg);
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.4),
-    0 1px 0 var(--glass-border);
+/* ================= 登录弹层 v2：暗房调谐面板 =================
+   弹窗进暗房（A-10 同款恒暗）：--night-* 钉死不受主题影响，
+   墨底琥珀，二维码白底图自发光。上一版"白纸贴贴纸"推倒。 */
+
+/* 入暗房：幕布比默认 mask 更深，像推开录音间的门 */
+.shell.live .dialog-mask {
+  background: color-mix(in srgb, var(--night-bg) 72%, transparent);
 }
 
-/* 进场：像信号一样闪落（240ms，快进快出，不挡操作） */
 .shell.live .dialog {
+  width: 360px;
+  padding: 24px 28px 24px;
+  border: 1px solid var(--night-line-strong);
+  background: var(--night-panel);
+  color: var(--night-fg);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    0 1px 0 var(--night-line);
   animation: dlg-tune-in 240ms ease-out both;
 }
 
@@ -568,28 +571,310 @@
   }
 }
 
+.shell.live .dialog .dlg-head {
+  position: relative;
+  align-items: flex-start;
+  text-align: left;
+}
+
 .shell.live .dialog .dlg-eyebrow {
-  color: var(--live-amber);
+  color: var(--night-amber);
+}
+
+.shell.live .dialog h2 {
+  color: var(--night-fg);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* 右上角 ×：暗房里只有一丝灰，悬停亮起 */
+.shell.live .dialog .dlg-x {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  border: none;
+  background: none;
+  padding: 2px 6px;
+  color: var(--night-fg-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shell.live .dialog .dlg-x:hover {
+  color: var(--night-fg);
 }
 
 .shell.live .dialog .dlg-ruler {
-  border-bottom-color: var(--live-line);
-  background-image: repeating-linear-gradient(90deg, var(--live-line) 0 1px, transparent 1px 9px);
+  border-bottom-color: var(--night-line);
+  background-image: repeating-linear-gradient(90deg, var(--night-line) 0 1px, transparent 1px 9px);
+}
+
+/* 通道签（扫码 / 手机号）：mono 文字签 + 琥珀下划线，不做胶囊 */
+.shell.live .dialog .dialog-tabs {
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.shell.live .dialog .dialog-tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  padding: 4px 2px;
+  color: var(--night-fg-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+}
+
+.shell.live .dialog .dialog-tabs button.on {
+  border-bottom-color: var(--night-amber);
+  background: none;
+  color: var(--night-fg);
+}
+
+/* 二维码窗：暗底上留足呼吸，白码自发光；四角琥珀刻度站在暗区上，不贴码 */
+.shell.live .dialog .qr-win {
+  padding: 18px;
 }
 
 .shell.live .dialog .qc {
-  border-color: var(--live-amber);
+  border-color: var(--night-amber);
 }
 
+.shell.live .dialog .qr--empty {
+  background: var(--night-slot);
+}
+
+/* 扫描线：雷达式琥珀光带（3px 渐隐光晕），不是一根硬线 */
 .shell.live .dialog .qr-scan {
-  background: var(--live-amber);
+  left: 18px;
+  right: 18px;
+  top: 18px;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--night-amber) 75%, transparent) 18%,
+    var(--night-amber) 50%,
+    color-mix(in srgb, var(--night-amber) 75%, transparent) 82%,
+    transparent
+  );
+  box-shadow: 0 0 12px color-mix(in srgb, var(--night-amber) 55%, transparent);
+  opacity: 0.9;
+  animation: qr-sweep-booth 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes qr-sweep-booth {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(216px);
+  }
+}
+
+.shell.live .dialog .qr-win.off .qr,
+.shell.live .dialog .qr-win.off .qr--empty {
+  opacity: 0.28;
+}
+
+/* 信号状态行：mono 小字，等待=琥珀呼吸，过期/失败=ON AIR 红定住 */
+.shell.live .dialog .sig-status {
+  color: var(--night-fg-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
 }
 
 .shell.live .dialog .sig-dot {
-  /* 等待信号：琥珀点呼吸（位移类，reduce 停） */
+  background: var(--night-amber);
   animation: sig-pulse 1.6s ease-in-out infinite;
 }
 
+.shell.live .dialog .sig-status.off .sig-dot {
+  background: var(--night-onair);
+  animation: none;
+}
+
+/* 动作区：主键 = 琥珀实体（暗底上最亮的一块），次键 = 描边幽灵 */
+.shell.live .dialog .dialog-actions {
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.shell.live .dialog .dialog-actions button {
+  padding: 7px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.shell.live .dialog .dialog-actions button.primary {
+  background: var(--night-amber);
+  border-color: var(--night-amber);
+  color: var(--night-accent-ink);
+}
+
+.shell.live .dialog .dialog-actions button.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.shell.live .dialog .dialog-actions button:not(.primary) {
+  border: 1px solid var(--night-line-strong);
+  background: none;
+  color: var(--night-fg-dim);
+}
+
+.shell.live .dialog .dialog-actions button:not(.primary):hover:not(:disabled) {
+  border-color: var(--night-fg-dim);
+  color: var(--night-fg);
+}
+
+.shell.live .dialog .dialog-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.shell.live .dialog .dialog-hint {
+  color: var(--night-fg-dim);
+}
+
+/* 手机号模式：暗槽输入框，聚焦时琥珀描边 */
+.shell.live .dialog .field {
+  color: var(--night-fg-dim);
+}
+
+.shell.live .dialog .field input {
+  border-color: var(--night-line-strong);
+  background: var(--night-panel-2);
+  color: var(--night-fg);
+}
+
+.shell.live .dialog .field input:focus {
+  border-color: var(--night-amber);
+}
+
+.shell.live .dialog .field input::placeholder {
+  color: var(--night-fg-faint);
+}
+
+/* ================= 账号面板 v2：离场 + 换台脉冲 ================= */
+
+/* 面板离场：190ms 上滑淡出（AccountMenu 先播再真关） */
+.shell.live .acct-menu.leaving {
+  animation: acct-leave 190ms ease-in both;
+}
+
+@keyframes acct-leave {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* 切换行脉冲：琥珀扫过一遍（把指针拨到新频段） */
+.acct-row.tuning {
+  animation: row-tune-pulse 200ms ease-out both;
+}
+
+@keyframes row-tune-pulse {
+  0% {
+    background: transparent;
+  }
+  45% {
+    background: color-mix(in srgb, var(--live-amber) 16%, transparent);
+  }
+  100% {
+    background: color-mix(in srgb, var(--live-amber) 6%, transparent);
+  }
+}
+
+/* ================= 切源「换台闪变」：全页一条琥珀扫描线 =================
+   换账号 = 换台：线从顶部扫到底，同时页面轻微压暗再放开。460ms。 */
+.tune-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--live-ink) 10%, transparent);
+  animation: tune-veil 560ms ease-out both;
+}
+
+.tune-flash::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--live-amber) 70%, transparent) 22%,
+    var(--live-amber) 50%,
+    color-mix(in srgb, var(--live-amber) 70%, transparent) 78%,
+    transparent
+  );
+  box-shadow: 0 0 14px color-mix(in srgb, var(--live-amber) 60%, transparent);
+  animation: tune-sweep 560ms ease-in-out both;
+}
+
+@keyframes tune-sweep {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes tune-veil {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell.live .dialog,
+  .shell.live .acct-menu,
+  .shell.live .acct-menu.leaving,
+  .shell.live .acct-row,
+  .acct-row.tuning,
+  .tune-flash,
+  .qr-scan {
+    animation: none;
+  }
+
+  /* reduce 下扫描线/闪变彻底消失（覆盖层在，但看不见、不挡点） */
+  .qr-scan,
+  .tune-flash::after {
+    display: none;
+  }
+
+  .tune-flash {
+    display: none;
+  }
+
+  .shell.live .dialog .sig-dot,
+  .onair-badge i {
+    animation: none;
+  }
+}
+
+/* 呼吸点（信号状态行 / ON AIR 灯牌共用）：1.6s 明暗 */
 @keyframes sig-pulse {
   0%,
   100% {
@@ -597,144 +882,5 @@
   }
   50% {
     opacity: 0.35;
-  }
-}
-
-.shell.live .dialog .sig-status.off .sig-dot {
-  animation: none;
-  background: var(--live-line-strong);
-}
-
-.shell.live .dialog .sig-status {
-  color: var(--live-fg-dim);
-}
-
-/* 通道签（扫码 / 手机号）：mono 胶囊，选中描墨边——和站尺签子同一语言 */
-.shell.live .dialog .dialog-tabs button {
-  border: 1px solid var(--live-line-strong);
-  background: none;
-  color: var(--live-fg-faint);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-}
-
-.shell.live .dialog .dialog-tabs button.on {
-  border-color: var(--live-fg);
-  background: none;
-  color: var(--live-fg);
-}
-
-/* ================= 账号面板（频段表）· live 皮肤 =================
-   结构在 live.css（.acct-menu/.acct-row），这里上频段表材质。 */
-
-.shell.live .acct-menu {
-  border: 1px solid var(--live-line-strong);
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    0 1px 0 var(--live-line);
-  animation: dlg-tune-in 200ms ease-out both;
-}
-
-/* 频段行错落进场：每行晚 40ms 浮入（--row-i 由 AccountMenu 写入） */
-.shell.live .acct-row {
-  animation: row-tune-in 220ms ease-out both;
-  animation-delay: calc(var(--row-i, 0) * 40ms);
-}
-
-@keyframes row-tune-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 信号强度格：三格竖条，登录了几格亮几格 */
-.acct-sig {
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 12px;
-  flex: none;
-  margin-right: 2px;
-}
-
-.acct-sig i {
-  width: 3px;
-  height: 4px;
-  background: var(--live-line-strong);
-}
-
-.acct-sig i:nth-child(2) {
-  height: 8px;
-}
-
-.acct-sig i:nth-child(3) {
-  height: 12px;
-}
-
-.acct-sig i.hit {
-  background: var(--live-phosphor);
-}
-
-.acct-sig.mute i {
-  background: var(--live-line);
-}
-
-/* ON AIR 灯牌：正在使用的频段不摆按钮，红点 + mono 字，红点呼吸 */
-.onair-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  padding: 3px 8px;
-  border: 1px solid color-mix(in srgb, var(--live-onair) 55%, transparent);
-  color: var(--live-onair);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-}
-
-.onair-badge i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--live-onair);
-  animation: sig-pulse 1.6s ease-in-out infinite;
-}
-
-/* 登录中的频段行：左侧琥珀轨 + 行名用 fg-dim 保持层次 */
-.shell.live .acct-row.on {
-  box-shadow: inset 2px 0 0 var(--live-amber);
-}
-
-.shell.live .acct-menu-head {
-  color: var(--live-amber);
-}
-
-.shell.live .acct-av.fallback {
-  border-color: var(--live-line-strong);
-  color: var(--live-fg-dim);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shell.live .dialog,
-  .shell.live .acct-menu,
-  .shell.live .acct-row {
-    animation: none;
-  }
-
-  .shell.live .dialog .sig-dot,
-  .onair-badge i {
-    animation: none;
-  }
-
-  .qr-scan {
-    animation: none;
   }
 }

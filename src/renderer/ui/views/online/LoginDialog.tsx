@@ -167,10 +167,13 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
   return (
     <div className="dialog-mask" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        {/* 电台叙事：登录 = 接入信号。眉标报频段名，刻度条呼应站尺 */}
+        {/* 电台叙事：登录 = 接入信号。眉标报频段名，刻度条呼应站尺；× 独立常驻右上角 */}
         <header className="dlg-head">
           <span className="dlg-eyebrow">{sourceName ?? "账号"} · SIGNAL</span>
           <h2>接入账号</h2>
+          <button type="button" className="dlg-x" aria-label="关闭" onClick={onClose}>
+            ×
+          </button>
         </header>
         <div className="dlg-ruler" aria-hidden="true" />
 
