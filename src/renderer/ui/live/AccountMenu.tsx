@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 export interface AccountOption {
   id: string;
   name: string;
@@ -43,7 +45,8 @@ export function AccountMenu({
       <button type="button" className="acct-scrim" aria-label="关闭账号面板" onClick={onClose} />
       <div className="acct-menu" role="dialog" aria-label="账号">
         <header className="acct-menu-head">
-          <span>账号</span>
+          {/* 电台叙事：音源 = 频段，面板就是调频台的本机频段表 */}
+          <span>账号 · 频段表</span>
           <button type="button" className="acct-menu-x" aria-label="关闭" onClick={onClose}>
             ×
           </button>
@@ -62,21 +65,41 @@ export function AccountMenu({
         )}
 
         <div className="acct-list">
-          {sources.map((source) => {
+          {sources.map((source, i) => {
             const profile = profiles[source.id];
             const on = source.id === active;
+            const bars = profile?.loggedIn ? 3 : 0;
             return (
-              <div className={`acct-row${on ? " on" : ""}`} key={source.id}>
+              /* style 是进场错落的节拍：每行晚 40ms 浮入（纯展示延迟，css 变量不走状态） */
+              <div className={`acct-row${on ? " on" : ""}`} key={source.id} style={{ "--row-i": i } as CSSProperties}>
                 <Avatar name={profile?.nick ?? null} url={profile?.avatarUrl ?? null} small />
                 <div className="acct-row-tx">
                   <b>{source.name}</b>
                   <span>{profile?.loggedIn ? (profile.nick ?? "已登录") : "未登录"}</span>
                 </div>
+                {/* 信号强度格：登录了才有信号——0 格的频段调不进来 */}
+                <span
+                  className={`acct-sig${bars ? "" : " mute"}`}
+                  title={profile?.loggedIn ? "信号良好" : "无信号（未登录）"}
+                  aria-hidden="true"
+                >
+                  <i className={bars > 0 ? "hit" : ""} />
+                  <i className={bars > 1 ? "hit" : ""} />
+                  <i className={bars > 2 ? "hit" : ""} />
+                </span>
                 {profile?.loggedIn ? (
                   <>
-                    <button type="button" className="acct-act" disabled={on} onClick={() => onSwitch(source.id)}>
-                      {on ? "使用中" : "切换"}
-                    </button>
+                    {on ? (
+                      /* 正在使用的频段不摆按钮：ON AIR 灯牌，红点呼吸 */
+                      <span className="onair-badge">
+                        <i aria-hidden="true" />
+                        ON AIR
+                      </span>
+                    ) : (
+                      <button type="button" className="acct-act" onClick={() => onSwitch(source.id)}>
+                        切换
+                      </button>
+                    )}
                     <button type="button" className="acct-act ghost" onClick={() => onLogout(source.id)}>
                       退出
                     </button>

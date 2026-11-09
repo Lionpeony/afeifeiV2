@@ -398,9 +398,36 @@ html::after {
 }
 
 .dialog h2 {
-  margin: 0 0 14px;
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
+}
+
+/* 「接入信号」弹层头：眉标（频段名 · SIGNAL）+ 标题，登录被讲成电台接入 */
+.dlg-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+}
+
+.dlg-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--fg-dim);
+}
+
+/* 站尺刻度条：一条细密刻度 + 底线，呼应主界面站尺（纯装饰） */
+.dlg-ruler {
+  height: 9px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background-image: repeating-linear-gradient(90deg, var(--line-soft) 0 1px, transparent 1px 9px);
+  background-size: auto 5px;
+  background-repeat: repeat-x;
+  background-position: bottom left;
 }
 
 .dialog-tabs {
@@ -465,16 +492,113 @@ html::after {
   background: var(--fg);
 }
 
-.qr--empty {
+/* 二维码窗：留白装四角琥珀刻度 + 扫描线；过期/失败整窗降透明（码已无效） */
+.qr-win {
+  position: relative;
+  width: 240px;
   margin: 0 auto;
+  padding: 10px;
+}
+
+.qr-win .qr,
+.qr-win .qr--empty {
+  display: block;
+}
+
+/* 码没回来时的占位槽 */
+.qr--empty {
   background: var(--line-soft);
 }
 
-.dialog-note {
+.qc {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid var(--brass);
+}
+
+.qc-tl {
+  top: 0;
+  left: 0;
+  border-top-width: 2px;
+  border-left-width: 2px;
+}
+
+.qc-tr {
+  top: 0;
+  right: 0;
+  border-top-width: 2px;
+  border-right-width: 2px;
+}
+
+.qc-bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+}
+
+.qc-br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 2px;
+  border-right-width: 2px;
+}
+
+/* 扫描线：等待信号时在码面上来回扫一遍（2px，低不透明度不干扰扫码识别） */
+.qr-scan {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  height: 2px;
+  background: var(--brass);
+  opacity: 0.35;
+  animation: qr-sweep 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes qr-sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(218px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qr-scan {
+    animation: none;
+  }
+}
+
+.qr-win.off .qr,
+.qr-win.off .qr--empty {
+  opacity: 0.35;
+}
+
+/* 信号状态行：呼吸点 + 文案（呼吸在 live 皮肤做），替代裸文本 note */
+.sig-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   margin: 14px 0 0;
   color: var(--fg-dim);
   font-size: 12px;
   min-height: 18px;
+}
+
+.sig-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brass);
+  flex: none;
+}
+
+.sig-status.off .sig-dot {
+  background: var(--line);
 }
 
 .dialog-actions {

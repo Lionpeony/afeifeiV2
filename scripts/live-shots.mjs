@@ -194,6 +194,37 @@ const coverOf = (album) => {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 };
 
+/* 伪二维码：三个定位角 + 确定性噪声格——看着是码，不真的可扫（登录弹层截图素材）。
+   LCG 固定 seed：每次跑图完全一致，diff 友好。 */
+const fakeQr = () => {
+  const N = 25;
+  let s = 20261109;
+  const rnd = () => {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+  let cells = "";
+  for (let y = 0; y < N; y += 1) {
+    for (let x = 0; x < N; x += 1) {
+      const inFinder = (x < 8 && y < 8) || (x >= N - 8 && y < 8) || (x < 8 && y >= N - 8);
+      if (!inFinder && rnd() < 0.45) cells += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+    }
+  }
+  const finder = (fx, fy) =>
+    `<rect x="${fx}" y="${fy}" width="7" height="7"/>` +
+    `<rect x="${fx + 1}" y="${fy + 1}" width="5" height="5" fill="#fff"/>` +
+    `<rect x="${fx + 2}" y="${fy + 2}" width="3" height="3"/>`;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${N} ${N}" shape-rendering="crispEdges">` +
+    `<rect width="${N}" height="${N}" fill="#fff"/>` +
+    cells +
+    finder(0, 0) +
+    finder(N - 7, 0) +
+    finder(0, N - 7) +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+};
+
 /* 每日推荐 fixture：8 首，第 2 档（「玻璃海」）是首页那条判据的目标——
    点它之后左栏大字必须换成它，换的时候还要有一次切档动画。 */
 const DAILY = [
@@ -388,6 +419,8 @@ function registerMinimalIpc() {
     return {};
   });
   // 外壳订阅了这两个 IPC；fixture 不跑主进程那套主题/轮询，给空实现免得刷红字
+  ipcMain.handle("qq:login", () => ({ key: "fixture-qr-key", qrImage: fakeQr() }));
+  ipcMain.handle("qq:poll", () => ({ code: 801, loggedIn: false, message: "waiting" }));
   ipcMain.handle("win:overlayTheme", (_e, bg, fg) => {
     OVERLAY_CALLS.push({ bg, fg });
     return true;
@@ -1455,6 +1488,43 @@ app.whenReady().then(async () => {
   }
 
   // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
+  /* 账号面板（频段表）+ 登录弹层（接入信号）：fixture netease 已登录 / QQ 未登录，
+     面板同时呈现「ON AIR 在用行 + 信号格 + 未登录频段的登录入口」，登录弹层用伪二维码。
+     放在播放页矮窗探针**之前**：尾端那个 2px 存量抖动（st-hline/st-kb）不该挡住弹层证据。 */
+  await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口");
+  await sleep(600);
+  const acctProbe = await evalJs(`(() => {
+    const menu = document.querySelector(".acct-menu");
+    const onair = document.querySelector(".onair-badge")?.textContent.trim() ?? "";
+    const sig = [...document.querySelectorAll(".acct-sig")].map((s) => s.querySelectorAll(".hit").length);
+    return { open: menu !== null, onair, sig };
+  })()`);
+  console.log(`账号面板：${JSON.stringify(acctProbe)}`);
+  if (!acctProbe.open) throw new Error("账号面板没打开（.acct-menu 不在）");
+  if (!acctProbe.onair.includes("ON AIR")) throw new Error(`ON AIR 灯牌没出现在在用频段行：${acctProbe.onair}`);
+  await shoot("live-acct-menu.png");
+  await click(
+    `(() => {
+      const row = [...document.querySelectorAll(".acct-row")].find((r) => r.textContent.includes("QQ"));
+      const b = row?.querySelector("button.acct-act");
+      b?.click();
+      return Boolean(b);
+    })()`,
+    "QQ 频段 · 登录",
+  );
+  await sleep(900);
+  const dlgProbe = await evalJs(`(() => ({
+    head: document.querySelector(".dlg-eyebrow")?.textContent ?? "",
+    qr: document.querySelector(".qr-win img.qr") !== null,
+    scan: document.querySelector(".qr-scan") !== null,
+    note: document.querySelector(".sig-status span")?.textContent ?? "",
+  }))()`);
+  console.log(`登录弹层：${JSON.stringify(dlgProbe)}`);
+  if (!dlgProbe.qr) throw new Error("登录弹层里没有二维码（fixture qq:login 没接上？）");
+  if (!dlgProbe.scan) throw new Error("扫描线不在（等待态没生效？）");
+  await shoot("live-login-qr.png");
+  // 弹层关掉再回主流程：后面的房间/主题截图不能带浮层
+  await click(`(() => { const b = [...document.querySelectorAll(".dialog-actions button")].find((x) => x.textContent === "关闭"); b?.click(); return Boolean(b); })()`, "登录弹层 · 关闭");
   for (const [w, h] of [
     [1024, 768],
     [1440, 900],

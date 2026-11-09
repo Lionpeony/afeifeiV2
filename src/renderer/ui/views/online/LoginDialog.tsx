@@ -12,6 +12,8 @@ export interface LoginDialogProps {
   sendCaptcha?(phone: string): Promise<{ ok: boolean; message: string }>;
   /** 手机号登录：用验证码换登录态 */
   loginByCaptcha?(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
+  /** 音源名（网易云 / QQ 音乐）：只做眉标展示，弹层不知道也能跑 */
+  sourceName?: string;
   onSuccess(): void;
   onClose(): void;
 }
@@ -26,7 +28,7 @@ export interface LoginDialogProps {
  * 轮询用 setTimeout 链（ui/ 里禁 setInterval），只在 801/802 继续，
  * 用运行代次作废旧轮询。
  */
-export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, loginByCaptcha, onSuccess, onClose }: LoginDialogProps) {
+export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, loginByCaptcha, sourceName, onSuccess, onClose }: LoginDialogProps) {
   const [mode, setMode] = useState<"qr" | "phone">("qr");
   const [channel, setChannel] = useState(channels?.[0]?.id ?? "");
 
@@ -165,7 +167,12 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
   return (
     <div className="dialog-mask" onClick={onClose}>
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <h2>扫码登录</h2>
+        {/* 电台叙事：登录 = 接入信号。眉标报频段名，刻度条呼应站尺 */}
+        <header className="dlg-head">
+          <span className="dlg-eyebrow">{sourceName ?? "账号"} · SIGNAL</span>
+          <h2>接入账号</h2>
+        </header>
+        <div className="dlg-ruler" aria-hidden="true" />
 
         {sendCaptcha && loginByCaptcha ? (
           <div className="dialog-tabs">
@@ -189,8 +196,19 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
                 ))}
               </div>
             ) : null}
-            {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
-            <p className="dialog-note">{qrNote}</p>
+            {/* 二维码装进「信号窗」：四角刻度 + 等待时的扫描线；过期/失败整窗变暗 */}
+            <div className={`qr-win${qrImage ? "" : " empty"}${stopped ? " off" : ""}`}>
+              <i className="qc qc-tl" aria-hidden="true" />
+              <i className="qc qc-tr" aria-hidden="true" />
+              <i className="qc qc-bl" aria-hidden="true" />
+              <i className="qc qc-br" aria-hidden="true" />
+              {qrImage && !stopped ? <i className="qr-scan" aria-hidden="true" /> : null}
+              {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
+            </div>
+            <p className={`sig-status${stopped ? " off" : ""}`}>
+              <i className="sig-dot" aria-hidden="true" />
+              <span>{qrNote}</span>
+            </p>
             <div className="dialog-actions">
               <button type="button" className="primary" onClick={() => void begin()}>
                 {stopped ? "刷新" : "换一张"}
@@ -226,7 +244,10 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
               <input value={code} inputMode="numeric" placeholder="短信里的验证码" onChange={(e) => setCode(e.target.value)} />
             </label>
 
-            <p className="dialog-note">{phoneNote}</p>
+            <p className={`sig-status${busy ? "" : " off"}`}>
+              <i className="sig-dot" aria-hidden="true" />
+              <span>{phoneNote || "等待发送验证码"}</span>
+            </p>
 
             <div className="dialog-actions">
               <button type="button" className="primary" onClick={() => void submit()} disabled={busy}>

@@ -537,3 +537,204 @@
     animation: none;
   }
 }
+
+/* ================= 登录弹层（接入信号）· live 皮肤 =================
+   弹层骨架在 app.css（.dlg-head/.dlg-ruler/.qr-win/.sig-status），
+   这里只上电台材质：纸面板、琥珀刻度、扫描呼吸、mono 眉标。 */
+
+.shell.live .dialog {
+  border: 1px solid var(--glass-border);
+  /* 弹窗吃材质层（④ 纪律：浮层专用，夜里有暗值），不碰 --live-paper（锁定页冷纸，夜里不翻） */
+  background: var(--glass-bg);
+  color: var(--live-fg);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.4),
+    0 1px 0 var(--glass-border);
+}
+
+/* 进场：像信号一样闪落（240ms，快进快出，不挡操作） */
+.shell.live .dialog {
+  animation: dlg-tune-in 240ms ease-out both;
+}
+
+@keyframes dlg-tune-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shell.live .dialog .dlg-eyebrow {
+  color: var(--live-amber);
+}
+
+.shell.live .dialog .dlg-ruler {
+  border-bottom-color: var(--live-line);
+  background-image: repeating-linear-gradient(90deg, var(--live-line) 0 1px, transparent 1px 9px);
+}
+
+.shell.live .dialog .qc {
+  border-color: var(--live-amber);
+}
+
+.shell.live .dialog .qr-scan {
+  background: var(--live-amber);
+}
+
+.shell.live .dialog .sig-dot {
+  /* 等待信号：琥珀点呼吸（位移类，reduce 停） */
+  animation: sig-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sig-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.shell.live .dialog .sig-status.off .sig-dot {
+  animation: none;
+  background: var(--live-line-strong);
+}
+
+.shell.live .dialog .sig-status {
+  color: var(--live-fg-dim);
+}
+
+/* 通道签（扫码 / 手机号）：mono 胶囊，选中描墨边——和站尺签子同一语言 */
+.shell.live .dialog .dialog-tabs button {
+  border: 1px solid var(--live-line-strong);
+  background: none;
+  color: var(--live-fg-faint);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.shell.live .dialog .dialog-tabs button.on {
+  border-color: var(--live-fg);
+  background: none;
+  color: var(--live-fg);
+}
+
+/* ================= 账号面板（频段表）· live 皮肤 =================
+   结构在 live.css（.acct-menu/.acct-row），这里上频段表材质。 */
+
+.shell.live .acct-menu {
+  border: 1px solid var(--live-line-strong);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 1px 0 var(--live-line);
+  animation: dlg-tune-in 200ms ease-out both;
+}
+
+/* 频段行错落进场：每行晚 40ms 浮入（--row-i 由 AccountMenu 写入） */
+.shell.live .acct-row {
+  animation: row-tune-in 220ms ease-out both;
+  animation-delay: calc(var(--row-i, 0) * 40ms);
+}
+
+@keyframes row-tune-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 信号强度格：三格竖条，登录了几格亮几格 */
+.acct-sig {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  flex: none;
+  margin-right: 2px;
+}
+
+.acct-sig i {
+  width: 3px;
+  height: 4px;
+  background: var(--live-line-strong);
+}
+
+.acct-sig i:nth-child(2) {
+  height: 8px;
+}
+
+.acct-sig i:nth-child(3) {
+  height: 12px;
+}
+
+.acct-sig i.hit {
+  background: var(--live-phosphor);
+}
+
+.acct-sig.mute i {
+  background: var(--live-line);
+}
+
+/* ON AIR 灯牌：正在使用的频段不摆按钮，红点 + mono 字，红点呼吸 */
+.onair-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--live-onair) 55%, transparent);
+  color: var(--live-onair);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.onair-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live-onair);
+  animation: sig-pulse 1.6s ease-in-out infinite;
+}
+
+/* 登录中的频段行：左侧琥珀轨 + 行名用 fg-dim 保持层次 */
+.shell.live .acct-row.on {
+  box-shadow: inset 2px 0 0 var(--live-amber);
+}
+
+.shell.live .acct-menu-head {
+  color: var(--live-amber);
+}
+
+.shell.live .acct-av.fallback {
+  border-color: var(--live-line-strong);
+  color: var(--live-fg-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell.live .dialog,
+  .shell.live .acct-menu,
+  .shell.live .acct-row {
+    animation: none;
+  }
+
+  .shell.live .dialog .sig-dot,
+  .onair-badge i {
+    animation: none;
+  }
+
+  .qr-scan {
+    animation: none;
+  }
+}

@@ -1114,6 +1114,7 @@ function App() {
             services.current?.pollLogin(key) ?? Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" })
           }
           scanHint={loginFor === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          sourceName={sources.find((s) => s.id === loginFor)?.name}
           sendCaptcha={loginFor === "netease" ? (phone) => services.current!.sendCaptcha(phone) : undefined}
           loginByCaptcha={loginFor === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
           onSuccess={() => {

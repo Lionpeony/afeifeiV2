@@ -295,6 +295,7 @@ export function OnlineView({
           poll={pollLogin}
           // Folia 同款：一张码三种 App 都能扫（qqmusic 通道换凭证按 App 实报类型适配，见 qqClient）
           scanHint={sourceId === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+          sourceName={sourceName}
           sendCaptcha={sourceId === "netease" ? sendCaptcha : undefined}
           loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {
