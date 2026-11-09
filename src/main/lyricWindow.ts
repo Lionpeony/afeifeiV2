@@ -13,9 +13,13 @@ type MouseMode = "interactive" | "pass";
 
 let lyric: BrowserWindow | null = null;
 let mode: MouseMode = "interactive";
-/** 歌词窗当前投影（模式切换时重发一次，让工具条跟着显隐；不另开频道） */
-let lastState = "";
+/** 歌词窗当前投影（模式切换时重发一次，让工具条跟着显隐；不另开频道）。
+    解析一次存对象（2026-11-10）：此前每次 forward 都 JSON.parse 一遍，逐字歌词高频推送时是主进程小热点。 */
+let lastObj: Record<string, unknown> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+const LYRIC_MIN_H = 96;
+const LYRIC_MAX_H = 420;
 
 const saveGeometry = (): void => {
   if (!lyric || lyric.isDestroyed()) return;
@@ -33,13 +37,8 @@ function setMode(next: MouseMode): void {
 
 function forward(): void {
   if (!lyric || lyric.isDestroyed()) return;
-  try {
-    const obj = JSON.parse(lastState || "{}") as Record<string, unknown>;
-    obj.mode = mode;
-    lyric.webContents.send("lyric:state", JSON.stringify(obj));
-  } catch {
-    lyric.webContents.send("lyric:state", lastState);
-  }
+  const obj = lastObj ? { ...lastObj, mode } : { mode };
+  lyric.webContents.send("lyric:state", JSON.stringify(obj));
 }
 
 /** 桌面歌词窗开关（全局快捷键用）：开着就关，没开就开。 */
@@ -69,11 +68,26 @@ export function registerLyricIpc(): void {
     if (lyric && !lyric.isDestroyed() && mode === "pass") setMode("interactive");
   });
 
-  // 主窗歌词桥 → 歌词窗。主进程不存状态（lastState 只为模式切换重发）。
+  // 主窗歌词桥 → 歌词窗。主进程不存状态（lastObj 只为模式切换重发）。
   ipcMain.on("lyric:state", (_e, json: unknown) => {
     if (typeof json !== "string") return;
-    lastState = json;
+    try {
+      lastObj = JSON.parse(json) as Record<string, unknown>;
+    } catch {
+      lastObj = null;
+    }
     forward();
+  });
+
+  /* 歌词窗申请改高（2026-11-10 修 BUG）：窗高原写死 132px，字号放大到 64px 时
+     两行歌词被 overflow:hidden 裁掉，渲染层没有任何 resize 通道。
+     高度从上沿向下长（y 不动），宽度不变；夹紧在 96–420。 */
+  ipcMain.on("lyric:resize", (_e, h: unknown) => {
+    if (typeof h !== "number" || !Number.isFinite(h)) return;
+    if (!lyric || lyric.isDestroyed()) return;
+    const next = Math.min(LYRIC_MAX_H, Math.max(LYRIC_MIN_H, Math.round(h)));
+    const [w] = lyric.getSize();
+    if (lyric.getBounds().height !== next) lyric.setSize(w, next);
   });
 
   ipcMain.on("lyric:close", () => {

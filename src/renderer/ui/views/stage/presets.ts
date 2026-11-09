@@ -11,6 +11,7 @@ import type {
   StageConfig,
   StageLayer,
   StagePreset,
+  StageSkin,
   VisualMode,
 } from "../../../../contracts/index.js";
 
@@ -256,11 +257,16 @@ export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<st
 
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];
+/** 换肤名单：加第四个版式时只改这里 + SKINS 目录里的条目。 */
+export const SKIN_IDS: StageSkin[] = ["classic", "editorial", "nebula", "desk"];
 
 /** 任意来源（KV 读回）→ 合法 StageConfig。cover / controls 强制 true（不可关）。 */
 export function sanitizeStageConfig(raw: unknown): StageConfig {
   const fallback: StageConfig = {
     preset: "paper",
+    skin: "editorial",
+    tone: "dark",
+    toneAuto: true,
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
@@ -272,6 +278,9 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
   if (!raw || typeof raw !== "object") return fallback;
   const r = raw as {
     preset?: unknown;
+    skin?: unknown;
+    tone?: unknown;
+    toneAuto?: unknown;
     intensity?: unknown;
     layers?: unknown;
     lyricRenderer?: unknown;
@@ -289,6 +298,13 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
   }
   return {
     preset: PRESET_IDS.includes(r.preset as StagePreset) ? (r.preset as StagePreset) : fallback.preset,
+    // 老存档没有这两个字段 = 那时候只有旧版面，缺字段按"新版默认"而不是"旧的"，
+    // 否则升级后还停在残留代码上（这次改版的核心诉求就是别再退回旧版面）
+    skin: SKIN_IDS.includes(r.skin as StageSkin) ? (r.skin as StageSkin) : fallback.skin,
+    tone: r.tone === "light" ? "light" : "dark",
+    // 老存档没有这个字段 = 那时候明暗写死跟随不了主题（用户实测「浅色主题进播放页翻黑」
+    // 的根因），缺字段按 true 迁移；只有样式库里明确点过明暗才锁成 false
+    toneAuto: r.toneAuto !== false,
     intensity: (r.intensity === 0 || r.intensity === 1 || r.intensity === 2 ? r.intensity : 1) as 0 | 1 | 2,
     layers,
     lyricRenderer: RENDERERS.includes(r.lyricRenderer as LyricRenderer)

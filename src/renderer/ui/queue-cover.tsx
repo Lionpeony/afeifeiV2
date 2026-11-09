@@ -62,7 +62,8 @@ export function QueueCover(props: {
           onError={() => setBroken(true)}
         />
       ) : (
-        <i>{String(Math.max(0, index)).padStart(2, "0")}</i>
+        // 不印序号：行首 .qp-no 已经在显示序号，两处并列会被读成"重复渲染"
+        <i>♪</i>
       )}
     </span>
   );

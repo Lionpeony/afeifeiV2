@@ -1,5 +1,8 @@
-/* 迷你窗（P0-27）：无边框小条。颜色只走 token（app.css 链入了 tokens.css，:root 变量在这里同样生效）。
-   结构：封面（双击回主窗） | 标题 / 当前歌词 / 时间 + 可拖进度 | 控制按钮（悬停浮出） */
+/* 迷你窗（2026-11-10 重设计）：「夜航信号条」。
+   一条 420×136 的信号卡：左侧唱片仓（播放时唱纹亮起 + 转速环），
+   中间标题 / 当前歌词 / 时间与进度，右侧悬停浮出的控制列。
+   顶部 2px 信号条只在播放时流动（A-07 同款纪律：不播就不闪）。
+   颜色只走 token（app.css 链入了 tokens.css，html[data-theme] 切换即整条换色）。 */
 * { box-sizing: border-box; }
 html, body {
   margin: 0;
@@ -12,28 +15,58 @@ html, body {
 }
 #root { height: 100%; }
 
+/* 夜间主题由 tokens.css（经 app.css 链入）的 html[data-theme="dark"] 覆盖，
+   主窗桥会把当前主题写进投影包，mini.tsx 收到后落在 documentElement 上 —— 别在这里复制一份色值 */
+
 .mini {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   height: 100%;
-  padding: 8px 10px;
+  padding: 10px 12px;
   -webkit-app-region: drag; /* 整条可拖窗口 */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--fg) 4%, transparent), transparent 42%),
+    var(--bg-raised);
 }
 .mini button,
 .mini input,
 .mini-art { -webkit-app-region: no-drag; }
 
-/* 封面：56px，双击回主窗。无封面画刻纹，别留白 */
+/* 顶部信号条：播放时一道朱砂光从左向右扫；暂停时静止在 12% 处，像待机的指示灯 */
+.mini-signal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 18%, var(--accent) 30%, transparent 48%);
+  background-size: 220% 100%;
+  background-position: 100% 0;
+  opacity: 0.35;
+}
+.mini.is-playing .mini-signal {
+  opacity: 1;
+  animation: mini-sweep 2.6s linear infinite;
+}
+@keyframes mini-sweep {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* 唱片仓：64px 封面，双击回主窗。无封面画唱纹；播放时外圈一道转速环 */
+.mini-left { flex: 0 0 auto; }
 .mini-art {
-  flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
+  position: relative;
+  width: 64px;
+  height: 64px;
   border: 1px solid var(--line-soft);
   background-color: var(--bg);
   background-position: center;
   background-size: cover;
   cursor: default;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
 }
 .mini-art.blank {
   background-image: repeating-radial-gradient(
@@ -42,39 +75,63 @@ html, body {
     transparent 1px 4px
   );
 }
+/* 转速环：播放中才转。用 conic 亮弧而不是整圈高亮，避免俗气的光圈 */
+.mini-groove {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--accent);
+  border-right-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  opacity: 0;
+  transform: rotate(0deg);
+}
+.mini.is-playing .mini-groove {
+  opacity: 0.9;
+  animation: mini-spin 3.2s linear infinite;
+}
+@keyframes mini-spin {
+  to { transform: rotate(360deg); }
+}
 
-.mini-info { flex: 1 1 auto; min-width: 0; }
+.mini-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .mini-title {
   margin: 0;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 当前歌词：一行，压暗；没词时只留一个省略号，不空出半行高度 */
+/* 当前歌词：一行，朱砂色 + 极轻的辉光；没词时只留省略号，不空出半行高度 */
 .mini-lyric {
-  margin: 1px 0 3px;
+  margin: 0;
   color: var(--accent);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mini-lyric.quiet { color: var(--fg-dim); }
-.mini-tr {
-  margin-left: 8px;
-  color: var(--fg-dim);
-}
+.mini-lyric.quiet { color: var(--fg-dim); text-shadow: none; }
+.mini-tr { margin-left: 8px; color: var(--fg-dim); }
 
-.mini-row { display: flex; align-items: center; gap: 6px; }
+.mini-row { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
 .mini-time {
   flex: 0 0 auto;
   color: var(--fg-dim);
   font-family: var(--font-mono);
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
 }
 
-/* 可拖进度：细线 + 墨色填充（用 --fill 渐变，不用额外节点） */
+/* 可拖进度：细线 + 朱砂填充 + 发亮的拖拽点 */
 .mini-seek {
   -webkit-appearance: none;
   appearance: none;
@@ -96,28 +153,40 @@ html, body {
   width: 9px;
   height: 9px;
   border: none;
-  border-radius: 0;
+  border-radius: 50%;
   background: var(--fg);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
-/* 控制条：默认隐身，悬停才浮出（小窗里常驻四个按钮太吵） */
+/* 控制列：悬停浮出。SVG 图标替代 ⏮⏸ 等字符（不同字体下字形差异太大） */
 .mini-btns {
   flex: 0 0 auto;
   display: flex;
-  gap: 2px;
+  flex-direction: column;
+  gap: 0;
   opacity: 0;
-  transition: opacity 0.15s;
+  transform: translateX(4px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 .mini:hover .mini-btns,
-.mini-btns:focus-within { opacity: 1; }
+.mini-btns:focus-within {
+  opacity: 1;
+  transform: none;
+}
 .mini-btns button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 26px;
   background: none;
-  border: 1px solid transparent;
-  border-radius: 0;
+  border: none;
   color: var(--fg-dim);
   cursor: pointer;
-  padding: 4px 6px;
-  font-size: 12px;
+  padding: 0;
 }
-.mini-btns button:hover { color: var(--fg); border-color: var(--line); }
-.mini-btns .mini-toggle { color: var(--fg); border-color: var(--accent); }
+.mini-btns button:hover { color: var(--fg); }
+.mini-btns svg { width: 13px; height: 13px; }
+.mini-btns .mini-toggle { color: var(--accent); height: 30px; }
+.mini-btns .mini-toggle:hover { color: var(--accent); }
+.mini-btns .mini-toggle svg { width: 16px; height: 16px; }
+.mini-btns .mini-x { color: var(--fg-dim); opacity: 0.75; }

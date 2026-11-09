@@ -77,6 +77,10 @@ contextBridge.exposeInMainWorld("api", {
       if (typeof action === "string") cb(action);
     });
   },
+  /** 迷你窗挂载完成的信号：桥要立刻补推一次当前状态 */
+  onMiniHello: (cb: () => void): void => {
+    ipcRenderer.on("mini:hello", () => cb());
+  },
 
   // 桌面歌词窗（M9-1）：同迷你窗，只推投影；解锁在主进程（穿透态窗口收不到鼠标）
   openLyric: (): Promise<void> => ipcRenderer.invoke("lyric:open"),

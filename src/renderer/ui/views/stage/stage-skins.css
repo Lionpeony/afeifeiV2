@@ -1,0 +1,1703 @@
+/* 播放页皮肤（2026-11-10）。
+   三套版式：editorial 唱片内页 / nebula 声云 / desk 转播台。
+   与 stage.css 的分工：stage.css 管「classic 皮肤」（纸面剧场那四预设），
+   本文件只管新皮肤，且**不读写任何 --stage-* token** —— 两套体系各用各的命名空间，
+   新皮肤不会因为用户换了 classic 预设而跟着变色（A-10 同款约束）。
+
+   颜色纪律：全部 rgb() / color-mix()，不写裸 hex（lint 规则 5）。
+   tone 只在各自皮肤块里覆写值，版式规则一个字都不改。 */
+
+/* ============================ 公共 ============================ */
+
+.sk {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 皮肤自己管配色：把结构层 remap 到 --sk-*，嵌进来的通用件（滚动条/输入）才跟着走 */
+  --bg: var(--sk-bg);
+  --fg: var(--sk-fg);
+  --line: var(--sk-line);
+  --line-soft: var(--sk-line-soft);
+  --accent: var(--sk-accent);
+  /* 不带 fill-mode both：留住终帧会让 .sk 长期停在独立合成层上，
+     切明暗时子节点可能不重绘（队列面板踩过同一个坑） */
+  animation: sk-in 420ms cubic-bezier(.22, .9, .24, 1);
+  color-scheme: dark;
+  /* 字号一律用 cqh（相对播放页自身高度）：vh 会把站尺与控制台也算进去，
+     同一个 68px 在 800 高窗口里只剩 51px（第一版真机截图就是这么小的） */
+  container-type: size;
+}
+
+.sk[data-tone="light"] {
+  color-scheme: light;
+}
+
+@keyframes sk-in {
+  from { opacity: 0; transform: translateY(10px) scale(.995); }
+  to { opacity: 1; transform: none; }
+}
+
+.mono {
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.sk-lbl {
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--sk-dim2);
+  text-transform: uppercase;
+}
+
+.sk-top {
+  position: relative;
+  z-index: 4;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 38px;
+  padding: 0 20px 0 22px;
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--sk-dim2);
+  border-bottom: 1px solid var(--sk-line-soft);
+}
+
+.sk-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: .2em;
+  color: var(--sk-dim);
+}
+
+.sk-onair i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sk-accent);
+  box-shadow: 0 0 9px var(--sk-accent);
+}
+
+.sk-onair.live {
+  color: var(--sk-hot);
+}
+
+.sk-onair.live i {
+  background: var(--sk-hot);
+  box-shadow: 0 0 9px var(--sk-hot);
+  animation: sk-beat 2s ease-in-out infinite;
+}
+
+@keyframes sk-beat {
+  50% { opacity: .3; }
+}
+
+/* 一行唱过去，下一行升上来：歌词换行必须有一次"换气"，否则像静态字幕 */
+@keyframes sk-line {
+  from { opacity: 0; transform: translateY(12px); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.sk-top-sep {
+  width: 1px;
+  height: 11px;
+  background: var(--sk-line);
+}
+
+.sk-top-i {
+  white-space: nowrap;
+}
+
+.sk-top-grow {
+  flex: 1;
+}
+
+.sk-top-b {
+  appearance: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--sk-line);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--sk-dim);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: .12em;
+  cursor: pointer;
+}
+
+.sk-top-b:hover {
+  color: var(--sk-fg);
+  border-color: var(--sk-dim2);
+}
+
+.sk-top-b[aria-expanded="true"] {
+  color: var(--sk-accent);
+  border-color: var(--sk-accent);
+}
+
+/* ---- 走带（三套共用结构） ---- */
+.sk-tape {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.sk-t {
+  font-size: 11px;
+  color: var(--sk-dim);
+  letter-spacing: .04em;
+  flex: none;
+}
+
+.sk-t.end {
+  color: var(--sk-dim2);
+}
+
+.sk-rail {
+  position: relative;
+  flex: 1;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  --p: 0;
+}
+
+.sk-rail-bg,
+.sk-rail-fill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1px;
+  pointer-events: none;
+}
+
+.sk-rail-bg {
+  right: 0;
+  background: var(--sk-line);
+}
+
+.sk-rail-fill {
+  width: calc(var(--p) * 100%);
+  background: var(--sk-accent);
+  box-shadow: 0 0 10px var(--sk-accent);
+}
+
+.sk-rail-dot {
+  position: absolute;
+  left: calc(var(--p) * 100%);
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  border-radius: 50%;
+  background: var(--sk-accent);
+  box-shadow: 0 0 0 3px var(--sk-accent-weak), 0 0 12px var(--sk-accent);
+  pointer-events: none;
+}
+
+.sk-range {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sk-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 24px;
+}
+
+/* ---- 封面 ---- */
+.sk-cover {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, rgb(255 255 255 / .06), rgb(255 255 255 / .01));
+}
+
+.sk-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sk-cover i {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-style: normal;
+  font-size: 14px;
+  color: var(--sk-dim2);
+  background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / .05) 0 1px, transparent 1px 6px);
+}
+
+/* ======================= A · 唱片内页 ======================= */
+
+.stage.skin-editorial {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.stage.skin-editorial[data-tone="dark"] {
+  --sk-bg: rgb(5 5 6);
+  --sk-fg: rgb(244 241 236);
+  --sk-dim: rgb(244 241 236 / .56);
+  --sk-dim2: rgb(244 241 236 / .36);
+  --sk-line: rgb(244 241 236 / .13);
+  --sk-line-soft: rgb(244 241 236 / .06);
+  --sk-accent: rgb(255 168 85);
+  --sk-accent-weak: rgb(255 159 69 / .14);
+  --sk-hot: rgb(255 106 69);
+  --ed-a: rgb(16 16 20);
+  --ed-b: rgb(5 5 7);
+  --ed-s1: rgb(255 242 228 / .04);
+  --ed-s2: rgb(255 228 196 / .1);
+  --ed-s3: rgb(255 214 170 / .05);
+  --ed-halo: radial-gradient(circle, transparent 0 25%, rgb(255 175 95 / .11) 33%, rgb(255 150 60 / .04) 41%, transparent 52%);
+  --ed-label-shadow: 0 0 0 1px rgb(0 0 0 / .7), 0 3px 14px rgb(0 0 0 / .8);
+  --ed-rim: conic-gradient(from 206deg, transparent 0deg, rgb(255 255 255 / .38) 9deg, rgb(255 238 214 / .18) 19deg, transparent 33deg, transparent 152deg, rgb(255 224 186 / .15) 168deg, transparent 188deg);
+  --sk-glow: rgb(255 170 90 / .4);
+}
+
+.stage.skin-editorial[data-tone="light"] {
+  --sk-bg: rgb(242 240 233);
+  --sk-fg: rgb(20 19 15);
+  --sk-dim: rgb(20 19 15 / .58);
+  --sk-dim2: rgb(20 19 15 / .46);
+  --sk-line: rgb(20 19 15 / .17);
+  --sk-line-soft: rgb(20 19 15 / .08);
+  --sk-accent: rgb(168 85 31);
+  --sk-accent-weak: rgb(168 85 31 / .12);
+  --sk-hot: rgb(192 57 43);
+  --ed-a: rgb(19 19 24);
+  --ed-b: rgb(8 8 11);
+  --ed-s1: rgb(255 255 255 / .05);
+  --ed-s2: rgb(255 240 214 / .12);
+  --ed-s3: rgb(255 220 180 / .06);
+  --ed-halo: radial-gradient(circle, transparent 0 26%, rgb(20 19 15 / .09) 34%, rgb(20 19 15 / .03) 42%, transparent 52%);
+  --ed-label-shadow: 0 0 0 1px rgb(0 0 0 / .5), 0 4px 16px rgb(0 0 0 / .5);
+  --ed-rim: conic-gradient(from 206deg, transparent 0deg, rgb(255 255 255 / .5) 9deg, rgb(255 255 255 / .24) 19deg, transparent 33deg, transparent 152deg, rgb(255 255 255 / .2) 168deg, transparent 188deg);
+  --sk-glow: rgb(20 19 15 / .12);
+}
+
+.sk-ed {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.sk-ed-halo {
+  position: absolute;
+  left: 26%;
+  top: 50%;
+  width: min(72vh, 620px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--ed-halo);
+  pointer-events: none;
+}
+
+.sk-ed-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 34px;
+  padding: 8px 54px 26px 34px;
+}
+
+.sk-ed-platter {
+  position: relative;
+  justify-self: center;
+  width: clamp(220px, 52vh, 420px);
+  aspect-ratio: 1;
+}
+
+.sk-ed-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--ed-a) 0 100%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .06), inset 0 0 60px rgb(0 0 0 / .85);
+}
+
+.sk-ed-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, var(--ed-a) 0 .8px, var(--ed-b) .8px 1.75px);
+}
+
+@keyframes sk-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 盘面折射的窗光：不跟着转（光在空间里，盘在转） */
+.sk-ed-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: sk-spin 18s linear infinite;
+  animation-play-state: paused;
+  background: conic-gradient(from 202deg at 50% 50%,
+    transparent 0deg,
+    var(--ed-s1) 9deg,
+    var(--ed-s2) 17deg,
+    var(--ed-s1) 23deg,
+    transparent 31deg,
+    transparent 156deg,
+    var(--ed-s3) 170deg,
+    var(--ed-s2) 181deg,
+    transparent 194deg);
+  mask-image: radial-gradient(circle, transparent 0 23%, rgb(0 0 0) 26% 100%);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 23%, rgb(0 0 0) 26% 100%);
+  mix-blend-mode: screen;
+}
+
+/* 播放才转：暂停时反光停在原处，不装作还在转 */
+.sk-ed-disc[data-playing="on"] .sk-ed-sheen {
+  animation-play-state: running;
+}
+
+.sk-ed-rim {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--ed-rim);
+  mask-image: radial-gradient(circle, transparent calc(50% - 2px), rgb(0 0 0) calc(50% - 1.4px), rgb(0 0 0) calc(50% - .5px), transparent 50%);
+  -webkit-mask-image: radial-gradient(circle, transparent calc(50% - 2px), rgb(0 0 0) calc(50% - 1.4px), rgb(0 0 0) calc(50% - .5px), transparent 50%);
+}
+
+.sk-ed-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 37%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: var(--ed-label-shadow);
+}
+
+.sk-ed-label .sk-cover {
+  width: 100%;
+  height: 100%;
+}
+
+.sk-ed-hole {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: var(--sk-bg);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .18), inset 0 1px 2px rgb(0 0 0 / .9);
+}
+
+.sk-ed-info {
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 0 22px;
+}
+
+.sk-ed-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10px;
+  letter-spacing: .2em;
+  color: var(--sk-dim2);
+}
+
+.sk-ed-eyebrow .dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sk-ed-title {
+  margin: 16px 0 0;
+  font-family: "Bahnschrift SemiCondensed", Bahnschrift, "Arial Narrow", sans-serif;
+  font-size: clamp(30px, 13cqh, 78px);
+  line-height: .96;
+  letter-spacing: -.015em;
+  font-weight: 400;
+  /* 长曲名最多两行：超出裁掉，绝不把歌词顶出屏幕 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.sk-ed-meta {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--sk-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-ed .sk-tape {
+  margin-top: 22px;
+}
+
+.sk-ed-lyr {
+  /* 上下都用 auto：歌词被推到「标题块」与「接下来」的正中间。
+     真机截图里这段原本是一条 195px 的横向空洞，改 auto 之后
+     空洞拆成上下两道相等的呼吸，同时和左边唱片的中轴线对上了 */
+  margin: auto 0;
+  min-height: 0;
+}
+
+.sk-ed-lyr p {
+  margin: 0;
+}
+
+.sk-ed-lyr .prev,
+.sk-ed-lyr .next {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--sk-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-ed-lyr .cur {
+  margin: 8px 0;
+  animation: sk-line 380ms cubic-bezier(.2, .9, .3, 1) both;
+  font-size: clamp(17px, 5.2cqh, 34px);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: var(--sk-fg);
+  text-shadow: 0 0 30px var(--sk-glow);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.sk-ed-lyr .zh {
+  margin-top: 8px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  color: var(--sk-dim);
+}
+
+.sk-ed-next {
+  margin-top: 0;
+  padding-top: 16px;
+  display: flex;
+  gap: 18px;
+  border-top: 1px solid var(--sk-line-soft);
+}
+
+.sk-ed-next .k {
+  font-size: 9.5px;
+  letter-spacing: .2em;
+  color: var(--sk-dim2);
+  flex: none;
+  padding-top: 4px;
+}
+
+.sk-ed-next ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sk-ed-next li {
+  min-width: 0;
+}
+
+.sk-ed-next button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  color: var(--sk-dim);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.sk-ed-next button:hover {
+  color: var(--sk-fg);
+}
+
+.sk-ed-next b {
+  font-size: 9.5px;
+  font-weight: 400;
+  color: var(--sk-dim2);
+}
+
+.sk-ed-next span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-ed-next small {
+  font-size: 10px;
+  color: var(--sk-dim2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 84px;
+}
+
+/* ========================= B · 声云 ========================= */
+
+.stage.skin-nebula {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.stage.skin-nebula[data-tone="dark"],
+.sk-nb[data-tone="dark"] {
+  --sk-bg: rgb(4 4 10);
+  --sk-fg: rgb(247 245 242);
+  --sk-dim: rgb(247 245 242 / .58);
+  --sk-dim2: rgb(247 245 242 / .36);
+  --sk-line: rgb(247 245 242 / .14);
+  --sk-line-soft: rgb(247 245 242 / .06);
+  --sk-accent: rgb(255 92 138);
+  --sk-accent-weak: rgb(255 92 138 / .16);
+  --sk-hot: rgb(255 106 69);
+  --nb-fog-1: rgb(255 52 120 / .52);
+  --nb-fog-2: rgb(64 170 255 / .34);
+  --nb-fog-3: rgb(150 120 255 / .22);
+  --nb-blend: screen;
+  --nb-w1: rgb(255 255 255 / .72);
+  --nb-w2: rgb(255 110 150 / .78);
+  --nb-w3: rgb(120 210 255 / .5);
+  --nb-glow: rgb(255 92 138 / .45);
+  --nb-grain: .05;
+}
+
+.stage.skin-nebula[data-tone="light"],
+.sk-nb[data-tone="light"] {
+  --sk-bg: rgb(247 245 239);
+  --sk-fg: rgb(18 17 24);
+  --sk-dim: rgb(18 17 24 / .6);
+  --sk-dim2: rgb(18 17 24 / .46);
+  --sk-line: rgb(18 17 24 / .15);
+  --sk-line-soft: rgb(18 17 24 / .07);
+  --sk-accent: rgb(194 24 91);
+  --sk-accent-weak: rgb(194 24 91 / .1);
+  --sk-hot: rgb(192 57 43);
+  --nb-fog-1: rgb(255 150 180 / .24);
+  --nb-fog-2: rgb(150 196 240 / .2);
+  --nb-fog-3: rgb(255 214 160 / .2);
+  --nb-blend: multiply;
+  --nb-w1: rgb(18 17 24 / .5);
+  --nb-w2: rgb(194 24 91 / .5);
+  --nb-w3: rgb(31 111 184 / .38);
+  --nb-glow: transparent;
+  --nb-grain: .03;
+}
+
+.sk-nb {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.sk-nb-fog {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  pointer-events: none;
+  mix-blend-mode: var(--nb-blend);
+  will-change: transform;
+}
+
+.sk-nb-fog.f1 {
+  width: 62vw;
+  height: 52vh;
+  right: -8vw;
+  top: -26vh;
+  background: radial-gradient(circle, var(--nb-fog-1), transparent 66%);
+  animation: nb-drift 26s ease-in-out infinite;
+}
+
+.sk-nb-fog.f2 {
+  width: 58vw;
+  height: 46vh;
+  left: -14vw;
+  bottom: -22vh;
+  background: radial-gradient(circle, var(--nb-fog-2), transparent 66%);
+  animation: nb-drift 34s ease-in-out infinite reverse;
+}
+
+.sk-nb-fog.f3 {
+  width: 40vw;
+  height: 34vh;
+  left: 42%;
+  top: 38%;
+  background: radial-gradient(circle, var(--nb-fog-3), transparent 68%);
+  animation: nb-drift 42s ease-in-out infinite;
+}
+
+@keyframes nb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-24px, 20px, 0) scale(1.07); }
+}
+
+/* 星点：固定位置的多层点阵，比 JS 生成省事且不吃合成 */
+.sk-nb-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .9;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgb(255 255 255 / .75), transparent 100%),
+    radial-gradient(1px 1px at 28% 62%, rgb(255 255 255 / .5), transparent 100%),
+    radial-gradient(1.5px 1.5px at 44% 12%, rgb(255 255 255 / .62), transparent 100%),
+    radial-gradient(1px 1px at 58% 46%, rgb(255 255 255 / .42), transparent 100%),
+    radial-gradient(1px 1px at 71% 24%, rgb(255 255 255 / .68), transparent 100%),
+    radial-gradient(1.5px 1.5px at 83% 58%, rgb(255 255 255 / .5), transparent 100%),
+    radial-gradient(1px 1px at 91% 34%, rgb(255 255 255 / .6), transparent 100%),
+    radial-gradient(1px 1px at 6% 74%, rgb(255 255 255 / .44), transparent 100%),
+    radial-gradient(1px 1px at 36% 84%, rgb(255 255 255 / .36), transparent 100%),
+    radial-gradient(1.5px 1.5px at 66% 76%, rgb(255 255 255 / .5), transparent 100%);
+}
+
+.sk-nb[data-tone="light"] .sk-nb-stars {
+  opacity: .18;
+}
+
+.sk-nb-body {
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  top: 58px;
+  bottom: 202px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sk-nb-kicker {
+  /* 与 dock 的 margin-top:auto 对分剩余空间：整块词面落在上下正中，
+     不再"贴顶 + 中间一个大洞"（真机截图里洞在歌词与曲目卡之间） */
+  margin: auto 0 0;
+  font-size: 10px;
+  letter-spacing: .24em;
+  color: var(--sk-dim2);
+}
+
+.sk-nb-lyr {
+  margin: 4.2cqh 0 0;
+  animation: sk-line 420ms cubic-bezier(.2, .9, .3, 1) both;
+  font-family: "Bahnschrift SemiCondensed", Bahnschrift, "Arial Narrow", sans-serif;
+  font-size: clamp(26px, 10.5cqh, 72px);
+  line-height: 1.06;
+  letter-spacing: -.025em;
+  font-weight: 300;
+  color: var(--sk-fg);
+  max-width: 15.5em;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  text-shadow: 0 0 70px var(--nb-glow);
+}
+
+/* 细体在纸上会「掉秤」：同一个字重，纸面看着比暗底细一档。
+   浅色把主词加半档，两个 tone 的视觉重量才持平（真机截图：浅色那版标题像漏印） */
+.sk-nb[data-tone="light"] .sk-nb-lyr {
+  font-weight: 400;
+}
+
+.sk-nb-zh {
+  margin: 16px 0 0;
+  font-size: 13px;
+  letter-spacing: .14em;
+  font-weight: 300;
+  color: var(--sk-dim);
+}
+
+.sk-nb-next {
+  margin: 16px 0 0;
+  font-size: 15px;
+  color: var(--sk-dim2);
+  max-width: 46em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-nb-dock {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.sk-nb-track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sk-nb-track .sk-cover.dock {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 2px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / .45), 0 0 0 1px var(--sk-line);
+}
+
+.sk-nb-track .tx {
+  min-width: 0;
+}
+
+.sk-nb-track b {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-nb-track span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--sk-dim2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-nb-dock .sk-tape {
+  max-width: 560px;
+}
+
+.sk-nb-up {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 10.5px;
+  color: var(--sk-dim2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sk-nb-up button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 10.5px;
+  color: var(--sk-dim);
+  cursor: pointer;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-nb-up button:hover {
+  color: var(--sk-fg);
+}
+
+.sk-nb-horizon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 176px;
+  pointer-events: none;
+}
+
+.sk-nb-horizon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sk-nb-horizon .w1 {
+  fill: none;
+  stroke: var(--nb-w1);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.sk-nb-horizon .w2 {
+  fill: none;
+  stroke: var(--nb-w2);
+  stroke-width: 1.4;
+  opacity: .75;
+  stroke-linejoin: round;
+}
+
+.sk-nb-horizon .w3 {
+  fill: none;
+  stroke: var(--nb-w3);
+  stroke-width: 1;
+  opacity: .55;
+  stroke-linejoin: round;
+}
+
+/* ======================== C · 转播台 ======================== */
+
+.stage.skin-desk {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.stage.skin-desk[data-tone="dark"],
+.sk-dk[data-tone="dark"] {
+  --sk-bg: rgb(8 9 10);
+  --sk-fg: rgb(236 235 229);
+  --sk-dim: rgb(236 235 229 / .56);
+  --sk-dim2: rgb(236 235 229 / .36);
+  --sk-line: rgb(236 235 229 / .13);
+  --sk-line-soft: rgb(236 235 229 / .06);
+  --sk-accent: rgb(127 240 198);
+  --sk-accent-weak: rgb(127 240 198 / .22);
+  --sk-hot: rgb(255 106 77);
+  --dk-bar-glow: rgb(127 240 198 / .28);
+}
+
+.stage.skin-desk[data-tone="light"],
+.sk-dk[data-tone="light"] {
+  --sk-bg: rgb(243 241 234);
+  --sk-fg: rgb(20 19 15);
+  --sk-dim: rgb(20 19 15 / .6);
+  --sk-dim2: rgb(20 19 15 / .46);
+  --sk-line: rgb(20 19 15 / .2);
+  --sk-line-soft: rgb(20 19 15 / .09);
+  --sk-accent: rgb(22 98 76);
+  --sk-accent-weak: rgb(22 98 76 / .16);
+  --sk-hot: rgb(192 57 43);
+  --dk-bar-glow: transparent;
+}
+
+.sk-dk {
+  background: var(--sk-bg);
+  color: var(--sk-fg);
+}
+
+.sk-dk .sk-top {
+  height: 34px;
+}
+
+.sk-dk-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 322px minmax(0, 1fr) 296px;
+}
+
+.sk-dk-col {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 22px;
+}
+
+.sk-dk-col.l {
+  border-right: 1px solid var(--sk-line);
+}
+
+.sk-dk-col.r {
+  border-left: 1px solid var(--sk-line);
+}
+
+.sk-dk-tc {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.sk-dk-tc b {
+  font-size: clamp(26px, 9.2cqh, 54px);
+  line-height: 1;
+  font-weight: 300;
+  letter-spacing: -.03em;
+}
+
+.sk-dk-tc span {
+  font-size: 12px;
+  color: var(--sk-dim2);
+}
+
+.sk-dk-spec {
+  margin-top: 20px;
+}
+
+.sk-dk-spec .hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sk-dk-spec .hd .live {
+  color: var(--sk-accent);
+}
+
+.sk-dk-spec .bars {
+  margin-top: 10px;
+  height: clamp(76px, 15vh, 132px);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  border-bottom: 1px solid var(--sk-line);
+}
+
+.sk-dk-spec .bars i {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--h, 0) * 100%);
+  background: linear-gradient(180deg, var(--sk-accent), var(--sk-accent-weak));
+  border-radius: 1px 1px 0 0;
+  box-shadow: 0 0 8px var(--dk-bar-glow);
+}
+
+.sk-dk-ro {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.sk-dk-ro div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--sk-line-soft);
+  min-width: 0;
+}
+
+.sk-dk-ro b {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--sk-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-dk-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.sk-dk-lyr {
+  flex: 1;
+  min-height: 0;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.sk-dk-lyr button {
+  appearance: none;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 5px 0 5px 14px;
+  position: relative;
+  font: inherit;
+  font-size: clamp(14px, 2vh, 19px);
+  line-height: 1.45;
+  color: var(--sk-dim2);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-dk-lyr button:hover {
+  color: var(--sk-dim);
+}
+
+.sk-dk-lyr button.past {
+  color: var(--sk-dim);
+}
+
+.sk-dk-lyr button.now {
+  font-family: "Bahnschrift SemiCondensed", Bahnschrift, "Arial Narrow", sans-serif;
+  font-size: clamp(20px, 7cqh, 40px);
+  line-height: 1.16;
+  letter-spacing: -.015em;
+  font-weight: 300;
+  color: var(--sk-fg);
+  padding: 10px 0 10px 18px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.sk-dk-lyr button.now::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--sk-accent);
+  box-shadow: 0 0 12px var(--sk-accent);
+}
+
+.sk-dk-zh {
+  margin: 8px 0 0;
+  padding-left: 2px;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--sk-dim);
+}
+
+.sk-dk-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--sk-dim2);
+}
+
+.sk-dk-col.r .sk-cover.hero {
+  width: min(100%, 168px);
+  aspect-ratio: 1;
+  border-radius: 2px;
+  box-shadow: 0 14px 34px -14px rgb(0 0 0 / .7), 0 0 0 1px var(--sk-line);
+}
+
+.sk-dk-rk {
+  margin-top: 12px;
+  min-width: 0;
+}
+
+.sk-dk-rk b {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-dk-rk span {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--sk-dim2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sk-dk-queue {
+  margin-top: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sk-dk-queue .hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--sk-line);
+}
+
+.sk-dk-queue ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sk-dk-queue li button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: baseline;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid var(--sk-line-soft);
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--sk-dim);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sk-dk-queue li button:hover {
+  color: var(--sk-fg);
+}
+
+.sk-dk-queue li i {
+  font-style: normal;
+  font-size: 9.5px;
+  color: var(--sk-dim2);
+}
+
+.sk-dk-queue li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-dk-queue li small {
+  font-size: 9.5px;
+  color: var(--sk-dim2);
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sk-dk-queue li.empty {
+  font-size: 11px;
+  color: var(--sk-dim2);
+  padding: 8px 0;
+}
+
+.sk-dk-deck {
+  flex: none;
+  height: 58px;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  padding: 0 22px;
+  border-top: 1px solid var(--sk-line);
+}
+
+.sk-dk-deckside {
+  font-size: 9.5px;
+  letter-spacing: .16em;
+  color: var(--sk-dim2);
+  white-space: nowrap;
+}
+
+/* 走带在转播台里是"刻度尺"：不是一条细线 */
+.sk-dk .sk-rail::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 7px;
+  background-image: repeating-linear-gradient(90deg, var(--sk-dim2) 0 1px, transparent 1px 12px);
+  mask-image: linear-gradient(180deg, rgb(0 0 0), rgb(0 0 0 / .35));
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0), rgb(0 0 0 / .35));
+}
+
+.sk-dk .sk-rail-bg {
+  top: auto;
+  bottom: 7px;
+}
+
+.sk-dk .sk-rail-fill {
+  top: auto;
+  bottom: 7px;
+}
+
+.sk-dk .sk-rail-dot {
+  width: 2px;
+  height: 13px;
+  margin-left: -1px;
+  border-radius: 0;
+  top: auto;
+  bottom: 4px;
+}
+
+/* ======================== 旧组件兼容 ======================== */
+
+/*
+ * 「视图」浮层（StageSettings）只认 --stage-*，它挂在 .stage 上而不是 .sk 里。
+ * 注意别名要落在 .st-menu **自己身上**：StageRoot 是用 inline style 往 .stage 写 --stage-* 的，
+ * 写在 .stage 上会被内联样式盖掉（第一版就是这么没生效）。
+ */
+.stage:not(.skin-classic) .st-menu {
+  --stage-bg: var(--sk-bg);
+  --stage-fg: var(--sk-fg);
+  --stage-fg-dim: var(--sk-dim);
+  --stage-line: var(--sk-line);
+  --stage-line-soft: var(--sk-line-soft);
+  --stage-accent: var(--sk-accent);
+  --stage-raised: color-mix(in srgb, var(--sk-fg) 8%, var(--sk-bg));
+}
+
+.st-menu .st-menu-cur {
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--stage-fg-dim);
+}
+
+.st-menu .st-menu-note {
+  margin: 2px 0 0;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--stage-fg-dim);
+  opacity: .75;
+}
+
+/* ======================= 样式库（浮层） ======================= */
+
+.sk-shelf {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  animation: sk-fade 160ms ease-out both;
+}
+
+@keyframes sk-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sk-shelf-mask {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgb(0 0 0 / .58);
+  cursor: default;
+}
+
+.sk-shelf-panel {
+  position: relative;
+  width: min(760px, calc(100% - 80px));
+  max-height: calc(100% - 40px);
+  overflow: auto;
+  border-radius: 14px;
+  padding: 20px 22px 16px;
+  background: var(--sk-bg, rgb(12 12 15));
+  border: 1px solid var(--sk-line, rgb(255 255 255 / .16));
+  box-shadow: 0 40px 90px -30px rgb(0 0 0 / .9), inset 0 1px 0 rgb(255 255 255 / .06);
+  animation: sk-rise 260ms cubic-bezier(.2, .9, .25, 1) both;
+}
+
+@keyframes sk-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.sk-shelf-hd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sk-shelf-hd b {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--sk-fg);
+}
+
+.sk-shelf-hd span {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  letter-spacing: .22em;
+  color: var(--sk-dim2);
+}
+
+.sk-shelf-x {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--sk-line);
+  background: transparent;
+  color: var(--sk-dim);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sk-shelf-x:hover {
+  color: var(--sk-fg);
+  border-color: var(--sk-dim2);
+}
+
+.sk-shelf-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sk-opt {
+  appearance: none;
+  position: relative;
+  display: block;
+  text-align: left;
+  padding: 0;
+  border: 1px solid var(--sk-line);
+  border-radius: 8px;
+  background: transparent;
+  overflow: hidden;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.sk-opt:hover {
+  border-color: var(--sk-dim2);
+  transform: translateY(-1px);
+}
+
+.sk-opt.on {
+  border-color: var(--sk-accent);
+  box-shadow: 0 0 0 1px var(--sk-accent), 0 10px 30px -14px var(--sk-accent);
+}
+
+.sk-thumb {
+  display: block;
+  position: relative;
+  height: 74px;
+  overflow: hidden;
+  --th-fg: rgb(246 243 238);
+}
+
+.sk-thumb.tone-light {
+  --th-fg: rgb(24 22 18);
+}
+
+.sk-thumb i {
+  position: absolute;
+  display: block;
+}
+
+.sk-opt-tx {
+  display: block;
+  padding: 9px 12px 11px;
+}
+
+.sk-opt-tx b {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sk-fg);
+}
+
+.sk-opt-tx em {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: .16em;
+  color: var(--sk-dim2);
+}
+
+.sk-opt-tx small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--sk-dim2);
+}
+
+.sk-check {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--sk-accent);
+  color: var(--sk-bg);
+}
+
+.sk-check svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sk-shelf-foot {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sk-seg {
+  display: inline-flex;
+  border: 1px solid var(--sk-line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sk-seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--sk-dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: .08em;
+  padding: 5px 14px;
+  cursor: pointer;
+}
+
+.sk-seg button[data-on="true"] {
+  color: var(--sk-bg);
+  background: var(--sk-fg);
+}
+
+.sk-shelf-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--sk-dim2);
+}
+
+/* ---- 缩略图：全部用渐变堆出来，不加载图片 ---- */
+
+/* A 唱片内页 */
+.th-ed {
+  background: linear-gradient(120deg, rgb(10 10 14) 0 52%, rgb(20 17 18) 52% 100%);
+}
+
+.th-ed.tone-light {
+  background: linear-gradient(120deg, rgb(240 238 231) 0 52%, rgb(232 229 220) 52% 100%);
+}
+
+.th-ed i:nth-child(1) {
+  left: 14%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  margin-top: -23px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(240 63 141) 0 30%, rgb(9 9 12) 31% 100%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .16), 0 0 16px rgb(255 150 60 / .35);
+}
+
+.th-ed i:nth-child(2) {
+  left: 56%;
+  top: 26%;
+  width: 34%;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .9;
+}
+
+.th-ed i:nth-child(3) {
+  left: 56%;
+  top: 42%;
+  width: 26%;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .35;
+}
+
+.th-ed i:nth-child(4) {
+  left: 56%;
+  top: 56%;
+  width: 30%;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .22;
+}
+
+/* B 声云 */
+.th-nb {
+  background:
+    radial-gradient(58% 90% at 82% 0%, rgb(255 52 120 / .6), transparent 70%),
+    radial-gradient(66% 80% at 4% 100%, rgb(64 170 255 / .4), transparent 72%),
+    rgb(4 4 10);
+}
+
+.th-nb.tone-light {
+  background:
+    radial-gradient(58% 90% at 82% 0%, rgb(255 150 180 / .5), transparent 70%),
+    radial-gradient(66% 80% at 4% 100%, rgb(150 196 240 / .45), transparent 72%),
+    rgb(247 245 239);
+}
+
+.th-nb i:nth-child(1) {
+  left: 10%;
+  top: 26%;
+  width: 52%;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .92;
+}
+
+.th-nb i:nth-child(2) {
+  left: 10%;
+  top: 44%;
+  width: 38%;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .5;
+}
+
+.th-nb i:nth-child(3) {
+  left: 10%;
+  top: 62%;
+  width: 18%;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .3;
+}
+
+/* 地平线小波浪：一条圆角横条压成波形 */
+.th-nb i:nth-child(4) {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  background: rgb(255 110 150 / .75);
+  clip-path: polygon(0 62%, 8% 40%, 16% 70%, 24% 30%, 32% 66%, 40% 44%, 48% 74%, 56% 36%, 64% 60%, 72% 30%, 80% 68%, 88% 42%, 96% 64%, 100% 46%, 100% 100%, 0 100%);
+  opacity: .85;
+}
+
+/* C 转播台 */
+.th-dk {
+  background: rgb(8 9 10);
+}
+
+.th-dk.tone-light {
+  background: rgb(243 241 234);
+}
+
+.th-dk i:nth-child(1) {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  border-right: 1px solid rgb(127 240 198 / .18);
+}
+
+.th-dk i:nth-child(2) {
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  background: repeating-linear-gradient(90deg, rgb(127 240 198 / .8) 0 2px, transparent 2px 5px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 34%, rgb(0 0 0) 100%);
+  mask-image: linear-gradient(180deg, transparent 34%, rgb(0 0 0) 100%);
+}
+
+.th-dk i:nth-child(3) {
+  left: 36%;
+  top: 30%;
+  width: 40%;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--th-fg);
+  opacity: .9;
+}
+
+.th-dk i:nth-child(4) {
+  left: 36%;
+  top: 48%;
+  width: 30%;
+  height: 3px;
+  background: var(--th-fg);
+  opacity: .3;
+}
+
+/* D 经典（纸面剧场） */
+.th-cl {
+  background: linear-gradient(180deg, rgb(243 241 234), rgb(232 229 220));
+}
+
+.th-cl i:nth-child(1) {
+  left: 8%;
+  top: 22%;
+  width: 44%;
+  height: 12px;
+  background: rgb(23 21 15 / .88);
+}
+
+.th-cl i:nth-child(2) {
+  left: 8%;
+  top: 46%;
+  width: 54%;
+  height: 3px;
+  background: rgb(23 21 15 / .34);
+}
+
+.th-cl i:nth-child(3) {
+  left: 8%;
+  top: 58%;
+  width: 40%;
+  height: 3px;
+  background: rgb(23 21 15 / .22);
+}
+
+.th-cl i:nth-child(4) {
+  right: 12%;
+  top: 24%;
+  width: 26px;
+  height: 26px;
+  border-radius: 2px;
+  border: 1px solid rgb(23 21 15 / .3);
+  background: radial-gradient(circle at 50% 50%, rgb(25 22 25) 0 34%, rgb(216 52 28 / .85) 35% 46%, transparent 47%);
+}

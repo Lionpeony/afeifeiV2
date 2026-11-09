@@ -617,9 +617,14 @@ export async function bootstrap(): Promise<Services> {
     });
   }
 
-  // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排
+  // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排。
+  // 没存过档时跟系统走（prefers-color-scheme）——「默认根据电脑来显示」是用户预期。
   const storedTheme = await kv.read(THEME_KEY);
-  const theme: Theme = isTheme(storedTheme) ? storedTheme : "light";
+  const theme: Theme = isTheme(storedTheme)
+    ? storedTheme
+    : window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
   applyTheme(theme);
 
   // 全局配色包（B-9）：覆盖挂在 html 的 inline style 上，优先级高于预设块
@@ -643,8 +648,14 @@ export async function bootstrap(): Promise<Services> {
   const savedAudio = sanitizeAudioConfig(await kv.read("audio-eq"));
   dispatch({ type: "audio/restore", config: savedAudio });
 
-  // 播放页配置（预设 / 层开关 / 歌词渲染器 / 译文开关），同 audio 的模式
-  const savedStage = sanitizeStageConfig(await kv.read("stage-ui"));
+  // 播放页配置（预设 / 层开关 / 歌词渲染器 / 译文开关），同 audio 的模式。
+  // 明暗档默认（toneAuto）跟随全局主题——全局浅色却进深色舞台是用户实测 BUG；
+  // 用户在样式库里明确点过明暗（toneAuto=false）才保留自己的选择。
+  const savedStageRaw = await kv.read("stage-ui");
+  let savedStage = sanitizeStageConfig(savedStageRaw);
+  if (savedStage.toneAuto) {
+    savedStage = { ...savedStage, tone: theme === "dark" ? "dark" : "light" };
+  }
   dispatch({ type: "stage/restore", config: savedStage });
 
   // 失败策略（P0-15）：默认 skip；坏数据在 sanitize 里落回默认，不进真相

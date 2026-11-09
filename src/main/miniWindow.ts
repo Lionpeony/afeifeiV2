@@ -14,7 +14,15 @@ let mini: BrowserWindow | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 function mainWindow(): BrowserWindow | null {
-  return BrowserWindow.getAllWindows().find((w) => w !== mini && !w.isDestroyed()) ?? null;
+  /* 歌词窗必须排除（2026-11-10 修 BUG）：此前只排除了 mini 自己，
+     桌面歌词开着时 getAllWindows 会先捡到它 —— `focus` 聚焦的是歌词窗，
+     `mini:forward` 把播放意图发给歌词窗（那边没有 handler）**全部静默丢失**。
+     两窗都是 app:// 协议，用 URL 区分最稳。 */
+  return (
+    BrowserWindow.getAllWindows().find(
+      (w) => w !== mini && !w.isDestroyed() && !w.webContents.getURL().includes("/lyric.html"),
+    ) ?? null
+  );
 }
 
 /** 位置持久化（P0-27）：拖动过程别每帧写盘，500ms 合并一次。 */
@@ -42,8 +50,8 @@ export function registerMiniIpc(): void {
     }
     mini = new BrowserWindow({
       width: 420,
-      // 封面 56 + 标题/歌词/进度三行：96 会把进度条压到边框上
-      height: 112,
+      // 2026-11-10 重设计：封面 64 + 标题/歌词/进度三行 + 上下呼吸（112 会把进度条压到边上）
+      height: 136,
       ...(x !== undefined && y !== undefined ? { x, y } : {}),
       frame: false,
       resizable: false,
@@ -66,6 +74,12 @@ export function registerMiniIpc(): void {
       mini = null;
     });
     void mini.loadURL("app://afeifei/mini.html");
+  });
+
+  /* 迷你窗就绪（2026-11-10 修 BUG）：桥只在 store 变化 / 500ms 节流点推送，
+     暂停状态下开窗会一直挂"未在播放"。迷你窗挂载完喊一声，主窗桥立刻补推一次。 */
+  ipcMain.on("mini:ready", () => {
+    mainWindow()?.webContents.send("mini:hello");
   });
 
   // 迷你窗的意图 → 转给主窗渲染层 dispatch。主进程不认识"播放"，只搬运。

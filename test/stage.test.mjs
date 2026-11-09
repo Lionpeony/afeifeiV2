@@ -245,6 +245,14 @@ test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", 
   assert.equal(sanitizeStageConfig({ translation: "no" }).translation, true, "非布尔值不当成 false");
 });
 
+test("toneAuto（2026-11-10 用户实测 BUG）：缺字段=跟随全局主题，只有显式 false 才锁手动", () => {
+  assert.equal(sanitizeStageConfig(null).toneAuto, true, "默认跟随全局主题");
+  assert.equal(sanitizeStageConfig({}).toneAuto, true, "老存档没有字段=跟随（迁移即生效）");
+  assert.equal(sanitizeStageConfig({ toneAuto: true }).toneAuto, true);
+  assert.equal(sanitizeStageConfig({ toneAuto: false }).toneAuto, false, "用户点过明暗=手动档");
+  assert.equal(sanitizeStageConfig({ toneAuto: 1 }).toneAuto, true, "非布尔值不当成 false");
+});
+
 /* ---- C-13 视觉模式与封面轮播 ---- */
 
 test("C-13 visualMode：白名单外的回落 bars，老存档缺字段也是 bars", () => {

@@ -214,11 +214,13 @@ const css = [
   "src/renderer/ui/views/pages.css",
   "src/renderer/ui/views/sheets.css",
   "src/renderer/ui/views/stage/stage.css",
+  "src/renderer/ui/views/stage/stage-skins.css",
   "src/renderer/ui/views/stage/stage-queue.css",
   "src/renderer/ui/views/stage/stage-panels.css",
   "src/renderer/ui/live/live.css",
   "src/renderer/ui/live/night-signal.css",
   "src/renderer/ui/live/cover-stage.css",
+  "src/renderer/ui/views/redesign.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");

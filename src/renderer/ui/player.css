@@ -734,59 +734,100 @@ button.primary:hover:not(:disabled) {
 .palette-hint { color: var(--fg-dim); font-size: 11px; }
 
 /* ===== 完整队列面板（P0-10/11/12，结构抄 SPlayer SongPlayList，视觉走本项目纸墨） =====
-   v2 重设计：面板容器换 liquid-glass-react 的位移玻璃（.qp-glass），行内加 44px 封面列。
+   v5 重设计「液态玻璃卡」：材质 = 磨砂 + 高光边缘 + 悬浮圆角，四周留 12px。
+   v4 之前用 liquid-glass-react 的位移玻璃：实机截图证实整面板尺寸下位移采样 backdrop，
+   会把背后「接下来播放」的封面/文字整块搬进面板，行标题压成重影 —— 位移玻璃只适合小控件，
+   大面板必须走 blur 材质。⚠ 这张卡不能套带 filter 的祖先：会建立 backdrop root，
+   backdrop-filter 直接失效（v3.2/3.3 探针"blur 无效"的真相，不是合成环境不支持）。
    行高 60px 是硬约定：QueuePanel.tsx 用 ROW_H 换算拖拽落点，改这里必须同步改那里。 */
 .qp-mask {
   position: fixed;
   inset: 0;
   z-index: 40;
+  /* 比 v3 的 0.28 浅一档：磨砂自己会压背景，遮罩再重就闷 */
   background: rgba(0, 0, 0, 0.26);
+  animation: qp-fade 200ms ease;
 }
-/* liquid-glass-react 压回：库默认把容器 translate(-50%,-50%) 居中、内层 .glass 强制
-   inline-flex + padding + 系统字体 —— 全部接管。玻璃容器只罩右侧面板区域：
-   它要是占满整个遮罩，warp 的 backdrop-filter 会把主界面整屏模糊掉。 */
-.qp-glass {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: auto !important;
-  width: min(420px, 92vw);
-  transform: none !important;
-  transition: none !important;
+@keyframes qp-fade {
+  from {
+    opacity: 0;
+  }
 }
-.qp-glass > .glass {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  padding: 0 !important;
-  border-radius: 0 !important;
-}
-/* 玻璃本体（.glass__warp）由库内联提供 backdrop-filter + 位移滤镜，不盖；
-   内容层继承 shell 字体（库强制 font: 500 20px/1 system-ui，必须压回） */
-.qp-glass > .glass > div:last-child {
-  font: inherit;
-  width: 100%;
-  height: 100%;
-}
+/* 玻璃卡本体：尺寸/圆角/材质/阴影全在这里，不再有中转的 .qp-glass 容器。
+   background 三层（内容永远画在最上，不需要额外 z-index）：
+     1) 158deg 斜切白高光：左上到 26% 收干净 —— 玻璃的"反光面"
+     2) 底部 14% 反光：下缘不至于死黑
+     3) 底砂 93% 纸色：实测（scripts/qp-probe.mjs，黑底测有效不透明度）0.86 的纱仍放进来
+        14% 的背景——列表标题/深色按钮依然读得出来，正好落进行文字里。0.93 把残影压到 7%、
+        读不成字，只在贴边处留一点冷暖色差，这是"玻璃"该给的量。 */
 .qp {
+  /* 高光强度：浅色纸面要 0.55 才看得出"受光"，暗底上同样的值会变成一条发光横带
+     （实测暗色头部亮度 50 vs 正文 20），所以按主题分档，别写死在渐变里 */
+  --qp-sheen: 0.55;
+  --qp-head-sheen: 0.5;
+  /* 底纱不透明度：改这一个值就能在"更实"与"更透"之间滑。实测 0.86 会把背景标题读进来，
+     0.94 只剩 6% 透光（干净但玻璃感弱）——默认取干净那侧 */
+  --qp-tint: 94%;
   position: absolute;
-  inset: 0;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(420px, calc(100vw - 24px));
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  border-left: 1px solid var(--fg);
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    /* 斜切高光：左上亮面收在 26%，读作玻璃受光 */
+    linear-gradient(158deg, rgba(255, 255, 255, var(--qp-sheen)), rgba(255, 255, 255, 0) 26%),
+    /* 下缘反光：玻璃的"厚度"（跟着主高光走 1/5） */
+    linear-gradient(0deg, rgba(255, 255, 255, calc(var(--qp-sheen) * 0.2)), rgba(255, 255, 255, 0) 12%),
+    /* 表面：比页面纸色亮一档（玻璃浮在纸面上），并留 6% 透光 */
+    color-mix(in srgb, color-mix(in srgb, var(--bg) 88%, rgb(255 255 255)) var(--qp-tint), transparent);
+  /* 不做 backdrop-filter：面板已经 94% 不透明，模糊透不出来多少（实测只削 13% 清晰度），
+     却会引入"过期背景快照"这类伪影（夜色切换时头部出现过一条发白横带）。
+     玻璃观感改由背景渐变 + 边缘光照 + 离面阴影承担，全部是确定性渲染。 */
+  /* 边缘四件套：离面阴影 + 贴面阴影 + 发丝外描边 + 内高光（玻璃厚度） */
+  box-shadow:
+    /* 离面影：卡在纸面上浮起 */
+    0 30px 70px -24px rgba(28, 20, 10, 0.5),
+    0 4px 14px -6px rgba(28, 20, 10, 0.22),
+    /* 轮廓：1px 暗描边，浅页面靠它才立得住 */
+    0 0 0 1px color-mix(in srgb, var(--fg) 13%, transparent),
+    /* 玻璃边缘光照：上缘最亮，左侧次之，下缘一抹 */
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
   font-variant-numeric: tabular-nums;
+  /* 不要 fill-mode: both —— 动画结束后元素会长期停在独立合成层，切主题时子节点颜色不重绘（实测头部残留浅色横带） */
+  animation: qp-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes qp-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.985);
+  }
+}
+/* 夜色：暗底上白高光只能给到 1/5 量级，否则头部会读成一条浅灰横带 */
+:root[data-theme="dark"] .qp {
+  --qp-sheen: 0.1;
+  --qp-head-sheen: 0.07;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qp,
+  .qp-mask {
+    animation: none;
+  }
 }
 .qp-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--fg);
+  padding: 14px 16px 12px;
+  /* 玻璃的"受光面"：头部比正文略亮，靠这层渐变读作材质，而不是靠加描边 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, var(--qp-head-sheen)), rgba(255, 255, 255, 0));
+  border-bottom: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .qp-head b {
   font-size: 14px;
@@ -816,32 +857,51 @@ button.primary:hover:not(:disabled) {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* 头部下沿的接触阴影：极淡，但让列表"沉"在头部之下，卡片有厚度 */
+  box-shadow: inset 0 10px 12px -12px rgba(0, 0, 0, 0.4);
+}
+/* 玻璃卡上的细滚动条（默认的宽轨道在半透明底上像一根灰梁） */
+.qp-list::-webkit-scrollbar {
+  width: 8px;
+}
+.qp-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.qp-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
+  border-radius: 999px;
+}
+.qp-list::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--fg) 34%, transparent);
 }
 .qp-empty {
   /* flex:1 把页脚顶到底部：空态时面板不该是一张"没内容但脚注浮在中间"的纸 */
   flex: 1;
-  margin: 40px 14px;
+  margin: 40px 16px;
   color: var(--fg-dim);
   font-size: 13px;
 }
-/* 一行：手柄 / 序号 / 封面 / 标题 / 时长 / 操作。高度与 ROW_H 一致（v2：60px，加了封面列） */
+/* 一行：手柄 / 序号 / 封面 / 标题 / 时长 / 操作。高度与 ROW_H 一致（v3：60px 封面列保留）。
+   v3：去掉通栏底线，改左右 8px 的圆角行——玻璃上满铺细线会显脏，hover 用浮起的浅胶囊 */
 .qp-row {
   display: flex;
   align-items: center;
   gap: 8px;
   height: 60px;
+  margin: 0 8px;
   padding: 0 10px 0 4px;
-  border-bottom: 1px solid var(--line-soft);
+  border-radius: 10px;
 }
-/* 封面列：44px 方块；没封面时显示序号空封套（细线框） */
+/* 封面列：44px 方角改 8px 圆角；没封面时显示序号空封套（细线框） */
 .qp-art {
   position: relative;
   width: 44px;
   height: 44px;
   flex: none;
   overflow: hidden;
-  border: 1px solid var(--line-soft);
-  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--fg) 3%, transparent);
 }
 .qp-art img {
   display: block;
@@ -859,8 +919,11 @@ button.primary:hover:not(:disabled) {
   font-family: var(--font-mono);
   font-size: 11px;
   font-style: normal;
-  background:
-    repeating-linear-gradient(45deg, transparent 0 5px, var(--line-soft) 5px 6px);
+  background: repeating-linear-gradient(
+    45deg,
+    transparent 0 5px,
+    color-mix(in srgb, var(--fg) 7%, transparent) 5px 6px
+  );
 }
 /* 正在播行的均衡器：3 根柱子交替起伏，替代原来的 ♪ */
 .qp-eq {
@@ -898,6 +961,11 @@ button.primary:hover:not(:disabled) {
 }
 .qp-row.on {
   box-shadow: inset 3px 0 0 var(--accent);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+}
+/* 悬浮行：玻璃上 hover 浮起一层浅胶囊（v3 之前只有 live 主题有 hover 底） */
+.qp-row:hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
 }
 /* 拖拽落点：在"缝"上画一条实线，不移动行（移动行会让列表跳） */
 .qp-row.gap {
@@ -909,25 +977,43 @@ button.primary:hover:not(:disabled) {
   background: var(--accent);
 }
 .qp-grip {
-  width: 18px;
-  color: var(--fg-dim);
-  font-size: 11px;
-  letter-spacing: -2px;
+  width: 10px;
+  height: 12px;
+  flex: none;
+  /* 6 点网格（2×3）：比 "⋮⋮" 文本稳，缩到 11px 也不会糊成两道竖痕 */
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--fg) 40%, transparent) 1px,
+    transparent 1.1px
+  );
+  background-size: 4px 4px;
+  background-position: 1px 1px;
+  background-repeat: repeat;
+  /* 常驻半透：拖拽是主要交互，等 hover 才出现等于藏起来；hover 再提亮 */
+  opacity: 0.55;
+  transition: opacity 140ms ease;
   cursor: grab;
   user-select: none;
   touch-action: none;
 }
+.qp-row:hover .qp-grip,
+.qp-row:focus-within .qp-grip {
+  opacity: 1;
+}
 .qp-grip.off {
+  background: none;
   cursor: default;
+  opacity: 0;
 }
 .qp-row:active .qp-grip {
   cursor: grabbing;
 }
 .qp-no {
-  width: 26px;
-  color: var(--fg-dim);
-  font-size: 11px;
+  width: 24px;
+  color: color-mix(in srgb, var(--fg) 52%, transparent);
+  font-size: 12px;
   font-style: normal;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .qp-row.on .qp-no {
@@ -964,14 +1050,24 @@ button.primary:hover:not(:disabled) {
 .qp-row time {
   /* 撑住右侧：主列是 flex:1，但按钮的 min-width 会让时长贴不到边，显式靠右 */
   margin-left: auto;
+  min-width: 38px;
   color: var(--fg-dim);
-  font-size: 11px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 /* 操作常显但压暗：只在 hover 才出现的话，鼠标用户发现不了，截图里也看不到 */
+/* 行操作：三颗等宽图标钮。
+   v6 起用 SVG 取代 ↑↓× 文本：三个码位的字体度量不一致（字面高/基线/侧承不同），
+   在同一个盒子里读起来就是"错位"。现在盒宽 24、图标 13、grid 居中，
+   横向节奏 24+24+8+24（移除钮前留 8px 分隔，避免误点）。 */
 .qp-ops {
   display: flex;
-  gap: 2px;
-  opacity: 0.35;
+  align-items: center;
+  flex: none;
+  gap: 0;
+  opacity: 0.5;
+  transition: opacity 140ms ease;
 }
 .qp-row:hover .qp-ops,
 .qp-row:focus-within .qp-ops,
@@ -979,39 +1075,73 @@ button.primary:hover:not(:disabled) {
   opacity: 1;
 }
 .qp-ops button {
-  width: 22px;
-  height: 22px;
-  border: 1px solid transparent;
+  /* 显式 grid + place-items：图标中线由盒子定，不再由字体行高定 */
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
   background: none;
   color: var(--fg-dim);
-  font-size: 12px;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
 }
+/* 移除钮与两个箭头分开一点：它是破坏性操作，不该夹在箭头链里 */
+.qp-ops .qp-rm {
+  margin-left: 8px;
+}
+.qp-ico {
+  display: block;
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* hover 用底色不用描边：描边会让钮看起来比图标大一圈，正是"错位"的来源 */
 .qp-ops button:hover:not(:disabled) {
-  border-color: var(--fg);
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
   color: var(--fg);
 }
+.qp-ops button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .qp-ops button:disabled {
-  opacity: 0.3;
+  opacity: 0.28;
   cursor: default;
 }
 .qp-foot {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--fg);
+  padding: 12px 16px;
+  /* 底部反光跟主高光同源，暗底上不会变成一条亮带 */
+  background: linear-gradient(0deg, rgba(255, 255, 255, calc(var(--qp-sheen) * 0.55)), rgba(255, 255, 255, 0));
+  border-top: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
 }
 .qp-foot .sp {
   flex: 1;
 }
 .qp-foot button {
-  padding: 4px 10px;
-  border: 1px solid var(--fg);
-  background: none;
+  padding: 5px 13px;
+  border: 1px solid color-mix(in srgb, var(--fg) 22%, transparent);
+  border-radius: 999px;
+  /* 玻璃上不要纯描边按钮：给一点白底 + 内高光，读作压在玻璃上的实体键 */
+  background: color-mix(in srgb, rgb(255 255 255) 62%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   color: var(--fg);
   font-size: 12px;
   cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+.qp-foot button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--fg) 40%, transparent);
+  background: color-mix(in srgb, rgb(255 255 255) 88%, transparent);
 }
 .qp-foot button:disabled {
   opacity: 0.35;

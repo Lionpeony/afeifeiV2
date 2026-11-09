@@ -168,6 +168,29 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
         </p>
       ) : null}
 
+      {/* 「正在放榜」跑马灯：电台公告带的位子。内容是真数据（当前榜前 10 的曲名），
+          悬停暂停，只有拿到曲目才出现——空态不闪灯。 */}
+      {selectedList && tracks.length > 0 ? (
+        <div className="chart-ticker" role="presentation">
+          <span className="tk-live">ON CHART</span>
+          <span className="tk-viewport">
+            <span className="tk-track">
+              {[0, 1].map((copy) => (
+                <span className="tk-run" key={copy} aria-hidden={copy === 1}>
+                  {tracks.slice(0, 10).map((track, i) => (
+                    <b key={`${copy}-${track.sourceId}`}>
+                      <i>{pad(i + 1)}</i>
+                      {track.title}
+                    </b>
+                  ))}
+                </span>
+              ))}
+            </span>
+          </span>
+          <span className="tk-src mono">{selectedList.name}</span>
+        </div>
+      ) : null}
+
       <div className="pl-wrap">
         {/* 左：榜单索引。65 个榜要一屏扫得动，靠三件事：mono 序号给列、18px 封套当锚点、
             行高压到 26px。行样式仍与歌单页共用 .pl-item，只在这里收紧密度。 */}

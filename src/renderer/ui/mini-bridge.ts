@@ -62,6 +62,9 @@ export function startMiniBridge(services: Services): void {
       dur: Math.round(lastDur),
       lyric: line.text,
       tr: line.translation,
+      /* 迷你窗是独立 renderer，读不到主窗的 data-theme（2026-11-10 修 BUG：
+         此前夜间主题下小窗仍是米白）。跟着主窗 document 的当前值走。 */
+      theme: document.documentElement.dataset.theme ?? "light",
     };
     if (nextCover !== sentCover) {
       payload.cover = nextCover; // 显式 null 也要发：换到没封面的歌要把上一张清掉
@@ -71,6 +74,15 @@ export function startMiniBridge(services: Services): void {
   };
 
   subscribe(push);
+
+  // 主题切换不 dispatch 到 store，是直接改 document 属性 —— 用 MutationObserver 补一只眼
+  new MutationObserver(push).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+
+  // 迷你窗就绪 → 立刻补推（暂停下开窗不再挂"未在播放"，2026-11-10）
+  api.onMiniHello(push);
 
   onTick((t) => {
     lastT = t;

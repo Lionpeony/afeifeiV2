@@ -140,6 +140,7 @@ export function PlaylistsView(props: PlaylistViewProps) {
         <TrackList
           name={item?.name ?? ""}
           meta={meta}
+          cover={item?.coverUrl}
           save={item ? { on: lib.isSaved, run: lib.toggleSave } : undefined}
           tracks={lib.tracks}
           busy={lib.busy}

@@ -13,6 +13,8 @@ interface Props {
   name: string;
   /** 抬头右侧的 mono 注：「42 首 · 网易云音乐」 */
   meta: string;
+  /** 抬头左侧的封套（歌单封面）。没有就不摆，不画占位碎图 */
+  cover?: string;
   /** 收藏动作；undefined = 这张不可收藏（无选中 / 跨源收藏项） */
   save?: { on: boolean; run(): void };
   tracks: RemoteTrack[];
@@ -29,13 +31,21 @@ interface Props {
  * 右栏曲目表：和榜单页同一套骨架（序号 + 封套 + 四列），
  * 区别只是歌单从 01 连续排，没有前三名台柱——歌单的名次不是信息，曲序才是。
  */
-export function TrackList({ name, meta, save, tracks, busy, nextPage, empty, onPlay, onMore }: Props) {
+export function TrackList({ name, meta, cover, save, tracks, busy, nextPage, empty, onPlay, onMore }: Props) {
   return (
     <div className="lib-list">
       {name ? (
         <p className="list-now">
-          <b>{name}</b>
-          <span>{meta}</span>
+          {/* 封套抬头（2026-11-10 重设计）：歌单有自己的脸，右栏先把脸摆出来 */}
+          {cover ? (
+            <span className="now-cover" aria-hidden="true">
+              <img src={cover} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+            </span>
+          ) : null}
+          <span className="now-tx">
+            <b>{name}</b>
+            <span>{meta}</span>
+          </span>
           {/* 收藏跟着「正在看的这张」走：左栏 240px 里放不下一个有尺寸的按钮 */}
           {save ? (
             <button type="button" className={`now-act${save.on ? " on" : ""}`} onClick={save.run}>

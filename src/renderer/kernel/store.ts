@@ -47,6 +47,11 @@ const initialState: AppState = {
   lyrics: { offsets: {} },
   stage: {
     preset: "paper",
+    // 2026-11-10 播放页重做：默认落在「唱片内页」，明暗跟随全局主题（toneAuto），
+    // 旧版面退到 classic 仍可切回
+    skin: "editorial",
+    tone: "dark",
+    toneAuto: true,
     intensity: 1,
     layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
     lyricRenderer: "press",
@@ -736,6 +741,21 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, stage: { ...current.stage, preset: intent.preset } };
     }
 
+    case "stage/setSkin": {
+      if (current.stage.skin === intent.skin) return current;
+      return { ...current, stage: { ...current.stage, skin: intent.skin } };
+    }
+
+    case "stage/setTone": {
+      if (current.stage.tone === intent.tone) return current;
+      return { ...current, stage: { ...current.stage, tone: intent.tone } };
+    }
+
+    case "stage/setToneAuto": {
+      if (current.stage.toneAuto === intent.on) return current;
+      return { ...current, stage: { ...current.stage, toneAuto: intent.on } };
+    }
+
     case "stage/setIntensity": {
       if (current.stage.intensity === intent.intensity) return current;
       return { ...current, stage: { ...current.stage, intensity: intent.intensity } };
@@ -785,6 +805,9 @@ function reduce(current: AppState, intent: Intent): AppState {
       const c = intent.config;
       const same =
         c.preset === current.stage.preset &&
+        c.skin === current.stage.skin &&
+        c.tone === current.stage.tone &&
+        c.toneAuto === current.stage.toneAuto &&
         c.intensity === current.stage.intensity &&
         c.lyricRenderer === current.stage.lyricRenderer &&
         c.translation === current.stage.translation &&

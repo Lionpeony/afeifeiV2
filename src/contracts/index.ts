@@ -150,6 +150,16 @@ export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
 export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 
 /**
+ * 播放页皮肤（2026-11-10）。三套是**不同版式**，不只是换 token：
+ * editorial 唱片内页 / nebula 声云 / desk 转播台。classic = 上述四预设的旧版面，
+ * 保留是为了让用户随时能切回去，不做成"新版一出旧版就没了"。
+ */
+export type StageSkin = "classic" | "editorial" | "nebula" | "desk";
+
+/** 皮肤自身的明暗（A-10：播放页与全局主题独立，切夜间不翻这一层）。 */
+export type StageTone = "dark" | "light";
+
+/**
  * C1 视觉层的呈现模式（C-13）。前三种共用同一份 analyser 数据（I3 不破）：
  * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。
  */
@@ -157,6 +167,15 @@ export type VisualMode = "bars" | "wave" | "ring";
 
 export interface StageConfig {
   preset: StagePreset;
+  /** 版式皮肤。classic = 走原 StageMainLayout（纸面剧场那套）。 */
+  skin: StageSkin;
+  /**
+   * 皮肤明暗。与全局 data-theme 无关，播放页自己说了算——
+   * 但默认（toneAuto=true）跟随全局主题：全局浅色进播放页却是深色是用户实测的 BUG。
+   */
+  tone: StageTone;
+  /** true = tone 跟随全局主题（默认，老存档缺字段也按 true 迁移）；用户在样式库明确点过明暗后锁成 false。 */
+  toneAuto: boolean;
   /** 动效档位。0 时也必须好看 —— 这是设计的试金石。 */
   intensity: 0 | 1 | 2;
   layers: Record<StageLayer, boolean>;
@@ -349,6 +368,12 @@ export type Intent =
   | { type: "lyric/restoreOffsets"; offsets: Record<string, number> }
   /** 播放页配置。preset 切换不重建 store、不重解码封面（M4 判据）。 */
   | { type: "stage/setPreset"; preset: StagePreset }
+  /** 换皮肤 = 换整套版式。只切渲染分支，不动队列/播放/歌词（M4 判据同款）。 */
+  | { type: "stage/setSkin"; skin: StageSkin }
+  /** 皮肤明暗。入口侧已 sanitize。 */
+  | { type: "stage/setTone"; tone: StageTone }
+  /** true = 明暗回到「跟随全局主题」；样式库里点明暗会先把它锁成 false。 */
+  | { type: "stage/setToneAuto"; on: boolean }
   | { type: "stage/setIntensity"; intensity: 0 | 1 | 2 }
   /** cover / controls 不可关，发了也忽略。 */
   | { type: "stage/toggleLayer"; layer: StageLayer }

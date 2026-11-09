@@ -99,9 +99,15 @@ test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、
 
 test("四档全局配色块都不许改场景层（B-9 新增 sepia/forest 后的守门）", () => {
   const css = readSrc("../src/renderer/ui/tokens.css");
-  const blocks = css.match(/:root\[data-theme="[^"]+"\]\s*\{[\s\S]*?\}/g) ?? [];
+  /* 选择器允许是列表：dark 那一块与「深色皮肤下外壳跟走」共用同一个规则头
+     （:root[data-theme="dark"], .shell.live:has(...)），只认 /:root\[…\]\s*\{/ 会漏掉它 */
+  const blocks = css.match(/(?:^|\n)[^{\n]*:root\[data-theme="[^"]+"\][^{]*\{[\s\S]*?\n\}/g) ?? [];
   assert.equal(blocks.length, 3, "应有 dark / sepia / forest 三个主题块");
-  for (const block of blocks) {
+  /* 皮肤接管舞台明暗后，外壳那两份「跟随块」也是全局配色，同样不许碰场景层，
+     否则浅色皮肤会把 --stage-* 一起拉去纸色，A-10 破在同一处 */
+  const shellBlocks = css.match(/:has\([^{]*\{[\s\S]*?\n\}/g) ?? [];
+  assert.ok(shellBlocks.length >= 1, "皮肤跟随明暗的块不见了（外壳会不跟皮肤走）");
+  for (const block of [...blocks, ...shellBlocks]) {
     assert.ok(!/--stage-[a-z-]+:/.test(block), `主题块改了场景层：${block.slice(0, 40)}`);
   }
   // 全局配色包的白名单也不能漏进场景层

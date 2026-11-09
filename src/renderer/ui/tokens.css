@@ -130,7 +130,44 @@ html {
    暗纸上砂色不是纸色的反相——墨底要留一点暖，正文对底 ≥4.5:1 才不改排版观感。
    **只覆盖 ①结构层 + ③材质层**：②场景层（--stage-*）刻意不在这里出现，
    否则播放页会跟着外壳一起翻黑，A-10「与主题独立」就破了（由 test/stage-theme 钉住）。 */
-:root[data-theme="dark"] {
+/* 播放页新皮肤（2026-11-10）：舞台接管了明暗，外壳（站尺 / 控制台）跟着走。
+   浅色皮肤在暗色主题下也要把外壳拉回纸色，否则会是一圈深框套一张白纸。
+   skin-classic 不算：它的明暗由 preset 决定，tone 对它没有意义。 */
+.shell.live:has(.stage[data-tone="light"]:not(.skin-classic)) {
+  --bg: #f3f1ea;
+  --fg: #17150f;
+  --fg-dim: #5f5a4e;
+  --line: rgba(23, 21, 15, 0.28);
+  --line-soft: rgba(23, 21, 15, 0.12);
+  --row-hover: rgba(23, 21, 15, 0.06);
+  --accent: #d8341c;
+  --accent-ink: #f3f1ea;
+  --brass: #8a6a2f;
+  --danger: #a8321f;
+  --bg-raised: #ece9df;
+  --grain-opacity: 0.05;
+  --grain-blend: multiply;
+
+  --live-bg: #eeece5;
+  --live-panel: #f6f5f0;
+  --live-panel-2: #e7e5dc;
+  --live-fg: #14171a;
+  --live-fg-dim: #4f5660;
+  --live-fg-faint: #575e67;
+  --live-line: rgba(20, 23, 26, 0.14);
+  --live-line-strong: rgba(20, 23, 26, 0.34);
+  --live-onair: #b83229;
+  --live-amber: #8a5a14;
+  --live-phosphor: #2a7059;
+  --live-signal: #2f6e80;
+  --live-slot: #d9d6cb;
+  --live-accent-ink: #fbfaf6;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"],
+.shell.live:has(.stage[data-tone="dark"]:not(.skin-classic)) {
   --bg: #171613;
   --fg: #ece8dd;
   --fg-dim: #9c9484;

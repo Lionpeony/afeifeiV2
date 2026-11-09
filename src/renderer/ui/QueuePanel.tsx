@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import LiquidGlass from "liquid-glass-react";
 import type { QueueState } from "../../contracts/index.js";
 import type { Track } from "../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../domain/library/state.js";
@@ -33,6 +32,23 @@ export interface QueuePanelProps {
 }
 
 const pad2 = (n: number): string => String(Math.max(0, n)).padStart(2, "0");
+
+/**
+ * 行操作图标（上移 / 下移 / 移除）。16 格栅格里画，显示 13px。
+ * 为什么不用 ↑↓×：三个码位的字体度量不一致（↑ 字面窄、× 字面高且居中方式不同），
+ * 同一尺寸的盒子里看起来就"错位"。SVG 的几何由我们定，三颗等宽等高。
+ */
+function OpsIcon({ name }: { name: "up" | "down" | "close" }) {
+  return (
+    <svg className="qp-ico" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      {name === "close" ? (
+        <path d="M4.4 4.4 11.6 11.6M11.6 4.4 4.4 11.6" />
+      ) : (
+        <path d={name === "up" ? "M8 12.4V3.6M3.8 7.8 8 3.6l4.2 4.2" : "M8 3.6v8.8M3.8 8.2 8 12.4l4.2-4.2"} />
+      )}
+    </svg>
+  );
+}
 /** 头部总时长：小时以上换 h:mm:ss，其余 m:ss */
 function fmtTotal(ms: number): string {
   if (ms <= 0) return "--:--";
@@ -192,20 +208,14 @@ export function QueuePanel(props: QueuePanelProps) {
 
   return (
     <div className="qp-mask" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      {/* 玻璃容器（liquid-glass-react）：位移玻璃 + 饱和背板，纸墨内容叠在上面。
-          库默认的居中 transform / 内边距 / 字体在 player.css 的 .qp-glass 里压回。 */}
-      <LiquidGlass
-        className="qp-glass"
-        cornerRadius={0}
-        displacementScale={64}
-        blurAmount={0.25}
-        saturation={130}
-        aberrationIntensity={1.2}
-        elasticity={0}
-        padding="0"
-        mode="standard"
-      >
-        <aside className="qp" role="dialog" aria-label="播放队列">
+      {/* 液态玻璃面板 v5：材质 = 磨砂 + 高光边缘，不再用 liquid-glass-react 的位移玻璃。
+          v4 的教训（实机截图）：位移滤镜是拿 backdrop 做折射，整面板这个尺寸下会把背后
+          「接下来播放」的封面和文字整块搬进面板，行标题压成重影 —— 位移玻璃只适合小控件。
+          材质三层全部画在 .qp 的 background 上（158° 斜切高光 / 底部反光 / 58% 底砂），
+          磨砂交给 .qp 自己的 backdrop-filter。⚠ 别给这张卡套带 filter 的祖先：
+          那会建立 backdrop root，让 backdrop-filter 失效（这正是 v3.2/3.3 探针
+          "blur 无效"的真实原因，不是软件合成不支持）。 */}
+      <aside className="qp" role="dialog" aria-label="播放队列">
           <header className="qp-head">
             <b>播放队列</b>
             <span>
@@ -248,7 +258,8 @@ export function QueuePanel(props: QueuePanelProps) {
                           setGap(pos);
                         }}
                       >
-                        ⋮⋮
+                        {/* 手柄图形走 CSS 点阵（.qp-grip）：11px 下 "⋮⋮" 会糊成两道竖痕，
+                            像渲染坏了。这里只留一个可交互的空盒。 */}
                       </span>
                     ) : (
                       <span className="qp-grip off" />
@@ -283,32 +294,39 @@ export function QueuePanel(props: QueuePanelProps) {
                     </button>
                     <time>{fmt(meta?.durationMs ?? t?.durationMs)}</time>
                     <span className="qp-ops">
+                      {/* 图标而不是 ↑↓× 文本：U+2191/2193/00D7 的字体度量各不相同
+                          （字面高、基线、左右侧承都不同），同一个 24px 盒里会读出"错位"。
+                          SVG 走 16 格栅格 + 13px 盒，三颗图标尺寸/中线完全一致。 */}
                       {canReorder ? (
                         <>
                           <button
                             type="button"
                             aria-label="上移一位"
+                            title="上移一位"
                             disabled={at === 0}
                             onClick={() => dispatch({ type: "queue/move", from: at, to: at - 1 })}
                           >
-                            ↑
+                            <OpsIcon name="up" />
                           </button>
                           <button
                             type="button"
                             aria-label="下移一位"
+                            title="下移一位"
                             disabled={at === total - 1}
                             onClick={() => dispatch({ type: "queue/move", from: at, to: at + 1 })}
                           >
-                            ↓
+                            <OpsIcon name="down" />
                           </button>
                         </>
                       ) : null}
                       <button
                         type="button"
+                        className="qp-rm"
                         aria-label="从队列移除"
+                        title="从队列移除"
                         onClick={() => dispatch({ type: "queue/remove", index: at })}
                       >
-                        ×
+                        <OpsIcon name="close" />
                       </button>
                     </span>
                   </div>
@@ -350,7 +368,6 @@ export function QueuePanel(props: QueuePanelProps) {
             )}
           </footer>
         </aside>
-      </LiquidGlass>
     </div>
   );
 }

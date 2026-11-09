@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
@@ -137,10 +137,17 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
         <div className="srcs">
           <span className="h">艺人分布</span>
           <div className="row">
+            {/* 墨条按真实占比画（最长的那位 = 满条），不编数据 */}
             {topArtists.map(([artist, n]) => (
-              <span className="src" key={artist}>
-                {artist}
-                <b>·{n}</b>
+              <span
+                className="src"
+                key={artist}
+                style={{ "--w": `${Math.round((n / (topArtists[0]?.[1] || 1)) * 100)}%` } as CSSProperties}
+              >
+                <span className="src-tx">
+                  {artist}
+                  <b>·{n}</b>
+                </span>
               </span>
             ))}
             {gone > 0 ? <span className="src alt">不在曲库 {gone}</span> : null}

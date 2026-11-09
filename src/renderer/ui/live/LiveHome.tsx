@@ -330,6 +330,8 @@ export function LiveHome({
                     className="cs-tape"
                     onClick={() => play(track)}
                     aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
+                    /* 卡面只给两行：完整歌名在这条 title 里，hover 就能读到，不用折三行 */
+                    title={`${track.title} — ${track.artist}`}
                   >
                     {/* 专辑封面：方形整幅在卡顶（现代专辑卡），img 直接做 flex item。
                         无封面或加载失败换黑胶垫底，按 coverUrl 记失败。 */}
@@ -349,7 +351,7 @@ export function LiveHome({
                       <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
                     )}
                     <span className="cs-tape-no">{noOf(i + 1)}</span>
-                    <span className="cs-tape-title daily-title">{track.title}</span>
+                    <span className="cs-tape-title">{track.title}</span>
                     <span className="cs-tape-artist">{track.artist}</span>
                     <span className="cs-tape-foot">
                       <span className="cs-tape-dur">{fmtDuration(track.durationMs)}</span>

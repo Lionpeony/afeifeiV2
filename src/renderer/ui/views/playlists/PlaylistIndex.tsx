@@ -18,12 +18,12 @@ interface Props {
   onOpen(sourceId: string, id: string): void;
 }
 
-/** 22px 封套：一列文字里它是唯一能扫读的锚点；没有封面就摆一块暗面，不画碎图。 */
+/** 34px 封套：一列文字里它是唯一能扫读的锚点；没有封面就摆一块暗面，不画碎图。 */
 function Thumb({ url }: { url?: string }) {
   return (
     <span className="pl-thumb" aria-hidden="true">
       {url ? (
-        <img src={url} alt="" width={22} height={22} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+        <img src={url} alt="" width={34} height={34} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
       ) : (
         <i />
       )}

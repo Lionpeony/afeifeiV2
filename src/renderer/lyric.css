@@ -1,21 +1,38 @@
-/* 桌面歌词窗（M9-1 / P0-21）：透明窗上的两行字 + 底部细线。
-   文字必须不依赖主题也能读：固定白字 + 深色描影（rgb/rgba，不碰裸 hex，lint 规则 5）。 */
+/* 桌面歌词窗（2026-11-10 重设计）：「墨胶胶囊」。
+   透明窗上原来只有两行白字，壁纸一浅就糊。现在歌词坐进一枚
+   暗玻璃胶囊（backdrop-filter 磨砂 + 发丝描边），任何壁纸上都读得清，
+   磨砂后面的桌面颜色还会透出来 —— 是"浮在桌面上"，不是"贴一块黑板"。
+   文字固定白系 + 暖辉光（rgb/rgba，不碰裸 hex，lint 规则 5）；窗口本体透明。 */
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
 #root { height: 100%; }
 
+/* 根容器**不拖**：透明得看不见的区域不能挡桌面（2026-11-10 修 BUG）。
+   拖动区收窄到胶囊本体。 */
 .lyric {
-  position: relative;
   height: 100%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 24px 10px;
-  -webkit-app-region: drag; /* 交互态整窗可拖位置；穿透态下区域无意义 */
+  padding: 6px;
 }
 
-/* 两行一组：主句在上、译文在下，整体垂直居中；没有词时整块为空，窗口几乎看不见 */
+.lyric-capsule {
+  position: relative;
+  max-width: 100%;
+  min-width: 120px;
+  padding: 10px 28px 12px;
+  border-radius: 18px;
+  background: rgb(8 8 12 / 0.4);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  box-shadow:
+    0 12px 40px rgb(0 0 0 / 0.36),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  -webkit-app-region: drag; /* 只有看得见的胶囊可以拖窗口 */
+}
+
+/* 两行一组：主句在上、译文在下；没有词时胶囊缩成一小条台标 */
 .lyric-body {
   min-width: 0;
   max-width: 100%;
@@ -28,67 +45,91 @@ html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
 .lyric-line {
   margin: 0;
   max-width: 100%;
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1.18;
   font-variant-numeric: tabular-nums;
-  text-shadow:
-    0 0 4px rgba(0, 0, 0, 0.9),
-    0 2px 8px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* 逐字：唱过的亮、没唱的压暗。切成两个 span 而不是逐字标签 —— 桌面条只要"进度感"，
-   每个字一个盒模型在 720px 宽的窗口里只会让排版更容易抖。 */
-.lyric-line .on { color: rgba(255, 255, 255, 0.97); }
-.lyric-line .off { color: rgba(255, 255, 255, 0.42); }
+/* 逐字：唱过的亮 + 暖辉光，没唱的压暗。切成两个 span 而不是逐字标签 ——
+   桌面条只要"进度感"，每个字一个盒模型在 720px 宽的窗口里只会让排版更容易抖。 */
+.lyric-line .on {
+  color: rgb(255 255 255 / 0.98);
+  text-shadow:
+    0 0 18px rgb(255 138 92 / 0.55),
+    0 2px 10px rgb(0 0 0 / 0.6);
+}
+.lyric-line .off { color: rgb(255 255 255 / 0.4); text-shadow: 0 2px 8px rgb(0 0 0 / 0.55); }
+
+/* 空态：一行小小的台标，让"这里有个歌词窗"在屏幕上可发现、可拖走 */
+.lyric-idle {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: rgb(255 255 255 / 0.55);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.6);
+}
 
 .lyric-tr {
   margin: 0;
   max-width: 100%;
-  font-size: 15px;
-  line-height: 1.2;
-  color: rgba(255, 255, 255, 0.66);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+  font-size: 14px;
+  line-height: 1.25;
+  color: rgb(255 255 255 / 0.72);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.7);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* 整曲进度：贴在窗口底部的一条细线，穿透态也看得见，不占版面 */
+/* 整曲进度：胶囊底部一条带辉光头的细线，穿透态也看得见 */
 .lyric-bar {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 4px;
+  left: 20px;
+  right: 20px;
+  bottom: 5px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.16);
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.16);
 }
 .lyric-bar i {
   display: block;
   height: 100%;
-  background: rgba(255, 255, 255, 0.72);
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgb(255 158 112 / 0.65), rgb(255 236 220 / 0.95));
+  box-shadow: 0 0 8px rgb(255 158 112 / 0.5);
   transition: width 0.2s linear;
 }
 
-/* 工具条：交互态悬停浮现（右上角），穿透态整个窗口收不到鼠标，自然不可见 */
+/* 工具条：交互态悬停浮现（胶囊右上角内侧），穿透态整个窗口收不到鼠标，自然不可见 */
 .lyric-tools {
   position: absolute;
-  top: 4px;
+  top: 2px;
   right: 8px;
   display: flex;
   gap: 4px;
   -webkit-app-region: no-drag;
   opacity: 0;
-  transition: opacity 0.15s;
+  transform: translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
-.lyric:hover .lyric-tools { opacity: 1; }
+.lyric-capsule:hover .lyric-tools {
+  opacity: 1;
+  transform: none;
+}
 .lyric-tools button {
-  background: rgba(0, 0, 0, 0.55);
-  border: none;
-  border-radius: 0;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 12px;
-  padding: 3px 8px;
+  background: rgb(10 10 14 / 0.72);
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 8px;
+  color: rgb(255 255 255 / 0.85);
+  font-size: 11px;
+  padding: 2px 9px;
   cursor: pointer;
+  backdrop-filter: blur(8px);
 }
-.lyric-tools button:hover { background: rgba(0, 0, 0, 0.8); }
+.lyric-tools button:hover {
+  color: rgb(255 255 255 / 1);
+  border-color: rgb(255 178 138 / 0.6);
+}

@@ -1,6 +1,7 @@
 import type { AppState, StageLayer } from "../../../../contracts/index.js";
 import type { StageViewProps } from "./types.js";
 import { LAYER_KEYS, LIVE_PRESETS, PRESETS, VISUAL_MODES, VISUAL_MODE_NAMES } from "./presets.js";
+import { SKINS } from "./skins/registry.js";
 import { dispatch } from "../../../kernel/index.js";
 
 export function StageSettings({
@@ -9,11 +10,21 @@ export function StageSettings({
   exportTheme,
   importTheme,
   findLyric,
-}: Pick<StageViewProps, "exportTheme" | "importTheme" | "findLyric"> & { state: AppState; live: boolean }) {
+  onOpenShelf,
+}: Pick<StageViewProps, "exportTheme" | "importTheme" | "findLyric"> & {
+  state: AppState;
+  live: boolean;
+  /** 打开样式库。classic 皮肤没有导播条，这是唯一的换肤入口——不给就切不回去了 */
+  onOpenShelf: () => void;
+}) {
   const { player, stage } = state;
   const offset = state.lyrics.offsets[player.trackId ?? ""] ?? 0;
   const relayer = (layer: StageLayer): void => dispatch({ type: "stage/toggleLayer", layer });
   return <div className="st-menu" role="dialog" aria-label="播放页视图设置">
+    <div className="st-menu-row"><span className="lbl">版式</span>
+      <button type="button" className="on" onClick={onOpenShelf}>换样式…</button>
+      <span className="st-menu-cur">{[SKINS.find((skin) => skin.id === stage.skin)?.name, stage.tone === "light" ? "浅色" : "深色"].filter(Boolean).join(" · ")}</span>
+    </div>
     <div className="st-menu-row"><span className="lbl">{live ? "灯位" : "预设"}</span><div className="st-presets">
       {PRESETS.map((preset) => <button key={preset.id} type="button" className={preset.id === stage.preset ? "on" : ""} onClick={() => {
         dispatch({ type: "stage/setPreset", preset: preset.id });
@@ -38,5 +49,8 @@ export function StageSettings({
     <div className="st-menu-row"><span className="lbl">封面</span><label><input type="checkbox" checked={stage.coverCarousel} onChange={() => dispatch({ type: "stage/setCarousel", on: !stage.coverCarousel })} />3D 轮播</label></div>
     <div className="st-menu-row"><span className="lbl">动效</span><select value={stage.intensity} onChange={(event) => dispatch({ type: "stage/setIntensity", intensity: Number(event.target.value) as 0 | 1 | 2 })}><option value={0}>关</option><option value={1}>标准</option><option value={2}>全部</option></select></div>
     <div className="st-menu-row"><span className="lbl">主题包</span><button type="button" onClick={() => void importTheme().catch(() => undefined)}>导入</button><button type="button" onClick={() => void exportTheme()}>导出</button>{stage.customTokens ? <button type="button" className="on" onClick={() => dispatch({ type: "stage/setTheme", tokens: null })}>清除导入</button> : null}</div>
+    {stage.skin === "classic" ? null : <p className="st-menu-note">
+      上面几项里，灯位预设 / 歌词样式 / 视觉 / 3D 轮播 / 动效 只作用于「剧场纸面」版式——新版式的排布是写死的；图层里只有「歌词」开关对当前版式有效。
+    </p>}
   </div>;
 }

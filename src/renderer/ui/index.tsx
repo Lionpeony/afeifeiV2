@@ -211,7 +211,20 @@ function App() {
   const toggleTheme = (): void => {
     const svc = services.current;
     if (!svc) return;
-    setThemeState(svc.setTheme(currentTheme() === "light" ? "dark" : "light"));
+    // 舞台明暗默认（toneAuto）跟随全局主题；用户在样式库点过明暗（锁手动）才独立。
+    // 舞台不吃 data-theme，外壳配色又跟着舞台走（:has）——不同步舞台的话，
+    // 播放页上点月亮「看起来没反应」（用户实测 BUG，两条路都要翻）。
+    const stageAuto = getState().stage.toneAuto;
+    if (page === "stage" && !stageAuto) {
+      // 手动档 + 在舞台上：让舞台领先（先翻 stage.tone），全局同步成同一个值
+      const nextTone = getState().stage.tone === "dark" ? "light" : "dark";
+      dispatch({ type: "stage/setTone", tone: nextTone });
+      setThemeState(svc.setTheme(nextTone));
+      return;
+    }
+    const next = currentTheme() === "light" ? "dark" : "light";
+    setThemeState(svc.setTheme(next));
+    if (stageAuto) dispatch({ type: "stage/setTone", tone: next === "dark" ? "dark" : "light" });
   };
 
   useEffect(() => {
@@ -832,6 +845,10 @@ function App() {
             onTheme={(next) => {
               const svc = services.current;
               if (svc) setThemeState(svc.setTheme(next));
+              // 舞台明暗默认跟随全局主题（toneAuto）；手动档不跟随（用户自己选的）
+              if (getState().stage.toneAuto) {
+                dispatch({ type: "stage/setTone", tone: next === "dark" ? "dark" : "light" });
+              }
             }}
             trackCount={getTracks().length}
             scanning={scanning}

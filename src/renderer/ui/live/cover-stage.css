@@ -306,11 +306,16 @@
   min-height: 0;
   /* grid 而非 flex 均分：minmax(0,1fr) 轨道等宽是布局层的硬保证——
      flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训）。
-     align-items start：卡高各自独立，行内互不拉伸（卡高恒定由 img 方形 + title 恒定保证） */
+     align-items stretch + .cs-tape height:100%：同一行的卡永远等高，
+     任何一张卡的内容（三行标题、无封面垫底）都不许把自己的高度撑出邻居一截。 */
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
+  /* stretch 只管"同一行内卡等高"，不能让整行被容器剩余高度拉长：
+     这一栏在首页是 flex:1（占满右下），没有这条时单行轨道会 stretch 到剩余高度，
+     卡被竖着抻成一大块空白。start = 行高按内容，卡在行内等高。 */
+  align-content: start;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -327,6 +332,8 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  /* 行内等高：配合 .cs-tapes 的 stretch，卡随行高走（内容再多也只在卡内截断） */
+  height: 100%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -358,28 +365,34 @@
 
 
 
-.shell.live .cs-tape-title {
+/* 标题：两行硬上限 + 固定两行高度。
+   设计取舍（长歌名的处理原则）：
+   - 卡宽由栅格定，标题只占「两行」这个额度，超出就截断——列表卡的节奏不能被文案长度改写；
+   - 高度写死 2.7em（= 2 × line-height 1.35），一行标题也占两行位，
+     否则一行/两行标题的卡会差出一个行高（这正是"卡片被撑大"的来源之一）；
+   - 完整歌名靠 title 属性在 hover 时给出（见 LiveHome.tsx），不在卡面上折行三次。
+   选择器不再挂在 .shell.live 下：卡只在 live 壳层出现，挂上去只会跟 .daily-title
+   （nowrap + 单行省略）拼优先级，谁赢看文件顺序——这种偶然性不该留在布局里。 */
+.cs-tape-title {
   min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  /* 高度恒定两行：一行标题时下方留白——卡高不随歌名长度跳（同封面恒定的逻辑）。
-     之前用 min-height 2.4em，两行标题比下限高 0.3em，卡高就差出一截 */
   height: 2.7em;
   margin-top: 3px;
   padding: 0 12px;
   white-space: normal;
-  /* break-all 而非 overflow-wrap:anywhere：anywhere 在 -webkit-box 里会破坏
-     line-clamp 计数（Chromium 已知坑，标题折出三行把卡撑高）——break-all 兼容 */
-  word-break: break-all;
+  /* anywhere 而非 break-all：break-all 会把英文单词从中间劈开（"Blac/k heart"），
+     anywhere 只在需要时断长串，且不会像以前那样把 line-clamp 的数量数错 */
+  word-break: normal;
+  overflow-wrap: anywhere;
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: 0.01em;
   color: var(--live-fg);
-  overflow-wrap: break-word;
 }
 
 .cs-tape-artist {
@@ -423,9 +436,21 @@ img.cs-tape-art {
   object-fit: cover;
 }
 
-/* 垫底黑胶：closest-side 定半径，色标全用百分比，四主题 token 上色（居中一方块黑胶） */
+/* 垫底黑胶：不能给 flex item 加百分比外边距 —— 14% 的上下边距会把卡顶高 45px，
+   于是「没有封面的歌」卡比邻居高一整块（用户截图里第 11 张卡就是这么变高的）。
+   盒子保持 1:1 方形，黑胶用伪元素内缩 14% 画在盒子里。 */
 .cs-tape-vinyl {
-  margin: 14%;
+  position: relative;
+}
+
+.cs-tape-vinyl::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  /* 圆形唱片：方形盒子里画一张圆盘，比整块黑方块更像"没有封面的唱片"，
+     也不至于让占位图和真封面在视觉重量上差太远 */
+  border-radius: 50%;
+  /* closest-side 定半径，色标全用百分比，四主题 token 上色（居中一方块黑胶） */
   background:
     radial-gradient(circle closest-side, var(--live-slot) 0 6%, transparent 7%),
     radial-gradient(circle closest-side, var(--live-amber) 0 26%, transparent 27%),
@@ -439,8 +464,9 @@ img.cs-tape-art {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  margin-top: 7px;
-  padding: 0 12px 11px;
+  /* 贴底：标题 1 行 / 2 行时，时长与播放键都落在卡底同一基线上 */
+  margin-top: auto;
+  padding: 7px 12px 11px;
 }
 
 .cs-tape-dur {

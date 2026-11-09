@@ -73,6 +73,8 @@ export interface Api {
   openMini(): Promise<void>;
   pushMiniState(json: string): void;
   onMiniAction(cb: (action: string) => void): void;
+  /** 迷你窗挂载完成的信号：桥要立刻补推一次当前状态 */
+  onMiniHello(cb: () => void): void;
   /** 开桌面歌词窗；已开着且在穿透态则解锁（M9-1）。 */
   openLyric(): Promise<void>;
   unlockLyric(): Promise<void>;

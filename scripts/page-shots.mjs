@@ -51,7 +51,7 @@ const PAGES = [
   ["喜欢的音乐", "liked"],
   ["最近播放", "recent"],
   ["听歌报告", "stats"],
-  ["下载", "downloads"],
+  // 「下载」tick 同样已移除（2026-11-10 实测 click:false）——保留会让整条链 throw 后挂死
   ["设置", "settings"],
 ];
 
@@ -106,9 +106,9 @@ function registerMinimalIpc() {
     if (method === "user_playlist") {
       return {
         playlist: [
-          { id: 501, name: "华语黄金年代", trackCount: 42 },
-          { id: 502, name: "粤语经典", trackCount: 18 },
-          { id: 503, name: "夜间循环", trackCount: 27 },
+          { id: 501, name: "华语黄金年代", trackCount: 42, coverImgUrl: "" },
+          { id: 502, name: "粤语经典", trackCount: 18, coverImgUrl: "" },
+          { id: 503, name: "夜间循环", trackCount: 27, coverImgUrl: "" },
         ],
       };
     }
@@ -119,10 +119,34 @@ function registerMinimalIpc() {
       { id: 1, name: "晴天", ar: [{ name: "周杰伦" }], al: { name: "叶惠美" }, dt: 269000 },
       { id: 2, name: "富士山下", ar: [{ name: "陈奕迅" }], al: { name: "What's Going On…?" }, dt: 258000 },
       { id: 3, name: "江南", ar: [{ name: "林俊杰" }], al: { name: "第二天堂" }, dt: 268000 },
+      { id: 4, name: "夜的第七章", ar: [{ name: "周杰伦" }], al: { name: "依然范特西" }, dt: 297000 },
+      { id: 5, name: "青花瓷", ar: [{ name: "周杰伦" }], al: { name: "我很忙" }, dt: 239000 },
+      { id: 6, name: "浮夸", ar: [{ name: "陈奕迅" }], al: { name: "U87" }, dt: 285000 },
+      { id: 7, name: "她说", ar: [{ name: "林俊杰" }], al: { name: "她说" }, dt: 322000 },
+      { id: 8, name: "东风破", ar: [{ name: "周杰伦" }], al: { name: "叶惠美" }, dt: 315000 },
+      { id: 9, name: "十年", ar: [{ name: "陈奕迅" }], al: { name: "黑白灰" }, dt: 205000 },
+      { id: 10, name: "修炼爱情", ar: [{ name: "林俊杰" }], al: { name: "因你而在" }, dt: 254000 },
+      { id: 11, name: "七里香", ar: [{ name: "周杰伦" }], al: { name: "七里香" }, dt: 279000 },
+      { id: 12, name: "红玫瑰", ar: [{ name: "陈奕迅" }], al: { name: "认了吧" }, dt: 262000 },
     ];
     if (method === "playlist_track_all") return { total: SONGS.length, songs: SONGS };
+    // 榜单目录（2026-11-10 重设计验收）：8 个榜，右栏下钻走 playlist_track_all
+    if (method === "toplist") {
+      return {
+        list: [
+          { id: 19723756, name: "飙升榜", trackCount: 100 },
+          { id: 3779629, name: "新歌榜", trackCount: 100 },
+          { id: 3778678, name: "热歌榜", trackCount: 200 },
+          { id: 10520166, name: "电音榜", trackCount: 50 },
+          { id: 745956260, name: "说唱榜", trackCount: 50 },
+          { id: 71384707, name: "ACG 新歌榜", trackCount: 80 },
+          { id: 2713520465, name: "日本公信榜", trackCount: 60 },
+          { id: 60198, name: "欧美热歌榜", trackCount: 100 },
+        ],
+      };
+    }
     // 在线搜索（B-10 批量下载）：3 条结果刚好验「全选 → 下载选中（3）」
-    if (method === "cloudsearch") return { result: { songs: SONGS, songCount: SONGS.length } };
+    if (method === "cloudsearch") return { result: { songs: SONGS.slice(0, 3), songCount: 3 } };
     return { code: 200 };
   });
 }
@@ -131,6 +155,11 @@ app.whenReady().then(async () => {
   fs.mkdirSync(PROFILE, { recursive: true });
   fs.writeFileSync(path.join(PROFILE, "library.json"), JSON.stringify({ v: 1, tracks: TRACKS, savedAt: Date.now() }));
   seedListeningLog();
+  // 喜欢页（2026-11-10 重设计验收）：给前 5 首点红心，登记簿/印鉴/墨条才有形状
+  fs.writeFileSync(
+    path.join(PROFILE, "store-likes.json"),
+    JSON.stringify(TRACKS.slice(0, 5).map((t) => t.id)),
+  );
   registerMinimalIpc();
 
   const [shotW, shotH] = (process.env.SHOTS_SIZE ?? "1334x747").split("x").map(Number);
@@ -291,7 +320,8 @@ app.whenReady().then(async () => {
     `(() => ({
       cards: document.querySelectorAll(".stats-card").length,
       bars: document.querySelectorAll(".stats-bar-col").length,
-      hours: document.querySelectorAll(".stats-hour").length,
+      // 旧版是 .stats-hour 一列列，2026-11 改热力格 .stats-heat-cell（24 格）
+      hours: document.querySelectorAll(".stats-heat-cell").length,
       ranks: document.querySelectorAll(".stats-rank").length,
     }))()`,
     true,
@@ -344,6 +374,28 @@ app.whenReady().then(async () => {
   );
   if (dislikeRows < 1) throw new Error("设置页没列出不喜欢名单");
 
+  // 榜单页（2026-11-10 重设计验收）：在线页默认就是榜单分支。
+  // 齐装满员的样子 = 左栏 8 个榜 + 右栏自动下钻出 3 张台柱 + 跑马灯在滚。
+  // 注意别插在 PAGES 循环后面：设置页的专项步骤依赖循环最后停在「设置」。
+  await win.webContents.executeJavaScript(
+    `document.querySelector('.ruler-tick[data-page="online"]')?.click()`,
+    true,
+  );
+  await sleep(900);
+  const chartProbe = await win.webContents.executeJavaScript(
+    `(() => ({
+      dirs: document.querySelectorAll(".pl-item.chart-item").length,
+      hero: document.querySelectorAll(".chart-hero-cell").length,
+      rows: document.querySelectorAll(".online-row").length,
+      ticker: Boolean(document.querySelector(".chart-ticker")),
+    }))()`,
+    true,
+  );
+  if (chartProbe.dirs < 5 || chartProbe.hero !== 3 || chartProbe.rows < 5 || !chartProbe.ticker) {
+    throw new Error(`榜单页没长齐：${JSON.stringify(chartProbe)}`);
+  }
+  await shoot(`page-charts${suffix}.png`);
+
   // 歌单页（M11）：账号歌单 → 一键收藏 → 粘链接导入 → 点开取曲目
   await win.webContents.executeJavaScript(
     `document.querySelector('.ruler-tick[data-page="playlists"]')?.click()`,
@@ -357,7 +409,7 @@ app.whenReady().then(async () => {
   );
   await sleep(500);
   const accountRows = await win.webContents.executeJavaScript(
-    `document.querySelectorAll(".pl-line").length`,
+    `document.querySelectorAll(".pl-line-item").length`,
     true,
   );
   if (accountRows < 3) {
@@ -377,19 +429,28 @@ app.whenReady().then(async () => {
 
   const imported = await win.webContents.executeJavaScript(
     `(() => {
-      const input = document.querySelector(".pl-ref");
+      // 2026-11 版导入收在展开条里：先点页头「导入」展开，再填输入条
+      document.querySelector(".pl-import-open")?.click();
+      return true;
+    })()`,
+    true,
+  );
+  await sleep(400);
+  const imported2 = await win.webContents.executeJavaScript(
+    `(() => {
+      const input = document.querySelector(".pl-import .search");
       if (!input) return { ok: false, why: "找不到导入输入框" };
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(input, "https://music.163.com/playlist?id=24381616");
       input.dispatchEvent(new Event("input", { bubbles: true }));
-      const btn = [...document.querySelectorAll(".lib-head button")].find((b) => b.textContent === "导入");
-      if (!btn) return { ok: false, why: "找不到导入按钮" };
+      const btn = document.querySelector(".pl-import .primary");
+      if (!btn) return { ok: false, why: "找不到导入提交按钮" };
       btn.click();
       return { ok: true };
     })()`,
     true,
   );
-  if (!imported.ok) throw new Error(`导入失败：${imported.why}`);
+  if (!imported2.ok) throw new Error(`导入失败：${imported2.why}`);
   await sleep(400);
   const savedText = await win.webContents.executeJavaScript(
     `[...document.querySelectorAll(".pl-sect")].map((n) => n.textContent).join("|")`,
@@ -401,14 +462,17 @@ app.whenReady().then(async () => {
     throw new Error("收藏的歌单没写进 KV");
   }
 
-  // 点收藏的那条取曲目：能拿到 3 首即视为链路通（在线播放地址在截图里取不到，不在这里验）
-  await win.webContents.executeJavaScript(`document.querySelector(".pl-line .pl-item")?.click()`, true);
+  // 点收藏的那条取曲目：能拿到 12 首即视为链路通（在线播放地址在截图里取不到，不在这里验）
+  await win.webContents.executeJavaScript(
+    `document.querySelector(".pl-item.pl-line-item")?.click()`,
+    true,
+  );
   await sleep(500);
   const trackRows = await win.webContents.executeJavaScript(
     `document.querySelectorAll(".online-row").length`,
     true,
   );
-  if (trackRows !== 3) throw new Error(`歌单曲目没取到：${trackRows} 行`);
+  if (trackRows !== 12) throw new Error(`歌单曲目没取到：${trackRows} 行`);
   await shoot(`page-playlists-imported${suffix}.png`);
 
   // 下载增强（B-10）：在线搜索 3 首 → 全选 → 批量下载 → 下载页出现 3 个任务
@@ -423,17 +487,19 @@ app.whenReady().then(async () => {
     true,
   );
   await sleep(300);
+  // 搜索入口已上移到站尺右端的 form（页内搜索按钮已删）：填词 + 提交
   await win.webContents.executeJavaScript(
     `(() => {
-      const input = document.querySelector(".search");
+      const input = document.querySelector(".ruler-search input");
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(input, "晴天");
       input.dispatchEvent(new Event("input", { bubbles: true }));
-      [...document.querySelectorAll(".lib-head button")].find((b) => b.textContent === "搜索")?.click();
+      input.closest("form").requestSubmit();
+      return true;
     })()`,
     true,
   );
-  await sleep(1000);
+  await sleep(1200);
   const searchState = await win.webContents.executeJavaScript(
     `(() => ({
       rows: document.querySelectorAll(".online-row").length,
@@ -460,8 +526,14 @@ app.whenReady().then(async () => {
   if (!manyBtn) throw new Error("找不到「下载选中」按钮");
   await sleep(500);
 
+  // 「下载」tick 已从站尺移除：下载视图挂在本地页的 tab 上（曲库 / 下载 / 电台）
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="downloads"]')?.click()`,
+    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
+    true,
+  );
+  await sleep(400);
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".lib-tabs button")].find((b) => b.textContent === "下载")?.click()`,
     true,
   );
   await sleep(400);
@@ -501,6 +573,13 @@ app.whenReady().then(async () => {
   // 歌手详情（M11）：本地页「艺人」→ 第一个歌手。验专辑条 + 行内歌手链接没把行点崩
   await win.webContents.executeJavaScript(
     `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
+    true,
+  );
+  await sleep(200);
+  // 上一段停在「下载」tab；站尺对当前页重复点击是 no-op，必须显式点回「曲库」，
+  // 否则「艺人」按钮根本没渲染（它只在 tab === "library" 时出现）
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".lib-tabs button")].find((x) => x.textContent === "曲库")?.click()`,
     true,
   );
   await sleep(200);
@@ -605,7 +684,9 @@ app.whenReady().then(async () => {
   await sleep(200);
   const fxOk = await win.webContents.executeJavaScript(
     `(() => {
-      const b = [...document.querySelectorAll(".tools button")].find((x) => x.textContent === "音效");
+      const b = [...document.querySelectorAll(".tools button")].find(
+        (x) => x.getAttribute("aria-label") === "音效",
+      );
       if (!b) return false;
       b.click();
       return true;
@@ -638,12 +719,23 @@ app.whenReady().then(async () => {
       })()`,
       true,
     );
+  // 控制台面板区已图标化，只能认 aria-label（音效/播放队列/桌面歌词/迷你窗）
+  const clickLabel = (label) =>
+    win.webContents.executeJavaScript(
+      `(() => {
+        const b = [...document.querySelectorAll(".tools button")].find((x) => x.getAttribute("aria-label") === ${JSON.stringify(label)});
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+      true,
+    );
 
-  await clickText(".tools button", "音效"); // 关掉音效弹层，别挡
+  await clickLabel("音效"); // 关掉音效弹层，别挡
   await sleep(200);
 
   // ① 空队列态：真实置空时该说的话（不是留白）
-  await clickText(".tools button", "队列");
+  await clickLabel("播放队列");
   await sleep(300);
   await shoot("queue-empty.png");
   await win.webContents.executeJavaScript(`document.querySelector(".qp-x")?.click()`, true);
@@ -655,7 +747,7 @@ app.whenReady().then(async () => {
     true,
   );
   await sleep(300);
-  await clickText(".tools button", "队列");
+  await clickLabel("播放队列");
   await sleep(300);
   await shoot("queue.png");
 
@@ -669,10 +761,18 @@ app.whenReady().then(async () => {
   await sleep(200);
   await win.webContents.executeJavaScript(`document.querySelector(".np")?.click()`, true);
   await sleep(400);
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === "视图")?.click()`,
-    true,
-  );
+  // 「视图」按钮有两套皮肤出口：导播条 .st-viewbtn（main 布局）/ 顶栏 .sk-top-b（editorial 等新皮肤）
+  const clickView = () =>
+    win.webContents.executeJavaScript(
+      `(() => {
+        const b = [...document.querySelectorAll(".st-viewbtn, .sk-top-b")].find((x) => x.textContent.trim() === "视图");
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+      true,
+    );
+  await clickView();
   await sleep(300);
   const timeline = await win.webContents.executeJavaScript(
     `(() => {
@@ -690,9 +790,56 @@ app.whenReady().then(async () => {
     true,
   );
   if (!timeline.slider || timeline.step !== "250" || timeline.min !== "-10000" || timeline.max !== "10000" || !timeline.minus || !timeline.plus) {
-    throw new Error(`歌词时间轴控件不对：${JSON.stringify(timeline)}`);
+    const diag = await win.webContents.executeJavaScript(
+      `(() => ({
+        np: !!document.querySelector(".np"),
+        viewbtns: [...document.querySelectorAll(".st-viewbtn")].map((b) => b.textContent.trim()),
+        menu: !!document.querySelector(".st-menu"),
+        bodyCls: document.body.className,
+        page: document.querySelector("[data-page].on")?.getAttribute("data-page") ?? null,
+      }))()`,
+      true,
+    );
+    throw new Error(`歌词时间轴控件不对：${JSON.stringify(timeline)} diag=${JSON.stringify(diag)}`);
   }
   await shoot("page-stage-timeline.png");
+
+  // 视觉模式（C-13）：切「声纹」「环形」必须落 data-mode。
+  // 注意：data-mode 在 .st-spectrum canvas 上，而那块 canvas 只有 classic（剧场纸面）渲染；
+  // editorial 等新皮肤是 DOM 视觉。所以这段前先走真 UI（样式库浮层）切到 classic——
+  // 顺带把「换肤链路」也验了。
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".sk-top-b")].find((b) => b.textContent.trim() === "样式")?.click()`,
+    true,
+  );
+  await sleep(300);
+  const skinOk = await win.webContents.executeJavaScript(
+    `(() => {
+      const b = [...document.querySelectorAll(".sk-opt")].find((x) => x.textContent.includes("剧场纸面"));
+      if (!b) return false;
+      b.click();
+      return true;
+    })()`,
+    true,
+  );
+  if (!skinOk) throw new Error("样式库里找不到「剧场纸面」");
+  await sleep(400);
+  // 样式库选中后不自动关（设计如此，方便连试）——手动点 ✕
+  await win.webContents.executeJavaScript(
+    `document.querySelector(".sk-shelf-x")?.click()`,
+    true,
+  );
+  await sleep(300);
+  const isClassic = await win.webContents.executeJavaScript(
+    `(() => ({ classic: !!document.querySelector(".st-viewbtn"), shelfGone: !document.querySelector(".sk-shelf") }))()`,
+    true,
+  );
+  if (!isClassic.classic || !isClassic.shelfGone) {
+    throw new Error(`没切到 classic：${JSON.stringify(isClassic)}`);
+  }
+  // 样式库与视图菜单互斥：换肤把菜单关了，重开才能点声纹/环形
+  await clickView();
+  await sleep(300);
 
   // 视觉模式（C-13）：切「声纹」「环形」必须落 data-mode；fixture 无真封面，
   // 轮播开关只断言"打开但 <2 张封面时退回单封面"（不硬转）。
@@ -753,12 +900,7 @@ app.whenReady().then(async () => {
   );
   if (caroAfter !== 1) throw new Error(`ArrowRight 没把对焦移到第二张：${caroAfter}`);
   // 关掉菜单再拍：菜单浮层会挡住右栏的轮播
-  const clickViewBtn = (name) =>
-    win.webContents.executeJavaScript(
-      `[...document.querySelectorAll(".st-viewbtn")].find((b) => b.textContent === ${JSON.stringify(name)})?.click()`,
-      true,
-    );
-  await clickViewBtn("视图");
+  await clickView();
   await sleep(300);
   await shoot("page-stage-carousel.png");
 
