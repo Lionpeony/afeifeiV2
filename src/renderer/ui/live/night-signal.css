@@ -655,3 +655,143 @@
     opacity: 0.35;
   }
 }
+
+/* ================= 账号面板：信号格 + ON AIR 灯牌（v3 清理时误删，本块恢复）
+   + 退出「断信号」动画：信号格从高到低逐格熄灭，播完才真登出 ================= */
+
+/* 行错落进场：每行晚 40ms 浮入（--row-i 由 AccountMenu 写入） */
+.shell.live .acct-row {
+  animation: row-tune-in 220ms ease-out both;
+  animation-delay: calc(var(--row-i, 0) * 40ms);
+  transition: opacity 200ms ease, filter 200ms ease;
+}
+
+@keyframes row-tune-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 信号强度格：三根竖条，登录几格亮几格（磷光青）；0 格 = 无信号频段 */
+.acct-sig {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  flex: none;
+  margin-right: 2px;
+}
+
+.acct-sig i {
+  width: 3px;
+  height: 4px;
+  background: var(--live-line-strong);
+}
+
+.acct-sig i:nth-child(2) {
+  height: 8px;
+}
+
+.acct-sig i:nth-child(3) {
+  height: 12px;
+}
+
+.acct-sig i.hit {
+  background: var(--live-phosphor);
+}
+
+.acct-sig.mute i {
+  background: var(--live-line);
+}
+
+/* ON AIR 灯牌：正在使用的频段不摆按钮，红点 + mono 字 */
+.onair-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--live-onair) 55%, transparent);
+  color: var(--live-onair);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.onair-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live-onair);
+  animation: sig-pulse 1.6s ease-in-out infinite;
+}
+
+/* ---- 退出「断信号」：440ms（JS 侧同步延迟），播完才调 onLogout ---- */
+
+/* 行面压暗：信号正在消失 */
+.acct-row.signout {
+  opacity: 0.55;
+  filter: saturate(0.4);
+}
+
+/* 灯牌与按钮同步隐去（退出钮这时不该再被点第二次） */
+.acct-row.signout .onair-badge,
+.acct-row.signout .acct-act {
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+/* 三格从高到低逐格熄灭：第 3 格 0ms → 第 2 格 110ms → 第 1 格 220ms，
+   每格 200ms 内塌回灰条（缩回 + 褪色，transform-origin 在底，像信号掉下去） */
+.acct-row.signout .acct-sig i.hit {
+  transform-origin: bottom;
+  animation: sig-drop 200ms ease-in both;
+}
+
+.acct-row.signout .acct-sig i:nth-child(3).hit {
+  animation-delay: 0ms;
+}
+
+.acct-row.signout .acct-sig i:nth-child(2).hit {
+  animation-delay: 110ms;
+}
+
+.acct-row.signout .acct-sig i:nth-child(1).hit {
+  animation-delay: 220ms;
+}
+
+@keyframes sig-drop {
+  0% {
+    opacity: 1;
+    transform: scaleY(1);
+    background: var(--live-phosphor);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scaleY(0.25);
+    background: var(--live-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 本块进场规则排在上方旧 reduce 块之后，同特异度会把它顶掉——这里压回来 */
+  .shell.live .acct-row {
+    animation: none;
+    transition: none;
+  }
+
+  .shell.live .acct-row.signout {
+    opacity: 1;
+    filter: none;
+  }
+
+  .acct-row.signout .acct-sig i.hit {
+    animation: none;
+  }
+}

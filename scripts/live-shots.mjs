@@ -426,6 +426,10 @@ function registerMinimalIpc() {
   // 外壳订阅了这两个 IPC；fixture 不跑主进程那套主题/轮询，给空实现免得刷红字
   ipcMain.handle("qq:login", () => ({ key: "fixture-qr-key", qrImage: fakeQr() }));
   ipcMain.handle("qq:poll", () => ({ code: 801, loggedIn: false, message: "waiting" }));
+  ipcMain.handle("qq:logout", () => {
+    qqLoggedIn = false; // 退出探针真登出：profile 翻回未登录，行面翻成「登录」
+    return { ok: true };
+  });
   ipcMain.handle("win:overlayTheme", (_e, bg, fg) => {
     OVERLAY_CALLS.push({ bg, fg });
     return true;
@@ -1620,6 +1624,47 @@ app.whenReady().then(async () => {
   if (!onRow || !onRow.includes("网易云")) {
     throw new Error(`切回网易云没生效（ON AIR 在：${onRow ?? "无"}，now=${backProbe.now}）`);
   }
+
+  /* 退出「断信号」动画：QQ 行（已登录、非在用）点退出，140ms 拍逐格熄灭帧。
+     上一段「复核」把面板重新打开了——先用面板自己的 × 关掉，等消失再重开
+     （ruler-acct 是开关不是幂等打开）。 */
+  await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
+  await evalJs(
+    `(async () => {
+      for (let i = 0; i < 40 && document.querySelector(".acct-menu"); i++) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      return !document.querySelector(".acct-menu");
+    })()`,
+  ).then((gone) => {
+    if (!gone) throw new Error("上一轮账号面板没关上，退出探针无法重开");
+  });
+  await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（退出探针）");
+  await sleep(600);
+  await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
+    const b = row?.querySelector("button.acct-act.ghost");
+    b?.click();
+    return Boolean(b);
+  })()`);
+  await sleep(140);
+  const signoutSeen = await evalJs(`document.querySelector(".acct-menu .acct-row.signout") !== null`);
+  console.log(`退出断信号 · 熄灭中在拍：${signoutSeen}`);
+  if (!signoutSeen) throw new Error("退出后 .acct-row.signout 不在：断信号动画没接上");
+  await quickShot("live-acct-signout.png");
+  await sleep(700);
+  const signedOut = await evalJs(`(() => {
+    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
+    return {
+      btn: row?.querySelector("button.acct-act")?.textContent.trim() ?? "",
+      hits: row ? row.querySelectorAll(".acct-sig .hit").length : -1,
+    };
+  })()`);
+  console.log(`退出断信号 · 落定：${JSON.stringify(signedOut)}`);
+  if (signedOut.btn !== "登录" || signedOut.hits !== 0) {
+    throw new Error(`退出后 QQ 行没翻成未登录：${JSON.stringify(signedOut)}`);
+  }
+
   // 面板关掉，别带浮层进后面的房间截图
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(600);

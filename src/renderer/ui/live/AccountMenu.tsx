@@ -45,16 +45,27 @@ export function AccountMenu({
   const [leaving, setLeaving] = useState(false);
   /* 切换时的行内脉冲：像把指针拨到新频段，拨完才真切 */
   const [tuning, setTuning] = useState<string | null>(null);
+  /* 退出中的行：信号格逐格熄灭 → 状态才真翻（动画所有权在本组件，父级只管改数据） */
+  const [signingOut, setSigningOut] = useState<string | null>(null);
   const leaveTimer = useRef<number | undefined>(undefined);
+  const signOutTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (open) {
       window.clearTimeout(leaveTimer.current);
+      window.clearTimeout(signOutTimer.current);
       setLeaving(false);
       setTuning(null);
+      setSigningOut(null);
     }
   }, [open]);
-  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(leaveTimer.current);
+      window.clearTimeout(signOutTimer.current);
+    },
+    [],
+  );
 
   const requestClose = (): void => {
     if (leaving) return;
@@ -83,6 +94,22 @@ export function AccountMenu({
     // 面板滑出、登录弹层随后落位——两个浮层不叠脸
     requestClose();
     leaveTimer.current = window.setTimeout(() => onLogin(id), 190);
+  };
+
+  /* 退出 = 断信号：三格信号从高到低依次熄灭（440ms），播完才真登出。
+     reduce 用户没有逐格熄灭，零延迟直接退出，不留空等。 */
+  const handleLogout = (id: string): void => {
+    if (tuning || signingOut) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      onLogout(id);
+      return;
+    }
+    setSigningOut(id);
+    signOutTimer.current = window.setTimeout(() => {
+      setSigningOut(null);
+      onLogout(id);
+    }, 440);
   };
 
   if (!open && !leaving) return null;
@@ -119,7 +146,9 @@ export function AccountMenu({
             return (
               /* style 是进场错落的节拍：每行晚 40ms 浮入（纯展示延迟，css 变量不走状态） */
               <div
-                className={`acct-row${on ? " on" : ""}${tuning === source.id ? " tuning" : ""}`}
+                className={`acct-row${on ? " on" : ""}${tuning === source.id ? " tuning" : ""}${
+                  signingOut === source.id ? " signout" : ""
+                }`}
                 key={source.id}
                 style={{ "--row-i": i } as CSSProperties}
               >
@@ -151,7 +180,7 @@ export function AccountMenu({
                         切换
                       </button>
                     )}
-                    <button type="button" className="acct-act ghost" onClick={() => onLogout(source.id)}>
+                    <button type="button" className="acct-act ghost" onClick={() => handleLogout(source.id)}>
                       退出
                     </button>
                   </>
