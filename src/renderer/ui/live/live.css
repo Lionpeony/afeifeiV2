@@ -258,6 +258,45 @@
   min-height: 0;
 }
 
+/* —— 调频切页：换房间 = 换频道，页面像信号一样浮现 ——
+   容器带 key={page}（index.tsx），每次切页重挂即重播。
+   房间页轻浮起；首页满幅面只做纯淡入（它内部已有 cs-enter/cs-swap 的层级，
+   外层不再叠加位移）。直播间 .live-plate 不参与：舞台有自己的入场仪式。 */
+@keyframes room-tune {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes bleed-tune {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.live-room {
+  animation: room-tune 300ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+.live-bleed {
+  animation: bleed-tune 260ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-room,
+  .live-bleed {
+    animation: none;
+  }
+}
+
 /* 频道条：旧页头的大字换成控制室的一行字幕 —— 房间名 / 一句说明 / 右端计数。
    高度压到 34px，和站尺 44px 一起把"节目"留在屏幕中央。 */
 /* 房间页头：只作用在 .live-room 里。直播间（.live-plate）自带 PageHead，

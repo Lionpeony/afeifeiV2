@@ -139,8 +139,11 @@ export function LiveHome({
   const firstVisit = !homeVisited;
   homeVisited = true;
 
-  /* hero 取色（复用播放页 M9-2 管线）：封面主色 → --cs-tint，卡片底色跟着封面色温走。
-     失败静默回落 transparent（纯墨底），取色不影响任何东西。 */
+  /* hero 取色（复用播放页 M9-2 管线）：封面主色 → --cs-tint。
+     唯一写入点在文档根（tokens.css @property 注册 + html 过渡）：
+     页面氛围底（cs-home）、舞台色晕（cs-stage）、底部控制台的色晕
+     三处消费同一份封面色，随歌呼吸——离开首页时回落 transparent。
+     失败静默回落 transparent（纯壳底），取色不影响任何东西。 */
   useEffect(() => {
     const url = lead?.coverUrl;
     if (!url) return;
@@ -153,11 +156,17 @@ export function LiveHome({
     };
   }, [lead?.coverUrl]);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--cs-tint", tint ?? "transparent");
+    return () => {
+      root.style.setProperty("--cs-tint", "transparent");
+    };
+  }, [tint]);
+
   return (
     <section
       className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
-      /* tint 写在页面根：全页氛围底（cs-home）与舞台色晕（cs-stage）共用同一封面色 */
-      style={{ "--cs-tint": tint ?? "transparent" } as React.CSSProperties}
     >
       {!lead ? (
         <div className="cs-state-wrap">

@@ -76,7 +76,9 @@
   --live-panel-2: #e7e5dc;
   --live-fg: #14171a;
   --live-fg-dim: #4f5660;
-  --live-fg-faint: #656b74; /* 9px mono 标签：对 --live-bg 4.55:1，压线但不越线 */
+  /* 11px mono 标签/读数：对 --live-panel 6.0:1、对 --live-bg 5.5:1
+     （原 #656b74 4.5:1 压线，小字号读着吃力，2026-11-09 加深一档） */
+  --live-fg-faint: #575e67;
   --live-line: rgba(20, 23, 26, 0.14);
   --live-line-strong: rgba(20, 23, 26, 0.34);
   --live-onair: #b83229; /* ON AIR 红在浅底上必须压暗，原 #e4483f 只有 2.4:1 */
@@ -109,6 +111,19 @@
   --night-accent-ink: #14171a;
 
   color-scheme: light;
+}
+
+/* 封面取色 tint（LiveHome 写入文档根，cs-home / cs-stage / 底栏色晕共同消费）：
+   注册成 <color> 才能过渡——换歌时氛围色淡入淡出，不是硬切。
+   值本身无 hex：由 tint-client 量化产出，写进内联样式。 */
+@property --cs-tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+html {
+  transition: --cs-tint 560ms ease-out;
 }
 
 /* 夜间（docs/09 B4）：同一套 token 名换值，一份 CSS 通吃，不新增选择器。

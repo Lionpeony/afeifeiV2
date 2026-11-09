@@ -159,7 +159,11 @@ function App() {
   const barEl = useRef<HTMLInputElement>(null);
   const tipEl = useRef<HTMLSpanElement>(null);
   const sleepEl = useRef<HTMLSpanElement>(null);
+  const ringEl = useRef<SVGCircleElement>(null);
   const dragging = useRef(false);
+
+  /** 主键进度环周长（r=23，与 Console.tsx 的 tb-ring-arc 同源） */
+  const RING_CIRC = 2 * Math.PI * 23;
 
   // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
   // 状态一变（恢复 / seek / 切歌）就立即同步一次，不能只等 rAF：
@@ -178,6 +182,11 @@ function App() {
       // 已播比例喂给 CSS 渐变（细线 seek 的墨色填充），不触发渲染
       const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
       barEl.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+    }
+    // 主键进度环：弧长 = 已播比例，与进度条同一份 position/duration，不触发渲染
+    if (ringEl.current) {
+      const ringPct = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
+      ringEl.current.style.strokeDashoffset = (RING_CIRC * (1 - ringPct)).toFixed(2);
     }
     // 睡眠定时剩余时间同样只写 DOM：1s 一个 setInterval 会违反「时间唯一」（I1），
     // 而 deadline 是绝对的，掉帧后补算也不会累积误差。
@@ -1142,14 +1151,15 @@ function App() {
               <span className="notice">{notice.text}</span>
             )
           ) : null}
+          {/* key=page：切页即重挂容器，调频进场动画（live.css room-tune/bleed-tune）每次都重播 */}
           {page === "home" ? (
-            <div className="live-bleed">{renderPage()}</div>
+            <div className="live-bleed" key={page}>{renderPage()}</div>
           ) : page === "stage" ? (
-            <div className="live-plate">
+            <div className="live-plate" key={page}>
               <div className="live-plate-body">{renderPage()}</div>
             </div>
           ) : (
-            <div className="live-room">{renderPage()}</div>
+            <div className="live-room" key={page}>{renderPage()}</div>
           )}
         </section>
       </div>
@@ -1185,6 +1195,7 @@ function App() {
         barEl={barEl}
         tipEl={tipEl}
         sleepEl={sleepEl}
+        ringEl={ringEl}
         dragging={dragging}
         services={services}
       />

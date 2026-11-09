@@ -65,12 +65,14 @@ export function Console(props: {
   setPage: (page: PageId) => void;
   setNotice: (n: { text: string; url?: string } | null) => void;
   toggleCurrentLike: () => void;
-  /* ref 所有权在 App：syncPosition 每帧写这四个节点 + 睡眠倒计时 */
+  /* ref 所有权在 App：syncPosition 每帧写这四个节点 + 睡眠倒计时 + 主键进度环 */
   timeEl: RefObject<HTMLSpanElement | null>;
   totalEl: RefObject<HTMLSpanElement | null>;
   barEl: RefObject<HTMLInputElement | null>;
   tipEl: RefObject<HTMLSpanElement | null>;
   sleepEl: RefObject<HTMLSpanElement | null>;
+  /** 主键进度环的弧（circle）：syncPosition 每帧直写 stroke-dashoffset，不触发渲染 */
+  ringEl: RefObject<SVGCircleElement | null>;
   dragging: RefObject<boolean>;
   services: RefObject<Services | null>;
 }): React.JSX.Element {
@@ -105,6 +107,7 @@ export function Console(props: {
     barEl,
     tipEl,
     sleepEl,
+    ringEl,
     dragging,
     services,
   } = props;
@@ -165,12 +168,33 @@ export function Console(props: {
               <i />
             </i>
           </button>
-          <button type="button" className="tb main" aria-label={playing ? "暂停" : "播放"} onClick={() => dispatch({ type: "player/toggle" })}>
-            <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
-              <i />
-              {playing ? <i /> : null}
-            </i>
-          </button>
+          {/* 主键进度环：弧长 = 播放进度（App syncPosition 每帧直写 dashoffset），
+              播放中整环缓速旋转（磁带盘语言），暂停停在当前角度。svg 在前、
+              button position:relative 在后，层级自然正确，不需要 z-index。 */}
+          <span className="tb-wrap">
+            <svg className={`tb-ring${playing ? " spin" : ""}`} viewBox="0 0 50 50" aria-hidden="true">
+              <circle className="tb-ring-track" cx="25" cy="25" r="23" />
+              <circle
+                ref={ringEl}
+                className="tb-ring-arc"
+                cx="25"
+                cy="25"
+                r="23"
+                transform="rotate(-90 25 25)"
+              />
+            </svg>
+            <button
+              type="button"
+              className="tb main"
+              aria-label={playing ? "暂停" : "播放"}
+              onClick={() => dispatch({ type: "player/toggle" })}
+            >
+              <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
+                <i />
+                {playing ? <i /> : null}
+              </i>
+            </button>
+          </span>
           <button
             type="button"
             className="tb"

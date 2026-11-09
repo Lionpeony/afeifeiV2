@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PageId } from "../pages.js";
 import { NavIcon } from "../icons.js";
+import { onTick } from "../compositor.js";
 import { useNowSecond } from "./useStation.js";
 
 /**
@@ -33,6 +34,9 @@ const TICKS: Tick[] = [
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
+/** 调频滚动时长：切页时目标签子的频率读数从当前房间滚到目标房间（ease-out 收尾）。 */
+const TUNE_MS = 420;
+
 export function StationRuler({
   page,
   onGo,
@@ -55,6 +59,45 @@ export function StationRuler({
   const now = new Date(second * 1000);
   const clock = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
 
+  /*
+   * 调频切页：点击签子时，目标签子的频率读数从当前房间的频率滚到目标频率
+   * （像旋钮扫过刻度盘），滚完才落定。帧循环走 onTick（rAF 唯一），
+   * 时间以 Date.now 计（onTick 的 t 是播放时钟，暂停时会停走，不能当秒表）；
+   * 数据全走 ref 直写 data-freq，不触发 React 渲染，只有起止各一次 setState。
+   */
+  const roll = useRef<{ el: HTMLElement; from: number; to: number; t0: number } | null>(null);
+  const [tuning, setTuning] = useState<PageId | null>(null);
+
+  useEffect(
+    () =>
+      onTick(() => {
+        const r = roll.current;
+        if (!r) return;
+        if (r.t0 < 0) r.t0 = Date.now();
+        const p = Math.min(1, (Date.now() - r.t0) / TUNE_MS);
+        const eased = 1 - Math.pow(1 - p, 3);
+        r.el.dataset.freq = (r.from + (r.to - r.from) * eased).toFixed(1);
+        if (p >= 1) {
+          roll.current = null;
+          setTuning(null);
+        }
+      }),
+    [],
+  );
+
+  const go = (tick: Tick, el: HTMLElement): void => {
+    if (tick.id === page) return;
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // 上一次滚动没走完就点新签子：先把旧签子的读数落定，再起新滚动
+      const prev = roll.current;
+      if (prev) prev.el.dataset.freq = prev.to.toFixed(1);
+      const from = parseFloat(TICKS.find((t) => t.id === page)?.freq ?? tick.freq);
+      roll.current = { el, from, to: parseFloat(tick.freq), t0: -1 };
+      setTuning(tick.id);
+    }
+    onGo(tick.id);
+  };
+
   return (
     <header className="ruler" aria-label="站尺">
       <div className="ruler-brand">
@@ -71,9 +114,9 @@ export function StationRuler({
             data-page={tick.id}
             data-freq={tick.freq}
             aria-label={tick.label}
-            className={`ruler-tick${page === tick.id ? " on" : ""}`}
+            className={`ruler-tick${page === tick.id ? " on" : ""}${tuning === tick.id ? " tuning" : ""}`}
             aria-current={page === tick.id ? "page" : undefined}
-            onClick={() => onGo(tick.id)}
+            onClick={(e) => go(tick, e.currentTarget)}
             title={tick.label}
           >
             <span>{tick.label}</span>

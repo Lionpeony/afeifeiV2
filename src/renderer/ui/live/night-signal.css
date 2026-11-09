@@ -76,6 +76,16 @@
   color: var(--live-fg-dim);
 }
 
+/* 调频中：读数正在滚动的目标签子亮琥珀，像旋钮扫过时点亮的刻度 */
+.ruler-tick.tuning {
+  background: color-mix(in srgb, var(--live-amber) 10%, transparent);
+}
+
+.ruler-tick.tuning::after {
+  color: var(--live-amber);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
 @media (max-width: 1180px) {
   .ruler-tick {
@@ -99,7 +109,11 @@
      中列必须 minmax(0,1fr)：裸 1fr 的 min 是 auto，走带区 min-content 会把它撑爆（1024 窗实测 +52px）。 */
   grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) auto;
   border-top: 1px solid var(--live-line);
-  background: linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
+  /* 封面色晕从下缘往上漫（--cs-tint 由 LiveHome 写入文档根，随歌呼吸）：
+     tint 失败/离开首页 → transparent → 原版面板渐变，可读性零影响 */
+  background:
+    radial-gradient(90% 240% at 50% 135%, color-mix(in srgb, var(--cs-tint) 16%, transparent), transparent 72%),
+    linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
   box-shadow: 0 -10px 28px -20px rgba(0, 0, 0, 0.55);
 }
 
@@ -197,10 +211,11 @@
   fill: currentColor;
 }
 
-/* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言（字色走 accent-ink，四档对比由 token 保证） */
+/* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言（字色走 accent-ink，四档对比由 token 保证）。
+   40px 而非 44px：外圈进度环要留 2px 间隙，44px 会把环整个吞进按钮影子里（放大实锤）。 */
 .shell.live .console .tb.main {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border: none;
   border-radius: 50%;
   background: var(--live-amber);
@@ -219,6 +234,55 @@
 
 .shell.live .console .tb.main:active {
   transform: scale(0.97);
+}
+
+/* —— 主键进度环：走带键外的细环 ——
+   弧长 = 已播比例（dashoffset 由 App syncPosition 每帧直写），播放中整环
+   缓速旋转（磁带盘语言），暂停停在当前角度——状态即动效。 */
+.tb-wrap {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.tb-wrap .tb-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: tb-ring-spin 16s linear infinite;
+  animation-play-state: paused;
+}
+
+.tb-wrap .tb-ring.spin {
+  animation-play-state: running;
+}
+
+@keyframes tb-ring-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+.tb-ring circle {
+  fill: none;
+  stroke-width: 2;
+}
+
+.tb-ring-track {
+  stroke: color-mix(in srgb, var(--live-fg) 12%, transparent);
+}
+
+/* r=23 的周长 144.51：初始满偏 = 空环；App 每帧按已播比例回写 */
+.tb-ring-arc {
+  stroke: var(--live-amber);
+  stroke-linecap: round;
+  stroke-dasharray: 144.51;
+  stroke-dashoffset: 144.51;
+  transition: stroke-dashoffset 90ms linear;
 }
 
 /* 工具钮：图标胶囊（无边框、弱底、hover 提亮、激活琥珀；文字在 hover title 里） */
@@ -466,5 +530,10 @@
     animation: none;
     transition: none;
     scale: 1;
+  }
+
+  /* 主键进度环：旋转停掉，弧长本身是信息不是动效，保留 */
+  .tb-wrap .tb-ring {
+    animation: none;
   }
 }

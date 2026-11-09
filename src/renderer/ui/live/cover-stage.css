@@ -491,7 +491,8 @@ img.cs-tape-art {
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 46px;
+  /* 信号条撑满右栏余量：右下的"空白区"就是给它留的——仪器待机态也是版面的一部分 */
+  height: 64px;
   margin: 0;
 }
 
@@ -666,7 +667,7 @@ img.cs-tape-art {
   }
 
   .cs-vu {
-    height: 34px;
+    height: 44px;
   }
 }
 
