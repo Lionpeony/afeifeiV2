@@ -422,7 +422,7 @@ export function Console(props: {
       </div>
 
       {sleepOpen && (
-        <div className="vol-pop sleep-pop" role="dialog" aria-label="睡眠定时">
+        <div className={`sleep-pop vol-pop${sleepEndsAt || sleepPending ? " armed" : ""}`} role="dialog" aria-label="睡眠定时">
           <p className="sleep-now">
             {sleepPending
               ? "已到点 · 这首播完就停"

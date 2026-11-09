@@ -1668,6 +1668,55 @@ app.whenReady().then(async () => {
   // 面板关掉，别带浮层进后面的房间截图
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(600);
+
+  /* 控制台三弹层（音量 / 睡眠定时 / 完整队列）：纸面板皮肤 + 队列 top 不盖窗控 */
+  const toolBtn = (label) =>
+    `(() => { const b = [...document.querySelectorAll(".console .tools button")].find((x) => x.getAttribute("aria-label") === "${label}"); b?.click(); return Boolean(b); })()`;
+  await click(toolBtn("音量"), "音量按钮");
+  await sleep(500);
+  const volProbe = await evalJs(`(() => {
+    const pop = document.querySelector(".vol-pop.volume");
+    const cs = pop ? getComputedStyle(pop) : null;
+    return { open: Boolean(pop) && !pop.hidden, bg: cs?.backgroundColor, border: cs?.borderTopColor };
+  })()`);
+  console.log(`音量弹层：${JSON.stringify(volProbe)}`);
+  if (!volProbe.open) throw new Error("音量弹层没打开");
+  await shoot("live-vol-pop.png");
+  await click(toolBtn("音量"), "音量按钮（收起）");
+  await sleep(300);
+
+  await click(toolBtn("睡眠定时"), "睡眠定时按钮");
+  await sleep(500);
+  const sleepProbe = await evalJs(`(() => {
+    const pop = document.querySelector(".sleep-pop");
+    return { open: pop !== null, armedDot: getComputedStyle(pop, "::before") ? true : false };
+  })()`);
+  console.log(`睡眠定时弹层：${JSON.stringify(sleepProbe)}`);
+  if (!sleepProbe.open) throw new Error("睡眠定时弹层没打开");
+  await shoot("live-sleep-pop.png");
+  await click(toolBtn("睡眠定时"), "睡眠定时按钮（收起）");
+  await sleep(300);
+
+  await click(toolBtn("播放队列"), "播放队列按钮");
+  await sleep(700);
+  const qpProbe = await evalJs(`(() => {
+    const qp = document.querySelector(".qp");
+    if (!qp) return { open: false };
+    const cs = getComputedStyle(qp);
+    return {
+      open: true,
+      top: cs.top, // 必须压在站尺（56px）下沿，不能盖住右上角窗口控制钮
+      rows: document.querySelectorAll(".qp-row").length,
+      onRow: document.querySelector(".qp-row.on") !== null,
+    };
+  })()`);
+  console.log(`队列面板：${JSON.stringify(qpProbe)}`);
+  if (!qpProbe.open) throw new Error("队列面板没打开");
+  if (qpProbe.top !== "56px") throw new Error(`队列面板 top=${qpProbe.top}，该压在站尺下沿 56px（否则盖住窗控钮）`);
+  if (qpProbe.rows < 1 || !qpProbe.onRow) throw new Error(`队列行异常：rows=${qpProbe.rows}，onRow=${qpProbe.onRow}`);
+  await shoot("live-queue.png");
+  await evalJs(`document.querySelector(".qp-x")?.click()`);
+  await sleep(500);
   for (const [w, h] of [
     [1024, 768],
     [1440, 900],
