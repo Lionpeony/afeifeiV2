@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { RemoteTrack } from "../../contracts/capability.js";
-import { getNet, loadNet, refreshNet, updateNet } from "../domain/net-cache/index.js";
+import { getNet, invalidatePrefix, loadNet, refreshNet, updateNet } from "../domain/net-cache/index.js";
 import { getActiveSource, subscribeActiveSource } from "./active-source.js";
 
 /**
@@ -41,6 +41,27 @@ export interface AccountState {
 }
 
 export const accountKey = (sourceId: string, kind: AccountKind): string => `account:${sourceId}:${kind}`;
+
+type InvalidationListener = (prefix: string) => void;
+const invalidationListeners = new Set<InvalidationListener>();
+
+/**
+ * 账号数据失效（登录成功 / 登出）：清缓存层 **并** 通知挂载中的 hook 立即重拉。
+ * 只调 invalidatePrefix 不够——它只动缓存，组件 state 还握着旧数据，
+ * 而 key（sourceId+kind）没变、effect 早退在缓存命中上：这就是
+ * 「同源登录后首页歌单不换」的根因（2026-11-09 用户实测）。
+ */
+export function invalidateAccountData(prefix: string): void {
+  invalidatePrefix(prefix);
+  for (const fn of [...invalidationListeners]) fn(prefix);
+}
+
+export function subscribeAccountInvalidation(fn: InvalidationListener): () => void {
+  invalidationListeners.add(fn);
+  return () => {
+    invalidationListeners.delete(fn);
+  };
+}
 
 type Internal = Omit<AccountState, "reload" | "removeSong"> & { key: string };
 
@@ -87,6 +108,18 @@ export function useAccountBundle(load: () => Promise<AccountBundle>, kind: Accou
 
   // 切音源 = 切账号：key 变了，页面上的账号数据必须跟着重拉
   useEffect(() => subscribeActiveSource(() => setTick((t) => t + 1)), []);
+
+  // 登录/登出让账号身份变了：sourceId 没变、缓存 key 也没变，只能靠失效广播重拉
+  useEffect(
+    () =>
+      subscribeAccountInvalidation((prefix) => {
+        if (key.startsWith(prefix)) {
+          refreshNet(key);
+          setTick((t) => t + 1);
+        }
+      }),
+    [key],
+  );
 
   // 首帧就按缓存渲染，避免「已经缓存过还闪一下正在取」
   const current = state.key === key ? state : bundleState(key, getNet<AccountBundle>(key));

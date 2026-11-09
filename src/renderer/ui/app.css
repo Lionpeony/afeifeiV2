@@ -314,7 +314,7 @@ html::after {
 }
 
 
-/* ---------- 扫码登录弹层 ---------- */
+/* ---------- 登录弹层：环境光玻璃（2026-11-09 重设计，统一浅色 token） ---------- */
 
 .dialog-mask {
   position: fixed;
@@ -326,12 +326,54 @@ html::after {
   z-index: 50; /* 模态层（00 §9.2 全局层序表） */
 }
 
+/* 环境光：幕布后两团低饱和色块缓漂。一团吃封面取色（--cs-tint，跟歌换色），
+   取色未就绪时混 transparent 自动隐身；一团黄铜常驻，保证底色不成死白 */
+.mask-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.mask-blob-a {
+  width: 400px;
+  height: 400px;
+  left: 10%;
+  top: 4%;
+  background: color-mix(in srgb, var(--cs-tint) 32%, transparent);
+  animation: blob-drift-a 16s ease-in-out infinite alternate;
+}
+
+.mask-blob-b {
+  width: 340px;
+  height: 340px;
+  right: 8%;
+  bottom: 2%;
+  background: color-mix(in srgb, var(--brass) 16%, transparent);
+  animation: blob-drift-b 22s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes blob-drift-a {
+  to {
+    transform: translate(56px, 34px);
+  }
+}
+
+@keyframes blob-drift-b {
+  to {
+    transform: translate(-48px, -30px);
+  }
+}
+
+/* 毛玻璃浮层：半透纸面板 + 背景模糊，材质层 token 保四主题自动换装 */
 .dialog {
-  width: 320px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 0;
-  background: var(--bg-raised);
+  position: relative;
+  width: 352px;
+  padding: 30px 32px 26px;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--bg-raised) 82%, transparent);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--glass-shadow);
   text-align: center;
 }
 
@@ -399,60 +441,57 @@ html::after {
 
 .dialog h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
-/* 「接入信号」弹层头：眉标（频段名 · SIGNAL）+ 标题，登录被讲成电台接入 */
-.dlg-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  margin: 0 0 10px;
-}
-
-.dlg-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
+.dialog-sub {
+  margin: 4px 0 0;
   color: var(--fg-dim);
+  font-size: 12px;
 }
 
-/* 站尺刻度条：一条细密刻度 + 底线，呼应主界面站尺（纯装饰） */
-.dlg-ruler {
-  height: 9px;
-  margin: 0 0 16px;
-  border-bottom: 1px solid var(--line-soft);
-  background-image: repeating-linear-gradient(90deg, var(--line-soft) 0 1px, transparent 1px 9px);
-  background-size: auto 5px;
-  background-repeat: repeat-x;
-  background-position: bottom left;
+/* 右上角 ×：浮层自身的关闭，悬停提亮 */
+.dlg-x {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: none;
+  padding: 2px 6px;
+  color: var(--fg-dim);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dlg-x:hover {
+  color: var(--fg);
 }
 
 .dialog-tabs {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-top: 16px;
 }
 
 .dialog-tabs button {
   padding: 5px 16px;
+  border: 1px solid var(--line-soft);
   border-radius: 999px;
+  background: none;
+  color: var(--fg-dim);
   font-size: 12px;
+  cursor: pointer;
 }
 
 .dialog-tabs button.on {
   border-color: var(--fg);
+  background: none;
   color: var(--fg);
-  font-weight: 700;
-}
-
-.dialog-hint {
-  margin: 12px 0 0;
-  color: var(--fg-dim);
-  font-size: 11px;
+  font-weight: 500;
 }
 
 .field {
@@ -474,7 +513,7 @@ html::after {
   flex: 1;
   padding: 7px 10px;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--fg);
   font: inherit;
@@ -485,24 +524,68 @@ html::after {
   border-color: var(--fg-dim);
 }
 
-.qr {
-  width: 220px;
-  height: 220px;
-  border-radius: 0;
-  background: var(--fg);
-}
-
-/* 二维码窗：留白装四角琥珀刻度 + 扫描线；过期/失败整窗降透明（码已无效） */
-.qr-win {
+/* 二维码悬浮卡：外圈进度环 + 内部白码卡。环即倒计时（120s 走完一圈），
+   换码 key 重置动画；过期/失败（off）整环降透明 */
+.qr-halo {
   position: relative;
   width: 240px;
-  margin: 0 auto;
-  padding: 10px;
+  height: 240px;
+  margin: 18px auto 0;
 }
 
-.qr-win .qr,
-.qr-win .qr--empty {
+.qr-halo.off {
+  opacity: 0.45;
+}
+
+.qr-ring {
+  position: absolute;
+  inset: 0;
+}
+
+.qr-ring-track {
+  fill: none;
+  stroke: var(--line-soft);
+  stroke-width: 3;
+}
+
+.qr-ring-bar {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 741.4; /* 2π × 118 */
+  transform: rotate(-90deg);
+  transform-origin: center;
+  animation: qr-countdown 120s linear forwards;
+}
+
+@keyframes qr-countdown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 741.4;
+  }
+}
+
+/* 码卡本体：比环小一圈留出呼吸，白码卡自带轻浮起 */
+.qr-win {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line-soft);
+}
+
+.qr {
   display: block;
+  width: 180px;
+  height: 180px;
+  border-radius: 6px;
+  background: var(--bg-raised);
 }
 
 /* 码没回来时的占位槽 */
@@ -510,102 +593,97 @@ html::after {
   background: var(--line-soft);
 }
 
-.qc {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border: 0 solid var(--brass);
-}
-
-.qc-tl {
-  top: 0;
-  left: 0;
-  border-top-width: 2px;
-  border-left-width: 2px;
-}
-
-.qc-tr {
-  top: 0;
-  right: 0;
-  border-top-width: 2px;
-  border-right-width: 2px;
-}
-
-.qc-bl {
-  bottom: 0;
-  left: 0;
-  border-bottom-width: 2px;
-  border-left-width: 2px;
-}
-
-.qc-br {
-  bottom: 0;
-  right: 0;
-  border-bottom-width: 2px;
-  border-right-width: 2px;
-}
-
-/* 扫描线：等待信号时在码面上来回扫一遍（2px，低不透明度不干扰扫码识别） */
-.qr-scan {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 10px;
-  height: 2px;
-  background: var(--brass);
-  opacity: 0.35;
-  animation: qr-sweep 2.6s ease-in-out infinite alternate;
-}
-
-@keyframes qr-sweep {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(218px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .qr-scan {
+  .mask-blob-a,
+  .mask-blob-b {
     animation: none;
   }
+
+  /* 倒计时环停成静态全环：reduce 下不做时间暗示 */
+  .qr-ring-bar {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
 
-.qr-win.off .qr,
-.qr-win.off .qr--empty {
-  opacity: 0.35;
-}
-
-/* 信号状态行：呼吸点 + 文案（呼吸在 live 皮肤做），替代裸文本 note */
+/* 状态胶囊：呼吸点 + 文案装进一枚圆胶囊，替代裸文本 note */
 .sig-status {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
-  margin: 14px 0 0;
+  margin: 16px auto 0;
+  padding: 7px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
   color: var(--fg-dim);
   font-size: 12px;
-  min-height: 18px;
 }
 
 .sig-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--brass);
+  background: var(--accent);
   flex: none;
+  animation: sig-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes sig-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .sig-status.off .sig-dot {
   background: var(--line);
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sig-dot {
+    animation: none;
+  }
 }
 
 .dialog-actions {
   display: flex;
   gap: 10px;
   justify-content: center;
-  margin-top: 16px;
+  margin-top: 18px;
+}
+
+.dialog-actions button {
+  padding: 8px 22px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dialog-actions button.primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.dialog-actions button.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.dialog-actions button:not(.primary) {
+  border: 1px solid var(--line-soft);
+  background: none;
+  color: var(--fg-dim);
+}
+
+.dialog-actions button:not(.primary):hover:not(:disabled) {
+  border-color: var(--fg-dim);
+  color: var(--fg);
 }
 
 .lib-note {

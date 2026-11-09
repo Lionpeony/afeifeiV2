@@ -36,7 +36,8 @@ import { StationRuler } from "./live/StationRuler.js";
 import { LiveHome } from "./live/LiveHome.js";
 import { onAirProgram } from "./live/on-air.js";
 import { BootSplash } from "./BootSplash.js";
-import { invalidatePrefix, loadNet } from "../domain/net-cache/index.js";
+import { invalidateAccountData } from "./account-data.js";
+import { loadNet } from "../domain/net-cache/index.js";
 import { accountKey } from "./account-data.js";
 
 
@@ -1023,7 +1024,7 @@ function App() {
             }}
             logout={(sourceId) => {
               const svc = services.current;
-              invalidatePrefix(`account:${sourceId}:`);
+              invalidateAccountData(`account:${sourceId}:`);
               return svc ? svc.logout(sourceId) : Promise.resolve();
             }}
             onDownload={(sourceId, track) => {
@@ -1099,7 +1100,7 @@ function App() {
         onLogout={(id) => {
           void (async () => {
             await services.current?.logout(id).catch(() => undefined);
-            invalidatePrefix(`account:${id}:`);
+            invalidateAccountData(`account:${id}:`);
             if (getActiveSource() === id) {
               accountSource.current = "";
               beginAccount("");
@@ -1139,7 +1140,7 @@ function App() {
               setTuneFlash((k) => k + 1); // 接入成功也是一次换台
               setActiveSource(id);
               // 新账号的数据不能沿用上一个账号的缓存
-              invalidatePrefix(`account:${id}:`);
+              invalidateAccountData(`account:${id}:`);
               ensureAccount(id);
             }
             refreshAccountProfiles();

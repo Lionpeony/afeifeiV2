@@ -12,7 +12,7 @@ export interface LoginDialogProps {
   sendCaptcha?(phone: string): Promise<{ ok: boolean; message: string }>;
   /** 手机号登录：用验证码换登录态 */
   loginByCaptcha?(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
-  /** 音源名（网易云 / QQ 音乐）：只做眉标展示，弹层不知道也能跑 */
+  /** 音源名（网易云 / QQ 音乐）：标题展示「登录 {音源}」，弹层不知道也能跑 */
   sourceName?: string;
   onSuccess(): void;
   onClose(): void;
@@ -166,27 +166,15 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
 
   return (
     <div className="dialog-mask" onClick={onClose}>
+      {/* 环境光：一团封面取色（--cs-tint 跟歌换色）、一团黄铜，低饱和慢漂 */}
+      <i className="mask-blob mask-blob-a" aria-hidden="true" />
+      <i className="mask-blob mask-blob-b" aria-hidden="true" />
       <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        {/* 电台叙事：登录 = 接入信号。眉标报频段名，刻度条呼应站尺；× 独立常驻右上角 */}
-        <header className="dlg-head">
-          <span className="dlg-eyebrow">{sourceName ?? "账号"} · SIGNAL</span>
-          <h2>接入账号</h2>
-          <button type="button" className="dlg-x" aria-label="关闭" onClick={onClose}>
-            ×
-          </button>
-        </header>
-        <div className="dlg-ruler" aria-hidden="true" />
-
-        {sendCaptcha && loginByCaptcha ? (
-          <div className="dialog-tabs">
-            <button type="button" className={mode === "qr" ? "on" : ""} onClick={() => setMode("qr")}>
-              扫码
-            </button>
-            <button type="button" className={mode === "phone" ? "on" : ""} onClick={() => setMode("phone")}>
-              手机号
-            </button>
-          </div>
-        ) : null}
+        <button type="button" className="dlg-x" aria-label="关闭" onClick={onClose}>
+          ×
+        </button>
+        <h2>{sourceName ? `登录 ${sourceName}` : "登录账号"}</h2>
+        <p className="dialog-sub">登录后这台设备跟着你的账号走</p>
 
         {mode === "qr" ? (
           <>
@@ -199,14 +187,15 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
                 ))}
               </div>
             ) : null}
-            {/* 二维码装进「信号窗」：四角刻度 + 等待时的扫描线；过期/失败整窗变暗 */}
-            <div className={`qr-win${qrImage ? "" : " empty"}${stopped ? " off" : ""}`}>
-              <i className="qc qc-tl" aria-hidden="true" />
-              <i className="qc qc-tr" aria-hidden="true" />
-              <i className="qc qc-bl" aria-hidden="true" />
-              <i className="qc qc-br" aria-hidden="true" />
-              {qrImage && !stopped ? <i className="qr-scan" aria-hidden="true" /> : null}
-              {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
+            {/* 码卡居中悬浮，外圈朱砂环 = 刷新倒计时：环走完一圈，码就该换了（key 换图重置） */}
+            <div className={`qr-halo${stopped ? " off" : ""}`}>
+              <svg className="qr-ring" viewBox="0 0 240 240" aria-hidden="true">
+                <circle className="qr-ring-track" cx="120" cy="120" r="118" />
+                {qrImage ? <circle className="qr-ring-bar" key={qrImage} cx="120" cy="120" r="118" /> : null}
+              </svg>
+              <div className="qr-win">
+                {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
+              </div>
             </div>
             <p className={`sig-status${stopped ? " off" : ""}`}>
               <i className="sig-dot" aria-hidden="true" />
@@ -216,14 +205,12 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
               <button type="button" className="primary" onClick={() => void begin()}>
                 {stopped ? "刷新" : "换一张"}
               </button>
-              <button type="button" onClick={onClose}>
-                关闭
-              </button>
+              {sendCaptcha && loginByCaptcha ? (
+                <button type="button" onClick={() => setMode("phone")}>
+                  手机号登录
+                </button>
+              ) : null}
             </div>
-            {/* 手机号登录是网易云的备选，QQ 源没有这条路径 */}
-            {sendCaptcha && loginByCaptcha ? (
-              <p className="dialog-hint">扫码被手机端拦截时，改用「手机号」登录。</p>
-            ) : null}
           </>
         ) : (
           <>
@@ -256,8 +243,8 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
               <button type="button" className="primary" onClick={() => void submit()} disabled={busy}>
                 登录
               </button>
-              <button type="button" onClick={onClose}>
-                关闭
+              <button type="button" onClick={() => setMode("qr")}>
+                返回扫码
               </button>
             </div>
           </>

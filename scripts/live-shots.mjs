@@ -1503,7 +1503,7 @@ app.whenReady().then(async () => {
   }
 
   // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
-  /* 账号面板（频段表）+ 登录弹层（接入信号）：fixture netease 已登录 / QQ 未登录，
+  /* 账号面板（频段表）+ 登录弹层（环境光玻璃）：fixture netease 已登录 / QQ 未登录，
      面板同时呈现「ON AIR 在用行 + 信号格 + 未登录频段的登录入口」，登录弹层用伪二维码。
      放在播放页矮窗探针**之前**：尾端那个 2px 存量抖动（st-hline/st-kb）不该挡住弹层证据。 */
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口");
@@ -1529,17 +1529,19 @@ app.whenReady().then(async () => {
   );
   await sleep(900);
   const dlgProbe = await evalJs(`(() => ({
-    head: document.querySelector(".dlg-eyebrow")?.textContent ?? "",
+    head: document.querySelector(".dialog h2")?.textContent ?? "",
+    blob: document.querySelector(".mask-blob-a") !== null,
     qr: document.querySelector(".qr-win img.qr") !== null,
-    scan: document.querySelector(".qr-scan") !== null,
+    ring: document.querySelector(".qr-ring-bar") !== null,
     note: document.querySelector(".sig-status span")?.textContent ?? "",
   }))()`);
   console.log(`登录弹层：${JSON.stringify(dlgProbe)}`);
   if (!dlgProbe.qr) throw new Error("登录弹层里没有二维码（fixture qq:login 没接上？）");
-  if (!dlgProbe.scan) throw new Error("扫描线不在（等待态没生效？）");
+  if (!dlgProbe.ring) throw new Error("倒计时环不在（等待态没生效？）");
+  if (!dlgProbe.blob) throw new Error("环境光色块不在（mask-blob 没挂上？）");
   await shoot("live-login-qr.png");
   // 弹层关掉再回主流程：后面的房间/主题截图不能带浮层
-  await click(`(() => { const b = [...document.querySelectorAll(".dialog-actions button")].find((x) => x.textContent === "关闭"); b?.click(); return Boolean(b); })()`, "登录弹层 · 关闭");
+  await click(`(() => { const b = document.querySelector(".dlg-x"); b?.click(); return Boolean(b); })()`, "登录弹层 · 关闭");
   await sleep(400);
 
   /* 换台闪变（切源动画）：QQ 翻成已登录 → 面板出现「切换」钮 → 点下后
