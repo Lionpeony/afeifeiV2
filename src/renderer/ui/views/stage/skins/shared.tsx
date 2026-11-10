@@ -288,14 +288,19 @@ export function usePulse(
   specRef.current = spectrum;
   useEffect(() => {
     let frame = 0;
+    let peak = 0.08;
+    let smooth = 0;
     return onTick(() => {
       frame += 1;
       if (frame % 2 !== 0) return;
       const bins = specRef.current(64) ?? [];
       let bass = 0;
       for (let i = 2; i < 12; i += 1) bass += Math.max(0, Math.min(1, bins[i] ?? 0));
-      const v = Math.min(1, bass / 10 * 1.8);
-      rootRef.current?.style.setProperty("--pulse", v.toFixed(3));
+      const v = bass / 10;
+      // 滚动峰值归一：不这么做，响一点的歌 --pulse 就恒等于 1，等于没有脉冲
+      peak = Math.max(v, peak * 0.994);
+      smooth += (Math.min(1, v / Math.max(0.05, peak)) - smooth) * 0.3;
+      rootRef.current?.style.setProperty("--pulse", smooth.toFixed(3));
     });
   }, [rootRef]);
 }

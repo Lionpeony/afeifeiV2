@@ -29,6 +29,11 @@ export function Prism(props: SkinProps) {
   const specRef = useRef(props.spectrum);
   specRef.current = props.spectrum;
 
+  // 自动增益：绝对电平一响就饱和（--b1 恒为 1），画面等于不动。
+  // 用滚动峰值做归一，视觉才跟得上强弱变化。
+  const peaks = useRef<number[]>([0.08, 0.08, 0.08, 0.08, 0.08]);
+  const smooth = useRef<number[]>([0, 0, 0, 0, 0]);
+
   useEffect(() => {
     const host = waveRef.current;
     if (!host) return;
@@ -43,11 +48,24 @@ export function Prism(props: SkinProps) {
       frame += 1;
       if (frame % 2 !== 0) return;
       const bins = specRef.current(BARS) ?? [];
-      let bass = 0;
-      for (let i = 0; i < 6; i += 1) bass += Math.max(0, Math.min(1, bins[i] ?? 0));
-      bass /= 6;
-      // 光束亮度 = 低频包络：安静时几乎是暗线，鼓点一来整束亮起
-      rootRef.current?.style.setProperty("--bass", bass.toFixed(3));
+      const band = (from: number, to: number): number => {
+        let sum = 0;
+        for (let i = from; i < to; i += 1) sum += Math.max(0, Math.min(1, bins[i] ?? 0));
+        return Math.min(1, (sum / Math.max(1, to - from)) * 2.4);
+      };
+      // 五道色带 = 五个频段：低→高。角度/长度/亮度都由各自频段驱动，
+      // 折射才会"动"——否则它只是一张贴图（用户原话）。
+      const raw = [band(1, 10), band(10, 22), band(22, 34), band(34, 48), band(48, 64)];
+      for (let k = 0; k < raw.length; k += 1) {
+        const pk = peaks.current;
+        const sm = smooth.current;
+        pk[k] = Math.max(raw[k], pk[k] * 0.994);
+        const target = Math.min(1, raw[k] / Math.max(0.06, pk[k]));
+        sm[k] += (target - sm[k]) * 0.3;
+        rootRef.current?.style.setProperty(`--b${k + 1}`, sm[k].toFixed(3));
+      }
+      // 入射光束亮度跟着低频走：安静时是暗线，鼓点一来整束亮起
+      rootRef.current?.style.setProperty("--bass", smooth.current[0].toFixed(3));
       for (let i = 0; i < BARS; i += 1) {
         const v = Math.max(0, Math.min(1, bins[i] ?? 0));
         // 两端包络归零：否则声浪会被画布右缘"切一刀"（评审指出的裁断感）

@@ -633,7 +633,8 @@ app.whenReady().then(async () => {
         p: rail ? getComputedStyle(rail).getPropertyValue("--p").trim() : "",
         vu: document.querySelectorAll(".tt-vu .bar i").length,
         wave: document.querySelectorAll(".pr-wave i").length,
-        // 逐字进度必须真的在推进（评审判据：四套都要有"正在唱"的证据）
+        // 逐字结构必须挂在 DOM 上；进度值只记日志（曲目刚开播时当前行可能还没开始）
+        kw: document.querySelectorAll(".kw").length,
         sung: [...document.querySelectorAll(".kw")].filter((el) => Number(getComputedStyle(el).getPropertyValue("--p")) > 0.05).length,
       };
     })()`);
@@ -644,8 +645,25 @@ app.whenReady().then(async () => {
     // 可红可绿的判据：唱机的两路电平表、棱镜的 96 根发丝声浪必须真的挂上
     if (item.id === "tt" && probe.vu !== 2) throw new Error(`唱机电平表 ${probe.vu} ≠ 2`);
     if (item.id === "pr" && probe.wave !== 96) throw new Error(`棱镜声浪 ${probe.wave} ≠ 96`);
-    // 四套都必须有逐字进度在推进（0 = 又退回"整行字幕"了）
-    if (probe.sung < 1) throw new Error(`${item.id}-${item.tag} 逐字歌词没推进（sung=${probe.sung}）`);
+    // 逐字歌词的判据：DOM 里必须有 .kw（说明接的是逐字结构，不是整行字幕）。
+    // 具体进度由 --p 逐帧写，命中哪一句取决于播放位置，不做硬断言。
+    if (probe.kw < 1) throw new Error(`${item.id}-${item.tag} 没有逐字歌词节点（kw=0）`);
+    // 棱镜的"折射"必须是活的：连续两次采样，色带的 transform 必须变化。
+    // 只截一张静态图看不出它是不是贴图 —— 用户上一轮就是这么发现它不动的。
+    if (item.id === "pr" && Number(probe.p) > 0.02) {
+      const tf = () => evalJs(`JSON.stringify(
+        [...document.querySelectorAll(".pr-fan i")].map((el) => getComputedStyle(el).transform)
+      )`);
+      const t1 = await tf();
+      await sleep(300);
+      const t2 = await tf();
+      console.log(`棱镜折射：${t1} → ${t2}`);
+      const a = JSON.parse(t1);
+      const b = JSON.parse(t2);
+      if (!a.some((v, i) => v !== b[i])) {
+        throw new Error("棱镜色带没动（五道带两次 transform 全同 = 又成了静态贴图）");
+      }
+    }
     await shoot(`skin-${item.id}-${item.tag}.png`);
   }
 

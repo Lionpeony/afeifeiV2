@@ -1396,18 +1396,41 @@
   top: 64%;
   z-index: 1;
   background: linear-gradient(90deg, transparent, var(--pr-beam));
-  opacity: calc(.55 + var(--bass, 0) * .45);
-  transition: opacity 120ms linear;
+  opacity: calc(.45 + var(--bass, 0) * .55);
+  height: calc(1px + var(--bass, 0) * 2px);
+  transition: opacity 100ms linear, height 100ms linear;
 }
 
 .pr-prism {
   position: absolute;
-  left: 49%;
+  left: calc(49% - 5px);
   top: 55%;
-  width: 2px;
+  width: 10px;
   height: 22%;
   z-index: 3;
-  background: linear-gradient(180deg, transparent, var(--pr-beam) 30% 70%, transparent);
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    transparent 0,
+    rgb(242 238 230 / .10) 18%,
+    rgb(242 238 230 / .34) 50%,
+    rgb(242 238 230 / .10) 82%,
+    transparent 100%);
+  box-shadow: 0 0 calc(6px + var(--pulse, 0) * 22px) rgb(242 238 230 / .25);
+  transition: box-shadow 120ms linear;
+}
+
+/* 玻璃内芯：能量的落点，随低频闪一下 */
+.pr-prism::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 3px);
+  width: 2px;
+  height: 6px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgb(255 255 255 / .9);
+  box-shadow: 0 0 calc(4px + var(--pulse, 0) * 18px) rgb(255 246 232 / .85);
 }
 
 .pr-fan {
@@ -1418,14 +1441,35 @@
   bottom: 0;
   z-index: 1;
   pointer-events: none;
+  /* 玻璃在手里缓慢转：这是"光在空间里"的底噪动作，
+     即使音乐是稳态的，折射也不会像一张贴图 */
+  transform-origin: 0 64%;
+  animation: pr-drift 16s ease-in-out infinite alternate;
+}
+
+@keyframes pr-drift {
+  from { transform: rotate(-1.6deg); }
+  to { transform: rotate(1.6deg); }
 }
 
 .pr-fan i {
   position: absolute;
   inset: 0;
+  /* 五道带绕"棱镜这一点"摆：角度、长度、亮度都来自各自的频段 */
   transform-origin: 0 64%;
-  transition: transform 140ms linear;
+  transform:
+    rotate(calc((var(--b, 0) - .55) * 9deg))
+    scaleX(calc(.9 + var(--b, 0) * .22));
+  opacity: calc(.38 + var(--b, 0) * .62);
+  transition: none;
+  will-change: transform, opacity;
 }
+
+.pr-fan i:nth-child(1) { --b: var(--b1, 0); }
+.pr-fan i:nth-child(2) { --b: var(--b2, 0); }
+.pr-fan i:nth-child(3) { --b: var(--b3, 0); }
+.pr-fan i:nth-child(4) { --b: var(--b4, 0); }
+.pr-fan i:nth-child(5) { --b: var(--b5, 0); }
 
 /* 五道色散：越往外越暖，末端透明度渐隐 */
 .pr-fan i:nth-child(1) {
@@ -1633,7 +1677,8 @@
   .pr-lyr .cur,
   .sl-lyr .cur,
   .tt-lyr .cur,
-  .sl-sweep {
+  .sl-sweep,
+  .pr-fan {
     animation: none;
     transition: none;
   }
