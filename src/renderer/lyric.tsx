@@ -94,7 +94,7 @@ function Lyric() {
               <span className="off">{text.slice(lit)}</span>
             </p>
           ) : (
-            <p className="lyric-idle">不夜台 · 桌面歌词</p>
+            <p className="lyric-idle">桌面歌词</p>
           )}
           {text && st.translation ? <p className="lyric-tr">{st.translation}</p> : null}
         </div>

@@ -8,9 +8,8 @@ export function BootSplash() {
       <div className="boot-mark">
         <span className="boot-dot" aria-hidden="true" />
         <b>afeifei</b>
-        <span>不夜台</span>
       </div>
-      <p>正在接通信号…</p>
+      <p>正在载入曲库…</p>
       <span className="boot-line" aria-hidden="true" />
     </div>
   );

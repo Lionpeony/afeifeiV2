@@ -23,14 +23,14 @@ html::after {
   mix-blend-mode: var(--grain-blend);
 }
 
-/* 骨架：只有不夜台单列三行（站尺 / 内容 / 控制台），行列模板在 live/live.css。 */
+/* 骨架：单列三行（站尺 / 内容 / 控制台），行列模板在 live/live.css。 */
 .shell {
   display: grid;
   height: 100%;
   box-sizing: border-box;
 }
 
-/* 标题栏 / 品牌字 / 侧栏已随旧外壳拆除：外壳只剩不夜台站尺（见 live/live.css）。 */
+/* 标题栏 / 品牌字 / 侧栏已随旧外壳拆除：外壳只剩顶部站尺（见 live/live.css）。 */
 
 /* 明暗切换（docs/09 B4）：月亮图形，夜间反色。只换 token 值，不做过渡 */
 .theme-toggle {

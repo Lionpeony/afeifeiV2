@@ -2,7 +2,7 @@ import type { Track } from "../library/schema.js";
 import { dailySeed, shuffledBy } from "../recommend/index.js";
 
 /**
- * 不夜台 · 节目表（纯函数，无 IO）。
+ * 节目表（纯函数，无 IO）。
  *
  * 时间模型跟首页的每日推荐同一根轴：广播日从 06:00 起算，到次日 06:00 结束。
  * 节目由曲库真实曲目拼成，不生成假曲目、不编造时长；空曲库就是空台。

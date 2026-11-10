@@ -14,7 +14,7 @@ export interface StageViewProps {
   notify: (n: { text: string; url?: string } | null) => void;
   /** 直播壳：Esc 在菜单关掉后，退回上一个房间。普通壳不传。 */
   onBack?(): void;
-  /** 直播壳：播放页改穿不夜台灯位。普通壳不传。 */
+  /** 直播壳：播放页改穿直播灯位。普通壳不传。 */
   live?: boolean;
 }
 

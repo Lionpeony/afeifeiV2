@@ -292,7 +292,7 @@ const DEMO_LRC = [
   "[01:11.00]三点的城市像一张旧照片",
   "[01:18.00]谁把音量调小了一点",
   "[01:25.00]让呼吸也变成节拍",
-  "[01:33.00]不夜台 灯还亮着",
+  "[01:33.00]灯还亮着",
   "[01:40.00]下一档节目在等你",
   "[01:48.00]如果你也路过这里",
   "[01:55.00]就坐下来听完这一首",
@@ -1425,28 +1425,16 @@ app.whenReady().then(async () => {
     throw new Error(`播放页横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
   }
 
-  /* 导播走带（播出条）：三键在、底边进度是可拖 range、主键能切换播放态。
-     舞台是主播出面，这组键失灵就等于舞台不能控制播出。 */
-  const desk = await evalJs(`(() => {
-    const keys = [...document.querySelectorAll(".st-air-tools .st-tb")];
-    const main = keys.find((b) => b.classList.contains("main"));
-    const before = main?.querySelector(".tb-ic")?.className ?? "";
-    main?.click();
-    return {
-      count: keys.length,
-      bar: Boolean(document.querySelector("input.st-air-progress[type=range]")),
-      icBefore: before,
-    };
-  })()`);
-  await sleep(700);
-  const deskAfter = await evalJs(
-    `document.querySelector(".st-air-tools .st-tb.main .tb-ic")?.className ?? ""`,
-  );
-  console.log(`导播走带：${JSON.stringify(desk)} → 主键图标 ${deskAfter}`);
-  if (desk.count !== 3) throw new Error(`播出条走带应 3 键，实际 ${desk.count}`);
-  if (!desk.bar) throw new Error("播出条底边不是可拖进度（input range 丢了）");
-  if (deskAfter === desk.icBefore) throw new Error(`走带主键没切换播放态：${desk.icBefore} → ${deskAfter}`);
-  // 拨回去，别把播放态带给后面的「首页暂停」截图
+  /* 舞台走带：新皮肤共用 .sk-tape，底边是可拖 range。
+     这段原来查的是 classic 版面的 .st-air-tools 三键 —— classic 已删，
+     断言一直红着（走带现在只有一份实现，见 shared.tsx 的 Tape）。 */
+  const desk = await evalJs(`(() => ({
+    tape: Boolean(document.querySelector(".sk-tape")),
+    bar: Boolean(document.querySelector(".sk-tape input.sk-range[type=range]")),
+  }))()`);
+  console.log(`舞台走带：${JSON.stringify(desk)}`);
+  if (!desk.tape) throw new Error("播放页没有走带（.sk-tape）");
+  if (!desk.bar) throw new Error("走带底边不是可拖进度（input.sk-range 丢了）");
   await evalJs(`document.querySelector(".st-air-tools .st-tb.main")?.click()`);
   await sleep(700);
 

@@ -92,28 +92,6 @@ export function NightCoverArt({ className }: { className?: string }) {
       >
         AFEIFEI
       </text>
-      <text
-        x="424"
-        y="240"
-        textAnchor="middle"
-        fill="var(--live-ink)"
-        fontFamily="Bahnschrift SemiCondensed, Bahnschrift, sans-serif"
-        fontSize="25"
-        letterSpacing="1"
-      >
-        88.1
-      </text>
-      <text
-        x="424"
-        y="254"
-        textAnchor="middle"
-        fill="var(--live-ink)"
-        fontFamily="Cascadia Mono, Consolas, monospace"
-        fontSize="6.5"
-        letterSpacing="1.6"
-      >
-        NIGHT SIGNAL
-      </text>
       <circle cx="424" cy="226" r="7" fill="var(--live-bg)" />
       <circle cx="424" cy="226" r="7" fill="none" stroke="var(--live-fg)" strokeOpacity="0.3" />
 

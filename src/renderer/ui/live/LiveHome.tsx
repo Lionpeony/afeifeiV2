@@ -14,7 +14,7 @@ export type { OnAirProgram };
 
 /**
  * 首页 = 「正在播放」+「接下来播放」的现代桌面播放器布局：
- * 左侧是悬浮大封面 + 主打信息（不夜台暗色舞台），右侧是圆角封面卡网格与真频谱。
+ * 左侧是悬浮大封面 + 主打信息（暗色舞台），右侧是圆角封面卡网格与真频谱。
  * hero 跟随全局播放（onAirProgram 投影）：在播的歌来自每日推荐就按每日推荐展示，
  * 来自榜单/歌单/搜索/FM 就整页切 ON AIR、节目单 = 当前队列；空闲回落今日第 1 档。
  * 所有叙事字段来自真实数据；不编造播出时间。
@@ -377,7 +377,7 @@ export function LiveHome({
               <div className="cs-sig-foot">
                 <span className="cs-standby">
                   <i />
-                  NIGHT SIGNAL
+                  STEREO
                 </span>
                 <span>L / R</span>
               </div>

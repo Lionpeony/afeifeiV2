@@ -1,4 +1,4 @@
-/* 不夜台 · 直播带（限域版）外壳。
+/* 外壳：站尺 + 直播间 + 控制台。
    只准用 var(--*) 与 color-mix/rgba —— 裸 hex 归 tokens.css。 */
 
 /* ---------- 壳：夜间控制室，单列三行 ---------- */
@@ -131,13 +131,6 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--live-fg);
-}
-
-.ruler-cn {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  color: var(--live-fg-dim);
 }
 
 .ruler-ticks {
@@ -1324,7 +1317,7 @@
   }
 }
 
-/* ---------- 直播间：不夜台播出面（r4 换壳，不换引擎） ----------
+/* ---------- 直播间：直播播出面（r4 换壳，不换引擎） ----------
    灯位 token 由 StageRoot 内联写入（presets.ts LIVE_PRESETS），这里只换结构件材质：
    视图浮层压成控制室实底。 */
 

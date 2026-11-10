@@ -10,7 +10,7 @@ import { buildBroadcast, type Broadcast } from "../../projection/broadcast.js";
 import { onTick } from "../compositor.js";
 
 /**
- * 不夜台的数据接驳（Ring 4）。
+ * 站尺/直播面的数据接驳（Ring 4）。
  *
  * 墙钟只在这里读，且每秒最多提交一次 —— 直播时码的粒度是秒，
  * 没必要让 60 帧都触发 React。onTick 只是"心跳"，时间本身仍以 Date.now 为准：

@@ -1,19 +1,26 @@
-/* ================= 夜航台（NIGHT SIGNAL）：站尺与控制台 =================
-   首页布局见 cover-stage.css；这里只管频率刻度和调音台控制条。 */
+/* ================= 站尺与控制台 =================
+   首页布局见 cover-stage.css；这里只管导航签子与调音台控制条。
+   2026-11-10：原来的「夜航台 / 调频读数」主题已删（用户明确不要），
+   签子回到单行文字，选中靠琥珀底光锁定。 */
 
-/* —— 站尺：频率刻度带 ——
-   每个 tick 是一枚"双行刻度签"：房名 + 频率，居中对齐；
-   选中不再只换字色——整枚签子浮起一层琥珀底，一眼锁定当前房间。 */
+/* —— 站尺签子 ——
+   单行：只有页名，不再挂假频率。
+   选中不再只换字色——整枚签子浮起一层琥珀底，一眼锁定当前页。 */
 .ruler-tick {
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 2px;
   margin: 8px 0;
   /* 横向 padding 9px：10 枚签子在 1024 窗只剩 ~466px，12px 会贴到折行 */
   padding: 3px 9px 4px;
   border-radius: 10px;
   transition: background-color 140ms ease;
+}
+
+.ruler-tick i {
+  /* 单行签子不需要底部刻度线：它原本是给"名字 + 频率"双行做分隔的，
+     现在留着会在每个词下面挂一根 5px 短线，读成打字机下划线 */
+  display: none;
 }
 
 .ruler-tick > span:first-child {
@@ -24,27 +31,6 @@
   color: var(--live-fg-dim);
 }
 
-.ruler-tick::after {
-  content: attr(data-freq);
-  position: static;
-  left: auto;
-  top: auto;
-  width: auto;
-  height: auto;
-  transform: none;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--live-fg-faint);
-  line-height: 1;
-}
-
-.ruler-tick i {
-  display: none; /* 竖线刻度让位给双行签子：名字 + 频率已经足够读 */
-}
 
 /* 选中 = 整枚签子亮起：琥珀底光 + 琥珀字，比"只变字色"的选中感强一个量级 */
 .ruler-tick.on {
@@ -60,10 +46,6 @@
   font-weight: 600;
 }
 
-.ruler-tick.on::after {
-  color: var(--live-amber);
-}
-
 .ruler-tick:hover {
   background: color-mix(in srgb, var(--live-fg) 5%, transparent);
 }
@@ -72,19 +54,6 @@
   background: color-mix(in srgb, var(--live-amber) 18%, transparent);
 }
 
-.ruler-tick:hover::after {
-  color: var(--live-fg-dim);
-}
-
-/* 调频中：读数正在滚动的目标签子亮琥珀，像旋钮扫过时点亮的刻度 */
-.ruler-tick.tuning {
-  background: color-mix(in srgb, var(--live-amber) 10%, transparent);
-}
-
-.ruler-tick.tuning::after {
-  color: var(--live-amber);
-  font-variant-numeric: tabular-nums;
-}
 
 /* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
 @media (max-width: 1180px) {
@@ -92,7 +61,13 @@
     padding: 3px 7px 4px;
   }
 
-  .ruler-tick > span:first-child {
+  .ruler-tick i {
+  /* 单行签子不需要底部刻度线：它原本是给"名字 + 频率"双行做分隔的，
+     现在留着会在每个词下面挂一根 5px 短线，读成打字机下划线 */
+  display: none;
+}
+
+.ruler-tick > span:first-child {
     font-size: 11px;
   }
 

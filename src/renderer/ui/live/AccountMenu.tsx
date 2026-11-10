@@ -14,7 +14,7 @@ export interface AccountProfile {
 }
 
 /**
- * 账号面板（不夜台站尺右端）：当前账号的头像与昵称 + 全部可登录源。
+ * 账号面板（站尺右端）：当前账号的头像与昵称 + 全部可登录源。
  *
  * 一个播放器同时只认一个账号：点某个源就是切换账号（active-source），
  * 每日推荐 / 红心 / 播放记录 / 漫游随之换源。未登录的源在这里直接给登录入口。
@@ -43,7 +43,7 @@ export function AccountMenu({
      否则上一次的 leaving 会把下一次打开的面板钉在离场末帧（透明），
      用户看到的就是"没有动画，直接切过去了"。 */
   const [leaving, setLeaving] = useState(false);
-  /* 切换时的行内脉冲：像把指针拨到新频段，拨完才真切 */
+  /* 切换时的行内脉冲：拨到新账号，拨完才真切 */
   const [tuning, setTuning] = useState<string | null>(null);
   /* 退出中的行：信号格逐格熄灭 → 状态才真翻（动画所有权在本组件，父级只管改数据） */
   const [signingOut, setSigningOut] = useState<string | null>(null);
@@ -119,8 +119,8 @@ export function AccountMenu({
       <button type="button" className={`acct-scrim${leaving ? " leaving" : ""}`} aria-label="关闭账号面板" onClick={requestClose} />
       <div className={`acct-menu${leaving ? " leaving" : ""}`} role="dialog" aria-label="账号">
         <header className="acct-menu-head">
-          {/* 电台叙事：音源 = 频段，面板就是调频台的本机频段表 */}
-          <span>账号 · 频段表</span>
+          {/* 音源即账号：一个播放器同时只认一个 */}
+          <span>账号</span>
           <button type="button" className="acct-menu-x" aria-label="关闭" onClick={requestClose}>
             ×
           </button>
@@ -157,10 +157,10 @@ export function AccountMenu({
                   <b>{source.name}</b>
                   <span>{profile?.loggedIn ? (profile.nick ?? "已登录") : "未登录"}</span>
                 </div>
-                {/* 信号强度格：登录了才有信号——0 格的频段调不进来 */}
+                {/* 信号强度格：登录了才有信号（0 格 = 未登录） */}
                 <span
                   className={`acct-sig${bars ? "" : " mute"}`}
-                  title={profile?.loggedIn ? "信号良好" : "无信号（未登录）"}
+                  title={profile?.loggedIn ? "已登录" : "未登录"}
                   aria-hidden="true"
                 >
                   <i className={bars > 0 ? "hit" : ""} />
@@ -173,7 +173,7 @@ export function AccountMenu({
                       /* 正在使用的频段不摆按钮：ON AIR 灯牌，红点呼吸 */
                       <span className="onair-badge">
                         <i aria-hidden="true" />
-                        ON AIR
+                        使用中
                       </span>
                     ) : (
                       <button type="button" className="acct-act" onClick={() => handleSwitch(source.id)}>

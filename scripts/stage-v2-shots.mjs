@@ -19,9 +19,12 @@ const OUT = path.join(root, "docs/assets/mockups");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 app.whenReady().then(async () => {
+  // 画板尺寸跟实机窗口走：这几个方向要拿到 1080×604 才看得出版面松紧
+  const SHOT_W = Number(process.env.SHOT_W ?? 1080);
+  const SHOT_H = Number(process.env.SHOT_H ?? 604);
   const win = new BrowserWindow({
-    width: 1080,
-    height: 560,
+    width: SHOT_W,
+    height: SHOT_H,
     useContentSize: true,
     show: true,
     backgroundColor: "#12100f",
@@ -47,7 +50,8 @@ app.whenReady().then(async () => {
         document.body.style.margin = "0";
         for (const c of document.querySelectorAll(".cap")) c.style.display = "none";
         for (const b of document.querySelectorAll(".board")) {
-          const keep = Boolean(b.querySelector('[data-shot="${name}"]'));
+          // data-shot 可能挂在画板自身（新稿）也可能挂在内部元素（旧稿），两种都认
+          const keep = b.matches('[data-shot="${name}"]') || Boolean(b.querySelector('[data-shot="${name}"]'));
           b.style.display = keep ? "block" : "none";
           b.style.margin = "0";
         }

@@ -90,7 +90,7 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  // 外壳只有不夜台直播带一种；开机即首页直播面
+  // 外壳只有一种：顶部站尺 + 内容 + 控制台
   const [page, setPage] = useState<PageId>("home");
   // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的首页亮给用户
   const [bootReady, setBootReady] = useState(false);

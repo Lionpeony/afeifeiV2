@@ -7,7 +7,7 @@ export function StageRoot({ state, wallPaperUrl, rootRef, live, children }: {
   state: AppState;
   wallPaperUrl: string | null;
   rootRef: React.RefObject<HTMLElement | null>;
-  /** 直播壳：场景层改穿不夜台灯位，纸面预设的底色不带进来。 */
+  /** 直播壳：场景层改穿直播灯位，纸面预设的底色不带进来。 */
   live: boolean;
   children: ReactNode;
 }) {
