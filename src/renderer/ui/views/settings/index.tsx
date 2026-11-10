@@ -113,7 +113,7 @@ export function SettingsView(props: SettingsViewProps) {
           <div className="set-row">
             <span className="k">
               <b>配色</b>
-              <span>四档全局配色，控制台和页面一起换；播放页配色独立不受影响</span>
+              <span>三档全局配色，控制台和页面一起换；播放页配色独立不受影响</span>
             </span>
             <div className="seg">
               {THEME_PRESETS.map((preset) => (

@@ -16,8 +16,8 @@ export type { OnAirProgram };
  * 首页 = 「正在播放」+「接下来播放」的现代桌面播放器布局：
  * 左侧是悬浮大封面 + 主打信息（暗色舞台），右侧是圆角封面卡网格与真频谱。
  * hero 跟随全局播放（onAirProgram 投影）：在播的歌来自每日推荐就按每日推荐展示，
- * 来自榜单/歌单/搜索/FM 就整页切 ON AIR、节目单 = 当前队列；空闲回落今日第 1 档。
- * 所有叙事字段来自真实数据；不编造播出时间。
+ * 来自榜单/歌单/搜索/FM 就整页切跟播视图、列表 = 当前队列；空闲回落今日第 1 首。
+ * 所有叙事字段来自真实数据；不编造播放时间。
  */
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
@@ -103,8 +103,8 @@ export function LiveHome({
   /*
    * hero 显示哪一档——两个模式，同一投影：
    *  - 每日推荐（默认）：正在播的歌属于今日推荐，或没在播（回落第 1 档）；
-   *  - ON AIR：正在播的远程歌来自别处（榜单/歌单/搜索/FM），整页切过去，
-   *    节目单 = 当前队列——在任何页选的歌，回首页都能看到它上台和整份节目单。
+   *  - 跟播：正在播的远程歌来自别处（榜单/歌单/搜索/FM），整页切过去，
+   *    列表 = 当前队列——在任何页选的歌，回首页都能看到它和整份列表。
    * 单一事实源不变：播放状态由 store 唯一持有，这里只做投影，不另存 selected。
    */
   const liveIndex =
@@ -117,20 +117,20 @@ export function LiveHome({
   const live = onAirMode || liveIndex >= 0;
   const leadIndex = onAirMode ? onAirIdx : liveIndex >= 0 ? liveIndex : 0;
   const lead: RemoteTrack | undefined = onAirMode ? onAir.list[onAirIdx] : state.songs[leadIndex];
-  // 本期节目单：ON AIR = 当前队列，每日推荐 = 账号推荐列表
+  // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
-  // 播出带 = 真正的「接下来」：从正在播那一档的下一首起，切歌自动推进。
-  // 尾曲之后**环回**节目单开头（列表循环语义，2026-11-08 用户定：播完不该是"没了"）——
+  // 待播带 = 真正的「接下来」：从正在播那一首的下一首起，切歌自动推进。
+  // 尾曲之后**环回**列表开头（列表循环语义，2026-11-08 用户定：播完不该是"没了"）——
   // upcoming 是环列的全部其余曲目（不含 lead），编号按环列位置算（尾曲之后是 01）。
   // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
   const upcoming: RemoteTrack[] = [];
   for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
   const tapes = upcoming.slice(0, 5);
-  /** 环列第 k 项的节目单编号（1 起）：lead 29/30 之后是 01。 */
+  /** 环列第 k 项的列表编号（1 起）：lead 29/30 之后是 01。 */
   const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
-  // 点播出带里的任意一档：队列 = 整份节目单，从这一首开始（连播靠它）。
-  // origin 跟着节目走：每日推荐重建时标「每日推荐」；ON AIR 原样保住队列自己的来源。
+  // 点待播带里的任意一格：队列 = 整份列表，从这一首开始（连播靠它）。
+  // origin 跟列表走：每日推荐重建时标「每日推荐」；跟播原样保住队列自己的来源。
   const play = (track: RemoteTrack): void => {
     if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list, onAir.origin ?? undefined);
     else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
@@ -170,7 +170,7 @@ export function LiveHome({
     >
       {!lead ? (
         <div className="cs-state-wrap">
-          {state.loading ? <p className="daily-state">正在接通今晚的节目单…</p> : null}
+          {state.loading ? <p className="daily-state">正在载入今日推荐…</p> : null}
           {!state.loading && state.error ? <p className="daily-state">{state.error}</p> : null}
           {!state.loading && !state.error && state.hint ? (
             <div className="daily-gate">
@@ -184,7 +184,7 @@ export function LiveHome({
             <div className="cs-empty">
               <NightCoverArt className="cs-empty-art" />
               <div>
-                <h2>今晚还没有节目单</h2>
+                <h2>今天还没有推荐</h2>
                 <p>推荐源没有给出今天的曲目。晚点再刷新一次。</p>
                 <RefreshButton onClick={state.reload} busy={state.loading} />
               </div>
@@ -217,7 +217,7 @@ export function LiveHome({
 
             <div className="cs-copy">
               <p className="cs-kicker">
-                {live ? (playing ? "正在播出" : "暂停中") : "今晚主打"}
+                {live ? (playing ? "正在播放" : "暂停中") : "今日主打"}
                 <span className="cs-idx">
                   {pad2(leadIndex + 1)} / {total}
                 </span>
@@ -231,23 +231,23 @@ export function LiveHome({
               </p>
               <p className="cs-note">
                 {onAirMode
-                  ? `来自 ${onAir.origin || onAir.sourceName} 的节目单${
-                      playing ? "正在播出。今晚去哪儿走，由它决定。" : "停在半路，随时接着走。"
+                  ? `来自 ${onAir.origin || onAir.sourceName} 的播放列表${
+                      playing ? "正在播放，顺着列表往下走。" : "暂停中，随时接着听。"
                     }`
                   : live
                     ? lead.album
                       ? `收录于《${lead.album}》。`
-                      : `今晚第 ${leadIndex + 1} 档正在播出。`
-                    : "今晚从这一首开始。先把它放完，再决定往哪儿走。"}
+                      : `今日推荐第 ${leadIndex + 1} 首，正在播放。`
+                    : "今天从这一首开始，先把它听完。"}
               </p>
             </div>
           </section>
 
-          {/* 右：每日推荐 + 横向播出带 + 信号 */}
+          {/* 右：每日推荐 + 横向待播带 + 信号 */}
           <section className="cs-feed" aria-label="今日推荐">
             <header className="cs-feed-head">
               <div>
-                <p className="cs-feed-kicker">{onAirMode ? "正在播出" : "每日推荐"}</p>
+                <p className="cs-feed-kicker">{onAirMode ? "正在播放" : "每日推荐"}</p>
                 <p className="cs-feed-meta">
                   {onAirMode ? (
                     <>
@@ -265,13 +265,13 @@ export function LiveHome({
 
             <div className="cs-strip-head">
               <h2>
-                {upcoming.length === 0 ? "今晚的节目单到头了" : showAll ? "完整播出单" : "接下来播放"}
+                {upcoming.length === 0 ? "今天的推荐听完了" : showAll ? "完整列表" : "接下来播放"}
               </h2>
               <span className="cs-strip-sub">
                 {upcoming.length === 0
-                  ? `播过了 ${total} 首，今晚到此`
+                  ? `已播完 ${total} 首，今天到此`
                   : showAll
-                    ? `剩 ${upcoming.length} 首 · 按播出顺序`
+                    ? `剩 ${upcoming.length} 首 · 按播放顺序`
                     : "按顺序播放"}
               </span>
               {upcoming.length > 0 ? (
@@ -281,7 +281,7 @@ export function LiveHome({
                   aria-expanded={showAll}
                   onClick={() => setShowAll((v) => !v)}
                 >
-                  {showAll ? "收起播出单" : "完整播出单"}
+                  {showAll ? "收起列表" : "完整列表"}
                 </button>
               ) : null}
             </div>
@@ -289,7 +289,7 @@ export function LiveHome({
             {upcoming.length === 0 ? (
               <p className="cs-end">接下来没有歌了。回完整播放器换一首，或者刷新一份新的推荐。</p>
             ) : showAll ? (
-              <ol className="cs-all" aria-label="接下来的播出单，按播出顺序（循环回节目单开头）">
+              <ol className="cs-all" aria-label="接下来的曲目，按播放顺序（循环回列表开头）">
                 {upcoming.map((track, i) => (
                   <li key={track.sourceId}>
                     <button
@@ -298,7 +298,7 @@ export function LiveHome({
                       onClick={() => play(track)}
                     >
                       <span className="cs-all-no">{noOf(i + 1)}</span>
-                      {/* 缩略图：与播出带格子同一封面链路；失败切迷你黑胶垫底 */}
+                      {/* 缩略图：与待播带格子同一封面链路；失败切迷你黑胶垫底 */}
                       {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
                         <img
                           className="cs-all-art"
@@ -322,7 +322,7 @@ export function LiveHome({
                 ))}
               </ol>
             ) : (
-              <ol className="cs-tapes" aria-label="待播曲目，按播出顺序（循环回节目单开头）">
+              <ol className="cs-tapes" aria-label="待播曲目，按播放顺序（循环回列表开头）">
               {tapes.map((track, i) => (
                 <li key={track.sourceId}>
                   <button

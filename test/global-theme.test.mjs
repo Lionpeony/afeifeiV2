@@ -10,10 +10,11 @@ import {
   subscribeGlobalTokens,
 } from "../dist-test/global-theme.mjs";
 
-/* ---- 全局配色（B-9）：四档预设 + 白名单净化 ---- */
+/* ---- 全局配色（B-9）：三档预设 + 白名单净化 ---- */
 
-test("四档主题：旧值 light/dark 仍合法，未知值拒绝", () => {
-  for (const id of ["light", "dark", "sepia", "forest"]) assert.equal(isTheme(id), true);
+test("三档主题：旧值 light/dark 仍合法，已删的 forest 与未知值拒绝", () => {
+  for (const id of ["light", "dark", "sepia"]) assert.equal(isTheme(id), true);
+  assert.equal(isTheme("forest"), false); // 2026-11-10 删除「夜航」档
   for (const id of ["custom", "", 1, null]) assert.equal(isTheme(id), false);
 });
 

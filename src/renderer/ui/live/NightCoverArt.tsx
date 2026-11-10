@@ -1,7 +1,7 @@
 /**
  * 无真实封面时的「台版封套」：面板底 + 半出的黑胶 + 琥珀标签。
  * 纯装饰（aria-hidden），真实曲名/艺人在覆盖层文字里。
- * 颜色全走 --live-* token，四档主题自适应。
+ * 颜色全走 --live-* token，三档主题自适应。
  */
 export function NightCoverArt({ className }: { className?: string }) {
   const bgTop = "var(--live-panel)";

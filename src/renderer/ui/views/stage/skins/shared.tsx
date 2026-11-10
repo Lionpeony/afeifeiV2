@@ -161,9 +161,10 @@ export function Cover({ url, className = "" }: { url: string | null; className?:
   );
 }
 
-/** 顶部导播条：三套皮肤共用一份信息（ON AIR / 队列 / 行号 / 编码），外观各自覆写。 */
+/** 顶部导播条：三套皮肤共用一份信息（播放态 / 队列 / 行号 / 编码），外观各自覆写。 */
 export function SkinTop({
   live,
+  playing,
   queue,
   line,
   codec,
@@ -173,6 +174,8 @@ export function SkinTop({
   onView,
 }: {
   live: boolean;
+  /** 播放态徽标用：直播壳里红灯随播放状态换字，不再是常亮的「播出」灯 */
+  playing?: boolean;
   queue: string;
   line: string;
   codec: string;
@@ -183,7 +186,7 @@ export function SkinTop({
 }) {
   return (
     <header className="sk-top">
-      <span className={`sk-onair${live ? " live" : ""}`}><i aria-hidden="true" />{live ? "ON AIR" : "NOW PLAYING"}</span>
+      <span className={`sk-onair${live ? " live" : ""}${playing ? " playing" : ""}`}><i aria-hidden="true" />{live ? (playing ? "PLAYING" : "PAUSED") : "NOW PLAYING"}</span>
       <span className="sk-top-sep" aria-hidden="true" />
       <span className="sk-top-i mono">{queue}</span>
       <span className="sk-top-i mono">{line}</span>

@@ -79,7 +79,7 @@ export function subscribeGlobalTokens(fn: () => void): () => void {
 
 /**
  * 应用/清除一份覆盖：inline style 挂在 `<html>` 上，优先级高于
- * `:root[data-theme="x"]`，所以四档预设仍然能当底色、包只盖它改过的键。
+ * `:root[data-theme="x"]`，所以三档预设仍然能当底色、包只盖它改过的键。
  */
 export function setGlobalTokens(next: GlobalTokens | null): void {
   if (typeof document !== "undefined") {

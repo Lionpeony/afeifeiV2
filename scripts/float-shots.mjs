@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
       g.beginPath(); g.arc(80, 72, 40, 0, Math.PI * 2); g.stroke();
       g.fillStyle = "rgba(255,255,255,0.75)";
       g.font = "13px sans-serif";
-      g.fillText("夜行电台", 56, 136);
+      g.fillText("城市漫游", 56, 136);
       return c.toDataURL("image/png");
     })()`,
     true,

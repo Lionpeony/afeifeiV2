@@ -13,20 +13,19 @@ export interface RadioViewProps {
 
 interface Station {
   key: string;
-  freq: string;
+  /** 角标（原假频率 88.1 已删）：艺人墙给曲目数，规则组给序号 */
+  tag: string;
   name: string;
   note: string;
   tracks: Track[];
 }
 
-const freqOf = (i: number): string => (88 + i * 1.7).toFixed(1);
-
 /**
  * 电台（ref pages-v11/04-radio）。
  *
  * 在线源四家的 canGetRadio 全是 false，没有真电台流可接，所以这里不摆假主播、
- * 假 UP 主：频段墙 = 曲库里够 3 首的艺人（每位一个台，按首数排），
- * 「我的频路」= 五条由本机数据算出来的规则台。点了就按顺序串播。
+ * 假 UP 主：艺人墙 = 曲库里够 3 首的艺人（每位一组，按首数排），
+ * 「我的组合」= 五条由本机数据算出来的规则组。点了就按顺序连播。
  */
 export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps & { embedded?: boolean }) {
   const [, setRev] = useState(0);
@@ -55,8 +54,8 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
     .slice(0, 12)
     .map(([artist, list], i) => ({
       key: `a-${artist}`,
-      freq: freqOf(i),
-      name: `${artist} 电台`,
+      tag: `${list.length} 首`,
+      name: artist,
       note: `${list.length} 首 · 这位艺人的全部曲目，按专辑顺序`,
       tracks: [...list].sort((x, y) => x.album.localeCompare(y.album, "zh-Hans-CN")),
     }));
@@ -65,36 +64,36 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
   const paths: Station[] = [
     {
       key: "liked",
-      freq: "FM 01",
-      name: "红心台",
+      tag: "01",
+      name: "红心",
       note: `你盖过章的 ${[...liked].length} 首`,
       tracks: tracks.filter((t) => liked.has(t.id)),
     },
     {
       key: "daily",
-      freq: "FM 02",
-      name: "今日推荐台",
+      tag: "02",
+      name: "今日推荐",
       note: "和首页同一份 30 首",
       tracks: dailyPicks({ tracks, liked, recent, seed }),
     },
     {
       key: "fresh",
-      freq: "FM 03",
-      name: "新入台",
+      tag: "03",
+      name: "新入库",
       note: "最近落进曲库的 20 首",
       tracks: recentAdds(tracks, 20),
     },
     {
       key: "long",
-      freq: "FM 04",
-      name: "长曲台",
+      tag: "04",
+      name: "长曲",
       note: `5 分钟以上的 ${slow.length} 首`,
       tracks: slow,
     },
     {
       key: "shuffle",
-      freq: "FM 05",
-      name: "全库乱序台",
+      tag: "05",
+      name: "全库乱序",
       note: "曲库整副洗一遍",
       tracks: shuffledBy(tracks, seed ^ 0x5bf03635),
     },
@@ -104,8 +103,8 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
 
   /*
    * 私人 FM（A-14 最后一块）：算法流直接进播放器。
-   * 和「今日推荐台」的区别不在算法（同一个 dailyPicks），在**交互形态**：
-   * 台是"点一下播一整个列表"，FM 是"告诉你要来什么、为什么，一键开始、随时换流"。
+   * 和「今日推荐」组的区别不在算法（同一个 dailyPicks），在**交互形态**：
+   * 组是"点一下播一整个列表"，FM 是"告诉你要来什么、为什么，一键开始、随时换流"。
    * 每首前面那句 reasonOf 就是 B-04 的"为什么"——推荐不说理由就不算推荐。
    */
   const fmTracks = dailyPicks({ tracks, liked, recent, seed: dailySeed() + fmSalt });
@@ -117,7 +116,7 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
 
   const body = (
     <>
-      {/* 私人 FM：横向开机条。左=接下来三首和理由，右=操作。不挤侧栏，也不占频段墙 */}
+      {/* 私人 FM：横向开机条。左=接下来三首和理由，右=操作。不挤侧栏，也不占艺人墙 */}
       <div className="fmbar">
         <div className="fm-why">
           <h3>
@@ -148,24 +147,24 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
         <div className="rwall">
           {wall.map((station) => (
             <button type="button" key={station.key} className="rs" onClick={() => playStation(station)}>
-              <span className="freq">{station.freq} MHz</span>
+              <span className="freq">{station.tag}</span>
               <b>{station.name}</b>
               <span className="note">{station.note}</span>
             </button>
           ))}
           {wall.length === 0 ? (
-            <p className="lib-empty">还没有哪位艺人凑够 3 首。曲库再大一点，频段就自己长出来。</p>
+            <p className="lib-empty">还没有哪位艺人凑够 3 首。曲库再长一点，这里就有的挑。</p>
           ) : null}
         </div>
 
         <aside className="rfreq">
           <h3>
-            我的频路<span>FIXED</span>
+            我的组合<span>RULES</span>
           </h3>
           <div className="list">
             {paths.map((station) => (
               <button type="button" key={station.key} className="rp" onClick={() => playStation(station)}>
-                <span className="f">{station.freq}</span>
+                <span className="f">{station.tag}</span>
                 <b>{station.name}</b>
                 <span className="n">{station.note}</span>
               </button>
@@ -177,12 +176,12 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
       <div className="rnow">
         <span className="on">
           <i />
-          ON AIR
+          播放中
         </span>
         <b>{now ? now.title : "当前没有播放"}</b>
-        <span>{now ? now.artist : "从上面挑一个频段"}</span>
+        <span>{now ? now.artist : "从上面挑一组开始听"}</span>
         <span className="sp" />
-        <span className="hint">点击频段即整台串播 · 队列与控制台同步</span>
+        <span className="hint">点一组即按顺序连播 · 队列与控制台同步</span>
       </div>
     </>
   );
@@ -193,7 +192,7 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
     <section className="radio">
       <PageHead
         title="电台"
-        desc="没有主播、没有广告，只有按规则串起来的本地曲库——十二个频段，随点随播。"
+        desc="没有主播、没有广告，只有按规则串起来的本地曲库——艺人分组随点随播。"
         meta={`STATIONS · ${wall.length}`}
       />
       {body}

@@ -125,10 +125,21 @@
   color: var(--sk-hot);
 }
 
+/* 暂停时红灯熄火：字与点都降为次级色，红只留给正在播放（字随播放态换 PLAYING/PAUSED） */
+.sk-onair.live:not(.playing) {
+  color: var(--sk-dim);
+}
+
 .sk-onair.live i {
   background: var(--sk-hot);
   box-shadow: 0 0 9px var(--sk-hot);
   animation: sk-beat 2s ease-in-out infinite;
+}
+
+.sk-onair.live:not(.playing) i {
+  background: var(--sk-dim);
+  box-shadow: none;
+  animation: none;
 }
 
 @keyframes sk-beat {

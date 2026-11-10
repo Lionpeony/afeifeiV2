@@ -55,6 +55,7 @@ export function Sleeve(props: SkinProps) {
     >
       <SkinTop
         live={props.live}
+        playing={props.playing}
         queue={`QUEUE ${state.queue.items.length ? `${pad2(Math.max(1, data.cursorPosition + 1))}/${state.queue.items.length}` : "—"}`}
         line={doc && at >= 0 ? `LINE ${pad2(at + 1)}/${doc.lines.length}` : "LINE —"}
         codec="FLAC 44.1"

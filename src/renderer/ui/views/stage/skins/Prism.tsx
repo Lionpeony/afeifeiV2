@@ -82,6 +82,7 @@ export function Prism(props: SkinProps) {
     <div className="sk sk-pr" data-tone={props.tone} data-playing={playing ? "on" : "off"} ref={rootRef}>
       <SkinTop
         live={props.live}
+        playing={props.playing}
         queue={`QUEUE ${doc && at >= 0 ? `${Math.min(doc.lines.length, at + 1)}/${doc.lines.length}` : "—"}`}
         line={doc && at >= 0 ? `LINE ${String(at + 1).padStart(2, "0")}/${doc.lines.length}` : "LINE —"}
         codec="44.1 kHz"

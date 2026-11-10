@@ -69,6 +69,7 @@ export function Proof(props: SkinProps) {
     <div className="sk sk-pf" data-tone={props.tone} ref={rootRef}>
       <SkinTop
         live={props.live}
+        playing={props.playing}
         queue={`PROOF ${pad2(data.cursorPosition + 1)}`}
         line={doc && at >= 0 ? `LINE ${pad2(at + 1)}/${doc.lines.length}` : "LINE —"}
         codec="FLAC 44.1"

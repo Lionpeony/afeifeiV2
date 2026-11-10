@@ -136,7 +136,7 @@ const COVER_ART = {
   U87: ["#3b2333", "#eee2dc", "#b46f8a"],
   /* 深青而非近灰黑：tint 取色量化后 chroma 太低（0.02）混什么都看不出，
      fixture 封面必须自带彩度，色晕链路才验得动 */
-  夜行电台: ["#123a4a", "#e8e2d6", "#7fc4d8"],
+  城市漫游: ["#123a4a", "#e8e2d6", "#7fc4d8"],
 };
 
 const hashOf = (s) => {
@@ -172,9 +172,9 @@ const coverMotif = (kind, motif) => {
 
 const coverOf = (album) => {
   const [bg, fg, motif] = COVER_ART[album] ?? ["#2a2c30", "#e8e4da", "#8a8f98"];
-  /* 夜行电台带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
+  /* 城市漫游带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
      白边 24/400 = 6%，落在 2%-15% 检测窗口内 → trim 必触发，img 必带 scale transform。 */
-  if (album === "夜行电台") {
+  if (album === "城市漫游") {
     const pad = 24;
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">` +
@@ -240,35 +240,35 @@ const DAILY = [
   id: `daily-${i}`,
   name,
   ar: [{ name: artist }],
-  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  al: { name: "城市漫游", picUrl: coverOf("城市漫游") },
   dt,
 }));
 
-/* 榜单/歌单曲目 fixture：**不与每日推荐重叠**——ON AIR 判据靠它：
-   播一首不在每日推荐里的歌，首页必须整页切到 ON AIR（旧实现左栏钉死在每日推荐）。
+/* 榜单/歌单曲目 fixture：**不与每日推荐重叠**——跟播判据靠它：
+   播一首不在每日推荐里的歌，首页必须整页切到跟播视图（旧实现左栏钉死在每日推荐）。
    前 6 首固定名（判据引用），后面补到 50 首：播放页右栏队列要滚起来，
    6 首的队列探不到滚动条（用户实况是 QUEUE 3/50）。 */
 const CHART_SONGS = [
-  ["夜行特快", "夜航局", 221000],
-  ["午夜快线", "夜航局", 244000],
-  ["雾中信号", "潮汐台", 208000],
-  ["频段之外", "潮汐台", 261000],
-  ["白噪城市", "夜航局", 236000],
-  ["末班电波", "潮汐台", 249000],
-  ...Array.from({ length: 44 }, (_, i) => [`加场 ${i + 1}`, "夜航局", 200000 + i * 7000]),
+  ["环岛快车", "白色海岸", 221000],
+  ["蓝色快车", "白色海岸", 244000],
+  ["雾中灯塔", "潮汐", 208000],
+  ["天线之外", "潮汐", 261000],
+  ["白昼城市", "白色海岸", 236000],
+  ["末班船", "潮汐", 249000],
+  ...Array.from({ length: 44 }, (_, i) => [`短篇 ${i + 1}`, "白色海岸", 200000 + i * 7000]),
 ].map(([name, artist, dt], i) => ({
   id: `chart-${i}`,
   name,
   ar: [{ name: artist }],
-  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  al: { name: "城市漫游", picUrl: coverOf("城市漫游") },
   dt,
 }));
 
 /* 歌单页 fixture：账号歌单两行。空态那一段会把它清空，验证「两段都没歌单」的文案，
    所以必须是可变的模块级变量，不能写死在 handler 里。 */
 let MOCK_PLAYLISTS = [
-  { id: 601, name: "夜航精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
-  { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("夜行电台") },
+  { id: 601, name: "编辑精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
+  { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("城市漫游") },
 ];
 
 /* 取曲目的失败开关：错误态那一段会把它打开，验证「页面说人话」而不是沉默 */
@@ -348,7 +348,7 @@ function registerMinimalIpc() {
   ipcMain.handle("notify:show", () => true);
   // 账号态：首页左栏要「正在播放的那一档」，没有每日推荐就整块不出现，
   // 所以 fixture 给一个已登录账号 + 8 首固定推荐（放在这里才发现得早）
-  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "夜航测试", uid: 9527 }));
+  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "本地测试", uid: 9527 }));
   ipcMain.handle("netease:call", (_e, method) => {
     if (method === "recommend_songs") return { data: { dailySongs: DAILY } };
     // 搜索：给前 3 首，够验「结果落地」
@@ -358,9 +358,9 @@ function registerMinimalIpc() {
       CALLS.toplists += 1;
       return {
         list: [
-          { id: 901, name: "夜航飙升榜", trackCount: 100, coverImgUrl: coverOf("夜行电台") },
-          { id: 902, name: "夜航新歌榜", trackCount: 100, coverImgUrl: coverOf("叶惠美") },
-          { id: 903, name: "夜航热歌榜", trackCount: 50, coverImgUrl: coverOf("第二天堂") },
+          { id: 901, name: "飙升榜", trackCount: 100, coverImgUrl: coverOf("城市漫游") },
+          { id: 902, name: "新歌榜", trackCount: 100, coverImgUrl: coverOf("叶惠美") },
+          { id: 903, name: "热歌榜", trackCount: 50, coverImgUrl: coverOf("第二天堂") },
         ],
       };
     }
@@ -693,7 +693,7 @@ app.whenReady().then(async () => {
     }
     if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
-    if (!hero.kicker.includes("正在播出")) throw new Error("换档后眉标没变成「正在播出」");
+    if (!hero.kicker.includes("正在播放")) throw new Error("换档后眉标没变成「正在播放」");
     if (hero.liveTape > 0) throw new Error("播出带里不该有 is-live：它是「接下来」，全是之后的歌");
     if (Number(hero.idx.trim().split("/")[0].trim()) + 1 !== Number(hero.tapeNo.trim())) {
       throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${Number(hero.idx.trim().split("/")[0].trim()) + 1}，实际首位 ${hero.tapeNo.trim()}`);
@@ -845,8 +845,8 @@ app.whenReady().then(async () => {
     /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停
        会影响后续直播段的现场；ON AIR 段验的是同一套 live 分支，验一次就够）。 */
 
-    /* ON AIR：播一首**不在每日推荐里**的歌（榜单列表第一行）→ 回首页。
-       判据：hero 换成那首歌、文案标来源、右栏整栏切「正在播出 · 来自当前队列」、
+    /* 跟播视图：播一首**不在每日推荐里**的歌（榜单列表第一行）→ 回首页。
+       判据：hero 换成那首歌、文案标来源、右栏整栏切「正在播放 · 来自当前队列」、
        播出带换成榜单队列且标出在播档。旧实现左栏永远钉死在每日推荐，这条必红。 */
     await click(
       `(() => { const t = document.querySelector('.ruler-tick[data-page="online"]'); t?.click(); return Boolean(t); })()`,
@@ -873,18 +873,18 @@ app.whenReady().then(async () => {
       feed: document.querySelector(".cs-feed-kicker")?.textContent ?? "",
       meta: document.querySelector(".cs-feed-meta")?.textContent ?? "",
       tapes: document.querySelectorAll(".cs-tape").length,
-      /* 「真接下来」ON AIR 版：hero idx 的下一首必须坐在播出带首位 */
+      /* 「真接下来」跟播版：hero idx 的下一首必须坐在待播带首位 */
       idx: document.querySelector(".cs-idx")?.textContent ?? "",
       tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
     }))()`);
     console.log(
-      `首页 ON AIR：播榜单「${chartPick}」→ 大字「${onAir.title}」·${onAir.idx.trim()}·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·首位 ${onAir.tapeNo.trim()}`,
+      `首页跟播：播榜单「${chartPick}」→ 大字「${onAir.title}」·${onAir.idx.trim()}·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·首位 ${onAir.tapeNo.trim()}`,
     );
     if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
-    if (onAir.title !== chartPick) throw new Error(`ON AIR 后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
-    if (!onAir.kicker.includes("正在播出")) throw new Error(`ON AIR 后眉标没变成「正在播出」：${onAir.kicker}`);
+    if (onAir.title !== chartPick) throw new Error(`跟播后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
+    if (!onAir.kicker.includes("正在播放")) throw new Error(`跟播后眉标没变成「正在播放」：${onAir.kicker}`);
     if (!onAir.note.includes("来自")) throw new Error(`ON AIR 文案没标来源：${onAir.note}`);
-    if (!onAir.feed.includes("正在播出")) throw new Error(`右栏没切到 ON AIR：${onAir.feed}`);
+    if (!onAir.feed.includes("正在播放")) throw new Error(`右栏没切到跟播视图：${onAir.feed}`);
     if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
     if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
     if (Number(onAir.idx.trim().split("/")[0].trim()) + 1 !== Number(onAir.tapeNo.trim())) {
@@ -893,7 +893,7 @@ app.whenReady().then(async () => {
     await shoot("live-home-onair.png");
 
     /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——
-       眉标换「暂停中」、文案换「停在半路」，不许再谎称「正在播出」。
+       眉标换「暂停中」、文案换「暂停中，随时接着听」，不许再谎称「正在播放」。
        点击走底栏主键（hero 大钮已随去重移除，全局控制台是唯一的播放/暂停入口）。 */
     await click(
       `(() => { const b = document.querySelector(".console .tb.main"); b?.click(); return Boolean(b); })()`,
@@ -908,7 +908,7 @@ app.whenReady().then(async () => {
     }))()`);
     console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·黑胶 ${paused.npSpin}`);
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
-    if (!paused.note.includes("停在半路")) throw new Error(`暂停文案没换：${paused.note}`);
+    if (!paused.note.includes("暂停中")) throw new Error(`暂停文案没换：${paused.note}`);
     if (paused.npSpin !== "paused") {
       throw new Error(`暂停后黑胶还在转（animation-play-state = ${paused.npSpin}）`);
     }
@@ -1327,8 +1327,8 @@ app.whenReady().then(async () => {
 
       // 还回账号歌单，后面的步骤不该继承这个空状态
       MOCK_PLAYLISTS = [
-        { id: 601, name: "夜航精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
-        { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("夜行电台") },
+        { id: 601, name: "编辑精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
+        { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("城市漫游") },
       ];
       await click(`(() => { const b = document.querySelector('.head-tools button[aria-label="刷新"]'); b?.click(); return Boolean(b); })()`, "页头刷新");
       await sleep(800);
@@ -1898,7 +1898,7 @@ app.whenReady().then(async () => {
   })()`);
 
   const themeBg = new Map();
-  for (const [id, name] of [["light", "纸色"], ["dark", "墨色"], ["sepia", "旧档"], ["forest", "夜航"]]) {
+  for (const [id, name] of [["light", "纸色"], ["dark", "墨色"], ["sepia", "旧档"]]) {
     await click(
       `(() => { const b = document.querySelector('.ruler-tick[data-page="settings"]'); b?.click(); return Boolean(b); })()`,
       "站尺 · 设置",
@@ -1937,8 +1937,8 @@ app.whenReady().then(async () => {
     themeBg.set(id, String(got.shellBg));
     await shoot(`live-theme-home-${id}.png`);
   }
-  if (new Set(themeBg.values()).size !== 4) {
-    throw new Error(`四档控制室底色没全部区分开：${JSON.stringify([...themeBg])}`);
+  if (new Set(themeBg.values()).size !== 3) {
+    throw new Error(`三档控制室底色没全部区分开：${JSON.stringify([...themeBg])}`);
   }
 
   // 回到日间，给后续脚本一个确定状态

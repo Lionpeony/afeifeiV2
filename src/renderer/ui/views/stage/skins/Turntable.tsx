@@ -61,6 +61,7 @@ export function Turntable(props: SkinProps) {
     <div className="sk sk-tt" data-tone={props.tone} data-playing={playing ? "on" : "off"} ref={rootRef}>
       <SkinTop
         live={props.live}
+        playing={props.playing}
         queue={`QUEUE ${state.queue.items.length ? `${pad2(Math.max(1, data.cursorPosition + 1))}/${state.queue.items.length}` : "—"}`}
         line={doc && at >= 0 ? `LINE ${pad2(at + 1)}/${doc.lines.length}` : "LINE —"}
         codec="33⅓ RPM"

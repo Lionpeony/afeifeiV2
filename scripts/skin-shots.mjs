@@ -136,7 +136,7 @@ const COVER_ART = {
   U87: ["#3b2333", "#eee2dc", "#b46f8a"],
   /* 深青而非近灰黑：tint 取色量化后 chroma 太低（0.02）混什么都看不出，
      fixture 封面必须自带彩度，色晕链路才验得动 */
-  夜行电台: ["#123a4a", "#e8e2d6", "#7fc4d8"],
+  城市漫游: ["#123a4a", "#e8e2d6", "#7fc4d8"],
 };
 
 const hashOf = (s) => {
@@ -172,9 +172,9 @@ const coverMotif = (kind, motif) => {
 
 const coverOf = (album) => {
   const [bg, fg, motif] = COVER_ART[album] ?? ["#2a2c30", "#e8e4da", "#8a8f98"];
-  /* 夜行电台带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
+  /* 城市漫游带 6% 白边：detectCoverTrim → scale 反制的可红素材（fixture 全部封面用它）。
      白边 24/400 = 6%，落在 2%-15% 检测窗口内 → trim 必触发，img 必带 scale transform。 */
-  if (album === "夜行电台") {
+  if (album === "城市漫游") {
     const pad = 24;
     const svg =
       `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">` +
@@ -240,7 +240,7 @@ const DAILY = [
   id: `daily-${i}`,
   name,
   ar: [{ name: artist }],
-  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  al: { name: "城市漫游", picUrl: coverOf("城市漫游") },
   dt,
 }));
 
@@ -249,26 +249,26 @@ const DAILY = [
    前 6 首固定名（判据引用），后面补到 50 首：播放页右栏队列要滚起来，
    6 首的队列探不到滚动条（用户实况是 QUEUE 3/50）。 */
 const CHART_SONGS = [
-  ["夜行特快", "夜航局", 221000],
-  ["午夜快线", "夜航局", 244000],
-  ["雾中信号", "潮汐台", 208000],
-  ["频段之外", "潮汐台", 261000],
-  ["白噪城市", "夜航局", 236000],
-  ["末班电波", "潮汐台", 249000],
-  ...Array.from({ length: 44 }, (_, i) => [`加场 ${i + 1}`, "夜航局", 200000 + i * 7000]),
+  ["环岛快车", "白色海岸", 221000],
+  ["蓝色快车", "白色海岸", 244000],
+  ["雾中灯塔", "潮汐", 208000],
+  ["天线之外", "潮汐", 261000],
+  ["白昼城市", "白色海岸", 236000],
+  ["末班船", "潮汐", 249000],
+  ...Array.from({ length: 44 }, (_, i) => [`短篇 ${i + 1}`, "白色海岸", 200000 + i * 7000]),
 ].map(([name, artist, dt], i) => ({
   id: `chart-${i}`,
   name,
   ar: [{ name: artist }],
-  al: { name: "夜行电台", picUrl: coverOf("夜行电台") },
+  al: { name: "城市漫游", picUrl: coverOf("城市漫游") },
   dt,
 }));
 
 /* 歌单页 fixture：账号歌单两行。空态那一段会把它清空，验证「两段都没歌单」的文案，
    所以必须是可变的模块级变量，不能写死在 handler 里。 */
 let MOCK_PLAYLISTS = [
-  { id: 601, name: "夜航精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
-  { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("夜行电台") },
+  { id: 601, name: "编辑精选", trackCount: 42, coverImgUrl: coverOf("叶惠美") },
+  { id: 602, name: "深夜循环", trackCount: 18, coverImgUrl: coverOf("城市漫游") },
 ];
 
 /* 取曲目的失败开关：错误态那一段会把它打开，验证「页面说人话」而不是沉默 */
@@ -348,7 +348,7 @@ function registerMinimalIpc() {
   ipcMain.handle("notify:show", () => true);
   // 账号态：首页左栏要「正在播放的那一档」，没有每日推荐就整块不出现，
   // 所以 fixture 给一个已登录账号 + 8 首固定推荐（放在这里才发现得早）
-  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "夜航测试", uid: 9527 }));
+  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "本地测试", uid: 9527 }));
   ipcMain.handle("netease:call", (_e, method) => {
     if (method === "recommend_songs") return { data: { dailySongs: DAILY } };
     // 搜索：给前 3 首，够验「结果落地」
@@ -358,9 +358,9 @@ function registerMinimalIpc() {
       CALLS.toplists += 1;
       return {
         list: [
-          { id: 901, name: "夜航飙升榜", trackCount: 100, coverImgUrl: coverOf("夜行电台") },
-          { id: 902, name: "夜航新歌榜", trackCount: 100, coverImgUrl: coverOf("叶惠美") },
-          { id: 903, name: "夜航热歌榜", trackCount: 50, coverImgUrl: coverOf("第二天堂") },
+          { id: 901, name: "飙升榜", trackCount: 100, coverImgUrl: coverOf("城市漫游") },
+          { id: 902, name: "新歌榜", trackCount: 100, coverImgUrl: coverOf("叶惠美") },
+          { id: 903, name: "热歌榜", trackCount: 50, coverImgUrl: coverOf("第二天堂") },
         ],
       };
     }
