@@ -19,7 +19,7 @@ export interface LoginDialogProps {
 }
 
 /**
- * 登录弹层，两种方式：
+ * 扫码登录面板（2026-11-10 重设计）：**不再是独立模态**，作为账号弹层右栏的内嵌面板挂载。
  *
  *   扫码 —— 最省事，但**手机端网易云 App 有自己的设备环境检测**，
  *           账号/设备被标记时会直接弹"检测到当前设备环境异常"。
@@ -48,11 +48,13 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
   const startRef = useRef(start);
   const pollRef = useRef(poll);
   const successRef = useRef(onSuccess);
+  const closeRef = useRef(onClose);
   useEffect(() => {
     startRef.current = start;
     pollRef.current = poll;
     successRef.current = onSuccess;
-  }, [start, poll, onSuccess]);
+    closeRef.current = onClose;
+  }, [start, poll, onSuccess, onClose]);
 
   const begin = async (): Promise<void> => {
     runId.current += 1;
@@ -165,91 +167,85 @@ export function LoginDialog({ start, poll, scanHint, channels, sendCaptcha, logi
   };
 
   return (
-    <div className="dialog-mask" onClick={onClose}>
-      {/* 环境光：一团封面取色（--cs-tint 跟歌换色）、一团黄铜，低饱和慢漂 */}
-      <i className="mask-blob mask-blob-a" aria-hidden="true" />
-      <i className="mask-blob mask-blob-b" aria-hidden="true" />
-      <div className="dialog" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="dlg-x" aria-label="关闭" onClick={onClose}>
+    <div className="login-pane">
+      <header className="login-head">
+        <span className="login-src">
+          <i className="sig-dot" aria-hidden="true" />
+          {sourceName ?? "账号"} · 未登录
+        </span>
+        <button type="button" className="login-close" aria-label="收起登录面板" onClick={() => closeRef.current()}>
           ×
         </button>
-        <h2>{sourceName ? `登录 ${sourceName}` : "登录账号"}</h2>
-        <p className="dialog-sub">登录后这台设备跟着你的账号走</p>
+      </header>
 
-        {mode === "qr" ? (
-          <>
-            {channels && channels.length > 1 ? (
-              <div className="dialog-tabs">
-                {channels.map((c) => (
-                  <button key={c.id} type="button" className={channel === c.id ? "on" : ""} onClick={() => setChannel(c.id)}>
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {/* 码卡居中悬浮，外圈朱砂环 = 刷新倒计时：环走完一圈，码就该换了（key 换图重置） */}
-            <div className={`qr-halo${stopped ? " off" : ""}`}>
-              <svg className="qr-ring" viewBox="0 0 240 240" aria-hidden="true">
-                <circle className="qr-ring-track" cx="120" cy="120" r="118" />
-                {qrImage ? <circle className="qr-ring-bar" key={qrImage} cx="120" cy="120" r="118" /> : null}
-              </svg>
-              <div className="qr-win">
-                {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
-              </div>
-            </div>
-            <p className={`sig-status${stopped ? " off" : ""}`}>
-              <i className="sig-dot" aria-hidden="true" />
-              <span>{qrNote}</span>
-            </p>
-            <div className="dialog-actions">
-              <button type="button" className="primary" onClick={() => void begin()}>
-                {stopped ? "刷新" : "换一张"}
-              </button>
-              {sendCaptcha && loginByCaptcha ? (
-                <button type="button" onClick={() => setMode("phone")}>
-                  手机号登录
+      {mode === "qr" ? (
+        <>
+          {channels && channels.length > 1 ? (
+            <div className="login-tabs">
+              {channels.map((c) => (
+                <button key={c.id} type="button" className={channel === c.id ? "on" : ""} onClick={() => setChannel(c.id)}>
+                  {c.name}
                 </button>
-              ) : null}
+              ))}
             </div>
-          </>
-        ) : (
-          <>
-            <label className="field">
-              <span>手机号</span>
-              <input
-                value={phone}
-                inputMode="tel"
-                placeholder="11 位手机号"
-                onChange={(e) => setPhone(e.target.value.trim())}
-              />
-            </label>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => void send()} disabled={busy || countdown > 0}>
-                {countdown > 0 ? `${countdown}s 后重发` : "发送验证码"}
+          ) : null}
+          <h3 className="login-title">扫码登录</h3>
+          {/* 码卡：key 换一次 = 取码动画重播一次（显影 + 扫描光带扫一遍） */}
+          <div className={`qr-card${stopped ? " off" : ""}`} key={qrImage || "empty"}>
+            {qrImage ? <img className="qr" src={qrImage} alt="登录二维码" /> : <div className="qr qr--empty" />}
+            {qrImage && !stopped ? <i className="qr-sweep" aria-hidden="true" /> : null}
+          </div>
+          <p className={`sig-status${stopped ? " off" : ""}`}>
+            <span>{qrNote}</span>
+          </p>
+          <div className="login-ops">
+            <button type="button" className="hot" onClick={() => void begin()}>
+              {stopped ? "刷新" : "换一张"}
+            </button>
+            {sendCaptcha && loginByCaptcha ? (
+              <button type="button" onClick={() => setMode("phone")}>
+                手机号登录
               </button>
-            </div>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <>
+          <h3 className="login-title">手机号登录</h3>
+          <label className="login-field">
+            <span>手机号</span>
+            <input
+              value={phone}
+              inputMode="tel"
+              placeholder="11 位手机号"
+              onChange={(e) => setPhone(e.target.value.trim())}
+            />
+          </label>
+          <div className="login-ops">
+            <button type="button" onClick={() => void send()} disabled={busy || countdown > 0}>
+              {countdown > 0 ? `${countdown}s 后重发` : "发送验证码"}
+            </button>
+          </div>
 
-            <label className="field">
-              <span>验证码</span>
-              <input value={code} inputMode="numeric" placeholder="短信里的验证码" onChange={(e) => setCode(e.target.value)} />
-            </label>
+          <label className="login-field">
+            <span>验证码</span>
+            <input value={code} inputMode="numeric" placeholder="短信里的验证码" onChange={(e) => setCode(e.target.value)} />
+          </label>
 
-            <p className={`sig-status${busy ? "" : " off"}`}>
-              <i className="sig-dot" aria-hidden="true" />
-              <span>{phoneNote || "等待发送验证码"}</span>
-            </p>
+          <p className={`sig-status${busy ? "" : " off"}`}>
+            <span>{phoneNote || "等待发送验证码"}</span>
+          </p>
 
-            <div className="dialog-actions">
-              <button type="button" className="primary" onClick={() => void submit()} disabled={busy}>
-                登录
-              </button>
-              <button type="button" onClick={() => setMode("qr")}>
-                返回扫码
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+          <div className="login-ops">
+            <button type="button" className="hot" onClick={() => void submit()} disabled={busy}>
+              登录
+            </button>
+            <button type="button" onClick={() => setMode("qr")}>
+              返回扫码
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

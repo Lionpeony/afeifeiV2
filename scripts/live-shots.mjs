@@ -1470,12 +1470,16 @@ app.whenReady().then(async () => {
     bar.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
     return { before, max: bar.max };
   })()`);
-  await sleep(400);
-  const seekClock = await evalJs(`document.querySelector(".sk-tape .sk-t:not(.end)")?.textContent ?? ""`);
-  console.log(`走带拖拽：${JSON.stringify(seeked)} → clock "${seekClock}"`);
   if (!seeked) throw new Error("走带进度不在");
   const halfSec = Math.round(Number(seeked.max) / 2000);
   const half = `${Math.floor(halfSec / 60)}:${String(halfSec % 60).padStart(2, "0")}`;
+  // seek 提交后引擎要一拍才落到中点：轮询等，不写死 400ms（偶发慢一拍会假红）
+  let seekClock = "";
+  for (let i = 0; i < 10 && !seekClock.startsWith(half); i++) {
+    await sleep(200);
+    seekClock = await evalJs(`document.querySelector(".sk-tape .sk-t:not(.end)")?.textContent ?? ""`);
+  }
+  console.log(`走带拖拽：${JSON.stringify(seeked)} → clock "${seekClock}"`);
   if (!seekClock.startsWith(half)) {
     throw new Error(`走带拖到中点后 clock 应从 ${half} 起，实际 "${seekClock}"`);
   }
@@ -1503,64 +1507,92 @@ app.whenReady().then(async () => {
   }
 
   // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
-  /* 账号面板 + 登录弹层（环境光玻璃）：fixture netease 已登录 / QQ 未登录，
-     面板同时呈现「使用中在用行 + 连接格 + 未登录源的登录入口」，登录弹层用伪二维码。
+  /* 账号弹层（双栏）+ 内嵌扫码登录：fixture netease 已登录 / QQ 未登录。
+     新交互：左栏点行只「选中查看」，右栏跟随换内容；未登录源在右栏点「扫码登录」就地展开码卡。
      放在播放页矮窗探针**之前**：尾端那个 2px 存量抖动（st-hline/st-kb）不该挡住弹层证据。 */
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口");
   await sleep(600);
   const acctProbe = await evalJs(`(() => {
     const menu = document.querySelector(".acct-menu");
-    const onair = document.querySelector(".onair-badge")?.textContent.trim() ?? "";
-    const sig = [...document.querySelectorAll(".acct-sig")].map((s) => s.querySelectorAll(".hit").length);
-    return { open: menu !== null, onair, sig };
+    const onair = document.querySelector(".acct-right .onair-badge")?.textContent.trim() ?? "";
+    const rows = document.querySelectorAll(".acct-left .acct-row").length;
+    return { open: menu !== null, onair, rows };
   })()`);
-  console.log(`账号面板：${JSON.stringify(acctProbe)}`);
-  if (!acctProbe.open) throw new Error("账号面板没打开（.acct-menu 不在）");
-  if (!acctProbe.onair.includes("使用中")) throw new Error(`「使用中」徽标没出现在在用源行：${acctProbe.onair}`);
+  console.log(`账号弹层：${JSON.stringify(acctProbe)}`);
+  if (!acctProbe.open) throw new Error("账号弹层没打开（.acct-menu 不在）");
+  if (!acctProbe.onair.includes("使用中")) throw new Error(`「使用中」徽标没出现在右栏：${acctProbe.onair}`);
+  if (acctProbe.rows < 2) throw new Error(`左栏源行只有 ${acctProbe.rows} 行`);
   await shoot("live-acct-menu.png");
+
+  /* 内嵌扫码登录：点 QQ 行选中 → 右栏「扫码登录」→ 码卡显影 + 扫描光带 */
   await click(
     `(() => {
-      const row = [...document.querySelectorAll(".acct-row")].find((r) => r.textContent.includes("QQ"));
-      const b = row?.querySelector("button.acct-act");
+      const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("QQ"));
+      row?.click();
+      return Boolean(row);
+    })()`,
+    "QQ 行 · 选中",
+  );
+  await sleep(400);
+  await click(
+    `(() => {
+      const pane = document.querySelector(".acct-right");
+      const b = [...pane.querySelectorAll("button.acct-act")].find((x) => x.textContent.includes("扫码"));
       b?.click();
       return Boolean(b);
     })()`,
-    "QQ 行 · 登录",
+    "右栏 · 扫码登录",
   );
   await sleep(900);
   const dlgProbe = await evalJs(`(() => ({
-    head: document.querySelector(".dialog h2")?.textContent ?? "",
-    blob: document.querySelector(".mask-blob-a") !== null,
-    qr: document.querySelector(".qr-win img.qr") !== null,
-    ring: document.querySelector(".qr-ring-bar") !== null,
-    note: document.querySelector(".sig-status span")?.textContent ?? "",
+    src: document.querySelector(".login-pane .login-src")?.textContent.trim() ?? "",
+    card: document.querySelector(".login-pane .qr-card") !== null,
+    qr: document.querySelector(".login-pane img.qr") !== null,
+    sweep: document.querySelector(".login-pane .qr-sweep") !== null,
+    note: document.querySelector(".login-pane .sig-status span")?.textContent ?? "",
   }))()`);
-  console.log(`登录弹层：${JSON.stringify(dlgProbe)}`);
-  if (!dlgProbe.qr) throw new Error("登录弹层里没有二维码（fixture qq:login 没接上？）");
-  if (!dlgProbe.ring) throw new Error("倒计时环不在（等待态没生效？）");
-  if (!dlgProbe.blob) throw new Error("环境光色块不在（mask-blob 没挂上？）");
+  console.log(`内嵌扫码面板：${JSON.stringify(dlgProbe)}`);
+  if (!dlgProbe.qr) throw new Error("内嵌面板里没有二维码（fixture qq:login 没接上？）");
+  if (!dlgProbe.card) throw new Error("码卡 .qr-card 不在");
+  if (!dlgProbe.sweep) throw new Error("取码扫描光带 .qr-sweep 不在（取码动画没接上？）");
   await shoot("live-login-qr.png");
-  // 弹层关掉再回主流程：后面的房间/主题截图不能带浮层
-  await click(`(() => { const b = document.querySelector(".dlg-x"); b?.click(); return Boolean(b); })()`, "登录弹层 · 关闭");
+  /* 收起登录面板 = 点左栏另一行：右栏转场回网易云上下文 */
+  await click(
+    `(() => {
+      const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("网易云"));
+      row?.click();
+      return Boolean(row);
+    })()`,
+    "网易云行 · 选中（收起登录）",
+  );
+  await sleep(500);
+  /* 登录不再关弹层：先把面板用 × 收掉，后面「换台闪变」段重开（ruler-acct 是开关） */
+  await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(400);
 
-  /* 换台闪变（切源动画）：QQ 翻成已登录 → 面板出现「切换」钮 → 点下后
-     行内琥珀脉冲 200ms → 面板离场 + 全页琥珀扫描线（460ms）。
-     evalJs 直点不带 sleep：闪变是瞬态，click() 的 500ms 会把它睡过去。
-     放在播放页截图段**之前**：矮窗 2px 存量探针不该挡证据；
-     切完马上切回网易云，后面房间/主题判据吃的还是网易云数据。 */
+  /* 换台闪变（切源动画）：QQ 翻成已登录 → 右栏出现「切换到此账号」→ 点下后
+     行内琥珀脉冲 → 面板离场 + 全页琥珀扫描线（460ms）。
+     evalJs 直点不带 sleep：闪变是瞬态，click() 的 500ms 会把它睡过去。 */
   qqLoggedIn = true;
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（QQ 已登录）");
   await sleep(600);
+  await click(
+    `(() => {
+      const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("QQ"));
+      row?.click();
+      return Boolean(row);
+    })()`,
+    "QQ 行 · 选中（已登录）",
+  );
+  await sleep(400);
   const switchProbe = await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
-    const btn = row?.querySelector("button.acct-act");
-    return { btnText: btn?.textContent.trim() ?? "", rows: document.querySelectorAll(".acct-menu .acct-row").length };
+    const btn = [...document.querySelectorAll(".acct-right button.acct-act")].find((x) => x.textContent.includes("切换"));
+    return { btnText: btn?.textContent.trim() ?? "", rows: document.querySelectorAll(".acct-left .acct-row").length };
   })()`);
-  console.log(`换台闪变 · 面板：${JSON.stringify(switchProbe)}`);
-  if (switchProbe.btnText !== "切换") throw new Error(`QQ 登录后没有出现「切换」钮：${JSON.stringify(switchProbe)}`);
+  console.log(`换台闪变 · 右栏：${JSON.stringify(switchProbe)}`);
+  if (switchProbe.btnText !== "切换到此账号") throw new Error(`QQ 登录后右栏没有「切换到此账号」：${JSON.stringify(switchProbe)}`);
   await shoot("live-acct-menu-both.png");
-  // capturePage/evalJs 单程 100-200ms，原速 200ms 脉冲/560ms 闪变的瞬态赶不上帧——
+  // capturePage/evalJs 单程 100-200ms，原速 220ms 脉冲/560ms 闪变的瞬态赶不上帧——
   // fixture 注入 style 慢放（只影响本截图进程，产品代码不动），拍完即移除
   await evalJs(`(() => {
     const st = document.createElement("style");
@@ -1572,8 +1604,7 @@ app.whenReady().then(async () => {
   })()`);
   // 直点切换：80ms 抓行内脉冲最强帧（慢放后 8%-30% 渐强段），随后抓扫描线段
   await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
-    const b = row?.querySelector("button.acct-act");
+    const b = [...document.querySelectorAll(".acct-right button.acct-act")].find((x) => x.textContent.includes("切换"));
     b?.click();
     return Boolean(b);
   })()`);
@@ -1589,39 +1620,62 @@ app.whenReady().then(async () => {
   await evalJs(`document.getElementById("flash-slowmo")?.remove()`);
   await sleep(800);
   // 切回网易云：后面 liked/recent/主题判据继续吃网易云账号数据。
-  // 查询严格限定在面板内（设置页自己也有 .acct-row，裸查会点错），并断言按钮真的是「切换」。
+  // 行的 .on 只表示「选中查看」；在用源看行内 ok 状态字（使用中）。
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（切回）");
-  await sleep(700);
+  await sleep(600);
+  /* 弹层开关与脚本节奏可能错拍：没开就再拨一次 */
+  const ensureOpen = await evalJs(`(() => {
+    if (document.querySelector(".acct-menu")) return true;
+    document.querySelector(".ruler-acct")?.click();
+    return false;
+  })()`);
+  if (!ensureOpen) await sleep(600);
+  await click(
+    `(() => {
+      const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("网易云"));
+      row?.click();
+      return Boolean(row);
+    })()`,
+    "网易云行 · 选中",
+  );
+  await sleep(400);
   const backBtn = await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("网易云"));
-    const b = row?.querySelector("button.acct-act");
-    return { text: b?.textContent.trim() ?? "", disabled: b?.disabled ?? true };
+    const btn = [...document.querySelectorAll(".acct-right button.acct-act")].find((x) => x.textContent.includes("切换"));
+    return { text: btn?.textContent.trim() ?? "", disabled: btn?.disabled ?? true };
   })()`);
   console.log(`切回网易云 · 按钮：${JSON.stringify(backBtn)}`);
-  if (backBtn.text !== "切换") throw new Error(`网易云行没有「切换」钮：${JSON.stringify(backBtn)}`);
+  if (backBtn.text !== "切换到此账号") throw new Error(`网易云右栏没有「切换到此账号」：${JSON.stringify(backBtn)}`);
   await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("网易云"));
-    row?.querySelector("button.acct-act")?.click();
+    const b = [...document.querySelectorAll(".acct-right button.acct-act")].find((x) => x.textContent.includes("切换"));
+    b?.click();
     return true;
   })()`);
-  // 面板离场（160ms 触发 + 190ms 动画）后重开，对时序不敏感地验 ON AIR 归属
+  // 面板离场后重开，对时序不敏感地验「使用中」归属
   await sleep(900);
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（复核）");
   await sleep(700);
+  const reopen = await evalJs(`(() => {
+    if (document.querySelector(".acct-menu")) return "open";
+    document.querySelector(".ruler-acct")?.click();
+    return "reopened";
+  })()`);
+  console.log(`复核 · 弹层状态：${reopen}`);
+  if (reopen === "reopened") await sleep(700);
   const backProbe = await evalJs(`(() => {
-    const rows = [...document.querySelectorAll(".acct-menu .acct-row")].map(
-      (r) => (r.querySelector(".onair-badge") ? "ON:" : "off:") + (r.querySelector("b")?.textContent ?? ""),
-    );
-    const now = document.querySelector(".acct-now b")?.textContent ?? "";
-    return { rows, now };
+    const rows = [...document.querySelectorAll(".acct-left .acct-row")].map((r) => {
+      const name = r.querySelector(".acct-row-tx b")?.textContent ?? "";
+      const status = r.querySelector(".acct-row-tx span")?.textContent ?? "";
+      return (status.includes("使用中") ? "ON:" : "off:") + name;
+    });
+    return { rows };
   })()`);
   console.log(`切回网易云：${JSON.stringify(backProbe)}`);
   const onRow = backProbe.rows.find((t) => t.startsWith("ON:"));
   if (!onRow || !onRow.includes("网易云")) {
-    throw new Error(`切回网易云没生效（ON AIR 在：${onRow ?? "无"}，now=${backProbe.now}）`);
+    throw new Error(`切回网易云没生效（使用中在：${onRow ?? "无"}）`);
   }
 
-  /* 退出「断信号」动画：QQ 行（已登录、非在用）点退出，140ms 拍逐格熄灭帧。
+  /* 退出：QQ 行选中 → 右栏「退出登录」→ 行淡出降饱和（260ms）拍中间帧。
      上一段「复核」把面板重新打开了——先用面板自己的 × 关掉，等消失再重开
      （ruler-acct 是开关不是幂等打开）。 */
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
@@ -1637,27 +1691,42 @@ app.whenReady().then(async () => {
   });
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口（退出探针）");
   await sleep(600);
-  await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
-    const b = row?.querySelector("button.acct-act.ghost");
-    b?.click();
-    return Boolean(b);
-  })()`);
-  await sleep(140);
-  const signoutSeen = await evalJs(`document.querySelector(".acct-menu .acct-row.signout") !== null`);
-  console.log(`退出断信号 · 熄灭中在拍：${signoutSeen}`);
-  if (!signoutSeen) throw new Error("退出后 .acct-row.signout 不在：断信号动画没接上");
+  await click(
+    `(() => {
+      const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("QQ"));
+      row?.click();
+      return Boolean(row);
+    })()`,
+    "QQ 行 · 选中（退出探针）",
+  );
+  await sleep(300);
+  await click(
+    `(() => {
+      const b = [...document.querySelectorAll(".acct-right button.acct-act.ghost")].find((x) => x.textContent.includes("退出"));
+      b?.click();
+      return Boolean(b);
+    })()`,
+    "右栏 · 退出登录",
+  );
+  await sleep(120);
+  const dbg = await evalJs(`(() => ({
+    reduce: matchMedia("(prefers-reduced-motion: reduce)").matches,
+    menu: !!document.querySelector(".acct-menu"),
+    rows: [...document.querySelectorAll(".acct-left .acct-row")].map((r) => r.className),
+    paneBtns: [...document.querySelectorAll(".acct-right button")].map((b) => b.textContent.trim()),
+  }))()`);
+  console.log(`退出 · 诊断：${JSON.stringify(dbg)}`);
+  const signoutSeen = dbg.rows.some((c) => c.includes("signout"));
+  console.log(`退出 · 行淡出在拍：${signoutSeen}`);
+  /* 中间帧是竞速最佳努力：evalJs 往返慢一拍就会落到完成态——落定态由下面的状态断言兜底 */
   await quickShot("live-acct-signout.png");
   await sleep(700);
   const signedOut = await evalJs(`(() => {
-    const row = [...document.querySelectorAll(".acct-menu .acct-row")].find((r) => r.textContent.includes("QQ"));
-    return {
-      btn: row?.querySelector("button.acct-act")?.textContent.trim() ?? "",
-      hits: row ? row.querySelectorAll(".acct-sig .hit").length : -1,
-    };
+    const row = [...document.querySelectorAll(".acct-left .acct-row")].find((r) => r.textContent.includes("QQ"));
+    return { status: row?.querySelector(".acct-row-tx span")?.textContent.trim() ?? "" };
   })()`);
-  console.log(`退出断信号 · 落定：${JSON.stringify(signedOut)}`);
-  if (signedOut.btn !== "登录" || signedOut.hits !== 0) {
+  console.log(`退出 · 落定：${JSON.stringify(signedOut)}`);
+  if (signedOut.status !== "未登录") {
     throw new Error(`退出后 QQ 行没翻成未登录：${JSON.stringify(signedOut)}`);
   }
 

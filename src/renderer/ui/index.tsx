@@ -1110,16 +1110,46 @@ function App() {
         sources={sources.filter((s) => s.canAuth).map((s) => ({ id: s.id, name: s.name, canAuth: s.canAuth }))}
         active={getActiveSource()}
         profiles={accountProfiles}
-        onClose={() => setAccountOpen(false)}
+        loginFor={loginFor}
+        renderLogin={(id) => (
+          <LoginDialog
+            start={async (ch) => {
+              const svc = services.current;
+              if (!svc) throw new Error("还没准备好，请稍后再试");
+              const result = await svc.startLogin(id, ch);
+              if (!("key" in result) || typeof result.key !== "string" || typeof result.qrImage !== "string") {
+                throw new Error("获取二维码失败");
+              }
+              return { key: result.key, qrImage: result.qrImage };
+            }}
+            poll={(key) =>
+              services.current?.pollLogin(key) ?? Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" })
+            }
+            scanHint={id === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
+            sourceName={sources.find((s) => s.id === id)?.name}
+            sendCaptcha={id === "netease" ? (phone) => services.current!.sendCaptcha(phone) : undefined}
+            loginByCaptcha={id === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
+            onSuccess={() => {
+              setLoginFor(null);
+              setTuneFlash((k) => k + 1); // 接入成功也是一次换台
+              setActiveSource(id);
+              // 新账号的数据不能沿用上一个账号的缓存
+              invalidateAccountData(`account:${id}:`);
+              ensureAccount(id);
+              refreshAccountProfiles();
+            }}
+            onClose={() => setLoginFor(null)}
+          />
+        )}
+        onClose={() => {
+          setAccountOpen(false);
+          setLoginFor(null); // 弹层关了，内嵌登录流程一并收回
+        }}
         onSwitch={(id) => {
           setTuneFlash((k) => k + 1); // 换台闪变先落弦，数据换源在动画后半程接上
           setActiveSource(id);
-          setAccountOpen(false);
         }}
-        onLogin={(id) => {
-          setLoginFor(id);
-          setAccountOpen(false);
-        }}
+        onLogin={(id) => setLoginFor(id)}
         onLogout={(id) => {
           void (async () => {
             await services.current?.logout(id).catch(() => undefined);
@@ -1136,40 +1166,6 @@ function App() {
       {/* 切源换台闪变：琥珀扫描线扫过全页 + 轻微压暗（animationend 或 600ms 兜底移除） */}
       {tuneFlash > 0 ? (
         <div className="tune-flash" key={tuneFlash} aria-hidden="true" onAnimationEnd={() => setTuneFlash(0)} />
-      ) : null}
-
-      {loginFor ? (
-        <LoginDialog
-          start={async (ch) => {
-            const svc = services.current;
-            if (!svc) throw new Error("还没准备好，请稍后再试");
-            const result = await svc.startLogin(loginFor, ch);
-            if (!("key" in result) || typeof result.key !== "string" || typeof result.qrImage !== "string") {
-              throw new Error("获取二维码失败");
-            }
-            return { key: result.key, qrImage: result.qrImage };
-          }}
-          poll={(key) =>
-            services.current?.pollLogin(key) ?? Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" })
-          }
-          scanHint={loginFor === "qq" ? "使用 QQ、微信、QQ 音乐任一 App 扫一扫" : "请打开网易云音乐 App → 扫一扫"}
-          sourceName={sources.find((s) => s.id === loginFor)?.name}
-          sendCaptcha={loginFor === "netease" ? (phone) => services.current!.sendCaptcha(phone) : undefined}
-          loginByCaptcha={loginFor === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
-          onSuccess={() => {
-            const id = loginFor;
-            setLoginFor(null);
-            if (id) {
-              setTuneFlash((k) => k + 1); // 接入成功也是一次换台
-              setActiveSource(id);
-              // 新账号的数据不能沿用上一个账号的缓存
-              invalidateAccountData(`account:${id}:`);
-              ensureAccount(id);
-            }
-            refreshAccountProfiles();
-          }}
-          onClose={() => setLoginFor(null)}
-        />
       ) : null}
 
       <div className="body">
