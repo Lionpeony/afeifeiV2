@@ -34,6 +34,16 @@
   color-scheme: light;
 }
 
+/* 浅色共通：四周压一层极淡墨做暗角 —— 深色的氛围来自光，浅色的氛围来自影；
+   没有暗角，纸就是一块平的，整个页面没有"打光"的方向感 */
+.sk[data-tone="light"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 42%, transparent 0 58%, rgb(28 24 16 / .05) 82%, rgb(28 24 16 / .11) 100%);
+}
+
 @keyframes sk-in {
   from { opacity: 0; transform: translateY(10px) scale(.995); }
   to { opacity: 1; transform: none; }
@@ -288,12 +298,14 @@
   --ed-a: rgb(19 19 24);
   --ed-b: rgb(8 8 11);
   --ed-s1: rgb(255 255 255 / .05);
-  --ed-s2: rgb(255 240 214 / .12);
+  --ed-s2: rgb(255 240 214 / .17);
   --ed-s3: rgb(255 220 180 / .06);
-  --ed-halo: radial-gradient(circle, transparent 0 26%, rgb(20 19 15 / .09) 34%, rgb(20 19 15 / .03) 42%, transparent 52%);
+  /* 浅色的 halo 不是把深色的光翻成墨色（那是 v1 的错：墨 .09 上纸即隐），
+     而是暖阳：纸面被唱机后的暖光打透，才有"房间里有太阳"的氛围 */
+  --ed-halo: radial-gradient(circle, transparent 0 24%, rgb(206 132 54 / .15) 32%, rgb(224 160 84 / .06) 44%, transparent 58%);
   --ed-label-shadow: 0 0 0 1px rgb(0 0 0 / .5), 0 4px 16px rgb(0 0 0 / .5);
-  --ed-rim: conic-gradient(from 206deg, transparent 0deg, rgb(255 255 255 / .5) 9deg, rgb(255 255 255 / .24) 19deg, transparent 33deg, transparent 152deg, rgb(255 255 255 / .2) 168deg, transparent 188deg);
-  --sk-glow: rgb(20 19 15 / .12);
+  --ed-rim: conic-gradient(from 206deg, transparent 0deg, rgb(255 255 255 / .66) 9deg, rgb(255 255 255 / .32) 19deg, transparent 33deg, transparent 152deg, rgb(255 255 255 / .26) 168deg, transparent 188deg);
+  --sk-glow: rgb(178 106 40 / .28);
 }
 
 .sk-ed {
@@ -336,6 +348,15 @@
   border-radius: 50%;
   background: radial-gradient(circle, var(--ed-a) 0 100%);
   box-shadow: 0 0 0 1px rgb(255 255 255 / .06), inset 0 0 60px rgb(0 0 0 / .85);
+}
+
+/* 浅色专属：黑胶放在纸上要有落影，否则读成贴纸（深色底里影子本来就看不见，不加） */
+.sk[data-tone="light"] .sk-ed-disc {
+  box-shadow:
+    0 26px 64px -24px rgb(35 26 16 / .42),
+    0 4px 14px rgb(35 26 16 / .16),
+    0 0 0 1px rgb(255 255 255 / .06),
+    inset 0 0 60px rgb(0 0 0 / .85);
 }
 
 .sk-ed-grooves {
@@ -624,15 +645,16 @@
   --sk-accent: rgb(194 24 91);
   --sk-accent-weak: rgb(194 24 91 / .1);
   --sk-hot: rgb(192 57 43);
-  --nb-fog-1: rgb(255 150 180 / .24);
-  --nb-fog-2: rgb(150 196 240 / .2);
-  --nb-fog-3: rgb(255 214 160 / .2);
+  /* 浅色光雾按 multiply 走：纸上"墨染"要足够才读得出色彩（v1 的 .2 级像没印上） */
+  --nb-fog-1: rgb(255 150 180 / .34);
+  --nb-fog-2: rgb(150 196 240 / .28);
+  --nb-fog-3: rgb(255 214 160 / .26);
   --nb-blend: multiply;
-  --nb-w1: rgb(18 17 24 / .5);
-  --nb-w2: rgb(194 24 91 / .5);
-  --nb-w3: rgb(31 111 184 / .38);
-  --nb-glow: transparent;
-  --nb-grain: .03;
+  --nb-w1: rgb(18 17 24 / .62);
+  --nb-w2: rgb(194 24 91 / .58);
+  --nb-w3: rgb(31 111 184 / .5);
+  --nb-glow: rgb(194 24 91 / .14);
+  --nb-grain: .045;
 }
 
 .sk-nb {
@@ -914,7 +936,14 @@
   --sk-accent: rgb(22 98 76);
   --sk-accent-weak: rgb(22 98 76 / .16);
   --sk-hot: rgb(192 57 43);
-  --dk-bar-glow: transparent;
+  /* 浅色的柱头光晕 = 绿墨微渗：transparent 会让 32 根柱读成"印刷品"，深色的信号感就没了 */
+  --dk-bar-glow: rgb(22 98 76 / .35);
+}
+
+/* 浅色：时间码走绿墨 —— 深色的视觉焦点是荧光绿时间码，浅色的对应物是
+   记录纸上的绿墨数字；全黑时间码会让左栏一堆等权重黑字没有重心（真机截图扣分点） */
+.sk-dk[data-tone="light"] .sk-dk-tc b {
+  color: var(--sk-accent);
 }
 
 .sk-dk {

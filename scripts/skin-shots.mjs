@@ -752,6 +752,12 @@ app.whenReady().then(async () => {
     await click(`(() => { const b = document.querySelector('[aria-label="切换日间 / 夜间"]'); b?.click(); return Boolean(b); })()`, "顶栏切夜间");
     await sleep(450);
   }
+  // toneAuto 时代（2026-11-10）：钉夜间 = toggleTheme，在舞台上会走"舞台领先"把 tone 翻掉，
+  // 上一段残留的"浅色"不可信 —— 这里必须显式锁一次浅色（样式库点明暗 = 手动档）。
+  // 当前停在 classic：没有顶部「样式」钮，走「视图 → 换样式…」出口
+  await shelfFromView();
+  await pickTone("浅色");
+  await closeShelf();
   // 上一段停在 classic + 浅色舞台，正是要验的"不能跟随"那一格
   const shellClassic = await shellLum();
   await shelfFromView();
