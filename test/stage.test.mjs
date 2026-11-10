@@ -14,12 +14,10 @@ import {
   LAYER_KEYS,
   PRESETS,
   STAGE_TOKEN_KEYS,
-  VISUAL_MODES,
   assertPresetComplete,
   sanitizeStageConfig,
   sanitizeThemeTokens,
 } from "../dist-test/stage-presets.mjs";
-import { carouselItems, ringGeom } from "../dist-test/stage-visuals.mjs";
 import { dispatch, getState } from "../dist-test/kernel.mjs";
 
 /** 一份可控的测试 LyricDoc：只有 contracts/lyric.ts 一种模型（毫秒，逐字行内相对）。 */
@@ -217,25 +215,19 @@ test("stage/setPreset：切换生效", () => {
   dispatch({ type: "stage/setPreset", preset: "paper" });
 });
 
-test("stage/toggleLayer：cover / controls 不可关", () => {
-  dispatch({ type: "stage/toggleLayer", layer: "cover" });
-  assert.equal(getState().stage.layers.cover, true);
-  dispatch({ type: "stage/toggleLayer", layer: "controls" });
-  assert.equal(getState().stage.layers.controls, true);
-  dispatch({ type: "stage/toggleLayer", layer: "wallpaper" });
-  assert.equal(getState().stage.layers.wallpaper, false);
-  dispatch({ type: "stage/toggleLayer", layer: "wallpaper" });
-  assert.equal(getState().stage.layers.wallpaper, true);
+test("stage/toggleLayer：歌词层开关生效且幂等", () => {
+  dispatch({ type: "stage/toggleLayer", layer: "lyric" });
+  assert.equal(getState().stage.layers.lyric, false);
+  dispatch({ type: "stage/toggleLayer", layer: "lyric" });
+  assert.equal(getState().stage.layers.lyric, true);
 });
 
-test("sanitizeStageConfig：坏数据回落默认，cover/controls 强制 true", () => {
+test("sanitizeStageConfig：坏数据回落默认；已删除的 classic 皮肤自动迁移", () => {
   assert.deepEqual(sanitizeStageConfig(null).preset, "paper");
-  const bad = sanitizeStageConfig({ preset: "hacker", intensity: 99, layers: { wallpaper: false, cover: false, controls: false } });
+  const bad = sanitizeStageConfig({ preset: "hacker", skin: "classic", layers: { lyric: false } });
   assert.equal(bad.preset, "paper");
-  assert.equal(bad.intensity, 1);
-  assert.equal(bad.layers.cover, true, "cover 不可关");
-  assert.equal(bad.layers.controls, true, "controls 不可关");
-  assert.equal(bad.layers.wallpaper, false, "可关的层尊重存档");
+  assert.equal(bad.skin, "editorial", "classic 已删除，老存档迁移到新版默认");
+  assert.equal(bad.layers.lyric, false, "歌词层尊重存档");
 });
 
 test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", () => {
@@ -253,55 +245,7 @@ test("toneAuto（2026-11-10 用户实测 BUG）：缺字段=跟随全局主题�
   assert.equal(sanitizeStageConfig({ toneAuto: 1 }).toneAuto, true, "非布尔值不当成 false");
 });
 
-/* ---- C-13 视觉模式与封面轮播 ---- */
-
-test("C-13 visualMode：白名单外的回落 bars，老存档缺字段也是 bars", () => {
-  assert.deepEqual(VISUAL_MODES, ["bars", "wave", "ring"]);
-  assert.equal(sanitizeStageConfig(null).visualMode, "bars");
-  assert.equal(sanitizeStageConfig({ visualMode: "cube" }).visualMode, "bars", "不在白名单回落");
-  assert.equal(sanitizeStageConfig({ visualMode: "wave" }).visualMode, "wave");
-  assert.equal(sanitizeStageConfig({ visualMode: 1 }).visualMode, "bars", "非字符串回落");
-});
-
-test("C-13 coverCarousel：缺字段按关，只有显式 true 才开", () => {
-  assert.equal(sanitizeStageConfig(null).coverCarousel, false);
-  assert.equal(sanitizeStageConfig({ coverCarousel: true }).coverCarousel, true);
-  assert.equal(sanitizeStageConfig({ coverCarousel: "yes" }).coverCarousel, false);
-});
-
-test("C-13 stage/setVisualMode / setCarousel：切换生效且幂等", () => {
-  const s0 = getState().stage;
-  dispatch({ type: "stage/setVisualMode", mode: s0.visualMode });
-  assert.equal(getState().stage, s0, "值没变不产生新状态");
-  dispatch({ type: "stage/setVisualMode", mode: "ring" });
-  assert.equal(getState().stage.visualMode, "ring");
-  dispatch({ type: "stage/setCarousel", on: !s0.coverCarousel });
-  assert.equal(getState().stage.coverCarousel, !s0.coverCarousel);
-  dispatch({ type: "stage/setCarousel", on: s0.coverCarousel });
-  dispatch({ type: "stage/setVisualMode", mode: s0.visualMode });
-});
-
-test("C-13 carouselItems：去重、上限 6、无封面保留（占位盘）、不足两张给空数组", () => {
-  const it = (id, url = null) => ({ id, url });
-  assert.deepEqual(carouselItems([]), [], "空队列不硬转");
-  assert.deepEqual(carouselItems([it("a")]), [], "只有一张不硬转");
-  assert.deepEqual(carouselItems([it("a", "u1"), it("b"), it("a")]), [it("a", "u1"), it("b")], "同 id 去重（先到先得）");
-  assert.deepEqual(carouselItems([null, it("a"), it("b"), it("a"), it("c")]), [it("a"), it("b"), it("c")], "null 项与重复剔除");
-  const many = ["1", "2", "3", "4", "5", "6", "7", "8"].map((x) => it(x));
-  assert.equal(carouselItems(many).length, 6, "上限 6");
-  assert.deepEqual(carouselItems([it("cur", "u"), it("b")]), [it("cur", "u"), it("b")], "当前曲目排第一");
-  assert.equal(carouselItems([it("a"), it("b", null)])[1].url, null, "无封面条目保留，渲染层画占位盘");
-});
-
-test("C-13 ringGeom：内半径与柱长上限，画布太扁 lenMax=0", () => {
-  const g = ringGeom(480, 120);
-  assert.equal(g.cx, 240);
-  assert.equal(g.cy, 60);
-  assert.equal(g.r0, 60 * 0.35);
-  assert.ok(g.lenMax > 0, "120px 高画得出环形");
-  const tiny = ringGeom(480, 4);
-  assert.equal(tiny.lenMax, 0, "太扁就整圈不画");
-});
+/* ---- C-13 视觉层已随旧版面（classic）删除：2026-11-10 ---- */
 
 test("stage/setTranslation：切换生效且幂等", () => {
   const before = getState().stage;
@@ -312,8 +256,8 @@ test("stage/setTranslation：切换生效且幂等", () => {
   dispatch({ type: "stage/setTranslation", on: before.translation });
 });
 
-test("LAYER_KEYS 与契约五层一致", () => {
-  assert.deepEqual(LAYER_KEYS, ["wallpaper", "visual", "cover", "lyric", "controls"]);
+test("LAYER_KEYS 与契约图层一致", () => {
+  assert.deepEqual(LAYER_KEYS, ["lyric"]);
 });
 
 /* ---- 主题包（M5） ---- */

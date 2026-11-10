@@ -12,7 +12,6 @@ import type {
   StageLayer,
   StagePreset,
   StageSkin,
-  VisualMode,
 } from "../../../../contracts/index.js";
 
 export interface StagePresetDef {
@@ -175,13 +174,7 @@ export const PRESETS: StagePresetDef[] = [
   },
 ];
 
-export const LAYER_KEYS: StageLayer[] = ["wallpaper", "visual", "cover", "lyric", "controls"];
-
-/** C1 视觉模式白名单（C-13）。与 contracts 的 VisualMode 一致，sanitize 用。 */
-export const VISUAL_MODES: VisualMode[] = ["bars", "wave", "ring"];
-
-/** 模式显示名（视图浮层按钮）。 */
-export const VISUAL_MODE_NAMES: Record<VisualMode, string> = { bars: "频谱", wave: "声纹", ring: "环形" };
+export const LAYER_KEYS: StageLayer[] = ["lyric"];
 
 /**
  * 直播壳里的四套「灯位」：同一个引擎、同一组 token，只换控制室的灯。
@@ -258,20 +251,17 @@ export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<st
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];
 /** 换肤名单：加第四个版式时只改这里 + SKINS 目录里的条目。 */
-export const SKIN_IDS: StageSkin[] = ["classic", "editorial", "nebula", "desk"];
+export const SKIN_IDS: StageSkin[] = ["editorial", "nebula", "desk"];
 
-/** 任意来源（KV 读回）→ 合法 StageConfig。cover / controls 强制 true（不可关）。 */
+/** 任意来源（KV 读回）→ 合法 StageConfig。classic 等已删除的皮肤值在这里自然回落到新版默认。 */
 export function sanitizeStageConfig(raw: unknown): StageConfig {
   const fallback: StageConfig = {
     preset: "paper",
     skin: "editorial",
     tone: "dark",
     toneAuto: true,
-    intensity: 1,
-    layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
+    layers: { lyric: true },
     lyricRenderer: "press",
-    visualMode: "bars",
-    coverCarousel: false,
     translation: true,
     customTokens: null,
   };
@@ -281,38 +271,28 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
     skin?: unknown;
     tone?: unknown;
     toneAuto?: unknown;
-    intensity?: unknown;
     layers?: unknown;
     lyricRenderer?: unknown;
-    visualMode?: unknown;
-    coverCarousel?: unknown;
     translation?: unknown;
     customTokens?: unknown;
   };
   const layers = { ...fallback.layers };
   if (r.layers && typeof r.layers === "object") {
     const l = r.layers as Record<string, unknown>;
-    for (const key of LAYER_KEYS) {
-      if (key !== "cover" && key !== "controls") layers[key] = l[key] !== false;
-    }
+    for (const key of LAYER_KEYS) layers[key] = l[key] !== false;
   }
   return {
     preset: PRESET_IDS.includes(r.preset as StagePreset) ? (r.preset as StagePreset) : fallback.preset,
-    // 老存档没有这两个字段 = 那时候只有旧版面，缺字段按"新版默认"而不是"旧的"，
-    // 否则升级后还停在残留代码上（这次改版的核心诉求就是别再退回旧版面）
+    // 老存档存过 "classic"（2026-11-10 删除的旧版面）：白名单外 = 自动迁移到新版默认
     skin: SKIN_IDS.includes(r.skin as StageSkin) ? (r.skin as StageSkin) : fallback.skin,
     tone: r.tone === "light" ? "light" : "dark",
     // 老存档没有这个字段 = 那时候明暗写死跟随不了主题（用户实测「浅色主题进播放页翻黑」
     // 的根因），缺字段按 true 迁移；只有样式库里明确点过明暗才锁成 false
     toneAuto: r.toneAuto !== false,
-    intensity: (r.intensity === 0 || r.intensity === 1 || r.intensity === 2 ? r.intensity : 1) as 0 | 1 | 2,
     layers,
     lyricRenderer: RENDERERS.includes(r.lyricRenderer as LyricRenderer)
       ? (r.lyricRenderer as LyricRenderer)
       : fallback.lyricRenderer,
-    // C-13：老存档没有这两个字段 = 那时候只有频谱柱、没有轮播，按默认值处理
-    visualMode: VISUAL_MODES.includes(r.visualMode as VisualMode) ? (r.visualMode as VisualMode) : fallback.visualMode,
-    coverCarousel: r.coverCarousel === true,
     // 老存档没有这个字段 = 那时候译文是常显的，所以缺字段按 true，只有显式 false 才关
     translation: r.translation !== false,
     customTokens: sanitizeThemeTokens(r.customTokens),

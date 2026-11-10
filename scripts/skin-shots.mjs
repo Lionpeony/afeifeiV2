@@ -697,77 +697,12 @@ app.whenReady().then(async () => {
     await shoot(`skin-narrow-${name === "唱片内页" ? "ed" : name === "声云" ? "nb" : "dk"}.png`);
   }
 
-  // 切回 classic（旧剧场纸面）：确认没被新皮肤的 tone 覆盖连坐
-  win.setContentSize(1334, 747);
-  await sleep(400);
-  await openShelf();
-  await pickSkin("剧场纸面");
-  await closeShelf();
-  await sleep(700);
-  const back = await evalJs(`(() => {
-    const st = document.querySelector(".stage");
-    const shell = document.querySelector(".shell");
-    return {
-      classic: Boolean(st?.classList.contains("skin-classic")),
-      sk: Boolean(document.querySelector(".sk")),
-      paper: st ? getComputedStyle(st).getPropertyValue("--paper").trim().slice(0, 40) : "",
-      shellBg: shell ? getComputedStyle(shell).backgroundColor : "",
-      overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-      settings: Boolean([...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "视图")),
-    };
-  })()`);
-  console.log(`切回 classic：${JSON.stringify(back)}`);
-  if (!back.classic) throw new Error("没切回 classic");
-  if (back.sk) throw new Error("classic 下还挂着新版式的 .sk 根");
-  if (back.overflowX) throw new Error("classic 横向溢出");
-  await shoot("skin-classic.png");
 
-  /* A-10 守卫对照实验（2026-11-10）。
-     `.shell.live:has(.stage[data-tone="light"]:not(.skin-classic))` 里的 :not 是这条规则里
-     最容易写错的地方：漏了它，切回 classic 的旧版黑白播放页时会被强行拉成纸色。
-     做法：把应用主题钉在夜间，然后比"classic + 浅色舞台"与"声云 + 浅色舞台"两种情况下外壳的实际底色。 */
   const openView = async () => {
     const ok = await evalJs(`(() => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "视图"); b?.click(); return Boolean(b); })()`);
     if (!ok) throw new Error("找不到「视图」按钮");
     await sleep(320);
   };
-  const shelfFromView = async () => {
-    await openView();
-    const ok = await evalJs(`(() => {
-      const b = [...document.querySelectorAll(".st-menu button")].find((x) => x.textContent.includes("换样式"));
-      b?.click();
-      return Boolean(b);
-    })()`);
-    // classic 皮肤没有顶部导播条，「视图 → 换样式…」是唯一出口；缺了它用户会永久卡在旧版
-    if (!ok) throw new Error("视图浮层里没有「换样式…」入口，classic 下会卡死");
-    await sleep(380);
-  };
-  const shellLum = async () => evalJs(`(() => {
-    const bg = getComputedStyle(document.querySelector(".shell")).backgroundColor;
-    const m = bg.match(/(\\d+)[,\\s]+(\\d+)[,\\s]+(\\d+)/);
-    return { bg, lum: m ? Math.round(Number(m[1]) * .299 + Number(m[2]) * .587 + Number(m[3]) * .114) : -1 };
-  })()`);
-
-  if ((await evalJs(`document.documentElement.dataset.theme ?? ""`)) !== "dark") {
-    await click(`(() => { const b = document.querySelector('[aria-label="切换日间 / 夜间"]'); b?.click(); return Boolean(b); })()`, "顶栏切夜间");
-    await sleep(450);
-  }
-  // toneAuto 时代（2026-11-10）：钉夜间 = toggleTheme，在舞台上会走"舞台领先"把 tone 翻掉，
-  // 上一段残留的"浅色"不可信 —— 这里必须显式锁一次浅色（样式库点明暗 = 手动档）。
-  // 当前停在 classic：没有顶部「样式」钮，走「视图 → 换样式…」出口
-  await shelfFromView();
-  await pickTone("浅色");
-  await closeShelf();
-  // 上一段停在 classic + 浅色舞台，正是要验的"不能跟随"那一格
-  const shellClassic = await shellLum();
-  await shelfFromView();
-  await pickSkin("声云");
-  await closeShelf();
-  await sleep(600);
-  const shellSkin = await shellLum();
-  console.log(`外壳跟随：classic+浅舞台=${shellClassic.bg}(lum ${shellClassic.lum}) → 声云+浅舞台=${shellSkin.bg}(lum ${shellSkin.lum})`);
-  if (shellClassic.lum > 120) throw new Error(`classic 被皮肤明暗带偏了：外壳 ${shellClassic.bg} 应该还是夜间`);
-  if (shellSkin.lum < shellClassic.lum + 60) throw new Error(`非 classic 皮肤没把外壳拉成纸色：${shellSkin.bg}`);
 
   // 旧「视图」浮层在新皮肤上的配色（-stage-* 别名是否落到了自己身上）
   await openShelf();

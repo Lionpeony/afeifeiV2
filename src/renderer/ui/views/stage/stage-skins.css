@@ -1292,7 +1292,7 @@
  * 注意别名要落在 .st-menu **自己身上**：StageRoot 是用 inline style 往 .stage 写 --stage-* 的，
  * 写在 .stage 上会被内联样式盖掉（第一版就是这么没生效）。
  */
-.stage:not(.skin-classic) .st-menu {
+.stage .st-menu {
   --stage-bg: var(--sk-bg);
   --stage-fg: var(--sk-fg);
   --stage-fg-dim: var(--sk-dim);
@@ -1690,43 +1690,4 @@
   height: 3px;
   background: var(--th-fg);
   opacity: .3;
-}
-
-/* D 经典（纸面剧场） */
-.th-cl {
-  background: linear-gradient(180deg, rgb(243 241 234), rgb(232 229 220));
-}
-
-.th-cl i:nth-child(1) {
-  left: 8%;
-  top: 22%;
-  width: 44%;
-  height: 12px;
-  background: rgb(23 21 15 / .88);
-}
-
-.th-cl i:nth-child(2) {
-  left: 8%;
-  top: 46%;
-  width: 54%;
-  height: 3px;
-  background: rgb(23 21 15 / .34);
-}
-
-.th-cl i:nth-child(3) {
-  left: 8%;
-  top: 58%;
-  width: 40%;
-  height: 3px;
-  background: rgb(23 21 15 / .22);
-}
-
-.th-cl i:nth-child(4) {
-  right: 12%;
-  top: 24%;
-  width: 26px;
-  height: 26px;
-  border-radius: 2px;
-  border: 1px solid rgb(23 21 15 / .3);
-  background: radial-gradient(circle at 50% 50%, rgb(25 22 25) 0 34%, rgb(216 52 28 / .85) 35% 46%, transparent 47%);
 }

@@ -140,8 +140,8 @@ export interface AudioConfig {
   outputId: string;
 }
 
-/** 播放页五层（50 §9.2）。cover 与 controls 永远开着 —— toggleLayer 对它们无效。 */
-export type StageLayer = "wallpaper" | "visual" | "cover" | "lyric" | "controls";
+/** 播放页图层。wallpaper / visual / cover / controls 随旧版面（classic）一起删除，只剩歌词可开关。 */
+export type StageLayer = "lyric";
 
 /** 四套预设（50 §9.2 参数表）。每套只是同一组 token 的不同取值 —— 加第五套必须先删一套。 */
 export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
@@ -149,25 +149,15 @@ export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
 /** 四个歌词渲染器（50 §7.4）。加第五个必须先删一个。 */
 export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 
-/**
- * 播放页皮肤（2026-11-10）。三套是**不同版式**，不只是换 token：
- * editorial 唱片内页 / nebula 声云 / desk 转播台。classic = 上述四预设的旧版面，
- * 保留是为了让用户随时能切回去，不做成"新版一出旧版就没了"。
- */
-export type StageSkin = "classic" | "editorial" | "nebula" | "desk";
+/** 播放页皮肤（2026-11-10）。三套是**不同版式**，不只是换 token：editorial 唱片内页 / nebula 声云 / desk 转播台。 */
+export type StageSkin = "editorial" | "nebula" | "desk";
 
 /** 皮肤自身的明暗（A-10：播放页与全局主题独立，切夜间不翻这一层）。 */
 export type StageTone = "dark" | "light";
 
-/**
- * C1 视觉层的呈现模式（C-13）。前三种共用同一份 analyser 数据（I3 不破）：
- * bars 频谱柱 / wave 声纹波（中轴镜像）/ ring 环形。
- */
-export type VisualMode = "bars" | "wave" | "ring";
-
 export interface StageConfig {
   preset: StagePreset;
-  /** 版式皮肤。classic = 走原 StageMainLayout（纸面剧场那套）。 */
+  /** 版式皮肤。 */
   skin: StageSkin;
   /**
    * 皮肤明暗。与全局 data-theme 无关，播放页自己说了算——
@@ -176,14 +166,8 @@ export interface StageConfig {
   tone: StageTone;
   /** true = tone 跟随全局主题（默认，老存档缺字段也按 true 迁移）；用户在样式库明确点过明暗后锁成 false。 */
   toneAuto: boolean;
-  /** 动效档位。0 时也必须好看 —— 这是设计的试金石。 */
-  intensity: 0 | 1 | 2;
   layers: Record<StageLayer, boolean>;
   lyricRenderer: LyricRenderer;
-  /** C1 视觉模式（C-13）。默认 bars = 原频谱柱。 */
-  visualMode: VisualMode;
-  /** C2 封面 3D 轮播（C-13）。封面少于两张时自动退回单封面。 */
-  coverCarousel: boolean;
   /** 歌词译文是否并排显示（A-03）。关掉只留原文，译文数据仍在 doc 里不丢。 */
   translation: boolean;
   /** 导入的主题包对场景层 token 的覆盖。null = 没有导入。键必须登记过。 */
@@ -374,16 +358,11 @@ export type Intent =
   | { type: "stage/setTone"; tone: StageTone }
   /** true = 明暗回到「跟随全局主题」；样式库里点明暗会先把它锁成 false。 */
   | { type: "stage/setToneAuto"; on: boolean }
-  | { type: "stage/setIntensity"; intensity: 0 | 1 | 2 }
-  /** cover / controls 不可关，发了也忽略。 */
+  /** 歌词层开关（唯一可关的图层）。 */
   | { type: "stage/toggleLayer"; layer: StageLayer }
   | { type: "stage/setLyricRenderer"; renderer: LyricRenderer }
   /** 译文并排开关（A-03）。只切显示，不改 doc —— 切回来不用重新取词。 */
   | { type: "stage/setTranslation"; on: boolean }
-  /** C1 视觉模式（C-13）。入口侧已 sanitize。 */
-  | { type: "stage/setVisualMode"; mode: VisualMode }
-  /** C2 封面 3D 轮播开关（C-13）。 */
-  | { type: "stage/setCarousel"; on: boolean }
   /** 主题包覆盖（入口侧已 sanitize）。null = 清除主题包。 */
   | { type: "stage/setTheme"; tokens: Record<string, string> | null }
   | { type: "stage/restore"; config: StageConfig }

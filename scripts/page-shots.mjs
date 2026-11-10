@@ -782,11 +782,11 @@ app.whenReady().then(async () => {
   await sleep(200);
   await win.webContents.executeJavaScript(`document.querySelector(".np")?.click()`, true);
   await sleep(400);
-  // 「视图」按钮有两套皮肤出口：导播条 .st-viewbtn（main 布局）/ 顶栏 .sk-top-b（editorial 等新皮肤）
+  // 「视图」按钮：顶栏导播条 .sk-top-b（三套皮肤同一出口）
   const clickView = () =>
     win.webContents.executeJavaScript(
       `(() => {
-        const b = [...document.querySelectorAll(".st-viewbtn, .sk-top-b")].find((x) => x.textContent.trim() === "视图");
+        const b = [...document.querySelectorAll(".sk-top-b")].find((x) => x.textContent.trim() === "视图");
         if (!b) return false;
         b.click();
         return true;
@@ -814,7 +814,7 @@ app.whenReady().then(async () => {
     const diag = await win.webContents.executeJavaScript(
       `(() => ({
         np: !!document.querySelector(".np"),
-        viewbtns: [...document.querySelectorAll(".st-viewbtn")].map((b) => b.textContent.trim()),
+        topbtns: [...document.querySelectorAll(".sk-top-b")].map((b) => b.textContent.trim()),
         menu: !!document.querySelector(".st-menu"),
         bodyCls: document.body.className,
         page: document.querySelector("[data-page].on")?.getAttribute("data-page") ?? null,
@@ -825,105 +825,6 @@ app.whenReady().then(async () => {
   }
   await shoot("page-stage-timeline.png");
 
-  // 视觉模式（C-13）：切「声纹」「环形」必须落 data-mode。
-  // 注意：data-mode 在 .st-spectrum canvas 上，而那块 canvas 只有 classic（剧场纸面）渲染；
-  // editorial 等新皮肤是 DOM 视觉。所以这段前先走真 UI（样式库浮层）切到 classic——
-  // 顺带把「换肤链路」也验了。
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".sk-top-b")].find((b) => b.textContent.trim() === "样式")?.click()`,
-    true,
-  );
-  await sleep(300);
-  const skinOk = await win.webContents.executeJavaScript(
-    `(() => {
-      const b = [...document.querySelectorAll(".sk-opt")].find((x) => x.textContent.includes("剧场纸面"));
-      if (!b) return false;
-      b.click();
-      return true;
-    })()`,
-    true,
-  );
-  if (!skinOk) throw new Error("样式库里找不到「剧场纸面」");
-  await sleep(400);
-  // 样式库选中后不自动关（设计如此，方便连试）——手动点 ✕
-  await win.webContents.executeJavaScript(
-    `document.querySelector(".sk-shelf-x")?.click()`,
-    true,
-  );
-  await sleep(300);
-  const isClassic = await win.webContents.executeJavaScript(
-    `(() => ({ classic: !!document.querySelector(".st-viewbtn"), shelfGone: !document.querySelector(".sk-shelf") }))()`,
-    true,
-  );
-  if (!isClassic.classic || !isClassic.shelfGone) {
-    throw new Error(`没切到 classic：${JSON.stringify(isClassic)}`);
-  }
-  // 样式库与视图菜单互斥：换肤把菜单关了，重开才能点声纹/环形
-  await clickView();
-  await sleep(300);
-
-  // 视觉模式（C-13）：切「声纹」「环形」必须落 data-mode；fixture 无真封面，
-  // 轮播开关只断言"打开但 <2 张封面时退回单封面"（不硬转）。
-  const clickMenuBtn = (name) =>
-    win.webContents.executeJavaScript(
-      `[...document.querySelectorAll(".st-menu button")].find((b) => b.textContent === ${JSON.stringify(name)})?.click()`,
-      true,
-    );
-  const readMode = () =>
-    win.webContents.executeJavaScript(`document.querySelector(".st-spectrum")?.getAttribute("data-mode")`, true);
-  await clickMenuBtn("声纹");
-  await sleep(200);
-  if ((await readMode()) !== "wave") throw new Error(`切声纹没生效：${await readMode()}`);
-  await clickMenuBtn("环形");
-  await sleep(200);
-  if ((await readMode()) !== "ring") throw new Error(`切环形没生效：${await readMode()}`);
-  await shoot("page-stage-visual-ring.png");
-  await clickMenuBtn("频谱");
-  await sleep(200);
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"))?.querySelector("input")?.click()`,
-    true,
-  );
-  await sleep(300);
-  // folia Carousel3D 对焦式轮播：fixture 无封面但有队列 → 应渲染占位盘面（不再退回）。
-  // 交互判据：聚焦容器发 ArrowRight → 对焦面从第 1 张移到第 2 张（aria-current 跟着走）
-  const caro = await win.webContents.executeJavaScript(
-    `(() => {
-      const label = [...document.querySelectorAll(".st-menu label")].find((l) => l.textContent.includes("3D 轮播"));
-      const faces = [...document.querySelectorAll(".st-caro .st-caro-face")];
-      return {
-        checked: label?.querySelector("input")?.checked ?? null,
-        caro: !!document.querySelector(".st-caro"),
-        faces: faces.length,
-        placeholders: document.querySelectorAll(".st-caro .st-caro-face .ph").length,
-        active: faces.findIndex((f) => f.getAttribute("aria-current") === "true"),
-      };
-    })()`,
-    true,
-  );
-  if (caro.checked !== true) throw new Error(`封面轮播开关没勾上：${JSON.stringify(caro)}`);
-  if (!caro.caro || caro.faces < 2 || caro.placeholders !== caro.faces || caro.active !== 0) {
-    throw new Error(`对焦轮播没按预期渲染：${JSON.stringify(caro)}`);
-  }
-  await win.webContents.executeJavaScript(
-    `(() => {
-      const c = document.querySelector(".st-caro");
-      c.focus();
-      c.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
-      return true;
-    })()`,
-    true,
-  );
-  await sleep(400);
-  const caroAfter = await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".st-caro .st-caro-face")].findIndex((f) => f.getAttribute("aria-current") === "true")`,
-    true,
-  );
-  if (caroAfter !== 1) throw new Error(`ArrowRight 没把对焦移到第二张：${caroAfter}`);
-  // 关掉菜单再拍：菜单浮层会挡住右栏的轮播
-  await clickView();
-  await sleep(300);
-  await shoot("page-stage-carousel.png");
 
   app.quit();
 });

@@ -47,17 +47,12 @@ const initialState: AppState = {
   lyrics: { offsets: {} },
   stage: {
     preset: "paper",
-    // 2026-11-10 播放页重做：默认落在「唱片内页」，明暗跟随全局主题（toneAuto），
-    // 旧版面退到 classic 仍可切回
+    // 2026-11-10 播放页重做：默认落在「唱片内页」，明暗跟随全局主题（toneAuto）
     skin: "editorial",
     tone: "dark",
     toneAuto: true,
-    intensity: 1,
-    layers: { wallpaper: true, visual: true, cover: true, lyric: true, controls: true },
+    layers: { lyric: true },
     lyricRenderer: "press",
-    // C1 视觉模式（C-13）：默认频谱柱；C2 封面轮播默认关
-    visualMode: "bars",
-    coverCarousel: false,
     // 有译文就并排显示（A-03 判据）；没有译文的曲目这一项不起作用
     translation: true,
     customTokens: null,
@@ -756,14 +751,7 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, stage: { ...current.stage, toneAuto: intent.on } };
     }
 
-    case "stage/setIntensity": {
-      if (current.stage.intensity === intent.intensity) return current;
-      return { ...current, stage: { ...current.stage, intensity: intent.intensity } };
-    }
-
     case "stage/toggleLayer": {
-      // cover / controls 永远开着（50 §9.2 可关列是 ❌）——发了也忽略
-      if (intent.layer === "cover" || intent.layer === "controls") return current;
       const layers = { ...current.stage.layers, [intent.layer]: !current.stage.layers[intent.layer] };
       return { ...current, stage: { ...current.stage, layers } };
     }
@@ -771,16 +759,6 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "stage/setTranslation": {
       if (current.stage.translation === intent.on) return current;
       return { ...current, stage: { ...current.stage, translation: intent.on } };
-    }
-
-    case "stage/setVisualMode": {
-      if (current.stage.visualMode === intent.mode) return current;
-      return { ...current, stage: { ...current.stage, visualMode: intent.mode } };
-    }
-
-    case "stage/setCarousel": {
-      if (current.stage.coverCarousel === intent.on) return current;
-      return { ...current, stage: { ...current.stage, coverCarousel: intent.on } };
     }
 
     case "stage/setLyricRenderer": {
@@ -808,11 +786,8 @@ function reduce(current: AppState, intent: Intent): AppState {
         c.skin === current.stage.skin &&
         c.tone === current.stage.tone &&
         c.toneAuto === current.stage.toneAuto &&
-        c.intensity === current.stage.intensity &&
         c.lyricRenderer === current.stage.lyricRenderer &&
         c.translation === current.stage.translation &&
-        c.visualMode === current.stage.visualMode &&
-        c.coverCarousel === current.stage.coverCarousel &&
         (Object.keys(current.stage.layers) as (keyof typeof c.layers)[]).every(
           (k) => c.layers[k] === current.stage.layers[k],
         );

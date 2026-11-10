@@ -6,7 +6,7 @@ import type { useStageLyrics } from "../useStageLyrics.js";
  * 皮肤目录（2026-11-10）。
  *
  * 与 presets.ts 的区别：preset 是"同一版式的四组配色"，skin 是**不同版式**。
- * 两者并存：classic 皮肤内部仍然用 preset 那四套，切回旧版时行为完全不变。
+ * （classic 旧版面已随 StageMainLayout 删除，老存档的 "classic" 由 sanitize 迁移到 editorial。）
  */
 export interface SkinDef {
   id: StageSkin;
@@ -39,16 +39,9 @@ export const SKINS: SkinDef[] = [
     desc: "时间码、频谱柱、走带刻度，整页是一张仪表台",
     thumb: "th-dk",
   },
-  {
-    id: "classic",
-    name: "剧场纸面",
-    en: "CLASSIC",
-    desc: "原版四预设（纸面 / 黑胶 / 极简 / 影院）",
-    thumb: "th-cl",
-  },
 ];
 
-/** 三套新版式共用的入参。classic 不用它（走 StageMainLayout）。 */
+/** 三套版式共用的入参。 */
 export interface SkinProps {
   state: AppState;
   data: ReturnType<typeof useStageData>;

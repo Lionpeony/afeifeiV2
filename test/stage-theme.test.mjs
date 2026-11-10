@@ -39,7 +39,6 @@ function stripScope(css) {
 
 const STAGE_FILES = [
   "../src/renderer/ui/views/stage/stage.css",
-  "../src/renderer/ui/views/stage/stage-queue.css",
   "../src/renderer/ui/views/stage/stage-panels.css",
 ];
 

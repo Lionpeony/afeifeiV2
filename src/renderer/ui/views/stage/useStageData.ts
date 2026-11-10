@@ -4,13 +4,12 @@ import type { Track } from "../../../domain/library/schema.js";
 import { getProvider } from "../../../capability/registry.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
 import { orderOf, positionOf } from "../../../kernel/index.js";
-import { carouselItems } from "./visuals.js";
 import { fileOf } from "./types.js";
 
 const UP_NEXT = 3;
 
 export function useStageData(state: AppState, cover: (trackId: string) => Promise<string | null>) {
-  const { player, queue, stage } = state;
+  const { player, queue } = state;
   const [revision, setRevision] = useState(0);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [queueCovers, setQueueCovers] = useState<Record<string, string>>({});
@@ -68,18 +67,12 @@ export function useStageData(state: AppState, cover: (trackId: string) => Promis
     return () => { alive = false; };
   }, [upNextKey, cover]);
 
-  const carouselItemsForStage = useMemo(() => stage.coverCarousel ? carouselItems([
-    player.trackId ? { id: player.trackId, url: coverUrl } : null,
-    ...upNext.map((id) => ({ id, url: queueCovers[id] ?? null })),
-  ]) : [], [stage.coverCarousel, player.trackId, coverUrl, upNextKey, queueCovers]);
-
   return {
     remote, tracksMap, nowTrack, nowTitle, nowArtist, nowAlbum, nowDuration, sourceName,
     lyricOffset, playOrder, cursorPosition, nextIndices, upNext, upNextKey,
     coverUrl, queueCovers,
     /** 在线曲目的标题/歌手：右栏「接下来」不能显示 `remote:xxx` 这种逻辑 id */
     queueRemote: queue.remote,
-    carouselItems: carouselItemsForStage,
   };
 }
 
