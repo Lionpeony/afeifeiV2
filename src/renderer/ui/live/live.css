@@ -10,7 +10,7 @@
   --line: var(--live-line-strong);
   --line-soft: var(--live-line);
   --row-hover: color-mix(in srgb, var(--live-fg) 6%, transparent);
-  --accent: var(--live-amber);
+  --accent: var(--live-accent);
   --accent-ink: var(--live-accent-ink);
   --brass: var(--live-phosphor);
   --danger: var(--live-onair);
@@ -43,7 +43,7 @@
   --live-line: var(--night-line);
   --live-line-strong: var(--night-line-strong);
   --live-onair: var(--night-onair);
-  --live-amber: var(--night-amber);
+  --live-accent: var(--night-accent);
   --live-phosphor: var(--night-phosphor);
   --live-signal: var(--night-signal);
   --live-slot: var(--night-slot);
@@ -53,7 +53,7 @@
 }
 
 .shell.live button:focus-visible {
-  outline: 2px solid var(--live-amber);
+  outline: 2px solid var(--live-accent);
   outline-offset: 2px;
 }
 
@@ -118,8 +118,9 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--live-onair);
-  box-shadow: 0 0 8px var(--live-onair);
+  /* 品牌句号：跟主强调色（青瓷），警示橙只留给真正的警示位 */
+  background: var(--live-accent);
+  box-shadow: 0 0 8px var(--live-accent);
   animation: live-pulse 2.6s ease-in-out infinite;
 }
 
@@ -160,7 +161,7 @@
 }
 
 .ruler-tick.on {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .ruler-clock {
@@ -289,7 +290,7 @@
   flex: none;
   width: 2px;
   height: 13px;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .shell.live .live-room .page-head h1 {
@@ -302,7 +303,7 @@
 }
 
 .shell.live .live-room .page-head h1 em {
-  color: var(--live-amber);
+  color: var(--live-accent);
   margin-left: 1px;
 }
 
@@ -349,7 +350,7 @@
   top: -1px;
   width: 2px;
   height: 14px;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 /* 在线页空态：一行字就够。搜索框搬去顶栏之后，这里是进页第一眼——
@@ -382,7 +383,7 @@
 }
 
 .shell.live .live-room select:focus-visible {
-  outline: 2px solid var(--live-amber);
+  outline: 2px solid var(--live-accent);
   outline-offset: 1px;
 }
 
@@ -422,7 +423,7 @@
   flex: none;
   width: 2px;
   height: 10px;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .shell.live .stats-block > h3 span,
@@ -487,7 +488,7 @@
 
 /* 最后一根是今天：和播放头同一个琥珀，"现在"在整站只有一种颜色 */
 .shell.live .stats-bar-col:last-child .stats-bar {
-  background: var(--live-amber);
+  background: var(--live-accent);
   opacity: 0.8;
 }
 
@@ -509,7 +510,7 @@
 }
 
 .shell.live .stats-rank-track > span {
-  background: var(--live-amber);
+  background: var(--live-accent);
   opacity: 0.75;
 }
 
@@ -642,7 +643,7 @@
 
 .live-now-a {
   font-size: 12.5px;
-  color: var(--live-amber);
+  color: var(--live-accent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -696,8 +697,8 @@
 }
 
 .live-btn.primary {
-  background: var(--live-amber);
-  border-color: var(--live-amber);
+  background: var(--live-accent);
+  border-color: var(--live-accent);
   color: var(--live-accent-ink);
   font-weight: 600;
 }
@@ -832,7 +833,7 @@
 }
 
 .tape .slot.is-current {
-  background: color-mix(in srgb, var(--live-amber) 8%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 8%, transparent);
   color: var(--live-fg);
 }
 
@@ -843,7 +844,7 @@
   right: 0;
   top: 0;
   height: 2px;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .tape .slot.is-next {
@@ -904,7 +905,7 @@
   padding: 1px 4px;
   /* 播放头整条贯穿带面，会从 ON AIR 文字中间穿过去：
      给徽标一块与该档底色相同的实心背板，让针在这几像素上让位。 */
-  background: color-mix(in srgb, var(--live-amber) 8%, var(--live-bg));
+  background: color-mix(in srgb, var(--live-accent) 8%, var(--live-bg));
   font-family: var(--font-mono);
   font-size: 8.5px;
   letter-spacing: 0.18em;
@@ -926,7 +927,7 @@
   bottom: -8px;
   width: 0;
   z-index: 3;
-  border-left: 1px dashed color-mix(in srgb, var(--live-amber) 55%, transparent);
+  border-left: 1px dashed color-mix(in srgb, var(--live-accent) 55%, transparent);
   pointer-events: none;
 }
 
@@ -938,7 +939,7 @@
   font-size: 8px;
   font-weight: 500;
   letter-spacing: 0.18em;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 播放头：钉在 38%，带在针下走。 */
@@ -949,7 +950,7 @@
   bottom: -14px;
   width: 0;
   z-index: 3;
-  border-left: 1px solid var(--live-amber);
+  border-left: 1px solid var(--live-accent);
   pointer-events: none;
 }
 
@@ -959,7 +960,7 @@
   left: -5px;
   width: 10px;
   height: 6px;
-  background: var(--live-amber);
+  background: var(--live-accent);
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
@@ -971,7 +972,7 @@
   font-style: normal;
   font-size: 8.5px;
   letter-spacing: 0.16em;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* ---------- 带下方两栏 ---------- */
@@ -1060,7 +1061,7 @@
   margin-left: auto;
   font-style: normal;
   letter-spacing: 0.08em;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .live-next {
@@ -1080,7 +1081,7 @@
 
 .live-next time {
   font-size: 11px;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .live-next-t {
@@ -1128,11 +1129,11 @@
 }
 
 .live-setlist li.is-now {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .live-setlist li.is-now .live-set-t {
-  color: var(--live-amber);
+  color: var(--live-accent);
   font-weight: 600;
 }
 
@@ -1313,7 +1314,7 @@
   border-color: var(--live-line-strong);
   background: var(--live-panel);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
-  accent-color: var(--live-amber);
+  accent-color: var(--live-accent);
   color: var(--live-fg-dim);
 }
 
@@ -1323,7 +1324,7 @@
 
 /* player.css 给全局 range 定了 accent-color，元素规则压过继承，这里得单独点回来 */
 .stage.is-live .st-menu input[type="range"] {
-  accent-color: var(--live-amber);
+  accent-color: var(--live-accent);
 }
 
 .stage.is-live .st-menu button,
@@ -1339,8 +1340,8 @@
 }
 
 .stage.is-live .st-menu button.on {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 
@@ -1384,7 +1385,7 @@
 }
 
 .shell.live .live-room .shelf-index button.on {
-  color: var(--live-amber);
+  color: var(--live-accent);
   border-color: var(--live-line-strong);
 }
 
@@ -1591,7 +1592,7 @@
 
 /* 选中那一行：左缘琥珀线 + 一层很淡的底色，2px 线在深底上单独看太弱 */
 .shell.live .live-room .pl-item.on {
-  background: color-mix(in srgb, var(--live-amber) 8%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 8%, transparent);
 }
 
 /* 列表抬头（榜单右栏 / 在线结果）：标题 14px + mono 注。两页共用一行式——
@@ -1722,7 +1723,7 @@
 /* 第 1 名的名次用琥珀：它确实是「当前这一榜的第一」，不是装饰 */
 .shell.live .live-room .chart-hero-cell.p1 .chart-hero-rank {
   font-size: 40px;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .shell.live .live-room .chart-hero-cell.p1 b {
@@ -1816,7 +1817,7 @@
 }
 
 .shell.live .live-room .chart-item.on .chart-index {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 听歌报告：24 小时热力带（一格一小时，亮度即时长） */
@@ -1829,7 +1830,7 @@
 
 .shell.live .live-room .stats-heat-cell {
   height: 100%;
-  background: color-mix(in srgb, var(--live-amber) calc(var(--heat, 0) * 0.75%), var(--live-panel-2));
+  background: color-mix(in srgb, var(--live-accent) calc(var(--heat, 0) * 0.75%), var(--live-panel-2));
   border: 1px solid var(--live-line);
 }
 
@@ -1953,7 +1954,7 @@
 }
 
 .acct-row.on {
-  background: color-mix(in srgb, var(--live-amber) 9%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 9%, transparent);
 }
 
 .acct-row.on::before {
@@ -1964,7 +1965,7 @@
   bottom: 9px;
   width: 3px;
   border-radius: 2px;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 /* 切换行脉冲：拨到这个源，拨完才真切（数据侧 onSwitch 由父级接管） */
@@ -1973,8 +1974,8 @@
 }
 
 @keyframes row-tune-pulse {
-  45% { background: color-mix(in srgb, var(--live-amber) 18%, transparent); }
-  100% { background: color-mix(in srgb, var(--live-amber) 9%, transparent); }
+  45% { background: color-mix(in srgb, var(--live-accent) 18%, transparent); }
+  100% { background: color-mix(in srgb, var(--live-accent) 9%, transparent); }
 }
 
 @keyframes row-tune-in {
@@ -2011,7 +2012,7 @@
 }
 
 .acct-row-tx span.ok {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .acct-foot {
@@ -2041,7 +2042,7 @@
 }
 
 .acct-menu-x:hover {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 右栏内容转场：key 换一次 = pane-swap 重播一次（切换账号 / 换选中源都有） */
@@ -2092,8 +2093,8 @@
   gap: 7px;
   padding: 3px 12px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--live-amber) 55%, transparent);
-  color: var(--live-amber);
+  border: 1px solid color-mix(in srgb, var(--live-accent) 55%, transparent);
+  color: var(--live-accent);
   font-size: 11px;
   letter-spacing: 0.08em;
 }
@@ -2213,8 +2214,8 @@
 }
 
 .login-tabs button.on {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .login-title {
@@ -2268,12 +2269,12 @@
   background: linear-gradient(
     90deg,
     rgb(255 255 255 / 0),
-    color-mix(in srgb, var(--live-amber) 80%, transparent) 30%,
-    var(--live-amber) 50%,
-    color-mix(in srgb, var(--live-amber) 80%, transparent) 70%,
+    color-mix(in srgb, var(--live-accent) 80%, transparent) 30%,
+    var(--live-accent) 50%,
+    color-mix(in srgb, var(--live-accent) 80%, transparent) 70%,
     rgb(255 255 255 / 0)
   );
-  box-shadow: 0 0 12px color-mix(in srgb, var(--live-amber) 60%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--live-accent) 60%, transparent);
   animation: qr-sweep 900ms ease-in-out 200ms 1 both;
   pointer-events: none;
 }
@@ -2325,7 +2326,7 @@
 }
 
 .login-ops button.hot {
-  color: var(--live-amber);
+  color: var(--live-accent);
   font-weight: 700;
 }
 
@@ -2361,7 +2362,7 @@
 }
 
 .login-field input:focus {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-amber) 50%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-accent) 50%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2400,7 +2401,7 @@
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.22em;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .shell.live .daily-head h1 {
@@ -2582,7 +2583,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .boot-splash p {
@@ -2596,7 +2597,7 @@
 .boot-line {
   width: 180px;
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--live-amber), transparent);
+  background: linear-gradient(90deg, transparent, var(--live-accent), transparent);
   animation: boot-sweep 1.6s ease-in-out infinite;
 }
 
@@ -2650,7 +2651,7 @@
    app.css 里的同名规则压不住，必须在这里重写一遍。 */
 .shell.live .live-room .playlists-page .list-now {
   padding-left: 8px;
-  box-shadow: inset 2px 0 0 var(--live-amber);
+  box-shadow: inset 2px 0 0 var(--live-accent);
 }
 
 .shell.live .live-room .playlists-page .now-act {
@@ -2664,8 +2665,8 @@
 }
 
 .shell.live .live-room .playlists-page .now-act.on {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .row-cover {
@@ -2689,7 +2690,7 @@
 /* 曲目行是 div[role=button]（行内还有下载按钮，不能再嵌一层 button），
    所以拿不到上面那条 button 的焦点环，这里补上，offset 取内让环贴着行边 */
 .shell.live .live-room .lib-row:focus-visible {
-  outline: 2px solid var(--live-amber);
+  outline: 2px solid var(--live-accent);
   outline-offset: -2px;
 }
 

@@ -52,7 +52,7 @@
   height: 30px;
   align-self: flex-start;
   margin-top: 3px;
-  background: linear-gradient(180deg, var(--live-amber), color-mix(in srgb, var(--live-amber) 30%, transparent));
+  background: linear-gradient(180deg, var(--live-accent), color-mix(in srgb, var(--live-accent) 30%, transparent));
 }
 
 .shell.live .live-room .charts-page .page-head h1,
@@ -631,7 +631,7 @@
   padding: 10px 14px;
   margin-bottom: 12px;
   border: 1px solid var(--live-line);
-  border-left: 3px solid var(--live-amber);
+  border-left: 3px solid var(--live-accent);
   background: linear-gradient(90deg, color-mix(in srgb, var(--live-fg) 4%, transparent), transparent 70%);
 }
 

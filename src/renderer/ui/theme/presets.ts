@@ -16,7 +16,7 @@ export interface ThemePreset {
 }
 
 export const THEME_PRESETS: readonly ThemePreset[] = [
-  { id: "light", name: "纸色", hint: "冷米白 · 朱砂印" },
-  { id: "dark", name: "墨色", hint: "暖墨底 · 提亮朱砂" },
+  { id: "light", name: "青瓷", hint: "雾青白 · 青瓷印" },
+  { id: "dark", name: "夜青", hint: "深青黑 · 青碧" },
   { id: "sepia", name: "旧档", hint: "牛皮纸 · 赭石" },
 ];

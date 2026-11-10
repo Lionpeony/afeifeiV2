@@ -21,9 +21,9 @@ export function NightCoverArt({ className }: { className?: string }) {
           <stop offset="1" stopColor="var(--live-ink)" />
         </linearGradient>
         <radialGradient id="ns-glow" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="var(--live-amber)" stopOpacity="0.24" />
-          <stop offset="0.6" stopColor="var(--live-amber)" stopOpacity="0.07" />
-          <stop offset="1" stopColor="var(--live-amber)" stopOpacity="0" />
+          <stop offset="0" stopColor="var(--live-accent)" stopOpacity="0.24" />
+          <stop offset="0.6" stopColor="var(--live-accent)" stopOpacity="0.07" />
+          <stop offset="1" stopColor="var(--live-accent)" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="ns-vinyl" cx="0.38" cy="0.32" r="0.86">
           <stop offset="0" stopColor={bgTop} />
@@ -31,9 +31,9 @@ export function NightCoverArt({ className }: { className?: string }) {
           <stop offset="1" stopColor="var(--live-ink)" />
         </radialGradient>
         <radialGradient id="ns-label" cx="0.38" cy="0.3" r="0.92">
-          <stop offset="0" stopColor="var(--live-amber)" stopOpacity="0.95" />
-          <stop offset="0.55" stopColor="var(--live-amber)" />
-          <stop offset="1" stopColor="var(--live-amber)" stopOpacity="0.55" />
+          <stop offset="0" stopColor="var(--live-accent)" stopOpacity="0.95" />
+          <stop offset="0.55" stopColor="var(--live-accent)" />
+          <stop offset="1" stopColor="var(--live-accent)" stopOpacity="0.55" />
         </radialGradient>
         <pattern id="ns-scan" width="4" height="4" patternUnits="userSpaceOnUse">
           <rect width="4" height="1.1" fill="var(--live-ink)" opacity="0.3" />
@@ -121,7 +121,7 @@ export function NightCoverArt({ className }: { className?: string }) {
         AFEIFEI BROADCAST · STEREO
       </text>
 
-      <g stroke="var(--live-amber)" strokeOpacity="0.5">
+      <g stroke="var(--live-accent)" strokeOpacity="0.5">
         <line x1="34" y1="340" x2="250" y2="340" strokeOpacity="0.38" />
         {[34, 61, 88, 115, 142, 169, 196, 223, 250].map((x) => (
           <line key={x} x1={x} y1="336" x2={x} y2="344" />

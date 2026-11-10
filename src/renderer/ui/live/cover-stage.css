@@ -87,8 +87,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--live-amber);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--live-amber) 70%, transparent);
+  background: var(--live-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-accent) 70%, transparent);
 }
 
 /* 序号跟状态词串成一行（左对齐短行，不甩到右端）：
@@ -132,7 +132,7 @@
 }
 
 .shell.live .cs-title:hover {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .cs-artist {
@@ -148,7 +148,7 @@
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--live-amber);
+  color: var(--live-accent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -204,7 +204,7 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 .cs-feed-meta {
@@ -238,8 +238,8 @@
 }
 
 .cs-feed-head .refresh-btn:hover {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .refresh-btn.is-spinning svg {
@@ -292,13 +292,13 @@
 }
 
 .cs-more:hover {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .cs-more[aria-expanded="true"] {
-  color: var(--live-amber);
-  border-color: color-mix(in srgb, var(--live-amber) 55%, transparent);
+  color: var(--live-accent);
+  border-color: color-mix(in srgb, var(--live-accent) 55%, transparent);
 }
 
 .cs-tapes {
@@ -453,7 +453,7 @@ img.cs-tape-art {
   /* closest-side 定半径，色标全用百分比，四主题 token 上色（居中一方块黑胶） */
   background:
     radial-gradient(circle closest-side, var(--live-slot) 0 6%, transparent 7%),
-    radial-gradient(circle closest-side, var(--live-amber) 0 26%, transparent 27%),
+    radial-gradient(circle closest-side, var(--live-accent) 0 26%, transparent 27%),
     radial-gradient(circle closest-side, color-mix(in srgb, var(--live-fg) 8%, var(--live-ink)) 0, var(--live-ink) 80%),
     repeating-radial-gradient(circle, transparent 0 3px, color-mix(in srgb, var(--live-fg) 6%, transparent) 3px 4px);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 22%, transparent);
@@ -487,12 +487,12 @@ img.cs-tape-art {
 
 .cs-tape:hover .cs-tape-play,
 .cs-tape:focus-visible .cs-tape-play {
-  border-left-color: var(--live-amber);
+  border-left-color: var(--live-accent);
 }
 
 .cs-tape:focus-visible,
 .shell.live .cs-title:focus-visible {
-  outline: 2px solid var(--live-amber);
+  outline: 2px solid var(--live-accent);
   outline-offset: -2px;
 }
 
@@ -540,8 +540,8 @@ img.cs-tape-art {
 .cs-vu i:nth-child(n + 32) {
   background: linear-gradient(
     180deg,
-    var(--live-amber),
-    color-mix(in srgb, var(--live-amber) 38%, transparent)
+    var(--live-accent),
+    color-mix(in srgb, var(--live-accent) 38%, transparent)
   );
   opacity: 0.85;
 }
@@ -846,7 +846,7 @@ img.cs-tape-art {
   position: relative;
   background:
     radial-gradient(circle closest-side, var(--live-slot) 0 7%, transparent 8%),
-    radial-gradient(circle closest-side, var(--live-amber) 0 30%, transparent 31%),
+    radial-gradient(circle closest-side, var(--live-accent) 0 30%, transparent 31%),
     radial-gradient(circle closest-side, color-mix(in srgb, var(--live-fg) 8%, var(--live-ink)) 0, var(--live-ink) 78%);
 }
 
@@ -887,7 +887,7 @@ img.cs-tape-art {
 }
 
 .cs-all-row:focus-visible {
-  outline: 2px solid var(--live-amber);
+  outline: 2px solid var(--live-accent);
   outline-offset: -2px;
 }
 

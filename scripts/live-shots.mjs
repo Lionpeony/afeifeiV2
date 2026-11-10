@@ -1987,7 +1987,7 @@ app.whenReady().then(async () => {
   })()`);
 
   const themeBg = new Map();
-  for (const [id, name] of [["light", "纸色"], ["dark", "墨色"], ["sepia", "旧档"]]) {
+  for (const [id, name] of [["light", "青瓷"], ["dark", "夜青"], ["sepia", "旧档"]]) {
     await click(
       `(() => { const b = document.querySelector('.ruler-tick[data-page="settings"]'); b?.click(); return Boolean(b); })()`,
       "站尺 · 设置",
@@ -2034,7 +2034,7 @@ app.whenReady().then(async () => {
   await click(`(() => { const b = document.querySelector('.ruler-tick[data-page="settings"]'); b?.click(); return Boolean(b); })()`, "站尺 · 设置");
   await sleep(400);
   await click(`(() => {
-    const b = [...document.querySelectorAll(".seg button")].find((x) => x.textContent.trim() === "纸色");
+    const b = [...document.querySelectorAll(".seg button")].find((x) => x.textContent.trim() === "青瓷");
     b?.click(); return Boolean(b);
   })()`, "配色 · 纸色");
   await sleep(300);

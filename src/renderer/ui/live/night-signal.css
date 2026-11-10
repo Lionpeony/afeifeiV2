@@ -26,11 +26,11 @@
 
 /* 选中 = 整枚签子亮起：琥珀底光 + 琥珀字，比"只变字色"的选中感强一个量级 */
 .ruler-tick.on {
-  background: color-mix(in srgb, var(--live-amber) 14%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 14%, transparent);
 }
 
 .ruler-tick.on > span:first-child {
-  color: var(--live-amber);
+  color: var(--live-accent);
   font-weight: 600;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .ruler-tick.on:hover {
-  background: color-mix(in srgb, var(--live-amber) 18%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 18%, transparent);
 }
 
 /* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
@@ -110,8 +110,8 @@
   height: 5px;
   margin-right: 6px;
   border-radius: 50%;
-  background: var(--live-amber);
-  box-shadow: 0 0 7px color-mix(in srgb, var(--live-amber) 70%, transparent);
+  background: var(--live-accent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--live-accent) 70%, transparent);
   animation: live-pulse 2.6s ease-in-out infinite;
 }
 
@@ -159,7 +159,7 @@
   background-color: var(--live-ink);
   background-image:
     radial-gradient(circle closest-side, var(--live-slot) 0 5%, transparent 6%),
-    radial-gradient(circle closest-side, var(--live-amber) 0 15%, transparent 16%),
+    radial-gradient(circle closest-side, var(--live-accent) 0 15%, transparent 16%),
     repeating-radial-gradient(
       circle at 50% 50%,
       transparent 0 2px,
@@ -192,12 +192,12 @@
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 22%, rgb(255 255 255 / .34), rgb(255 255 255 / 0) 62%),
-    var(--live-amber);
+    var(--live-accent);
   color: var(--live-accent-ink);
   box-shadow:
     inset 0 -3px 6px rgb(0 0 0 / .28),
     inset 0 1px 0 rgb(255 255 255 / .22),
-    0 8px 20px -8px color-mix(in srgb, var(--live-amber) 55%, transparent);
+    0 8px 20px -8px color-mix(in srgb, var(--live-accent) 55%, transparent);
   transition: transform 140ms ease, filter 140ms ease;
 }
 
@@ -205,7 +205,7 @@
   border-color: transparent;
   background:
     radial-gradient(circle at 50% 22%, rgb(255 255 255 / .42), rgb(255 255 255 / 0) 62%),
-    var(--live-amber);
+    var(--live-accent);
   color: var(--live-accent-ink);
   transform: scale(1.05);
   filter: brightness(1.06);
@@ -257,7 +257,7 @@
 
 /* r=23 的周长 144.51：初始满偏 = 空环；App 每帧按已播比例回写 */
 .tb-ring-arc {
-  stroke: var(--live-amber);
+  stroke: var(--live-accent);
   stroke-linecap: round;
   stroke-dasharray: 144.51;
   stroke-dashoffset: 144.51;
@@ -300,8 +300,8 @@
 }
 
 .shell.live .console .tools button.on {
-  background: color-mix(in srgb, var(--live-amber) 20%, transparent);
-  color: var(--live-amber);
+  background: color-mix(in srgb, var(--live-accent) 20%, transparent);
+  color: var(--live-accent);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / .1),
     inset 0 -1px 0 rgb(0 0 0 / .2);
@@ -326,7 +326,7 @@
   border-radius: 3px;
   background: linear-gradient(
     to right,
-    var(--live-amber) var(--fill, 0%),
+    var(--live-accent) var(--fill, 0%),
     color-mix(in srgb, var(--live-fg) 14%, transparent) var(--fill, 0%)
   );
   box-shadow:
@@ -339,8 +339,8 @@
   height: 12px;
   margin-top: -3px;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .4), rgb(255 255 255 / 0) 60%), var(--live-amber);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-amber) 22%, transparent);
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .4), rgb(255 255 255 / 0) 60%), var(--live-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-accent) 22%, transparent);
 }
 
 /* 右上信息组不再包成一块面板（一块面板会让账号看着像台大控件）：
@@ -389,7 +389,7 @@
 .ruler-search:focus-within {
   background: color-mix(in srgb, var(--live-fg) 9%, transparent);
   box-shadow:/n    inset 0 1px 2px rgb(0 0 0 / .16),
-    inset 0 0 0 1px color-mix(in srgb, var(--live-amber) 45%, transparent);
+    inset 0 0 0 1px color-mix(in srgb, var(--live-accent) 45%, transparent);
 }
 
 .ruler-search svg {
@@ -420,7 +420,7 @@
 
 /* 聚焦：svg 提琥珀（槽底色变化在上方 background 规则里） */
 .ruler-search:focus-within svg {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 账号只留 22px 头像；未登录是一个「登录」字样。昵称/音源在悬停提示与账号面板里 */
@@ -451,7 +451,7 @@
 }
 
 .ruler-acct:hover img {
-  box-shadow: 0 0 0 1px var(--live-amber);
+  box-shadow: 0 0 0 1px var(--live-accent);
 }
 
 .ruler-acct-dot {
@@ -542,12 +542,12 @@
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--live-amber) 70%, transparent) 22%,
-    var(--live-amber) 50%,
-    color-mix(in srgb, var(--live-amber) 70%, transparent) 78%,
+    color-mix(in srgb, var(--live-accent) 70%, transparent) 22%,
+    var(--live-accent) 50%,
+    color-mix(in srgb, var(--live-accent) 70%, transparent) 78%,
     transparent
   );
-  box-shadow: 0 0 14px color-mix(in srgb, var(--live-amber) 60%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--live-accent) 60%, transparent);
   animation: tune-sweep 560ms ease-in-out both;
 }
 
@@ -638,7 +638,7 @@
 }
 
 .shell.live .vol-pop input[type="range"] {
-  accent-color: var(--live-amber);
+  accent-color: var(--live-accent);
 }
 
 .shell.live .vol-pop .vol-val {
@@ -676,8 +676,8 @@
 }
 
 .shell.live .rate-opts button.on {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .shell.live .rate-pitch {
@@ -687,7 +687,7 @@
 
 .shell.live .rate-pitch input,
 .shell.live .sleep-wait input {
-  accent-color: var(--live-amber);
+  accent-color: var(--live-accent);
 }
 
 /* ---------- 睡眠定时：状态行带呼吸点，档位签与倍速同语言 ---------- */
@@ -718,7 +718,7 @@
 }
 
 .shell.live .sleep-pop.armed .sleep-now::before {
-  background: var(--live-amber);
+  background: var(--live-accent);
   animation: sig-pulse 1.6s ease-in-out infinite;
 }
 
@@ -741,8 +741,8 @@
 }
 
 .shell.live .sleep-opts button:hover:not(:disabled) {
-  border-color: var(--live-amber);
-  color: var(--live-amber);
+  border-color: var(--live-accent);
+  color: var(--live-accent);
 }
 
 .shell.live .sleep-opts button:disabled {
@@ -810,7 +810,7 @@
 }
 
 .shell.live .qp-x:hover {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 列表：悬浮行 + 琥珀 hover，滚动条收细 */
@@ -827,7 +827,7 @@
 }
 
 .shell.live .qp-list::-webkit-scrollbar-thumb:hover {
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .shell.live .qp-empty {
@@ -841,21 +841,21 @@
 }
 
 .shell.live .qp-row:hover {
-  background: color-mix(in srgb, var(--live-amber) 8%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 8%, transparent);
 }
 
 /* 正在播：琥珀左轨 + 7% 氛围底 */
 .shell.live .qp-row.on {
-  box-shadow: inset 2px 0 0 var(--live-amber);
-  background: color-mix(in srgb, var(--live-amber) 7%, transparent);
+  box-shadow: inset 2px 0 0 var(--live-accent);
+  background: color-mix(in srgb, var(--live-accent) 7%, transparent);
 }
 
 .shell.live .qp-row.gap {
-  box-shadow: inset 0 2px 0 var(--live-amber);
+  box-shadow: inset 0 2px 0 var(--live-accent);
 }
 
 .shell.live .qp-drop {
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .shell.live .qp-no {
@@ -865,7 +865,7 @@
 }
 
 .shell.live .qp-row.on .qp-no {
-  color: var(--live-amber);
+  color: var(--live-accent);
 }
 
 /* 封面列：细线暖边 + 8px 圆角；当前行的封面描琥珀边并提亮 */
@@ -885,11 +885,11 @@
 }
 
 .shell.live .qp-row.on .qp-art {
-  border-color: color-mix(in srgb, var(--live-amber) 70%, transparent);
+  border-color: color-mix(in srgb, var(--live-accent) 70%, transparent);
 }
 
 .shell.live .qp-eq i {
-  background: var(--live-amber);
+  background: var(--live-accent);
 }
 
 .shell.live .qp-grip {
@@ -930,7 +930,7 @@
 }
 
 .shell.live .qp-ops button:focus-visible {
-  outline-color: var(--live-amber);
+  outline-color: var(--live-accent);
 }
 
 .shell.live .qp-foot {

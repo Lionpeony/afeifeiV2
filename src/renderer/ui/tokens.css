@@ -6,19 +6,20 @@
    2026-11-03 换装：结构层采用旧仓「唱片节目单」视觉（ref/20）——
    纸 #f3f1ea / 墨 #17150f / 朱砂印 #d8341c / 发丝线；直角是默认。 */
 :root {
-  /* ① 结构层（值源：ref/20 §3.1；token 名保持不变，消费方零改动） */
-  --bg: #f3f1ea; /* 纸：冷米白 */
-  --fg: #17150f; /* 墨 */
-  --fg-dim: #5f5a4e; /* 墨-2：正文/说明默认色（对纸 6.5:1+） */
-  --line: rgba(23, 21, 15, 0.28); /* 发丝 hair：分区/表格线 */
-  --line-soft: rgba(23, 21, 15, 0.12); /* 发丝-2：行分隔、弱线 */
-  --row-hover: rgba(23, 21, 15, 0.06);
-  --accent: #d8341c; /* 朱砂印章：主操作 / 正在播放 / 进度头 / 品牌句号，其余禁止 */
-  --accent-ink: #f3f1ea; /* 朱砂上的字（纸色） */
-  --brass: #8a6a2f; /* 黄铜：状态徽章（已登录/缺失/提示） */
-  --danger: #a8321f;
-  --bg-raised: #ece9df; /* 纸-2：面板/表头 */
-  --mask: rgba(23, 21, 15, 0.5);
+  /* ① 结构层（2026-11-10 二次换装：青瓷体系——雾青白底 / 深青灰字 / 青瓷印；
+     米色 / 朱砂 / 墨黑全部退场。token 名保持不变，消费方零改动） */
+  --bg: #eef2f1; /* 雾青白 */
+  --fg: #17302c; /* 深青灰 */
+  --fg-dim: #54706b; /* 青-2：正文/说明默认色（对底 6:1+） */
+  --line: rgba(23, 48, 44, 0.18); /* 发丝 hair：分区/表格线 */
+  --line-soft: rgba(23, 48, 44, 0.08); /* 发丝-2：行分隔、弱线 */
+  --row-hover: rgba(23, 48, 44, 0.05);
+  --accent: #0e8f82; /* 青瓷印：主操作 / 正在播放 / 进度头 / 品牌句号，其余禁止 */
+  --accent-ink: #f4faf8; /* 青瓷上的字 */
+  --brass: #4a7a96; /* 石板蓝：状态徽章（已登录/缺失/提示） */
+  --danger: #c2620f; /* 警示橙棕（红色退场） */
+  --bg-raised: #f7faf9; /* 青-2：面板/表头 */
+  --mask: rgba(12, 21, 20, 0.5);
 
   /* ② 场景层（四套预设只改这里 + 布局参数）。
      **不许 var(--结构层)**：A-10 判据是"播放页样式与主题独立"，
@@ -27,30 +28,30 @@
   --stage-bg: #f3f1ea;
   --stage-fg: #17150f;
   --stage-fg-dim: #5f5a4e;
-  --stage-line: rgba(23, 21, 15, 0.28); /* 场景自己的发丝线/表格线 */
-  --stage-line-soft: rgba(23, 21, 15, 0.12); /* 场景的弱线/虚线 */
-  --stage-raised: #ece9df; /* 相纸卡里掏空的槽位（无封面时的底） */
-  --stage-disc: #191619; /* 黑胶盘实体色，物理黑胶不随预设换装 */
-  --stage-disc-groove: #221e22; /* 盘纹亮槽 */
-  --stage-accent: #d8341c; /* 场景里的朱砂（正在唱 / 场次票） */
+  --stage-line: rgba(23, 21, 15, 0.28);
+  --stage-line-soft: rgba(23, 21, 15, 0.12);
+  --stage-raised: #ece9df;
+  --stage-disc: #191619;
+  --stage-disc-groove: #221e22;
+  --stage-accent: #d8341c;
   --stage-tint: #d8341c;
-  --stage-wallpaper: none; /* L-a：预设给背景（纹理 / 模糊图 / 纯色） */
-  --stage-cover-size: 320px; /* L-c 封面尺寸 */
-  --stage-cover-radius: 0px; /* 直角是默认；0 也是圆形黑胶的转轴心 */
-  --stage-cover-frame: none; /* 预设给边框/内边距 */
-  --stage-cover-shadow: none; /* 预设给投影（cinema 才用） */
-  --stage-cover-spin: 0s; /* 黑胶转一圈的时长，0 = 不转 */
+  --stage-wallpaper: none;
+  --stage-cover-size: 320px;
+  --stage-cover-radius: 0px;
+  --stage-cover-frame: none;
+  --stage-cover-shadow: none;
+  --stage-cover-spin: 0s;
   --stage-lyric-size: 22px;
   --stage-lyric-weight: 600;
-  --stage-dur: 200ms; /* 预设切换转场时长 */
+  --stage-dur: 200ms;
   --stage-ease: ease-out;
 
-  /* ③ 材质层（只给浮层）：纸面卡 + 双层影（外投影 + 1px 发丝），无毛玻璃 */
-  --glass-bg: rgba(236, 233, 223, 0.97);
-  --glass-border: rgba(23, 21, 15, 0.28);
+  /* ③ 材质层（只给浮层）：青白卡 + 双层影（外投影 + 1px 发丝），无毛玻璃 */
+  --glass-bg: rgba(247, 250, 249, 0.97);
+  --glass-border: rgba(23, 48, 44, 0.28);
   --glass-shadow:
-    0 12px 32px rgba(23, 21, 15, 0.18),
-    0 1px 0 rgba(23, 21, 15, 0.12);
+    0 12px 32px rgba(12, 21, 20, 0.16),
+    0 1px 0 rgba(12, 21, 20, 0.1);
 
   /* 纸纹（app.css html::after 消费）：日间 .05 multiply */
   --grain-opacity: 0.05;
@@ -68,47 +69,46 @@
   --console-h: 104px;
 
   /* ④ 直播带：只给 .shell.live 消费。
-     控制室是**随灯**的一层——日间冷纸控制室（这里），夜间暗控制室（见 [data-theme="dark"]）。
+     控制室是**随灯**的一层——日间青白控制室（这里），夜间深青控制室（见 [data-theme="dark"]）。
      换主题只换这一层的值，版式、刻度、节目带结构一律不动。
      舞台（播放页 / 首页封面台）是暗区，不吃这一层，用下面的 ⑤ 钉死。 */
-  --live-bg: #eeece5;
-  --live-panel: #f6f5f0; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
-  --live-panel-2: #e7e5dc;
-  --live-fg: #14171a;
-  --live-fg-dim: #4f5660;
-  /* 11px mono 标签/读数：对 --live-panel 6.0:1、对 --live-bg 5.5:1
-     （原 #656b74 4.5:1 压线，小字号读着吃力，2026-11-09 加深一档） */
-  --live-fg-faint: #575e67;
-  --live-line: rgba(20, 23, 26, 0.14);
-  --live-line-strong: rgba(20, 23, 26, 0.34);
-  --live-onair: #b83229; /* ON AIR 红在浅底上必须压暗，原 #e4483f 只有 2.4:1 */
-  --live-amber: #8a5a14; /* 琥珀 → 赭石：同一 hue，浅底上 5:1 */
-  --live-phosphor: #2a7059; /* 磷光青 → 深青 */
-  --live-signal: #2f6e80; /* 信号冰蓝 → 深蓝 */
-  --live-slot: #d9d6cb; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档，四档都得有 */
-  --live-accent-ink: #fbfaf6; /* 琥珀**填充**上的字；琥珀当字用 --live-amber 本身 */
+  --live-bg: #edf2f1;
+  --live-panel: #f6faf9; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
+  --live-panel-2: #e6eeec;
+  --live-fg: #17302c;
+  --live-fg-dim: #4c6a64;
+  /* 11px mono 标签/读数：对 --live-panel 5.5:1+，小字号读着不吃力 */
+  --live-fg-faint: #5d7c75;
+  --live-line: rgba(23, 48, 44, 0.14);
+  --live-line-strong: rgba(23, 48, 44, 0.34);
+  --live-onair: #c2620f; /* 警示橙棕：暂停/错误等警示语义（红色退场） */
+  --live-accent: #0e8f82; /* 青瓷强调：选中/在用/进度（原 --live-accent 琥珀退场，token 改名） */
+  --live-phosphor: #23a391; /* 设备灯薄荷青 */
+  --live-signal: #3f7a96; /* 频谱石板蓝 */
+  --live-slot: #dde5e3; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档 */
+  --live-accent-ink: #f4faf8; /* 强调**填充**上的字；强调当字用 --live-accent 本身 */
   --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
-  --live-paper: #f3f2ed; /* 锁定页冷纸 */
-  --live-ink: #14171a;
+  --live-paper: #f4f8f6; /* 锁定页冷纸 */
+  --live-ink: #17302c;
   --live-ruler-h: 56px;
 
   /* ⑤ 舞台暗区：播放页恒暗（A-10 播放页与主题独立 / 2026-11-05「播出面进暗房」）。
      首页封面台 2026-11-08 起跟主题走（封面取色做场景层），不再钉这套。
      live.css 在暗区作用域（.stage.is-live）里把 --live-* 钉回这一套。 */
-  --night-bg: #0a0e13;
-  --night-panel: #121820;
-  --night-panel-2: #0d131a;
-  --night-fg: #f2eee6;
-  --night-fg-dim: #8b96a3;
-  --night-fg-faint: #55606d;
-  --night-line: rgba(143, 224, 192, 0.16);
-  --night-line-strong: rgba(242, 238, 230, 0.26);
-  --night-onair: #e4483f;
-  --night-amber: #e8a34a;
-  --night-phosphor: #8fe0c0;
-  --night-signal: #8ecfdf;
-  --night-slot: #080b0f;
-  --night-accent-ink: #14171a;
+  --night-bg: #0c1514;
+  --night-panel: #142020;
+  --night-panel-2: #0f1918;
+  --night-fg: #dcebe6;
+  --night-fg-dim: #7fa39a;
+  --night-fg-faint: #54706a;
+  --night-line: rgba(46, 201, 167, 0.16);
+  --night-line-strong: rgba(220, 235, 230, 0.26);
+  --night-onair: #e0703a;
+  --night-accent: #2ec9a7;
+  --night-phosphor: #34d8b4;
+  --night-signal: #7fc9d8;
+  --night-slot: #080f0e;
+  --night-accent-ink: #0c1514;
 
   color-scheme: light;
 }
@@ -133,58 +133,58 @@ html {
 /* 播放页新皮肤（2026-11-10）：舞台接管了明暗，外壳（站尺 / 控制台）跟着走。
    浅色皮肤在暗色主题下也要把外壳拉回纸色，否则会是一圈深框套一张白纸。 */
 .shell.live:has(.stage[data-tone="light"]) {
-  --bg: #f3f1ea;
-  --fg: #17150f;
-  --fg-dim: #5f5a4e;
-  --line: rgba(23, 21, 15, 0.28);
-  --line-soft: rgba(23, 21, 15, 0.12);
-  --row-hover: rgba(23, 21, 15, 0.06);
-  --accent: #d8341c;
-  --accent-ink: #f3f1ea;
-  --brass: #8a6a2f;
-  --danger: #a8321f;
-  --bg-raised: #ece9df;
+  --bg: #eef2f1;
+  --fg: #17302c;
+  --fg-dim: #54706b;
+  --line: rgba(23, 48, 44, 0.18);
+  --line-soft: rgba(23, 48, 44, 0.08);
+  --row-hover: rgba(23, 48, 44, 0.05);
+  --accent: #0e8f82;
+  --accent-ink: #f4faf8;
+  --brass: #4a7a96;
+  --danger: #c2620f;
+  --bg-raised: #f7faf9;
   --grain-opacity: 0.05;
   --grain-blend: multiply;
 
-  --live-bg: #eeece5;
-  --live-panel: #f6f5f0;
-  --live-panel-2: #e7e5dc;
-  --live-fg: #14171a;
-  --live-fg-dim: #4f5660;
-  --live-fg-faint: #575e67;
-  --live-line: rgba(20, 23, 26, 0.14);
-  --live-line-strong: rgba(20, 23, 26, 0.34);
-  --live-onair: #b83229;
-  --live-amber: #8a5a14;
-  --live-phosphor: #2a7059;
-  --live-signal: #2f6e80;
-  --live-slot: #d9d6cb;
-  --live-accent-ink: #fbfaf6;
+  --live-bg: #edf2f1;
+  --live-panel: #f6faf9;
+  --live-panel-2: #e6eeec;
+  --live-fg: #17302c;
+  --live-fg-dim: #4c6a64;
+  --live-fg-faint: #5d7c75;
+  --live-line: rgba(23, 48, 44, 0.14);
+  --live-line-strong: rgba(23, 48, 44, 0.34);
+  --live-onair: #c2620f;
+  --live-accent: #0e8f82;
+  --live-phosphor: #23a391;
+  --live-signal: #3f7a96;
+  --live-slot: #dde5e3;
+  --live-accent-ink: #f4faf8;
 
   color-scheme: light;
 }
 
 :root[data-theme="dark"],
 .shell.live:has(.stage[data-tone="dark"]) {
-  --bg: #171613;
-  --fg: #ece8dd;
-  --fg-dim: #9c9484;
-  --line: rgba(236, 232, 221, 0.3);
-  --line-soft: rgba(236, 232, 221, 0.14);
-  --row-hover: rgba(236, 232, 221, 0.07);
-  --accent: #e0492f; /* 朱砂在暗底上提亮一档，否则发乌 */
-  --accent-ink: #171613;
-  --brass: #c9a35c;
-  --danger: #e0654b;
-  --bg-raised: #211e1a;
+  --bg: #0c1514;
+  --fg: #dcebe6;
+  --fg-dim: #7fa39a;
+  --line: rgba(220, 235, 230, 0.28);
+  --line-soft: rgba(220, 235, 230, 0.12);
+  --row-hover: rgba(220, 235, 230, 0.06);
+  --accent: #2ec9a7; /* 青碧在暗底上提亮一档，否则发乌 */
+  --accent-ink: #0c1514;
+  --brass: #5e9bb8;
+  --danger: #e0703a;
+  --bg-raised: #16211f;
   --mask: rgba(0, 0, 0, 0.6);
 
-  --glass-bg: rgba(33, 30, 26, 0.97);
-  --glass-border: rgba(236, 232, 221, 0.26);
+  --glass-bg: rgba(22, 33, 31, 0.97);
+  --glass-border: rgba(220, 235, 230, 0.26);
   --glass-shadow:
     0 12px 32px rgba(0, 0, 0, 0.55),
-    0 1px 0 rgba(236, 232, 221, 0.08);
+    0 1px 0 rgba(220, 235, 230, 0.08);
 
   /* 暗底上 multiply 会把颗粒乘成纯黑，换 soft-light 才看得见；浓度减半（50 §16 亮度纪律） */
   --grain-opacity: 0.025;
@@ -200,7 +200,7 @@ html {
   --live-line: var(--night-line);
   --live-line-strong: var(--night-line-strong);
   --live-onair: var(--night-onair);
-  --live-amber: var(--night-amber);
+  --live-accent: var(--night-accent);
   --live-phosphor: var(--night-phosphor);
   --live-signal: var(--night-signal);
   --live-slot: var(--night-slot);
@@ -242,7 +242,7 @@ html {
   --live-line: rgba(43, 33, 24, 0.16);
   --live-line-strong: rgba(43, 33, 24, 0.36);
   --live-onair: #a8352a;
-  --live-amber: #7d4a12;
+  --live-accent: #7d4a12;
   --live-phosphor: #2a6b55;
   --live-signal: #2a6478;
   --live-accent-ink: #fdf8ec;
