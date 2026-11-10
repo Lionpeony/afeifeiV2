@@ -9,8 +9,8 @@ import { useNowSecond } from "./useStation.js";
  * 不做"主导航 + 我的 + 设置"三段式 —— 那还是播放器侧栏。
  * 当前页点亮，其余压暗。整条是窗口拖拽区（live 壳没有标题栏），按钮自己 no-drag。
  *
- * 2026-11-10：删掉调频读数（88.1 那套）。那是「不夜台」电台主题的遗留，
- * 用户明确不要这个主题了 —— 导航只需要名字，不需要假频率。
+ * 2026-11-10：删掉调频读数（88.1 那套）与副标。导航只需要名字，
+ * 不挂假频率——主题已整体弃用，这里连刻度短横也不再留。
  */
 
 interface Tick {
@@ -80,7 +80,6 @@ export function StationRuler({
             title={tick.label}
           >
             <span>{tick.label}</span>
-            <i aria-hidden="true" />
           </button>
         ))}
       </nav>

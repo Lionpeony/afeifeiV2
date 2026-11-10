@@ -4,8 +4,7 @@
    签子回到单行文字，选中靠琥珀底光锁定。 */
 
 /* —— 站尺签子 ——
-   单行：只有页名，不再挂假频率。
-   选中不再只换字色——整枚签子浮起一层琥珀底，一眼锁定当前页。 */
+   单行：只有页名，没有刻度、没有假频率。选中靠琥珀底光锁定当前页。 */
 .ruler-tick {
   flex-direction: row;
   align-items: center;
@@ -17,12 +16,6 @@
   transition: background-color 140ms ease;
 }
 
-.ruler-tick i {
-  /* 单行签子不需要底部刻度线：它原本是给"名字 + 频率"双行做分隔的，
-     现在留着会在每个词下面挂一根 5px 短线，读成打字机下划线 */
-  display: none;
-}
-
 .ruler-tick > span:first-child {
   font-size: 13px;
   font-weight: 500;
@@ -31,14 +24,9 @@
   color: var(--live-fg-dim);
 }
 
-
 /* 选中 = 整枚签子亮起：琥珀底光 + 琥珀字，比"只变字色"的选中感强一个量级 */
 .ruler-tick.on {
   background: color-mix(in srgb, var(--live-amber) 14%, transparent);
-}
-
-.ruler-tick.on::before {
-  content: none;
 }
 
 .ruler-tick.on > span:first-child {
@@ -54,25 +42,14 @@
   background: color-mix(in srgb, var(--live-amber) 18%, transparent);
 }
 
-
 /* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
 @media (max-width: 1180px) {
   .ruler-tick {
     padding: 3px 7px 4px;
   }
 
-  .ruler-tick i {
-  /* 单行签子不需要底部刻度线：它原本是给"名字 + 频率"双行做分隔的，
-     现在留着会在每个词下面挂一根 5px 短线，读成打字机下划线 */
-  display: none;
-}
-
-.ruler-tick > span:first-child {
+  .ruler-tick > span:first-child {
     font-size: 11px;
-  }
-
-  .ruler-tick::after {
-    font-size: 9px;
   }
 }
 
@@ -327,13 +304,8 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-amber) 22%, transparent);
 }
 
-/* 悬停反馈：让频率刻度看起来确实可点（只换底色，不做位移） */
-.ruler-tick:hover {
-  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
-}
-
 /* 右上信息组不再包成一块面板（一块面板会让账号看着像台大控件）：
-   改用刻度语言——分格线落在「账号 | 时钟」之间，账号单独成格。 */
+   分格线落在「账号 | 时钟」之间，账号单独成格。 */
 .ruler-clock {
   align-self: center;
   gap: 10px;
@@ -464,12 +436,6 @@
 @media (min-width: 1440px) {
   .ruler-search {
     width: 288px;
-  }
-}
-
-@media (max-width: 1300px) {
-  .ruler-en {
-    display: none;
   }
 }
 

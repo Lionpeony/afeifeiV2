@@ -1192,7 +1192,7 @@ function App() {
               <span className="notice">{notice.text}</span>
             )
           ) : null}
-          {/* key=page：切页即重挂容器，调频进场动画（live.css room-tune/bleed-tune）每次都重播 */}
+          {/* key=page：切页即重挂容器，进场动画（live.css room-tune/bleed-tune）每次都重播 */}
           {page === "home" ? (
             <div className="live-bleed" key={page}>{renderPage()}</div>
           ) : page === "stage" ? (

@@ -170,7 +170,7 @@ export function AccountMenu({
                 {profile?.loggedIn ? (
                   <>
                     {on ? (
-                      /* 正在使用的频段不摆按钮：ON AIR 灯牌，红点呼吸 */
+                      /* 正在使用的源不摆按钮：「使用中」徽标，红点呼吸 */
                       <span className="onair-badge">
                         <i aria-hidden="true" />
                         使用中

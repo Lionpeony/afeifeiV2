@@ -79,7 +79,7 @@ async function once() {
   const app = await launch({ port: PORT, profile: PROFILE });
   current = app;
 
-  // 开机落不夜台首页；性能测的是本地页虚拟列表，先切过去。
+  // 开机落首页；性能测的是本地页虚拟列表，先切过去。
   // 本地首屏现在是书架（封面墙），点「曲目」标签才挂虚拟列表。
   // 等恢复打点落定再点：按钮点击引起的重渲染不该混进 restore 窗口。
   await app.waitFor(`performance.getEntriesByName("afeifei:restore").length > 0`, 15000);

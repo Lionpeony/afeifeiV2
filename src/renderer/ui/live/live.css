@@ -59,7 +59,7 @@
 
 /* 控制室里所有滚动容器共用一套滚条：房间里是旧引擎的滚动区，设置页是原生滚动区，
    两边都吃 --live-*，所以通配到整个壳 —— 少一处就是一格亮条（设置页深色档就是这样漏的）。
-   直播间（.stage.is-live）内部已被钉成夜航值，套上去也是深色；浮层配色由 .st-menu 专项规则接管。 */
+   直播间（.stage.is-live）内部已被钉成夜间值，套上去也是深色；浮层配色由 .st-menu 专项规则接管。 */
 .shell.live ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -155,16 +155,6 @@
   cursor: pointer;
 }
 
-.ruler-tick i {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 1px;
-  height: 5px;
-  background: var(--live-line-strong);
-  transform: translateX(-50%);
-}
-
 .ruler-tick:hover {
   color: var(--live-fg);
 }
@@ -172,14 +162,6 @@
 .ruler-tick.on {
   color: var(--live-amber);
 }
-
-.ruler-tick.on i {
-  width: 2px;
-  height: 9px;
-  background: var(--live-amber);
-  box-shadow: 0 0 6px var(--live-amber);
-}
-
 
 .ruler-clock {
   display: flex;
@@ -251,7 +233,7 @@
   min-height: 0;
 }
 
-/* —— 调频切页：换房间 = 换频道，页面像信号一样浮现 ——
+/* —— 切页进场：换房间 = 换页，内容轻浮起来 ——
    容器带 key={page}（index.tsx），每次切页重挂即重播。
    房间页轻浮起；首页满幅面只做纯淡入（它内部已有 cs-enter/cs-swap 的层级，
    外层不再叠加位移）。直播间 .live-plate 不参与：舞台有自己的入场仪式。 */

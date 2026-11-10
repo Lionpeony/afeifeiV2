@@ -23,7 +23,7 @@
   margin-bottom: 4px;
 }
 
-/* 刻度尺：替代原来的 1px 墨线。像调频刻度一样从左往右排，
+/* 刻度尺：替代原来的 1px 墨线。像直尺刻度一样从左往右排，
    中间一段（前 34%）用强墨，往后渐隐 —— 刊头的"台标位" */
 .shell.live .live-room .charts-page .page-head::after,
 .shell.live .live-room .playlists-page .page-head::after,

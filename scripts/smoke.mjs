@@ -232,7 +232,7 @@ async function main() {
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
-  // 外壳（C-17）：开机落在不夜台首页直播面；站尺替代顶栏/侧栏
+  // 外壳（C-17）：开机落在首页直播面；站尺替代顶栏/侧栏
   assert.ok(await app.waitFor(`!!document.querySelector(".ruler")`, 5000), "直播壳站尺没出来");
   assert.ok(await app.waitFor(`!!document.querySelector(".live-home")`, 5000), "首页直播面没出来");
 
@@ -405,8 +405,8 @@ async function main() {
     const app2 = await launch([]);
     current = app2;
 
-    // 重启后外壳仍是不夜台：旧壳（直白模式）已删除，没有别的落点
-    assert.ok(await app2.waitFor(`!!document.querySelector(".ruler")`, 5000), "重启后没回到不夜台外壳");
+    // 重启后外壳仍是同一套：旧壳（直白模式）已删除，没有别的落点
+    assert.ok(await app2.waitFor(`!!document.querySelector(".ruler")`, 5000), "重启后没回到直播外壳");
     if (!(await app2.waitFor(`document.querySelector(".np-tx b")?.textContent === ${JSON.stringify(first)}`, 10000))) {
       const shown = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);

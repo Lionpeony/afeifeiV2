@@ -1435,27 +1435,35 @@ app.whenReady().then(async () => {
   console.log(`舞台走带：${JSON.stringify(desk)}`);
   if (!desk.tape) throw new Error("播放页没有走带（.sk-tape）");
   if (!desk.bar) throw new Error("走带底边不是可拖进度（input.sk-range 丢了）");
-  await evalJs(`document.querySelector(".st-air-tools .st-tb.main")?.click()`);
+  /* 播放态对齐：走带主键是 toggle，先看 aria-label 再点——本来就是播放中就不能再点，
+     否则这条链会把播放点成暂停，后面的证据全是暂停态。 */
+  await evalJs(`(() => {
+    const b = document.querySelector(".sk-transport .sk-play");
+    if (b && b.getAttribute("aria-label") === "播放") b.click();
+    return b?.getAttribute("aria-label") ?? "";
+  })()`);
   await sleep(700);
 
-  /* 拖拽 seek 判据：先等引擎 metadata 就绪（在线流加载期总时长显示 --:--，
-     那个窗口里 range 的 max 还是 1，拖了也没有区分度），再拖到中点断言 clock。
-     同时验证加载期显示的是 --:-- 而不是假的 0:00。 */
+  /* 拖拽 seek 判据（2026-11-10 重写：旧 .st-air-clock / .st-air-progress 是
+     classic 版面的遗物，classic 删除后这段一直在「duration 恒 0」上假红）。
+     新皮肤走带 = .sk-tape：左 .sk-t 当前时间、右 .sk-t.end 总时长。
+     在线流加载期总时长显示 --:--（不是假 0:00），就绪后才允许拖到中点断言 clock。
+     拖拽走真指针序（pointerdown → input → pointerup）：pointerup 才 commit seek。 */
   const waitReady = async () => {
     for (let i = 0; i < 40; i++) {
-      const text = await evalJs(`document.querySelector(".st-air-clock")?.textContent ?? ""`);
-      if (/\/ [1-9]/.test(text)) return text;
+      const text = await evalJs(`document.querySelector(".sk-tape .sk-t.end")?.textContent ?? ""`);
+      if (/^[1-9]/.test(text)) return text;
       await sleep(250);
     }
     return null;
   };
   const readyClock = await waitReady();
-  if (!readyClock) throw new Error("播出条总时长 10s 内没就绪（引擎 duration 一直 0）");
+  if (!readyClock) throw new Error("走带总时长 10s 内没就绪（引擎 duration 一直 0）");
   const seeked = await evalJs(`(() => {
-    const bar = document.querySelector("input.st-air-progress");
+    const bar = document.querySelector(".sk-tape input.sk-range");
     if (!bar) return null;
-    const clock = document.querySelector(".st-air-clock");
-    const before = clock?.textContent ?? "";
+    const cur = document.querySelector(".sk-tape .sk-t:not(.end)");
+    const before = cur?.textContent ?? "";
     bar.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, bubbles: true }));
     bar.value = String(Math.round(Number(bar.max) / 2));
     bar.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1463,13 +1471,13 @@ app.whenReady().then(async () => {
     return { before, max: bar.max };
   })()`);
   await sleep(400);
-  const seekClock = await evalJs(`document.querySelector(".st-air-clock")?.textContent ?? ""`);
-  console.log(`播出条拖拽：${JSON.stringify(seeked)} → clock "${seekClock}"`);
-  if (!seeked) throw new Error("播出条进度不在");
+  const seekClock = await evalJs(`document.querySelector(".sk-tape .sk-t:not(.end)")?.textContent ?? ""`);
+  console.log(`走带拖拽：${JSON.stringify(seeked)} → clock "${seekClock}"`);
+  if (!seeked) throw new Error("走带进度不在");
   const halfSec = Math.round(Number(seeked.max) / 2000);
   const half = `${Math.floor(halfSec / 60)}:${String(halfSec % 60).padStart(2, "0")}`;
   if (!seekClock.startsWith(half)) {
-    throw new Error(`播出条拖到中点后 clock 应从 ${half} 起，实际 "${seekClock}"`);
+    throw new Error(`走带拖到中点后 clock 应从 ${half} 起，实际 "${seekClock}"`);
   }
 
   /* 窗控三键（titleBarOverlay）跟「可见页面」走：播放页恒定深色（LIVE_PRESETS），
@@ -1495,8 +1503,8 @@ app.whenReady().then(async () => {
   }
 
   // 三档分辨率各拍一张（在线曲目在 fixture 里没有歌词，提词器空态照拍，不编数据）
-  /* 账号面板（频段表）+ 登录弹层（环境光玻璃）：fixture netease 已登录 / QQ 未登录，
-     面板同时呈现「ON AIR 在用行 + 信号格 + 未登录频段的登录入口」，登录弹层用伪二维码。
+  /* 账号面板 + 登录弹层（环境光玻璃）：fixture netease 已登录 / QQ 未登录，
+     面板同时呈现「使用中在用行 + 连接格 + 未登录源的登录入口」，登录弹层用伪二维码。
      放在播放页矮窗探针**之前**：尾端那个 2px 存量抖动（st-hline/st-kb）不该挡住弹层证据。 */
   await click(`(() => { const b = document.querySelector(".ruler-acct"); b?.click(); return Boolean(b); })()`, "账号入口");
   await sleep(600);
@@ -1508,7 +1516,7 @@ app.whenReady().then(async () => {
   })()`);
   console.log(`账号面板：${JSON.stringify(acctProbe)}`);
   if (!acctProbe.open) throw new Error("账号面板没打开（.acct-menu 不在）");
-  if (!acctProbe.onair.includes("ON AIR")) throw new Error(`ON AIR 灯牌没出现在在用频段行：${acctProbe.onair}`);
+  if (!acctProbe.onair.includes("使用中")) throw new Error(`「使用中」徽标没出现在在用源行：${acctProbe.onair}`);
   await shoot("live-acct-menu.png");
   await click(
     `(() => {
@@ -1517,7 +1525,7 @@ app.whenReady().then(async () => {
       b?.click();
       return Boolean(b);
     })()`,
-    "QQ 频段 · 登录",
+    "QQ 行 · 登录",
   );
   await sleep(900);
   const dlgProbe = await evalJs(`(() => ({
@@ -1693,14 +1701,14 @@ app.whenReady().then(async () => {
     const cs = getComputedStyle(qp);
     return {
       open: true,
-      top: cs.top, // 必须压在站尺（56px）下沿，不能盖住右上角窗口控制钮
+      top: cs.top, // 站尺 56px 下沿再让 12px（css: calc(--live-ruler-h + 12px)），不能盖住右上角窗控
       rows: document.querySelectorAll(".qp-row").length,
       onRow: document.querySelector(".qp-row.on") !== null,
     };
   })()`);
   console.log(`队列面板：${JSON.stringify(qpProbe)}`);
   if (!qpProbe.open) throw new Error("队列面板没打开");
-  if (qpProbe.top !== "56px") throw new Error(`队列面板 top=${qpProbe.top}，该压在站尺下沿 56px（否则盖住窗控钮）`);
+  if (qpProbe.top !== "68px") throw new Error(`队列面板 top=${qpProbe.top}，该是站尺 56px + 12px = 68px（否则贴边盖窗控）`);
   if (qpProbe.rows < 1 || !qpProbe.onRow) throw new Error(`队列行异常：rows=${qpProbe.rows}，onRow=${qpProbe.onRow}`);
   await shoot("live-queue.png");
   await evalJs(`document.querySelector(".qp-x")?.click()`);
@@ -1794,27 +1802,19 @@ app.whenReady().then(async () => {
     await shoot(`live-stage-short-${w}x${h}.png`);
   }
 
-  /* 滚动条样式证据：矮窗两档已经不滚了，把窗口再压低逼出滚动条，确认它是场景色细条
-     而不是原生亮条（用户截图那根）。这一档低于窗口下限 740，只验样式，不进零滚动断言。 */
-  win.setContentSize(1536, 620);
-  await sleep(500);
-  const scrollbar = await evalJs(`(() => {
-    const el = document.querySelector(".st-side-scroll");
-    if (!el) return null;
-    return { over: el.scrollHeight - el.clientHeight, thumb: getComputedStyle(el).getPropertyValue("--stage-line").trim() };
-  })()`);
-  console.log(`滚动条证据 1536x620：${JSON.stringify(scrollbar)}`);
-  if (!scrollbar || scrollbar.over <= 1) throw new Error("620 高没逼出滚动条，这条证据无效（相纸收过头了）");
-  await shoot("live-stage-scrollbar.png");
+  /* 滚动条样式证据：目标 .st-side-scroll 属于已删除的 classic 侧栏，随之作废——
+     新皮肤（sleeve/turntable/proof/prism）的版式在窗口下限内不放滚动条，
+     滚动判据由上面的矮窗探针与 skin-shots 的三条版式判据承担。 */
   win.setContentSize(1280, 800);
   await sleep(400);
 
-  // 视图浮层：灯位命名 + 深色面
+  /* 视图浮层（.st-menu）证据在 classic 里挂在 .st-air-tools 的「视图」钮下，
+     现在入口是新皮肤共用的导播条（.sk-top-b「视图」）。 */
   win.setContentSize(1280, 800);
   await sleep(400);
   await click(
     `(() => {
-      const b = [...document.querySelectorAll(".st-air-tools .st-viewbtn")].find((x) => x.textContent.trim() === "视图");
+      const b = [...document.querySelectorAll(".sk-top-b")].find((x) => x.textContent.trim() === "视图");
       b?.click();
       return Boolean(b);
     })()`,

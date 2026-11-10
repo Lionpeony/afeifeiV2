@@ -85,7 +85,7 @@ export const PRESETS: StagePresetDef[] = [
   },
   {
     id: "vinyl",
-    name: "夜航唱机",
+    name: "深靛唱机",
     wallpaperFromCover: false,
     lyricRenderer: "minimal",
     tokens: {
@@ -210,7 +210,7 @@ const LIVE_STAGE_BASE: Record<string, string> = {
 
 export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<string, string> }> = {
   paper: {
-    name: "冷白场",
+    name: "冷白灯",
     tokens: {
       ...LIVE_STAGE_BASE,
       "--stage-accent": "#8fe0c0",
@@ -220,7 +220,7 @@ export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<st
     },
   },
   vinyl: {
-    name: "琥珀台",
+    name: "琥珀灯",
     tokens: {
       ...LIVE_STAGE_BASE,
       "--stage-accent": "#e8a34a",
@@ -231,14 +231,14 @@ export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<st
     },
   },
   minimal: {
-    name: "素净台",
+    name: "素净灯",
     tokens: {
       ...LIVE_STAGE_BASE,
       "--stage-accent": "#cfd8e3",
     },
   },
   cinema: {
-    name: "余光台",
+    name: "余光灯",
     tokens: {
       ...LIVE_STAGE_BASE,
       "--stage-accent": "#e4483f",
