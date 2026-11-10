@@ -68,6 +68,8 @@ export function Sleeve(props: SkinProps) {
       <div className="sl-grid">
         <div className="sl-sleeve">
           <div className="sl-vinyl" aria-hidden="true" />
+          {/* 顶光反射带：盖在盘上、藏在封套下——盘转它不转，槽纹扫过这道静止的光 */}
+          <i className="sl-sheen" aria-hidden="true" />
           <div className="sl-art">
             {data.coverUrl ? (
               <img key={data.coverUrl} src={data.coverUrl} alt="" draggable={false} />

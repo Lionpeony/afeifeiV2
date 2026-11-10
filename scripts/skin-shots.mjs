@@ -659,6 +659,14 @@ app.whenReady().then(async () => {
           if (!v || !info) return true;
           return v.getBoundingClientRect().right <= info.getBoundingClientRect().left + 1;
         })(),
+        /* 质感判据：盘面顶光反射带必须真的挂上（2026-11-10 质感升级）——
+           唱机在 .tt-platter::after（静止层），封套是 .sl-sheen 元素 */
+        discSheen: (() => {
+          const el = document.querySelector(${JSON.stringify(item.id === "tt" ? ".tt-platter" : ".sl-sheen")});
+          if (!el) return false;
+          const bg = getComputedStyle(el, ${JSON.stringify(item.id === "tt" ? "::after" : null)}).backgroundImage;
+          return bg.includes("radial-gradient");
+        })(),
       };
     })()`);
     console.log(`皮肤 ${item.id}-${item.tag}：${JSON.stringify(probe)}`);
@@ -677,6 +685,9 @@ app.whenReady().then(async () => {
     }
     if (!probe.colsFits) throw new Error(`${item.id}-${item.tag} 校样三栏内容溢出容器（会切在半个字上）`);
     if (!probe.vinylClear) throw new Error(`${item.id}-${item.tag} 黑胶压到右列文字`);
+    if ((item.id === "tt" || item.id === "sl") && !probe.discSheen) {
+      throw new Error(`${item.id}-${item.tag} 盘面顶光反射带丢了（质感回潮成平涂）`);
+    }
     if (probe.kw < 1) {
       // 取词是异步的：切完皮肤立刻测会拿到"还没词"的中间态（假红）。
       // 等 1.5s 再看一次，真的没有才算红。

@@ -62,8 +62,10 @@
   grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) auto;
   border-top: 1px solid var(--live-line);
   /* 封面色晕从下缘往上漫（--cs-tint 由 LiveHome 写入文档根，随歌呼吸）：
-     tint 失败/离开首页 → transparent → 原版面板渐变，可读性零影响 */
+     tint 失败/离开首页 → transparent → 原版面板渐变，可读性零影响。
+     最上叠一层 feTurbulence 噪点（0.03）：面板从「塑料」变「磨砂」，塑料感是平面感的一半来源。 */
   background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
     radial-gradient(90% 240% at 50% 135%, color-mix(in srgb, var(--cs-tint) 16%, transparent), transparent 72%),
     linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
   box-shadow: 0 -10px 28px -20px rgba(0, 0, 0, 0.55);
@@ -75,6 +77,24 @@
   border: none;
   border-radius: 10px;
   box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* 盘位包裹层：几何与盘同位，反射带 ::after 盖在盘上但不随盘转（旋转在内层 np-art） */
+.shell.live .console .np-art-wrap {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.shell.live .console .np-art-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(120% 58% at 32% 6%, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 56%);
 }
 
 /* 监听区只留两行：曲名（主角）+ 状态行（琥珀呼吸点 = 播放指示灯）。
@@ -163,22 +183,29 @@
   fill: currentColor;
 }
 
-/* 主播放键：圆形实心琥珀，与首页 hero 圆钮同一语言（字色走 accent-ink，四档对比由 token 保证）。
+/* 主播放键：圆形实心琥珀 + 球面光（顶缘高光 + 下缘内暗），像一颗真按钮而不是一块色板。
    40px 而非 44px：外圈进度环要留 2px 间隙，44px 会把环整个吞进按钮影子里（放大实锤）。 */
 .shell.live .console .tb.main {
   width: 40px;
   height: 40px;
   border: none;
   border-radius: 50%;
-  background: var(--live-amber);
+  background:
+    radial-gradient(circle at 50% 22%, rgb(255 255 255 / .34), rgb(255 255 255 / 0) 62%),
+    var(--live-amber);
   color: var(--live-accent-ink);
-  box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--live-amber) 55%, transparent);
+  box-shadow:
+    inset 0 -3px 6px rgb(0 0 0 / .28),
+    inset 0 1px 0 rgb(255 255 255 / .22),
+    0 8px 20px -8px color-mix(in srgb, var(--live-amber) 55%, transparent);
   transition: transform 140ms ease, filter 140ms ease;
 }
 
 .shell.live .console .tb.main:hover {
   border-color: transparent;
-  background: var(--live-amber);
+  background:
+    radial-gradient(circle at 50% 22%, rgb(255 255 255 / .42), rgb(255 255 255 / 0) 62%),
+    var(--live-amber);
   color: var(--live-accent-ink);
   transform: scale(1.05);
   filter: brightness(1.06);
@@ -237,7 +264,8 @@
   transition: stroke-dashoffset 90ms linear;
 }
 
-/* 工具钮：图标胶囊（无边框、弱底、hover 提亮、激活琥珀；文字在 hover title 里） */
+/* 工具钮：图标胶囊。浮起感来自成对的亮/暗内缘（上亮下暗 = 顶光假设），
+   hover 只提亮底色，高光不换方向——光源钉死在房间上。 */
 .shell.live .console .tools button {
   display: inline-flex;
   align-items: center;
@@ -247,6 +275,9 @@
   border: none;
   border-radius: 999px;
   background: color-mix(in srgb, var(--live-fg) 5%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .07),
+    inset 0 -1px 0 rgb(0 0 0 / .22);
   transition: background-color 140ms ease, color 140ms ease;
 }
 
@@ -271,6 +302,9 @@
 .shell.live .console .tools button.on {
   background: color-mix(in srgb, var(--live-amber) 20%, transparent);
   color: var(--live-amber);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .1),
+    inset 0 -1px 0 rgb(0 0 0 / .2);
 }
 
 /* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点。
@@ -285,22 +319,27 @@
   min-width: 0;
 }
 
+/* 进度轨：凹槽 + 琥珀已播。槽感 = 上缘暗线 + 下缘亮线的成对内阴影；
+   6px 槽深刚好放下一对线，thumb 随之 -3px 居中。 */
 .shell.live .console input.bar::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
+  height: 6px;
+  border-radius: 3px;
   background: linear-gradient(
     to right,
     var(--live-amber) var(--fill, 0%),
     color-mix(in srgb, var(--live-fg) 14%, transparent) var(--fill, 0%)
   );
+  box-shadow:
+    inset 0 1px 1px rgb(0 0 0 / .35),
+    inset 0 -1px 0 rgb(255 255 255 / .14);
 }
 
 .shell.live .console input.bar::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
-  margin-top: -4px;
+  margin-top: -3px;
   border-radius: 50%;
-  background: var(--live-amber);
+  background: radial-gradient(circle at 50% 28%, rgb(255 255 255 / .4), rgb(255 255 255 / 0) 60%), var(--live-amber);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-amber) 22%, transparent);
 }
 
@@ -339,16 +378,18 @@
   height: 30px;
   padding: 0 12px;
   border: none;
-  /* 实底浅槽：只有底边线的输入框在整条尺上没有存在感 */
+  /* 实底浅槽 + 上缘内阴影：输入槽是「凹」的，与浮起的签子方向相反 */
   border-radius: 15px;
   background: color-mix(in srgb, var(--live-fg) 6%, transparent);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .16);
   -webkit-app-region: no-drag;
   transition: background-color 140ms ease-out;
 }
 
 .ruler-search:focus-within {
   background: color-mix(in srgb, var(--live-fg) 9%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-amber) 45%, transparent);
+  box-shadow:/n    inset 0 1px 2px rgb(0 0 0 / .16),
+    inset 0 0 0 1px color-mix(in srgb, var(--live-amber) 45%, transparent);
 }
 
 .ruler-search svg {
@@ -748,7 +789,9 @@
   border: 1px solid var(--live-line-strong);
   background: var(--live-panel);
   color: var(--live-fg);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+  box-shadow:/n    0 24px 56px -18px rgb(0 0 0 / .5),
+    0 2px 10px -4px rgb(0 0 0 / .38),
+    inset 0 1px 0 rgb(255 255 255 / .08);
   animation: dlg-tune-in 200ms ease-out both;
 }
 
@@ -761,7 +804,9 @@
 
 .shell.live .vol-pop .mute {
   border: 1px solid var(--live-line-strong);
-  background: none;
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
+  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+    inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 3px 10px;
   color: var(--live-fg-dim);
   font-family: var(--font-mono);
@@ -803,7 +848,9 @@
 
 .shell.live .rate-opts button {
   border: 1px solid var(--live-line-strong);
-  background: none;
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
+  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+    inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 3px 9px;
   color: var(--live-fg-dim);
   font-family: var(--font-mono);
@@ -870,7 +917,9 @@
 
 .shell.live .sleep-opts button {
   border: 1px solid var(--live-line-strong);
-  background: none;
+  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
+  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+    inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 4px 10px;
   color: var(--live-fg-dim);
   font-family: var(--font-mono);

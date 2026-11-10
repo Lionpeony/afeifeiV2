@@ -120,10 +120,13 @@ export function Console(props: {
       {/* 监听区：正在播放 + 红心。整块可点跳播放页；红心是对"这一首"的表态，跟曲目走 */}
       <div className="np-zone">
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
-          <span
-            className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}${playing ? " spin" : ""}`}
-            style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
-          />
+          {/* 包裹层只承担「静止的光」：盘在里层自转，顶光反射带钉在外层不跟着转 */}
+          <span className="np-art-wrap">
+            <span
+              className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}${playing ? " spin" : ""}`}
+              style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
+            />
+          </span>
           <span className="np-tx">
             <b>{title}</b>
             {/* 直播壳没有顶栏：错误徽标挂在控制台副行，否则播放错误看不见 */}

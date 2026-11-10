@@ -1665,6 +1665,26 @@ app.whenReady().then(async () => {
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(600);
 
+  /* 质感判据（2026-11-10 升级）：控制台的光照协议必须真的挂在计算样式上——
+     主键球面光（radial 高光）、胶囊成对内缘（inset shadow）、盘位静止反射带、
+     面板磨砂噪点（feTurbulence data-uri）。任何一项丢 = 质感回潮成平涂。 */
+  const tex = await evalJs(`(() => {
+    const main = document.querySelector(".console .tb.main");
+    const tool = document.querySelector(".console .tools button");
+    const wrap = document.querySelector(".console .np-art-wrap");
+    const shell = document.querySelector(".shell.live .console");
+    return {
+      mainSphere: main ? getComputedStyle(main).backgroundImage.includes("radial-gradient") : false,
+      toolEdge: tool ? getComputedStyle(tool).boxShadow.includes("inset") : false,
+      wrapSheen: wrap ? getComputedStyle(wrap, "::after").backgroundImage.includes("radial-gradient") : false,
+      panelNoise: shell ? getComputedStyle(shell).backgroundImage.includes("data:image/svg+xml") : false,
+    };
+  })()`);
+  console.log(`控制台质感：${JSON.stringify(tex)}`);
+  for (const [k, v] of Object.entries(tex)) {
+    if (!v) throw new Error(`控制台质感判据 ${k} 不成立（样式丢了或被覆盖）`);
+  }
+
   /* 控制台三弹层（音量 / 睡眠定时 / 完整队列）：纸面板皮肤 + 队列 top 不盖窗控 */
   const toolBtn = (label) =>
     `(() => { const b = [...document.querySelectorAll(".console .tools button")].find((x) => x.getAttribute("aria-label") === "${label}"); b?.click(); return Boolean(b); })()`;

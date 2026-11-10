@@ -406,6 +406,24 @@
   animation-play-state: running;
 }
 
+/* 顶光反射带：几何与 .sl-vinyl 完全同位（DOM 顺序在盘之后 → 盖住盘），
+   但不在旋转件里，所以光不随盘转；封套 (.sl-art, z1) 盖住它的左半，
+   只有露出的月牙吃得到这道光。mask 挖掉盘心。 */
+.sl-sheen {
+  position: absolute;
+  right: -88px;
+  top: 11%;
+  width: calc(100% - 60px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+  /* 光心放在「露出来的月牙」上部（封套右缘外），藏进封套里的部分不需要光 */
+  background: radial-gradient(58% 44% at 72% 9%, rgb(255 255 255 / .16), rgb(255 255 255 / 0) 64%);
+  mask-image: radial-gradient(circle, transparent 0 20%, rgb(0 0 0) 23% 100%);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 20%, rgb(0 0 0) 23% 100%);
+}
+
 @keyframes sl-spin {
   to { transform: rotate(360deg); }
 }
@@ -812,6 +830,19 @@
   box-shadow: 0 0 0 1px var(--sk-line), 0 16px 30px -14px rgb(0 0 0 / .8), inset 0 0 70px rgb(0 0 0 / .8);
 }
 
+/* 顶光反射带：盘转它不转（rotor 才是旋转件），黑胶的「活」来自槽纹扫过这道静止的光。
+   mask 挖掉盘心标签区，只留在槽纹环带上。 */
+.tt-platter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(58% 44% at 34% 10%, rgb(255 255 255 / .10), rgb(255 255 255 / 0) 66%);
+  mask-image: radial-gradient(circle, transparent 0 22%, rgb(0 0 0) 25% 99%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle, transparent 0 22%, rgb(0 0 0) 25% 99%, transparent 100%);
+  pointer-events: none;
+}
+
 .tt-rotor {
   position: absolute;
   inset: 0;
@@ -842,7 +873,12 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / .6), 0 4px 14px rgb(0 0 0 / .7);
+  /* 盘心是「凹」进盘面的：上缘吃进阴影、下缘留一线反光 */
+  box-shadow:
+    inset 0 2px 5px rgb(0 0 0 / .55),
+    inset 0 -1px 0 rgb(255 255 255 / .14),
+    0 0 0 1px rgb(0 0 0 / .6),
+    0 4px 14px rgb(0 0 0 / .7);
   background: var(--sk-bg);
 }
 
@@ -861,8 +897,9 @@
   height: 5px;
   margin: -2.5px 0 0 -2.5px;
   border-radius: 50%;
-  background: var(--sk-bg);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / .3);
+  /* 主轴孔：比标签更深一档 + 孔内吃阴影——金属轴穿出来的那一点 */
+  background: color-mix(in srgb, var(--sk-bg) 55%, rgb(0 0 0));
+  box-shadow: inset 0 1px 1.5px rgb(0 0 0 / .8), 0 0 0 1px rgb(255 255 255 / .3);
 }
 
 .tt-mark {
