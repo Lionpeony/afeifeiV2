@@ -633,6 +633,8 @@ app.whenReady().then(async () => {
         p: rail ? getComputedStyle(rail).getPropertyValue("--p").trim() : "",
         vu: document.querySelectorAll(".tt-vu .bar i").length,
         wave: document.querySelectorAll(".pr-wave i").length,
+        // 逐字进度必须真的在推进（评审判据：四套都要有"正在唱"的证据）
+        sung: [...document.querySelectorAll(".kw")].filter((el) => Number(getComputedStyle(el).getPropertyValue("--p")) > 0.05).length,
       };
     })()`);
     console.log(`皮肤 ${item.id}-${item.tag}：${JSON.stringify(probe)}`);
@@ -642,6 +644,8 @@ app.whenReady().then(async () => {
     // 可红可绿的判据：唱机的两路电平表、棱镜的 96 根发丝声浪必须真的挂上
     if (item.id === "tt" && probe.vu !== 2) throw new Error(`唱机电平表 ${probe.vu} ≠ 2`);
     if (item.id === "pr" && probe.wave !== 96) throw new Error(`棱镜声浪 ${probe.wave} ≠ 96`);
+    // 四套都必须有逐字进度在推进（0 = 又退回"整行字幕"了）
+    if (probe.sung < 1) throw new Error(`${item.id}-${item.tag} 逐字歌词没推进（sung=${probe.sung}）`);
     await shoot(`skin-${item.id}-${item.tag}.png`);
   }
 

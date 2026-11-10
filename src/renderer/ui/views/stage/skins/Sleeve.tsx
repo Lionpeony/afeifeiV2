@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { dispatch } from "../../../../kernel/index.js";
 import { pad2 } from "../types.js";
 import type { SkinProps } from "./registry.js";
-import { Cover, SkinTop, Tape, upNextRows, useTape } from "./shared.js";
+import { Cover, KaraokeLine, SkinTop, Tape, fitScale, upNextRows, usePulse, useTape } from "./shared.js";
 
 /**
  * A · 封套（2026-11-10 重做）。
@@ -22,10 +22,12 @@ export function Sleeve(props: SkinProps) {
   // 内页歌词是一小段（当前句 ±2 行），不是"上一句/下一句"两条 ——
   // 一段正文才能填住标题与信息栏之间的空
   const from = doc ? Math.max(0, at - 2) : 0;
-  const window = doc ? doc.lines.slice(from, from + 5) : [];
+  const lyricWindow = doc ? doc.lines.slice(from, from + 5) : [];
   const zh = props.lyricOn && state.stage.translation ? lyric.currentLine?.translations?.zh ?? "" : "";
   const rows = upNextRows(data.upNext, data.tracksMap, data.queueRemote).slice(0, 3);
   const rootRef = useRef<HTMLDivElement>(null);
+  // 低频脉冲只推动 ON AIR 点与走带头（不是满屏闪）
+  usePulse(rootRef, props.spectrum);
 
   // 指针视差：封套随指针轻微翻，幅度很小（-2.2° / 3°），像桌上的一张厚纸
   const onMove = (event: React.PointerEvent<HTMLDivElement>): void => {
@@ -86,15 +88,19 @@ export function Sleeve(props: SkinProps) {
             <span>TRACK {pad2(data.cursorPosition + 1)}</span>
             <span>{data.nowDuration ? `${Math.floor(data.nowDuration / 60000)}:${pad2(Math.floor((data.nowDuration % 60000) / 1000))}` : "--:--"}</span>
           </div>
-          <h1 className="sl-title" title={data.nowTitle}>{data.nowTitle}</h1>
+          <h1
+            className="sl-title"
+            title={data.nowTitle}
+            style={{ "--fit": fitScale(data.nowTitle) } as React.CSSProperties}
+          >{data.nowTitle}</h1>
           <p className="sl-artist">{[data.nowArtist, data.nowAlbum].filter(Boolean).join(" · ") || "—"}</p>
           <div className="sl-rule" />
           <div className="sl-lyr" aria-live="polite">
             {doc ? (
-              window.map((line, index) => (
-                <p key={`${from + index}-${line.text}`} className={from + index === at ? "cur" : "line"}>
-                  {line.text}
-                </p>
+              lyricWindow.map((line, index) => (
+                from + index === at
+                  ? <KaraokeLine key={`k-${at}`} doc={doc} at={at} className="cur" />
+                  : <p key={`${from + index}-${line.text}`} className="line">{line.text}</p>
               ))
             ) : (
               <p className="cur" key={cur}>{cur}</p>

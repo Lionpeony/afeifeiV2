@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { onTick } from "../../../compositor.js";
 import { pad2 } from "../types.js";
 import type { SkinProps } from "./registry.js";
-import { Cover, SkinTop, Tape, useTape } from "./shared.js";
+import { Cover, KaraokeLine, SkinTop, Tape, fitScale, usePulse, useTape } from "./shared.js";
 
 /**
  * B · 唱机（2026-11-10 新增）。
@@ -21,6 +21,8 @@ export function Turntable(props: SkinProps) {
     : lyric.currentLine?.text ?? (doc ? "前奏 · 歌词即将开始" : lyric.note || "正在读取歌词…");
   const next = props.lyricOn && doc && at >= 0 && at + 1 < doc.lines.length ? doc.lines[at + 1]?.text ?? "" : "";
 
+  const rootRef = useRef<HTMLDivElement>(null);
+  usePulse(rootRef, props.spectrum);
   const specRef = useRef(props.spectrum);
   specRef.current = props.spectrum;
   const lRef = useRef<HTMLElement>(null);
@@ -56,7 +58,7 @@ export function Turntable(props: SkinProps) {
   }, []);
 
   return (
-    <div className="sk sk-tt" data-tone={props.tone} data-playing={playing ? "on" : "off"}>
+    <div className="sk sk-tt" data-tone={props.tone} data-playing={playing ? "on" : "off"} ref={rootRef}>
       <SkinTop
         live={props.live}
         queue={`QUEUE ${state.queue.items.length ? `${pad2(Math.max(1, data.cursorPosition + 1))}/${state.queue.items.length}` : "—"}`}
@@ -105,7 +107,11 @@ export function Turntable(props: SkinProps) {
             <span className="side">{playing ? "NOW PLAYING" : "PAUSED"}</span>
             <span>TRACK {pad2(data.cursorPosition + 1)}</span>
           </div>
-          <h1 className="tt-title" title={data.nowTitle}>{data.nowTitle}</h1>
+          <h1
+            className="tt-title"
+            title={data.nowTitle}
+            style={{ "--fit": fitScale(data.nowTitle) } as React.CSSProperties}
+          >{data.nowTitle}</h1>
           <p className="tt-artist">{[data.nowArtist, data.nowAlbum].filter(Boolean).join(" · ") || "—"}</p>
 
           <div className="tt-vu" role="img" aria-label="电平表">
@@ -115,7 +121,9 @@ export function Turntable(props: SkinProps) {
           </div>
 
           <div className="tt-lyr" aria-live="polite">
-            <p className="cur" key={`${at}-${cur}`}>{cur}</p>
+            {doc && at >= 0
+              ? <KaraokeLine key={`k-${at}`} doc={doc} at={at} className="cur" />
+              : <p className="cur" key={cur}>{cur}</p>}
             {next ? <p className="next">{next}</p> : null}
           </div>
 

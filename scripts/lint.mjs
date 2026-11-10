@@ -177,7 +177,7 @@ if (fs.existsSync(STAGE_SKIN_CSS)) {
   const src = stripComments(read(STAGE_SKIN_CSS));
   for (const m of src.matchAll(/font-size:[ \t]*([^;]+);/g)) {
     const v = m[1].trim();
-    if (!v.startsWith("var(--sk-type-")) {
+    if (!v.startsWith("var(--sk-type-") && !v.startsWith("calc(var(--sk-type-")) {
       fail(`${STAGE_SKIN_CSS}: font-size ${v} 不在阶梯上（只允许 --sk-type-*，见文件顶部 token 块）`);
     }
   }

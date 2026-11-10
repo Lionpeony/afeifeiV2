@@ -1159,6 +1159,7 @@
 .pf-cols {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   margin-top: clamp(10px, 2.6cqh, 24px);
   padding-bottom: 10px;
   border-bottom: 1px solid var(--sk-line-soft);
@@ -1175,6 +1176,9 @@
   color: var(--sk-dim2);
   max-height: 100%;
   overflow: hidden;
+  /* 裁到行中间会像"掉字"：下沿做 8% 渐隐，读成"还有下文" */
+  mask-image: linear-gradient(180deg, rgb(0 0 0) 0 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0) 0 92%, transparent 100%);
 }
 
 .pf-lyr p {
@@ -1389,7 +1393,7 @@
   left: 0;
   width: 49%;
   height: 2px;
-  top: 56%;
+  top: 64%;
   z-index: 1;
   background: linear-gradient(90deg, transparent, var(--pr-beam));
   opacity: calc(.55 + var(--bass, 0) * .45);
@@ -1399,9 +1403,9 @@
 .pr-prism {
   position: absolute;
   left: 49%;
-  top: 42%;
+  top: 55%;
   width: 2px;
-  height: 26%;
+  height: 22%;
   z-index: 3;
   background: linear-gradient(180deg, transparent, var(--pr-beam) 30% 70%, transparent);
 }
@@ -1419,34 +1423,34 @@
 .pr-fan i {
   position: absolute;
   inset: 0;
-  transform-origin: 0 56%;
+  transform-origin: 0 64%;
   transition: transform 140ms linear;
 }
 
 /* 五道色散：越往外越暖，末端透明度渐隐 */
 .pr-fan i:nth-child(1) {
   background: linear-gradient(90deg, var(--pr-b1), transparent 96%);
-  clip-path: polygon(0 55.9%, 100% 34%, 100% 37.2%, 0 56.1%);
+  clip-path: polygon(0 63.8%, 100% 9%, 100% 14.4%, 0 64%);
 }
 
 .pr-fan i:nth-child(2) {
   background: linear-gradient(90deg, var(--pr-b2), transparent 96%);
-  clip-path: polygon(0 56%, 100% 39.4%, 100% 43%, 0 56.2%);
+  clip-path: polygon(0 64%, 100% 15.6%, 100% 21%, 0 64.2%);
 }
 
 .pr-fan i:nth-child(3) {
   background: linear-gradient(90deg, var(--pr-b3), transparent 96%);
-  clip-path: polygon(0 56.1%, 100% 45%, 100% 49%, 0 56.3%);
+  clip-path: polygon(0 64.2%, 100% 22.2%, 100% 27.6%, 0 64.4%);
 }
 
 .pr-fan i:nth-child(4) {
   background: linear-gradient(90deg, var(--pr-b4), transparent 96%);
-  clip-path: polygon(0 56.2%, 100% 51%, 100% 55.4%, 0 56.4%);
+  clip-path: polygon(0 64.4%, 100% 28.8%, 100% 34.2%, 0 64.6%);
 }
 
 .pr-fan i:nth-child(5) {
   background: linear-gradient(90deg, var(--pr-b5), transparent 96%);
-  clip-path: polygon(0 56.3%, 100% 57.4%, 100% 61.8%, 0 56.5%);
+  clip-path: polygon(0 64.6%, 100% 35.4%, 100% 40.8%, 0 64.8%);
 }
 
 .pr-body {
@@ -1468,8 +1472,14 @@
 }
 
 .pr-lyr {
-  margin-top: clamp(10px, 3.4cqh, 30px);
+  flex: 1;
+  min-height: 0;
+  margin-top: clamp(8px, 2.4cqh, 20px);
   max-width: 92%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 6%;
 }
 
 .pr-lyr .cur {
@@ -1523,6 +1533,87 @@
 }
 
 /* ======================= 动效降级 ======================= */
+
+/* ======================= 演出层（2026-11-10） =======================
+   逐字进度：每个词一个 .kw，--p 由心跳直写。::after 叠实色 + clip-path
+   从左往右揭开 —— 视觉上是"唱到哪亮到哪"，而不是整行换色。 */
+.sk-karaoke {
+  margin: 0;
+}
+
+.sk-karaoke .kw {
+  position: relative;
+  display: inline-block;
+  white-space: pre;
+  color: var(--sk-dim2);
+}
+
+.sk-karaoke .kw::after {
+  content: attr(data-t);
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--sk-fg);
+  clip-path: inset(0 calc((1 - var(--p, 0)) * 100%) 0 0);
+}
+
+.sk-karaoke.accent .kw::after {
+  color: var(--sk-accent);
+}
+
+/* 中文断行：不许浏览器随便劈语义（"回答我的 / 无能为力"那种） */
+.sl-title,
+.tt-title,
+.pf-title,
+.pr-lyr .cur,
+.sk-karaoke {
+  line-break: strict;
+  text-wrap: balance;
+}
+
+/* 长文本容错：按字数降档，字号仍然取阶梯 token（--fit 由组件写） */
+.pf-title {
+  font-size: calc(var(--sk-type-display) * var(--fit, 1));
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow: hidden;
+}
+
+.pr-lyr .cur {
+  font-size: calc(var(--sk-type-display) * var(--fit, 1));
+  -webkit-line-clamp: 2;
+}
+
+/* 低频脉冲只驱动两处：ON AIR 的朱砂点、走带滑块的光。不做满屏闪。 */
+.sk-onair i {
+  box-shadow: 0 0 calc(6px + var(--pulse, 0) * 10px) var(--sk-accent);
+}
+
+.sk-rail-dot {
+  box-shadow: 0 0 calc(8px + var(--pulse, 0) * 14px) var(--sk-accent);
+}
+
+/* 走带是唯一全局控件：四套必须落在同一条 y 上（原来 545–565 各不同） */
+.sk > .sk-tape {
+  position: absolute;
+  left: var(--sk-pad-x);
+  right: var(--sk-pad-x);
+  bottom: 14px;
+  width: auto;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--sk-line-soft);
+}
+
+/* 内容区让出走带的高度，免得压到最后一排 */
+.sk .sl-grid,
+.sk .tt-grid,
+.sk .pf-body,
+.sk .pr-body {
+  padding-bottom: 62px;
+}
 
 @media (prefers-reduced-motion: reduce) {
   /* 降级块的选择器必须压得过原规则：.sk-sl[data-playing] 这类带属性的规则，

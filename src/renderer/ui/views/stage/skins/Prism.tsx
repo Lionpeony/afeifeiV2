@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { onTick } from "../../../compositor.js";
 import type { SkinProps } from "./registry.js";
-import { SkinTop, Tape, useTape } from "./shared.js";
+import { KaraokeLine, SkinTop, Tape, fitScale, usePulse, useTape } from "./shared.js";
 
 const BARS = 96;
 
@@ -24,6 +24,7 @@ export function Prism(props: SkinProps) {
   const note = props.lyricOn && props.state.stage.translation ? lyric.currentLine?.translations?.zh ?? "" : "";
 
   const rootRef = useRef<HTMLDivElement>(null);
+  usePulse(rootRef, props.spectrum);
   const waveRef = useRef<HTMLDivElement>(null);
   const specRef = useRef(props.spectrum);
   specRef.current = props.spectrum;
@@ -81,8 +82,10 @@ export function Prism(props: SkinProps) {
           <span>{data.sourceName}</span>
           <span>{playing ? "PLAYING" : "PAUSED"}</span>
         </div>
-        <div className="pr-lyr" aria-live="polite">
-          <p className="cur" key={`${at}-${cur}`}>{cur}</p>
+        <div className="pr-lyr" aria-live="polite" style={{ "--fit": fitScale(cur) } as React.CSSProperties}>
+          {doc && at >= 0
+            ? <KaraokeLine key={`k-${at}`} doc={doc} at={at} className="cur" />
+            : <p className="cur" key={cur}>{cur}</p>}
           {note ? <p className="zh">{note}</p> : null}
         </div>
       </div>

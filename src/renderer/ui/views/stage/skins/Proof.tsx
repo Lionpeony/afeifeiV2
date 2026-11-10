@@ -1,7 +1,8 @@
 import { pad2 } from "../types.js";
+import { useRef } from "react";
 import { dispatch } from "../../../../kernel/index.js";
 import type { SkinProps } from "./registry.js";
-import { SkinTop, Tape, upNextRows, useTape } from "./shared.js";
+import { KaraokeLine, SkinTop, Tape, fitScale, upNextRows, usePulse, useTape } from "./shared.js";
 
 const fmtDur = (ms: number | undefined): string => {
   if (!ms || ms <= 0) return "--:--";
@@ -19,6 +20,8 @@ const fmtDur = (ms: number | undefined): string => {
 export function Proof(props: SkinProps) {
   const { state, data, lyric, playing } = props;
   const tape = useTape(props.durationMs, data.nowDuration);
+  const rootRef = useRef<HTMLDivElement>(null);
+  usePulse(rootRef, props.spectrum);
   const doc = lyric.doc;
   const at = lyric.lineIndex;
   const cur = !props.lyricOn
@@ -29,11 +32,17 @@ export function Proof(props: SkinProps) {
   // 歌词栏：从当前句往前一行开始，最多 9 行 —— 校样的正文栏是"一片"，不是一句
   const from = doc ? Math.max(0, at - 1) : 0;
   const lines = doc ? doc.lines.slice(from, from + 14) : [];
-  const rows = upNextRows(data.upNext, data.tracksMap, data.queueRemote).slice(0, 4);
+  // 表头写的是队列总量，表里就该给出足够多行；只取 3 行会让"58 TRACKS / 3 行"自相矛盾
+  const queue = state.queue;
+  const nextIds = data.playOrder
+    .slice(data.cursorPosition + 1, data.cursorPosition + 7)
+    .map((at) => queue.items[at])
+    .filter((id): id is string => Boolean(id));
+  const rows = upNextRows(nextIds, data.tracksMap, data.queueRemote);
   const title = data.nowTitle;
 
   return (
-    <div className="sk sk-pf" data-tone={props.tone}>
+    <div className="sk sk-pf" data-tone={props.tone} ref={rootRef}>
       <SkinTop
         live={props.live}
         queue={`PROOF ${pad2(data.cursorPosition + 1)}`}
@@ -60,7 +69,12 @@ export function Proof(props: SkinProps) {
 
         <div className="pf-head">
           {/* key = 曲名：换曲时整块重挂，套印偏移才重播一次 */}
-          <h1 className="pf-title" key={title} title={title}>
+          <h1
+            className="pf-title"
+            key={title}
+            title={title}
+            style={{ "--fit": fitScale(title) } as React.CSSProperties}
+          >
             <span className="pf-t">{title}</span>
             <span className="pf-ghost" aria-hidden="true">{title}</span>
           </h1>
@@ -71,9 +85,13 @@ export function Proof(props: SkinProps) {
           <div className="pf-lyr" aria-live="polite">
             {doc ? (
               lines.map((line, index) => (
-                <p key={`${from + index}-${line.text}`} className={from + index === at ? "cur" : ""} style={{ animationDelay: `${Math.min(6, index) * 22}ms` }}>
-                  {line.text}
-                </p>
+                from + index === at
+                  ? <KaraokeLine key={`k-${at}`} doc={doc} at={at} className="cur accent" />
+                  : (
+                    <p key={`${from + index}-${line.text}`} style={{ animationDelay: `${Math.min(6, index) * 22}ms` }}>
+                      {line.text}
+                    </p>
+                  )
               ))
             ) : (
               <p className="cur">{cur}</p>
@@ -82,7 +100,7 @@ export function Proof(props: SkinProps) {
           </div>
 
           <div className="pf-tbl">
-            <div className="hd mono">SIDE A · {pad2(state.queue.items.length)} TRACKS</div>
+            <div className="hd mono">NEXT {pad2(rows.length)} · QUEUE {pad2(state.queue.items.length)}</div>
             {rows.length ? rows.map((row, index) => (
               <button
                 key={`${row.id}-${index}`}

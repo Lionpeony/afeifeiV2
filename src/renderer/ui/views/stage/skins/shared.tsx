@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { dispatch, getState } from "../../../../kernel/index.js";
 import { onTick } from "../../../compositor.js";
 import { fmt } from "../types.js";
+import { karaokeState } from "../lyric-state.js";
 
 /**
  * 三套皮肤的公共件（2026-11-10）。
@@ -209,4 +210,92 @@ export function upNextRows(
       artist: track?.artist ?? meta?.artist ?? "",
     };
   });
+}
+
+/* ===================== 演出层（2026-11-10） =====================
+   项目早就算出了逐字时间（karaokeState.chars[].progress），但四套皮肤一次都没用：
+   屏幕上永远只有"整行字幕淡入"。这一层把逐字进度接进当前句，
+   让"正在唱"变成看得见的东西 —— 这是演出的主干，不是装饰。 */
+
+/** 按字数给一个字号缩放系数：长句不降档就会顶穿版面（中文一行 12–13 字就满）。 */
+export function fitScale(text: string): number {
+  const n = [...text].length;
+  if (n > 26) return 0.66;
+  if (n > 20) return 0.76;
+  if (n > 14) return 0.86;
+  return 1;
+}
+
+/**
+ * 当前句的逐字歌词：每个词一个 span，--p（0..1）由心跳直写，不进 React。
+ * 用 ::after 叠一层实色 + clip-path 从左往右揭开 —— 比"整行换色"更像在唱。
+ */
+export function KaraokeLine({
+  doc,
+  at,
+  className = "",
+}: {
+  doc: { lines: { text: string; words: { text: string }[] }[] } | null;
+  at: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const docRef = useRef(doc);
+  const atRef = useRef(at);
+  docRef.current = doc;
+  atRef.current = at;
+
+  useEffect(() => onTick((time) => {
+    const host = ref.current;
+    const d = docRef.current as Parameters<typeof karaokeState>[0] | null;
+    const i = atRef.current;
+    if (!host || !d || i < 0) return;
+    const state = karaokeState(d, time);
+    const spans = host.children;
+    if (state.chars.length === 0) {
+      // 没有词级时间就算了整行进度：否则整句永远停在"未唱"的灰上（纯音乐/无时间轴歌词）
+      (spans[0] as HTMLElement | undefined)?.style.setProperty("--p", state.progress.toFixed(3));
+      return;
+    }
+    for (let n = 0; n < spans.length && n < state.chars.length; n += 1) {
+      (spans[n] as HTMLElement).style.setProperty("--p", state.chars[n].progress.toFixed(3));
+    }
+  }), []);
+
+  const line = doc && at >= 0 ? doc.lines[at] : null;
+  const words = line?.words?.length ? line.words : null;
+
+  return (
+    <p ref={ref} className={`sk-karaoke ${className}`}>
+      {words
+        ? words.map((w, i) => (
+            <span key={`${i}-${w.text}`} className="kw" data-t={w.text}>{w.text}</span>
+          ))
+        : <span className="kw" data-t={line?.text ?? ""}>{line?.text ?? ""}</span>}
+    </p>
+  );
+}
+
+/**
+ * 低频脉冲：把 analyser 的低频能量写成一个 0..1 的 CSS 变量。
+ * 只驱动"该动的一处"（朱砂点 / 走带头），不做满屏闪 —— 演出靠节拍，不靠闪。
+ */
+export function usePulse(
+  rootRef: React.RefObject<HTMLElement | null>,
+  spectrum: (bins: number) => number[] | null,
+): void {
+  const specRef = useRef(spectrum);
+  specRef.current = spectrum;
+  useEffect(() => {
+    let frame = 0;
+    return onTick(() => {
+      frame += 1;
+      if (frame % 2 !== 0) return;
+      const bins = specRef.current(64) ?? [];
+      let bass = 0;
+      for (let i = 2; i < 12; i += 1) bass += Math.max(0, Math.min(1, bins[i] ?? 0));
+      const v = Math.min(1, bass / 10 * 1.8);
+      rootRef.current?.style.setProperty("--pulse", v.toFixed(3));
+    });
+  }, [rootRef]);
 }
