@@ -463,9 +463,13 @@ app.whenReady().then(async () => {
   fs.writeFileSync(path.join(PROFILE, "library.json"), JSON.stringify({ v: 1, tracks: seeded, savedAt: Date.now() }));
   registerMinimalIpc();
 
+  // 窗口尺寸可用环境变量覆盖：用户的实机是 1080x604 这类矮窗口，
+  // 字号是 cqh 定义的，必须按真实窗口复现才看得见"标题过大/被裁"。
+  const SHOT_W = Number(process.env.SHOT_W ?? 1280);
+  const SHOT_H = Number(process.env.SHOT_H ?? 800);
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: SHOT_W,
+    height: SHOT_H,
     useContentSize: true,
     show: true,
     webPreferences: {
@@ -533,7 +537,7 @@ app.whenReady().then(async () => {
   /* 播放页皮肤遍历（2026-11-10）。
      全程走**真 UI**：点底栏「正在播放」进播放页 → 点「样式」开面板 → 选卡 → 关面板 → 截图。
      不 dispatch 内部 intent：那样截出来的图不能证明用户点得到。 */
-  win.setContentSize(1280, 800);
+  win.setContentSize(SHOT_W, SHOT_H);
   await sleep(400);
 
   // 先从首页播出带点一首（fixture 的每日推荐），播放页才有曲目/歌词/封面
@@ -636,6 +640,25 @@ app.whenReady().then(async () => {
         // 逐字结构必须挂在 DOM 上；进度值只记日志（曲目刚开播时当前行可能还没开始）
         kw: document.querySelectorAll(".kw").length,
         sung: [...document.querySelectorAll(".kw")].filter((el) => Number(getComputedStyle(el).getPropertyValue("--p")) > 0.05).length,
+        // 字号上限：旧值 15cqh 在 604 高的窗口里算出 71px（标题吃掉半屏）
+        titlePx: (() => {
+          const el = document.querySelector(".sl-title, .tt-title, .pf-title")
+            ?? document.querySelector(".pr-lyr .cur, .pr-lyr .sk-karaoke");
+          return el ? Math.round(parseFloat(getComputedStyle(el).fontSize)) : 0;
+        })(),
+        // 三栏内容不许溢出容器（溢出就会切在半个字上，用户截图实证）
+        colsFits: (() => {
+          const cols = document.querySelector(".pf-cols");
+          if (!cols) return true;
+          return [...cols.children].every((el) => el.scrollHeight <= el.clientHeight + 2);
+        })(),
+        // 封套黑胶不许压到右列文字（1024 宽时曾压进去 4px）
+        vinylClear: (() => {
+          const v = document.querySelector(".sl-vinyl");
+          const info = document.querySelector(".sl-info");
+          if (!v || !info) return true;
+          return v.getBoundingClientRect().right <= info.getBoundingClientRect().left + 1;
+        })(),
       };
     })()`);
     console.log(`皮肤 ${item.id}-${item.tag}：${JSON.stringify(probe)}`);
@@ -647,7 +670,23 @@ app.whenReady().then(async () => {
     if (item.id === "pr" && probe.wave !== 96) throw new Error(`棱镜声浪 ${probe.wave} ≠ 96`);
     // 逐字歌词的判据：DOM 里必须有 .kw（说明接的是逐字结构，不是整行字幕）。
     // 具体进度由 --p 逐帧写，命中哪一句取决于播放位置，不做硬断言。
-    if (probe.kw < 1) throw new Error(`${item.id}-${item.tag} 没有逐字歌词节点（kw=0）`);
+    // 判据：标题不许超过舞台高度的 12%（旧 15cqh 的回潮会直接红）
+    const stageH = Number(await evalJs(`Math.round(document.querySelector(".sk").getBoundingClientRect().height)`));
+    if (probe.titlePx > stageH * 0.125) {
+      throw new Error(`${item.id}-${item.tag} 标题 ${probe.titlePx}px 超过舞台高 ${stageH} 的 12.5%（字号回涨）`);
+    }
+    if (!probe.colsFits) throw new Error(`${item.id}-${item.tag} 校样三栏内容溢出容器（会切在半个字上）`);
+    if (!probe.vinylClear) throw new Error(`${item.id}-${item.tag} 黑胶压到右列文字`);
+    if (probe.kw < 1) {
+      // 取词是异步的：切完皮肤立刻测会拿到"还没词"的中间态（假红）。
+      // 等 1.5s 再看一次，真的没有才算红。
+      let kw = probe.kw;
+      for (let i = 0; i < 10 && kw < 1; i += 1) {
+        await sleep(150);
+        kw = Number(await evalJs(`document.querySelectorAll(".kw").length`));
+      }
+      if (kw < 1) throw new Error(`${item.id}-${item.tag} 没有逐字歌词节点（kw=0，等 1.5s 仍无）`);
+    }
     // 棱镜的"折射"必须是活的：连续两次采样，色带的 transform 必须变化。
     // 只截一张静态图看不出它是不是贴图 —— 用户上一轮就是这么发现它不动的。
     if (item.id === "pr" && Number(probe.p) > 0.02) {

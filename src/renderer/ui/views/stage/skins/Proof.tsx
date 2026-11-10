@@ -1,5 +1,5 @@
 import { pad2 } from "../types.js";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { dispatch } from "../../../../kernel/index.js";
 import type { SkinProps } from "./registry.js";
 import { KaraokeLine, SkinTop, Tape, fitScale, upNextRows, usePulse, useTape } from "./shared.js";
@@ -24,6 +24,30 @@ export function Proof(props: SkinProps) {
   usePulse(rootRef, props.spectrum);
   const doc = lyric.doc;
   const at = lyric.lineIndex;
+  /* 行数按可用高度算，不写死：
+     写死 6 行 → 1024x768 下三栏只填上半屏、下半空一大块（真机截图）；
+     写死不限 → 604 高的窗口里切在半个字上。行高在 CSS 里，这里只量容器。 */
+  const [fitRows, setFitRows] = useState({ lyric: 6, tracks: 4 });
+  const colsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = colsRef.current;
+    if (!host) return;
+    const measure = (): void => {
+      const h = host.clientHeight;
+      /* 行高按 CSS 实测常量算，不读 getComputedStyle：
+         .pf-cols 自己没设 font-size，读到的是继承值 14，会把行高算大 27% —— 
+         1080x604 下算出 3 行（版面空了一半）。
+         歌词 22（11×1.9，当前句 13 略高）、曲目 26（padding 5×2 + 11×1.4 + 分隔线）。 */
+      setFitRows({
+        lyric: Math.max(3, Math.min(22, Math.floor((h - 10) / 22))),
+        tracks: Math.max(3, Math.min(12, Math.floor((h - 34) / 26))),
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(host);
+    return () => ro.disconnect();
+  }, []);
   const cur = !props.lyricOn
     ? "歌词层已关闭"
     : lyric.currentLine?.text ?? (doc ? "前奏 · 歌词即将开始" : lyric.note || "正在读取歌词…");
@@ -31,11 +55,11 @@ export function Proof(props: SkinProps) {
 
   // 歌词栏：从当前句往前一行开始，最多 9 行 —— 校样的正文栏是"一片"，不是一句
   const from = doc ? Math.max(0, at - 1) : 0;
-  const lines = doc ? doc.lines.slice(from, from + 14) : [];
+  const lines = doc ? doc.lines.slice(from, from + fitRows.lyric) : [];
   // 表头写的是队列总量，表里就该给出足够多行；只取 3 行会让"58 TRACKS / 3 行"自相矛盾
   const queue = state.queue;
   const nextIds = data.playOrder
-    .slice(data.cursorPosition + 1, data.cursorPosition + 7)
+    .slice(data.cursorPosition + 1, data.cursorPosition + 1 + fitRows.tracks)
     .map((at) => queue.items[at])
     .filter((id): id is string => Boolean(id));
   const rows = upNextRows(nextIds, data.tracksMap, data.queueRemote);
@@ -81,7 +105,7 @@ export function Proof(props: SkinProps) {
           <p className="pf-artist">{[data.nowArtist, data.nowAlbum, data.sourceName].filter(Boolean).join(" · ") || "—"}</p>
         </div>
 
-        <div className="pf-cols">
+        <div className="pf-cols" ref={colsRef}>
           <div className="pf-lyr" aria-live="polite">
             {doc ? (
               lines.map((line, index) => (

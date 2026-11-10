@@ -37,14 +37,18 @@
   --sk-gap: 44px;
 
   /* 字号阶梯：micro / meta / body / lead / lyric / title / display，七档封顶 */
-  --sk-type-micro: 9px;
+  /* 2026-11-10 重新定标：旧值按 15cqh/10cqh 算，在 474px 高的舞台里
+     得出 71px / 47px —— 标题吃掉半屏、小字只有 9px，同一页里 7.9:1 的字号断层。
+     新档位上限压到 52/34，级差仍清楚（52 → 34 → 19 → 13 → 11 → 10），
+     最小字从 9 提到 10：9px 在纸面上是"看得见但读不出"。 */
+  --sk-type-micro: 10px;
   --sk-type-meta: 11px;
   --sk-type-body: 13px;
   --sk-type-lead: 16px;
-  --sk-type-cover: clamp(16px, 3.4cqh, 22px);
-  --sk-type-lyric: clamp(16px, 4.6cqh, 26px);
-  --sk-type-title: clamp(28px, 10cqh, 54px);
-  --sk-type-display: clamp(40px, 15cqh, 84px);
+  --sk-type-cover: clamp(15px, 3.2cqh, 20px);
+  --sk-type-lyric: clamp(15px, 3.9cqh, 22px);
+  --sk-type-title: clamp(22px, 6.6cqh, 34px);
+  --sk-type-display: clamp(30px, 9.2cqh, 52px);
 
   /* 不带 fill-mode both：留住终帧会让 .sk 长期停在独立合成层上，
      切明暗时子节点可能不重绘（队列面板踩过同一个坑） */
@@ -335,8 +339,10 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
-  gap: var(--sk-gap);
+  grid-template-columns: minmax(0, .78fr) minmax(0, 1fr);
+  /* 封套的栏距比别处宽：黑胶要从封套右侧"抽出来"，需要它的展示区，
+     否则只能露一条边（看起来像漏了张纸）。88px < 96px 栏距，不碰文字。 */
+  gap: 96px;
   padding: clamp(10px, 3.4cqh, 34px) var(--sk-pad-x) 0;
   align-items: stretch;
   grid-template-rows: minmax(0, 1fr);
@@ -367,9 +373,11 @@
 /* 黑胶：从封套右侧抽出一半；播放时转（沟槽与窗光都在盘上） */
 .sl-vinyl {
   position: absolute;
-  right: -25%;
+  /* 露出量必须走固定像素：-21% 会随封套放大成 100px+，直接盖进右列
+     （1024x768 实测把歌词压在黑盘下面）。34px < 栏间距 44px，永不越界。 */
+  right: -88px;
   top: 11%;
-  width: 82%;
+  width: calc(100% - 60px);
   aspect-ratio: 1;
   border-radius: 50%;
   z-index: 0;
@@ -510,6 +518,11 @@
 
 /* ---- 右页：内页排版 ---- */
 .sl-info {
+  position: relative;
+  z-index: 2;
+  /* 右侧文字再退 14px：黑胶伸出 88px、栏距 96px，留 8px 误差不够
+     （1024 宽时第一列变窄，黑胶压到歌词左缘，实测 4px） */
+  padding-left: 14px;
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -535,8 +548,8 @@
   margin: 12px 0 0;
   font-family: var(--font-disp);
   font-size: var(--sk-type-title);
-  line-height: .94;
-  letter-spacing: -.022em;
+  line-height: 1.04;
+  letter-spacing: -.012em;
   font-weight: 400;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -562,16 +575,23 @@
 }
 
 /* 歌词贴着自己的标题块往下排；剩下的空间交给信息栏与曲目表（都落到底） */
+/* 右列四段：标题块（固定）/ 歌词（可压缩）/ 信息栏（固定）/ 曲目表（固定）。
+   之前歌词是 flex:0 0 auto，压缩不了，多出来的一律由 overflow:hidden 吃掉 ——
+   被吃掉的正是底部的曲目表（用户截图里只剩 3 行还贴着底边）。 */
 .sl-lyr {
   margin-top: clamp(8px, 2cqh, 18px);
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .sl-meta {
-  margin-top: auto;
-  padding-top: 14px;
+  margin-top: clamp(10px, 2cqh, 20px);
+  padding-top: 12px;
+  flex: 0 0 auto;
   display: flex;
   gap: clamp(16px, 3cqh, 30px);
   border-top: 1px solid var(--sk-line-soft);
@@ -633,6 +653,7 @@
 .sl-tbl {
   margin-top: clamp(8px, 1.8cqh, 16px);
   border-top: 1px solid var(--sk-line-soft);
+  flex: 0 0 auto;
 }
 
 .sl-tbl button {
@@ -642,7 +663,7 @@
   grid-template-columns: 22px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: baseline;
-  padding: 6px 0;
+  padding: 5px 0;
   border: 0;
   border-bottom: 1px solid var(--sk-line-soft);
   background: none;
@@ -889,8 +910,8 @@
   display: flex;
   flex-direction: column;
   align-self: stretch;
-  justify-content: center;
-  padding: 8px 0 14px;
+  justify-content: space-between;
+  padding: 8px 0 8px;
 }
 
 .tt-kick {
@@ -909,8 +930,8 @@
   margin: 12px 0 0;
   font-family: var(--font-disp);
   font-size: var(--sk-type-title);
-  line-height: .95;
-  letter-spacing: -.02em;
+  line-height: 1.04;
+  letter-spacing: -.012em;
   font-weight: 400;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -931,7 +952,7 @@
   margin-top: clamp(14px, 3.4cqh, 30px);
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 13px;
 }
 
 .tt-vu .row {
@@ -951,7 +972,7 @@
 
 .tt-vu .bar {
   position: relative;
-  height: 5px;
+  height: 7px;
   background: var(--sk-line-soft);
 }
 
@@ -976,7 +997,7 @@
 }
 
 .tt-lyr {
-  margin-top: clamp(12px, 3cqh, 26px);
+  margin-top: clamp(10px, 2.4cqh, 20px);
 }
 
 .tt-lyr .cur {
@@ -996,7 +1017,7 @@
 }
 
 .tt-meta {
-  margin-top: clamp(14px, 3cqh, 26px);
+  margin-top: clamp(10px, 2.4cqh, 20px);
   padding-top: 12px;
   border-top: 1px solid var(--sk-line-soft);
   display: flex;
@@ -1109,14 +1130,13 @@
   position: relative;
   font-family: var(--font-disp);
   font-size: var(--sk-type-display);
-  line-height: .9;
-  letter-spacing: -.03em;
+  line-height: 1.06;
+  letter-spacing: -.018em;
   font-weight: 400;
-  /* 真出血：标题从版心外 46px 起，由舞台裁断（原来只 -6px，还在内边距里） */
-  margin: 0 0 0 calc(6px - var(--sk-pad-x));
-  white-space: nowrap;
+  /* 出血量必须小于版心内边距，否则首字被裁掉一半（用户截图里"启"只剩右半边）。
+     18px 足以压出版心、又保证每个字完整。 */
+  margin: 0 0 0 -18px;
   overflow: hidden;
-  text-overflow: clip;
   animation: pf-set 520ms cubic-bezier(.2, .85, .25, 1) both;
 }
 
@@ -1134,7 +1154,8 @@
   left: 0;
   top: 0;
   color: var(--pf-ghost);
-  opacity: .55;
+  /* 浅色纸面上 .55 的朱砂太跳，读成重影 bug 而不是套印；深色底反而需要它亮 */
+  opacity: .34;
   z-index: 0;
   animation: pf-mis 520ms cubic-bezier(.3, .7, .3, 1) both;
 }
@@ -1172,7 +1193,7 @@
 
 .pf-lyr {
   font-size: var(--sk-type-meta);
-  line-height: 2;
+  line-height: 1.9;
   color: var(--sk-dim2);
   max-height: 100%;
   overflow: hidden;
@@ -1441,6 +1462,9 @@
   bottom: 0;
   z-index: 1;
   pointer-events: none;
+  /* 右端淡出：光散向远处，而不是被屏幕裁成五块斜四边形 */
+  mask-image: linear-gradient(96deg, rgb(0 0 0) 0 18%, rgb(0 0 0 / .42) 74%, transparent 98%);
+  -webkit-mask-image: linear-gradient(96deg, rgb(0 0 0) 0 18%, rgb(0 0 0 / .42) 74%, transparent 98%);
   /* 玻璃在手里缓慢转：这是"光在空间里"的底噪动作，
      即使音乐是稳态的，折射也不会像一张贴图 */
   transform-origin: 0 64%;
@@ -1460,7 +1484,8 @@
   transform:
     rotate(calc((var(--b, 0) - .55) * 9deg))
     scaleX(calc(.9 + var(--b, 0) * .22));
-  opacity: calc(.38 + var(--b, 0) * .62);
+  opacity: calc(.42 + var(--b, 0) * .5);
+  filter: blur(.45px);
   transition: none;
   will-change: transform, opacity;
 }
@@ -1474,27 +1499,27 @@
 /* 五道色散：越往外越暖，末端透明度渐隐 */
 .pr-fan i:nth-child(1) {
   background: linear-gradient(90deg, var(--pr-b1), transparent 96%);
-  clip-path: polygon(0 63.8%, 100% 9%, 100% 14.4%, 0 64%);
+  clip-path: polygon(0 63.8%, 100% 17%, 100% 22%, 0 64%);
 }
 
 .pr-fan i:nth-child(2) {
   background: linear-gradient(90deg, var(--pr-b2), transparent 96%);
-  clip-path: polygon(0 64%, 100% 15.6%, 100% 21%, 0 64.2%);
+  clip-path: polygon(0 64%, 100% 22.2%, 100% 27.2%, 0 64.2%);
 }
 
 .pr-fan i:nth-child(3) {
   background: linear-gradient(90deg, var(--pr-b3), transparent 96%);
-  clip-path: polygon(0 64.2%, 100% 22.2%, 100% 27.6%, 0 64.4%);
+  clip-path: polygon(0 64.2%, 100% 27.4%, 100% 32.4%, 0 64.4%);
 }
 
 .pr-fan i:nth-child(4) {
   background: linear-gradient(90deg, var(--pr-b4), transparent 96%);
-  clip-path: polygon(0 64.4%, 100% 28.8%, 100% 34.2%, 0 64.6%);
+  clip-path: polygon(0 64.4%, 100% 32.6%, 100% 37.6%, 0 64.6%);
 }
 
 .pr-fan i:nth-child(5) {
   background: linear-gradient(90deg, var(--pr-b5), transparent 96%);
-  clip-path: polygon(0 64.6%, 100% 35.4%, 100% 40.8%, 0 64.8%);
+  clip-path: polygon(0 64.6%, 100% 37.8%, 100% 42.8%, 0 64.8%);
 }
 
 .pr-body {
@@ -1510,9 +1535,11 @@
 .pr-meta {
   display: flex;
   gap: 16px;
-  font-size: var(--sk-type-micro);
-  letter-spacing: .22em;
-  color: var(--sk-dim2);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--sk-line-soft);
+  font-size: var(--sk-type-meta);
+  letter-spacing: .18em;
+  color: var(--sk-dim);
 }
 
 .pr-lyr {
@@ -1522,8 +1549,8 @@
   max-width: 92%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding-top: 6%;
+  justify-content: center;
+  padding-bottom: 11%;
 }
 
 .pr-lyr .cur {
@@ -1574,6 +1601,24 @@
   width: auto;
   margin: 0 var(--sk-pad-x);
   padding: 0 0 12px;
+}
+
+/* 封套浅色：黑盘放在纸上必须靠描边与窗光交代"这是一张盘"，
+   否则就是封套后面露出的一个黑洞 */
+.sk-sl[data-tone="light"] .sl-vinyl {
+  box-shadow:
+    0 0 0 1px rgb(20 19 15 / .38),
+    0 0 0 3px rgb(255 255 255 / .55),
+    0 18px 34px -14px rgb(35 26 16 / .5);
+}
+
+/* 浅色下色散用正片叠底：纸上的光是从纸里透出来的，实色会读成五条彩色纸条 */
+.sk-pr[data-tone="light"] .pr-fan i {
+  mix-blend-mode: multiply;
+}
+
+.sk-pr[data-tone="light"] .pr-prism {
+  box-shadow: 0 0 calc(6px + var(--pulse, 0) * 18px) var(--stage-brass);
 }
 
 /* ======================= 动效降级 ======================= */

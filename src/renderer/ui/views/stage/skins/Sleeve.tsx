@@ -21,8 +21,8 @@ export function Sleeve(props: SkinProps) {
     : lyric.currentLine?.text ?? (doc ? "前奏 · 歌词即将开始" : lyric.note || "正在读取歌词…");
   // 内页歌词是一小段（当前句 ±2 行），不是"上一句/下一句"两条 ——
   // 一段正文才能填住标题与信息栏之间的空
-  const from = doc ? Math.max(0, at - 2) : 0;
-  const lyricWindow = doc ? doc.lines.slice(from, from + 5) : [];
+  const from = doc ? Math.max(0, at - 1) : 0;
+  const lyricWindow = doc ? doc.lines.slice(from, from + 3) : [];
   const zh = props.lyricOn && state.stage.translation ? lyric.currentLine?.translations?.zh ?? "" : "";
   const rows = upNextRows(data.upNext, data.tracksMap, data.queueRemote).slice(0, 3);
   const rootRef = useRef<HTMLDivElement>(null);
