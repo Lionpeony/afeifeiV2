@@ -76,8 +76,25 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
     console.error("[media-session] 保活音频播放失败", err);
   });
 
+  /**
+   * 启动静默期（1.5s）：应用重启后 Windows 的系统媒体面板（SMTC）可能按"上次在播"的
+   * 记忆补发一次 play。那不是用户指令，收到就播会变成"打开就自己放歌"。
+   * 只挡 play，pause/next/prev 照常 —— 那几条误发也无害。
+   */
+  const startedAt = Date.now();
+  const STARTUP_GUARD_MS = 1500;
+
   const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
-    ["play", () => deps.toggle()],
+    [
+      "play",
+      () => {
+        if (Date.now() - startedAt < STARTUP_GUARD_MS) {
+          console.warn("[media-session] 启动静默期内忽略播放命令（系统面板恢复上次状态）");
+          return;
+        }
+        deps.toggle();
+      },
+    ],
     ["pause", () => deps.toggle()],
     ["stop", () => deps.toggle()],
     ["previoustrack", () => deps.prev()],

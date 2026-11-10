@@ -7,6 +7,8 @@
  */
 const MEDIA_COMMAND_IDS: Record<string, string> = {
   toggle: "play-toggle",
+  // 关窗收托盘时的"停一下"：不是 toggle（已暂停时再 toggle 反而会播）
+  pause: "play-stop",
   next: "queue-next",
   prev: "queue-prev",
   // 全局快捷键的动作名（A-24 可配置那半）：也走这张表，播放语义不多一份

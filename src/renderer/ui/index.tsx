@@ -461,6 +461,12 @@ function App() {
         hint: "Space",
         run: () => dispatch({ type: "player/toggle" }),
       }),
+      // 只停不播（关窗收托盘用）：已经暂停时收到它必须什么都不发生
+      registerCommand({
+        id: "play-stop",
+        label: "暂停播放",
+        run: () => dispatch({ type: "player/pause" }),
+      }),
       registerCommand({
         id: "queue-prev",
         label: "上一首",

@@ -234,10 +234,14 @@ if (!locked) {
       void writeKey(ZOOM_KEY, String(zoom)).catch(() => undefined);
     });
 
-    // A-25：点 × 只是收进托盘（正在播的歌不该被误停）；真正退出走托盘「退出」或系统注销
+    /* A-25：点 × 收进托盘（进程不退，托盘随时能叫回来）。
+       但**必须同时暂停**：窗口隐藏后歌继续响，用户再从图标/托盘打开时
+       听到的是"它自己又播了" —— 实测确认过这是同一进程在放，不是自动播放。
+       想恢复播放点底栏播放键即可，状态（曲目/进度）都还在。 */
     win.on("close", (e) => {
       if (quitting) return;
       e.preventDefault();
+      sendPlaybackCommand?.("pause");
       win.hide();
     });
     win.on("closed", () => {

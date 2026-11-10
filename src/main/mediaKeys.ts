@@ -17,7 +17,12 @@
 import { globalShortcut } from "electron";
 import { log } from "./log/index.js";
 
-export type PlaybackCommand = "toggle" | "next" | "prev";
+/**
+ * "pause" 只给「关窗收托盘」用：窗口隐藏后进程还在，歌不该继续响
+ * （用户实测：点 × 再打开 = 音乐自己就响了，体感是自动播放 bug）。
+ * 媒体键与托盘仍然只用 toggle —— 那是「用户主动按」，语义不同。
+ */
+export type PlaybackCommand = "toggle" | "pause" | "next" | "prev";
 
 export const MEDIA_BINDINGS: { accelerator: string; command: PlaybackCommand }[] = [
   { accelerator: "MediaPlayPause", command: "toggle" },
