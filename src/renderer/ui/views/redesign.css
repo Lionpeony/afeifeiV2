@@ -327,20 +327,151 @@
   .tk-track { animation: none; }
 }
 
-/* ---------------- 榜单页记忆点 2：台柱 + 描边巨号名次 ---------------- */
+/* ---------------- 榜单页记忆点 2：冠军位 + 台柱 + 描边巨号名次 ---------------- */
 
+/* 放榜现场的层级碾压：冠军独占一整行（面积 = 亚军卡 3 倍以上），
+   2/3 名双卡，第 4 名起才落回列表。grid 换纵向 stack。 */
 .shell.live .live-room .chart-hero {
-  display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  /* 巨号名次 top:-14px 向上出血；hero 是滚动容器第一排，
+  /* 巨号名次向上出血；hero 是滚动容器第一排，
      不留头部空间的话出血会被容器上缘裁平（真机截图实证） */
   padding-top: 18px;
   margin-bottom: 14px;
 }
 
-/* live.css 旧版给每个子元素安排过格子（cover span 3 行、p1 占满整行）——
-   重设计换成"封面左、文字右、巨号名次垫底"的版式，先把旧安排清掉 */
+/* 冠军位：C 位的一切——朱砂左轨 + 朱砂渐染 + 200px 级描边巨号（右上出血裁切） +
+   大封面 + 大字标题。第 1 名的卡在面积、色重、字级上同时碾压。 */
+.shell.live .live-room .chart-champ {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 22px;
+  align-items: center;
+  padding: 22px 26px 20px 22px;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--live-line));
+  border-left: 4px solid var(--accent);
+  background:
+    linear-gradient(150deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 56%),
+    linear-gradient(160deg, color-mix(in srgb, var(--live-fg) 5%, transparent), transparent 62%);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.2, 0.7, 0.3, 1), box-shadow 0.18s ease;
+}
+.shell.live .live-room .chart-champ:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px -16px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* 冠军巨号：200px 级，右上半出血——不是水印，是版面的第二主角 */
+.shell.live .live-room .champ-rank {
+  position: absolute;
+  right: -10px;
+  top: -34px;
+  z-index: 0;
+  font-family: var(--font-mono);
+  font-size: clamp(150px, 24cqh, 220px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  color: transparent;
+  -webkit-text-stroke: 2px color-mix(in srgb, var(--accent) 30%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+.shell.live .live-room .champ-cover {
+  position: relative;
+  z-index: 1;
+  width: 148px;
+  height: 148px;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--live-line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
+  box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.55);
+}
+.shell.live .live-room .champ-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.24s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.shell.live .live-room .chart-champ:hover .champ-cover img {
+  transform: scale(1.04);
+}
+.shell.live .live-room .champ-cover i {
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--live-fg) 8%, transparent) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+.shell.live .live-room .champ-tx {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.shell.live .live-room .champ-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+.shell.live .live-room .champ-tag::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 9px;
+  background: var(--accent);
+}
+
+.shell.live .live-room .champ-tx b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-disp);
+  font-size: clamp(26px, 5.4cqh, 40px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .champ-artist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: var(--live-fg-dim);
+}
+
+.shell.live .live-room .champ-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--live-fg-faint);
+}
+
+/* 2/3 名：双卡并排，让冠军位独占上方 */
+.shell.live .live-room .chart-podium {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .shell.live .live-room .chart-hero-cell > * {
   grid-column: auto;
   grid-row: auto;
@@ -368,16 +499,6 @@
   box-shadow: 0 10px 26px -14px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
-/* 第一名：朱砂桁架 + 更重的底色，冠军的卡比谁都硬 */
-.shell.live .live-room .chart-hero-cell.p1 {
-  grid-column: auto; /* live.css 旧版让冠军占满整行，新版三张并排、第一张更宽 */
-  grid-template-columns: auto 1fr;
-  border-left: 3px solid var(--accent);
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 58%),
-    linear-gradient(160deg, color-mix(in srgb, var(--live-fg) 5%, transparent), transparent 62%);
-}
-
 /* 描边巨号名次：占满右上的背景层，title 一眼就知道这是第几 */
 .shell.live .live-room .chart-hero-rank {
   position: absolute;
@@ -394,10 +515,6 @@
   pointer-events: none;
 }
 
-.shell.live .live-room .chart-hero-cell.p1 .chart-hero-rank {
-  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent) 34%, transparent);
-}
-
 .shell.live .live-room .chart-hero-cover {
   position: relative;
   z-index: 1;
@@ -409,10 +526,6 @@
   border-radius: 2px;
   background: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
   box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.5);
-}
-.shell.live .live-room .chart-hero-cell.p1 .chart-hero-cover {
-  width: 92px;
-  height: 92px;
 }
 .shell.live .live-room .chart-hero-cover img {
   width: 100%;
@@ -449,9 +562,6 @@
   letter-spacing: 0.02em;
   color: var(--live-fg);
 }
-.shell.live .live-room .chart-hero-cell.p1 b {
-  font-size: 19px;
-}
 
 .shell.live .live-room .chart-hero-artist {
   position: relative;
@@ -472,6 +582,43 @@
   font-size: 10px;
   letter-spacing: 0.12em;
   color: var(--live-fg-faint);
+}
+
+/* ---------------- 榜单页记忆点 3：热度墨条坡 ----------------
+   第 4 名起的密集行不能读成 Excel。每行底部一条墨线，长度随名次递减
+   （--r 由 JSX 写入真实名次）——整列下来是一条向右收的热度坡，
+   榜单的"递减"不用数字也能看出来。数据来源只有名次本身，不编升降假数据。 */
+
+.shell.live .live-room .charts-page .online-row {
+  position: relative;
+}
+
+.shell.live .live-room .charts-page .online-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1px;
+  width: calc(122% - var(--r, 50) * 1.8%);
+  background: color-mix(in srgb, var(--live-fg) calc(30% - var(--r, 50) * 0.34%), transparent);
+  pointer-events: none;
+}
+
+.shell.live .live-room .charts-page .online-row:hover::after {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* 名次数字：从"表格列"升格为行主角——mono 加大加粗，TOP10 点朱砂 */
+.shell.live .live-room .charts-page .online-row .lib-no {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--live-fg-dim);
+}
+
+.shell.live .live-room .charts-page .online-row.top10 .lib-no {
+  color: var(--accent);
 }
 
 /* ---------------- 歌单页记忆点：封套抬头 ---------------- */

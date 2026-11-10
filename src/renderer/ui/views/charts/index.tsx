@@ -220,8 +220,9 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
           {lists.length === 0 && !note ? <p className="pl-empty">这个音源没有给出榜单。</p> : null}
         </div>
 
-        {/* 右：名次结构。前三名抬成台柱——名次是榜单的全部信息量，第 1 名和第 50 名
-            不能长得一样；第 4 名起才落回密集列表。 */}
+        {/* 右：名次结构。放榜现场的层级碾压——第 1 名独占冠军位（面积 = 亚军卡 3 倍），
+            2/3 名双卡，第 4 名起才落回密集列表。名次是榜单的全部信息量，
+            第 1 名和第 50 名不能长得一样。 */}
         <div className="lib-list">
           {selectedList ? (
             <p className="list-now">
@@ -230,17 +231,43 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
             </p>
           ) : null}
 
-          {tracks.length > 0 ? (
-            <div className="chart-hero">
-              {tracks.slice(0, 3).map((track, i) => (
+          {tracks.length > 0 && tracks[0] ? (
+            <button
+              type="button"
+              className="chart-champ"
+              onClick={() => void play(tracks[0]!)}
+              title={`第 1 名 · ${tracks[0].title} — ${tracks[0].artist}`}
+            >
+              <span className="champ-rank" aria-hidden="true">
+                01
+              </span>
+              <span className="champ-cover">
+                {tracks[0].coverUrl ? (
+                  <img src={tracks[0].coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                ) : (
+                  <i aria-hidden="true" />
+                )}
+              </span>
+              <span className="champ-tx">
+                <span className="champ-tag">CHAMPION · 本榜第 1</span>
+                <b>{tracks[0].title}</b>
+                <span className="champ-artist">{tracks[0].artist}</span>
+                <span className="champ-meta mono">{fmtDuration(tracks[0].durationMs)}</span>
+              </span>
+            </button>
+          ) : null}
+
+          {tracks.length > 1 ? (
+            <div className="chart-podium">
+              {tracks.slice(1, 3).map((track, i) => (
                 <button
                   key={track.sourceId}
                   type="button"
-                  className={`chart-hero-cell p${i + 1}`}
+                  className={`chart-hero-cell p${i + 2}`}
                   onClick={() => void play(track)}
-                  title={`第 ${i + 1} 名 · ${track.title} — ${track.artist}`}
+                  title={`第 ${i + 2} 名 · ${track.title} — ${track.artist}`}
                 >
-                  <span className="chart-hero-rank">{pad(i + 1)}</span>
+                  <span className="chart-hero-rank">{pad(i + 2)}</span>
                   <span className="chart-hero-cover">
                     {track.coverUrl ? (
                       <img src={track.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
@@ -282,9 +309,10 @@ export function ChartsView({ sources, listToplists, playlistTracks, onPlay, tabs
           {tracks.slice(3).map((track, i) => (
             <div
               key={track.sourceId}
-              className="lib-row online-row"
+              className={`lib-row online-row${i + 4 <= 10 ? " top10" : ""}`}
               role="button"
               tabIndex={0}
+              style={{ "--r": String(i + 4) } as CSSProperties}
               onClick={() => void play(track)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter" && e.key !== " ") return;

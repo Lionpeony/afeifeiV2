@@ -375,7 +375,7 @@ app.whenReady().then(async () => {
   if (dislikeRows < 1) throw new Error("设置页没列出不喜欢名单");
 
   // 榜单页（2026-11-10 重设计验收）：在线页默认就是榜单分支。
-  // 齐装满员的样子 = 左栏 8 个榜 + 右栏自动下钻出 3 张台柱 + 跑马灯在滚。
+  // 齐装满员的样子 = 左栏 8 个榜 + 冠军位 1 张 + 2/3 名双卡 + 跑马灯在滚。
   // 注意别插在 PAGES 循环后面：设置页的专项步骤依赖循环最后停在「设置」。
   await win.webContents.executeJavaScript(
     `document.querySelector('.ruler-tick[data-page="online"]')?.click()`,
@@ -383,15 +383,36 @@ app.whenReady().then(async () => {
   );
   await sleep(900);
   const chartProbe = await win.webContents.executeJavaScript(
-    `(() => ({
-      dirs: document.querySelectorAll(".pl-item.chart-item").length,
-      hero: document.querySelectorAll(".chart-hero-cell").length,
-      rows: document.querySelectorAll(".online-row").length,
-      ticker: Boolean(document.querySelector(".chart-ticker")),
-    }))()`,
+    `(() => {
+      const rows = [...document.querySelectorAll(".online-row")];
+      const after = (el) => parseFloat(getComputedStyle(el, "::after").width) || 0;
+      const cover = document.querySelector(".champ-cover");
+      return {
+        dirs: document.querySelectorAll(".pl-item.chart-item").length,
+        champ: document.querySelectorAll(".chart-champ").length,
+        hero: document.querySelectorAll(".chart-hero-cell").length,
+        rows: rows.length,
+        top10: document.querySelectorAll(".online-row.top10").length,
+        ticker: Boolean(document.querySelector(".chart-ticker")),
+        // 热度墨条坡：第 4 名的墨线必须比第 10 名长（判据可红可绿）
+        w4: rows[0] ? Math.round(after(rows[0])) : 0,
+        w10: rows[6] ? Math.round(after(rows[6])) : 0,
+        // 冠军封面要真的是大图（148px 档），缩水成普通 cell 就是版式退化
+        champCover: cover ? Math.round(cover.getBoundingClientRect().width) : 0,
+      };
+    })()`,
     true,
   );
-  if (chartProbe.dirs < 5 || chartProbe.hero !== 3 || chartProbe.rows < 5 || !chartProbe.ticker) {
+  if (
+    chartProbe.dirs < 5 ||
+    chartProbe.champ !== 1 ||
+    chartProbe.hero !== 2 ||
+    chartProbe.rows < 5 ||
+    chartProbe.top10 < 3 ||
+    !chartProbe.ticker ||
+    chartProbe.w4 <= chartProbe.w10 ||
+    chartProbe.champCover < 140
+  ) {
     throw new Error(`榜单页没长齐：${JSON.stringify(chartProbe)}`);
   }
   await shoot(`page-charts${suffix}.png`);
