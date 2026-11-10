@@ -87,9 +87,11 @@ export function Turntable(props: SkinProps) {
               <circle cx="330" cy="70" r="19" fill="none" stroke="var(--sk-line)" strokeWidth="1" />
               <line x1="330" y1="70" x2="128" y2="272" stroke="var(--tt-rod)" strokeWidth="4.6" strokeLinecap="round" />
               <line x1="330" y1="70" x2="128" y2="272" stroke="var(--tt-rod-hi)" strokeWidth="1.2" strokeLinecap="round" />
+              {/* 头壳 + 针尖：原来是一个黑方块，读不出"针落在盘上" */}
               <g transform="rotate(40 128 272)">
-                <rect x="100" y="264" width="32" height="15" rx="2" fill="var(--sk-bg)" stroke="var(--sk-line)" strokeWidth="1.2" />
-                <rect x="130" y="267" width="9" height="1.6" fill="var(--tt-rod-hi)" />
+                <path d="M100 266 L128 262 L132 276 L104 280 Z" fill="var(--sk-bg)" stroke="var(--sk-line)" strokeWidth="1.2" />
+                <line x1="126" y1="274" x2="133" y2="282" stroke="var(--tt-rod-hi)" strokeWidth="1.4" strokeLinecap="round" />
+                <circle cx="134" cy="284" r="1.5" fill="var(--tt-rod-hi)" />
               </g>
               <circle cx="330" cy="70" r="2.6" fill="var(--tt-rod-hi)" />
             </g>

@@ -102,6 +102,7 @@ export function Proof(props: SkinProps) {
             <div><b>DURATION</b><span>{fmtDur(data.nowDuration)}</span></div>
             <div><b>SOURCE</b><span>{data.sourceName}</span></div>
             <div><b>LINE</b><span>{doc && at >= 0 ? `${pad2(at + 1)} / ${pad2(doc.lines.length)}` : "—"}</span></div>
+            <div><b>CHANNELS</b><span>2 ch · 44.1 kHz</span></div>
             <div><b>NOTE</b><span>勿作成品 · 校样用</span></div>
           </div>
         </div>

@@ -49,8 +49,10 @@ export function Prism(props: SkinProps) {
       rootRef.current?.style.setProperty("--bass", bass.toFixed(3));
       for (let i = 0; i < BARS; i += 1) {
         const v = Math.max(0, Math.min(1, bins[i] ?? 0));
+        // 两端包络归零：否则声浪会被画布右缘"切一刀"（评审指出的裁断感）
+        const env = Math.sin((i / (BARS - 1)) * Math.PI) ** 0.55;
         // 静音就是一条基线（A-07），不画假波
-        const h = v <= 0.004 ? 1 : Math.round(2 + Math.pow(v, 0.72) * 34);
+        const h = v <= 0.004 ? 1 : Math.max(1, Math.round((3 + Math.pow(v, 0.6) * 52) * env));
         cols[i].style.height = `${h}px`;
         cols[i].style.opacity = String(v <= 0.004 ? 0.25 : 0.35 + v * 0.6);
       }

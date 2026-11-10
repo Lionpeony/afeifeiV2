@@ -119,7 +119,8 @@ for (const file of code) {
 
 /* ---------- 规则 4：rAF 唯一 ---------- */
 for (const file of code) {
-  if (norm(file) === COMPOSITOR) continue;  if (/\brequestAnimationFrame\s*\(/.test(stripComments(read(file)))) {
+  if (norm(file) === COMPOSITOR) continue;
+  if (/\brequestAnimationFrame\s*\(/.test(stripComments(read(file)))) {
     fail(`${norm(file)}: requestAnimationFrame 只准出现在 ${COMPOSITOR}（50 §9.1）`);
   }
 }
@@ -168,6 +169,20 @@ for (const file of styled) {
   }
 }
 
+/* ---------- 规则 8：舞台字号只取阶梯 token（2026-11-10 VI 收敛） ----------
+   49 处 font-size 里曾有 6 个 .5px 值、4 套标题各写各的 —— 用户看到的是
+   "同一首歌在四个皮肤里的音量不同"。这条把字号变成机器可校验的阶梯。 */
+const STAGE_SKIN_CSS = "src/renderer/ui/views/stage/stage-skins.css";
+if (fs.existsSync(STAGE_SKIN_CSS)) {
+  const src = stripComments(read(STAGE_SKIN_CSS));
+  for (const m of src.matchAll(/font-size:[ \t]*([^;]+);/g)) {
+    const v = m[1].trim();
+    if (!v.startsWith("var(--sk-type-")) {
+      fail(`${STAGE_SKIN_CSS}: font-size ${v} 不在阶梯上（只允许 --sk-type-*，见文件顶部 token 块）`);
+    }
+  }
+}
+
 /* ---------- 结果 ---------- */
 if (problems.length) {
   console.log(`✗ lint 失败 ${problems.length} 处：`);
@@ -175,4 +190,4 @@ if (problems.length) {
   console.log("\n规则见 docs/51 §2.4（新仓库里的 docs/01）");
   process.exit(1);
 }
-console.log(`LINT PASS：${code.length} 个源文件，7 条规则无违规`);
+console.log(`LINT PASS：${code.length} 个源文件，8 条规则无违规`);

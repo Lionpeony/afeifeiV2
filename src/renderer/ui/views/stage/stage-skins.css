@@ -21,6 +21,31 @@
   --line: var(--sk-line);
   --line-soft: var(--sk-line-soft);
   --accent: var(--sk-accent);
+
+  /* ---- 舞台共享 token（2026-11-10 VI 收敛）----
+     四套皮肤只允许**引用**这里，不再各自写 rgb()。
+     底色不统一是「切皮肤像换了个 app」的第一根因（原来四套黑是 6,6,7 / 11,11,12 / 12,13,15 / 13,12,11）。 */
+  --stage-paper: rgb(243 241 234);
+  --stage-ink: rgb(20 19 15);
+  --stage-night: rgb(11 11 12);
+  --stage-light: rgb(242 238 230);
+  --stage-accent: rgb(216 52 28);
+  --stage-brass: rgb(138 106 47);
+
+  /* 版心与栏间距：四套共用一条基线，切皮肤时内容不左右跳 */
+  --sk-pad-x: 52px;
+  --sk-gap: 44px;
+
+  /* 字号阶梯：micro / meta / body / lead / lyric / title / display，七档封顶 */
+  --sk-type-micro: 9px;
+  --sk-type-meta: 11px;
+  --sk-type-body: 13px;
+  --sk-type-lead: 16px;
+  --sk-type-cover: clamp(16px, 3.4cqh, 22px);
+  --sk-type-lyric: clamp(16px, 4.6cqh, 26px);
+  --sk-type-title: clamp(28px, 10cqh, 54px);
+  --sk-type-display: clamp(40px, 15cqh, 84px);
+
   /* 不带 fill-mode both：留住终帧会让 .sk 长期停在独立合成层上，
      切明暗时子节点可能不重绘（队列面板踩过同一个坑） */
   animation: sk-in 420ms cubic-bezier(.22, .9, .24, 1);
@@ -55,7 +80,7 @@
 }
 
 .sk-lbl {
-  font-size: 9px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .22em;
   color: var(--sk-dim2);
   text-transform: uppercase;
@@ -70,7 +95,7 @@
   gap: 14px;
   height: 38px;
   padding: 0 20px 0 22px;
-  font-size: 10px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .16em;
   color: var(--sk-dim2);
   border-bottom: 1px solid var(--sk-line-soft);
@@ -135,7 +160,7 @@
   background: transparent;
   color: var(--sk-dim);
   font: inherit;
-  font-size: 10px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .12em;
   cursor: pointer;
 }
@@ -159,7 +184,7 @@
 }
 
 .sk-t {
-  font-size: 11px;
+  font-size: var(--sk-type-meta);
   color: var(--sk-dim);
   letter-spacing: .04em;
   flex: none;
@@ -252,7 +277,7 @@
   display: grid;
   place-items: center;
   font-style: normal;
-  font-size: 14px;
+  font-size: var(--sk-type-body);
   color: var(--sk-dim2);
   background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / .05) 0 1px, transparent 1px 6px);
 }
@@ -268,14 +293,14 @@
 }
 
 .sk-sl[data-tone="dark"] {
-  --sk-bg: rgb(11 11 12);
-  --sk-fg: rgb(239 233 220);
-  --sk-dim: rgb(239 233 220 / .6);
-  --sk-dim2: rgb(239 233 220 / .38);
-  --sk-line: rgb(239 233 220 / .16);
-  --sk-line-soft: rgb(239 233 220 / .07);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-bg: var(--stage-night);
+  --sk-fg: var(--stage-light);
+  --sk-dim: rgb(242 238 230 / .64);
+  --sk-dim2: rgb(242 238 230 / .52);
+  --sk-line: rgb(242 238 230 / .16);
+  --sk-line-soft: rgb(242 238 230 / .08);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --sl-art: rgb(14 20 24);
   --sl-sun: rgb(255 122 77);
   --sl-shadow: 0 46px 70px -30px rgb(0 0 0 / .92), 0 12px 24px rgb(0 0 0 / .5);
@@ -283,14 +308,14 @@
 }
 
 .sk-sl[data-tone="light"] {
-  --sk-bg: rgb(243 241 234);
-  --sk-fg: rgb(20 19 15);
-  --sk-dim: rgb(20 19 15 / .6);
-  --sk-dim2: rgb(20 19 15 / .44);
+  --sk-bg: var(--stage-paper);
+  --sk-fg: var(--stage-ink);
+  --sk-dim: rgb(20 19 15 / .64);
+  --sk-dim2: rgb(20 19 15 / .62);
   --sk-line: rgb(20 19 15 / .18);
   --sk-line-soft: rgb(20 19 15 / .09);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --sl-art: rgb(241 236 224);
   --sl-sun: rgb(216 52 28);
   --sl-shadow: 0 34px 48px -26px rgb(35 26 16 / .42), 0 6px 14px rgb(35 26 16 / .14);
@@ -311,8 +336,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
-  gap: clamp(20px, 5cqh, 64px);
-  padding: clamp(10px, 3.4cqh, 34px) 54px 0 52px;
+  gap: var(--sk-gap);
+  padding: clamp(10px, 3.4cqh, 34px) var(--sk-pad-x) 0;
   align-items: stretch;
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
@@ -342,15 +367,16 @@
 /* 黑胶：从封套右侧抽出一半；播放时转（沟槽与窗光都在盘上） */
 .sl-vinyl {
   position: absolute;
-  right: -21%;
-  top: 13%;
-  width: 80%;
+  right: -25%;
+  top: 11%;
+  width: 82%;
   aspect-ratio: 1;
   border-radius: 50%;
   z-index: 0;
   background: radial-gradient(circle at 42% 36%, rgb(38 38 45) 0 5%, rgb(24 24 29) 44%, rgb(11 11 13) 100%);
   box-shadow:
-    0 0 0 1px rgb(255 240 220 / .22),
+    0 0 0 1px rgb(255 240 220 / .38),
+    0 0 30px rgb(255 226 190 / .10),
     0 0 0 2px rgb(0 0 0 / .55),
     0 26px 44px -18px rgb(0 0 0 / .8);
   animation: sl-spin 26s linear infinite;
@@ -426,7 +452,7 @@
   bottom: 40px;
   z-index: 2;
   font-family: var(--font-disp);
-  font-size: clamp(15px, 3.4cqh, 22px);
+  font-size: var(--sk-type-cover);
   line-height: .96;
   letter-spacing: .01em;
   text-transform: uppercase;
@@ -440,7 +466,7 @@
   left: 16px;
   bottom: 18px;
   z-index: 2;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .24em;
   color: rgb(255 246 232 / .62);
 }
@@ -460,7 +486,7 @@
   top: 10px;
   z-index: 2;
   text-align: right;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   line-height: 1.7;
   letter-spacing: .18em;
   color: rgb(255 246 232 / .68);
@@ -496,7 +522,7 @@
   display: flex;
   align-items: baseline;
   gap: 12px;
-  font-size: 9.5px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -508,7 +534,7 @@
 .sl-title {
   margin: 12px 0 0;
   font-family: var(--font-disp);
-  font-size: clamp(28px, 10.6cqh, 62px);
+  font-size: var(--sk-type-title);
   line-height: .94;
   letter-spacing: -.022em;
   font-weight: 400;
@@ -521,7 +547,7 @@
 
 .sl-artist {
   margin: 10px 0 0;
-  font-size: 12.5px;
+  font-size: var(--sk-type-body);
   letter-spacing: .04em;
   color: var(--sk-dim);
   white-space: nowrap;
@@ -549,7 +575,7 @@
   display: flex;
   gap: clamp(16px, 3cqh, 30px);
   border-top: 1px solid var(--sk-line-soft);
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .14em;
   color: var(--sk-dim2);
 }
@@ -576,7 +602,7 @@
 }
 
 .sl-lyr .line {
-  font-size: 12.5px;
+  font-size: var(--sk-type-body);
   line-height: 1.95;
   color: var(--sk-dim2);
   white-space: nowrap;
@@ -586,7 +612,7 @@
 
 .sl-lyr .cur {
   margin: 2px 0 4px;
-  font-size: clamp(18px, 4.8cqh, 28px);
+  font-size: var(--sk-type-lyric);
   line-height: 1.4;
   color: var(--sk-fg);
   animation: sk-line 380ms cubic-bezier(.2, .9, .3, 1) both;
@@ -598,7 +624,7 @@
 
 .sl-lyr .zh {
   margin-top: 6px;
-  font-size: 11.5px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .06em;
   color: var(--sk-dim);
 }
@@ -622,7 +648,7 @@
   background: none;
   color: var(--sk-dim2);
   font: inherit;
-  font-size: 10px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .06em;
   text-align: left;
   cursor: pointer;
@@ -634,13 +660,13 @@
 }
 
 .sl-tbl .no {
-  font-size: 8.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .1em;
 }
 
 .sl-tbl .t {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--sk-type-meta);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -658,7 +684,7 @@
 .sk-sl .sk-tape {
   /* 基座 width:100% + 这里的左右 margin 会向右溢出 12px（窄窗实测），必须收回 */
   width: auto;
-  margin: 0 54px 0 52px;
+  margin: 0 var(--sk-pad-x);
   padding: 10px 0 16px;
   border-top: 1px solid var(--sk-line-soft);
 }
@@ -671,14 +697,14 @@
 }
 
 .sk-tt[data-tone="dark"] {
-  --sk-bg: rgb(12 13 15);
-  --sk-fg: rgb(239 233 220);
-  --sk-dim: rgb(239 233 220 / .58);
-  --sk-dim2: rgb(239 233 220 / .36);
-  --sk-line: rgb(239 233 220 / .15);
-  --sk-line-soft: rgb(239 233 220 / .07);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-bg: var(--stage-night);
+  --sk-fg: var(--stage-light);
+  --sk-dim: rgb(242 238 230 / .64);
+  --sk-dim2: rgb(242 238 230 / .52);
+  --sk-line: rgb(242 238 230 / .16);
+  --sk-line-soft: rgb(242 238 230 / .08);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --tt-plinth: linear-gradient(160deg, rgb(26 27 30), rgb(17 18 20));
   --tt-platter: radial-gradient(circle at 44% 38%, rgb(38 38 43) 0 6%, rgb(19 19 22) 52%, rgb(10 10 12) 100%);
   --tt-rod: rgb(138 106 47);
@@ -688,14 +714,14 @@
 }
 
 .sk-tt[data-tone="light"] {
-  --sk-bg: rgb(243 241 234);
-  --sk-fg: rgb(20 19 15);
-  --sk-dim: rgb(20 19 15 / .58);
-  --sk-dim2: rgb(20 19 15 / .42);
+  --sk-bg: var(--stage-paper);
+  --sk-fg: var(--stage-ink);
+  --sk-dim: rgb(20 19 15 / .64);
+  --sk-dim2: rgb(20 19 15 / .62);
   --sk-line: rgb(20 19 15 / .17);
   --sk-line-soft: rgb(20 19 15 / .08);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --tt-plinth: linear-gradient(160deg, rgb(228 223 210), rgb(214 208 194));
   --tt-platter: radial-gradient(circle at 44% 38%, rgb(44 44 49) 0 6%, rgb(22 22 26) 52%, rgb(12 12 15) 100%);
   --tt-rod: rgb(138 106 47);
@@ -714,8 +740,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
-  gap: clamp(18px, 4cqh, 48px);
-  padding: clamp(8px, 2.6cqh, 24px) 52px 0 44px;
+  gap: var(--sk-gap);
+  padding: clamp(8px, 2.6cqh, 24px) var(--sk-pad-x) 0;
   align-items: center;
 }
 
@@ -723,7 +749,7 @@
 .tt-deck {
   position: relative;
   justify-self: center;
-  width: min(400px, 62cqh);
+  width: min(420px, 66cqh);
   aspect-ratio: .97;
   animation: tt-in 520ms cubic-bezier(.2, .8, .25, 1) both;
 }
@@ -735,9 +761,12 @@
 .tt-plinth {
   position: absolute;
   inset: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--tt-plinth);
-  box-shadow: inset 0 0 0 1px var(--sk-line-soft), var(--tt-shadow);
+  box-shadow:
+    inset 0 0 0 1px rgb(242 238 230 / .10),
+    inset 0 1px 0 rgb(242 238 230 / .18),
+    var(--tt-shadow);
 }
 
 .tt-platter {
@@ -808,7 +837,7 @@
   position: absolute;
   left: 9%;
   bottom: 5%;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -820,7 +849,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .2em;
   color: var(--sk-dim2);
 }
@@ -867,7 +896,7 @@
 .tt-kick {
   display: flex;
   gap: 12px;
-  font-size: 9.5px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -879,7 +908,7 @@
 .tt-title {
   margin: 12px 0 0;
   font-family: var(--font-disp);
-  font-size: clamp(26px, 9.2cqh, 54px);
+  font-size: var(--sk-type-title);
   line-height: .95;
   letter-spacing: -.02em;
   font-weight: 400;
@@ -891,7 +920,7 @@
 
 .tt-artist {
   margin: 9px 0 0;
-  font-size: 12px;
+  font-size: var(--sk-type-body);
   color: var(--sk-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -907,12 +936,17 @@
 
 .tt-vu .row {
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) 26px;
+  grid-template-columns: 14px minmax(0, 1fr) 30px;
   gap: 10px;
   align-items: center;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .18em;
   color: var(--sk-dim2);
+}
+
+.tt-vu .row > span:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .tt-vu .bar {
@@ -935,7 +969,7 @@
   display: flex;
   justify-content: space-between;
   margin: -2px 34px 0 24px;
-  font-size: 7px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .1em;
   color: var(--sk-dim2);
   opacity: .7;
@@ -946,7 +980,7 @@
 }
 
 .tt-lyr .cur {
-  font-size: clamp(17px, 4.4cqh, 24px);
+  font-size: var(--sk-type-lyric);
   line-height: 1.5;
   color: var(--sk-fg);
   animation: sk-line 380ms cubic-bezier(.2, .9, .3, 1) both;
@@ -954,7 +988,7 @@
 
 .tt-lyr .next {
   margin-top: 6px;
-  font-size: 11.5px;
+  font-size: var(--sk-type-meta);
   color: var(--sk-dim2);
   white-space: nowrap;
   overflow: hidden;
@@ -967,14 +1001,14 @@
   border-top: 1px solid var(--sk-line-soft);
   display: flex;
   gap: 16px;
-  font-size: 8.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .16em;
   color: var(--sk-dim2);
 }
 
 .sk-tt .sk-tape {
   width: auto;
-  margin: 0 52px 0 44px;
+  margin: 0 var(--sk-pad-x);
   padding: 8px 0 16px;
   border-top: 1px solid var(--sk-line-soft);
 }
@@ -987,26 +1021,26 @@
 }
 
 .sk-pf[data-tone="dark"] {
-  --sk-bg: rgb(13 12 11);
-  --sk-fg: rgb(239 233 220);
-  --sk-dim: rgb(239 233 220 / .5);
-  --sk-dim2: rgb(239 233 220 / .3);
-  --sk-line: rgb(239 233 220 / .16);
-  --sk-line-soft: rgb(239 233 220 / .08);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-bg: var(--stage-night);
+  --sk-fg: var(--stage-light);
+  --sk-dim: rgb(242 238 230 / .64);
+  --sk-dim2: rgb(242 238 230 / .52);
+  --sk-line: rgb(242 238 230 / .16);
+  --sk-line-soft: rgb(242 238 230 / .08);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --pf-ghost: rgb(216 52 28);
 }
 
 .sk-pf[data-tone="light"] {
-  --sk-bg: rgb(243 241 234);
-  --sk-fg: rgb(20 19 15);
-  --sk-dim: rgb(20 19 15 / .56);
-  --sk-dim2: rgb(20 19 15 / .38);
+  --sk-bg: var(--stage-paper);
+  --sk-fg: var(--stage-ink);
+  --sk-dim: rgb(20 19 15 / .64);
+  --sk-dim2: rgb(20 19 15 / .62);
   --sk-line: rgb(20 19 15 / .18);
   --sk-line-soft: rgb(20 19 15 / .09);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --pf-ghost: rgb(216 52 28);
 }
 
@@ -1021,7 +1055,7 @@
   width: 14px;
   height: 14px;
   z-index: 3;
-  opacity: .55;
+  opacity: .8;
   pointer-events: none;
 }
 
@@ -1054,13 +1088,13 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 46px 0;
+  padding: 18px var(--sk-pad-x) 0;
 }
 
 .pf-mono {
   display: flex;
   gap: 18px;
-  font-size: 8.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -1074,11 +1108,12 @@
 .pf-title {
   position: relative;
   font-family: var(--font-disp);
-  font-size: clamp(40px, 15cqh, 86px);
+  font-size: var(--sk-type-display);
   line-height: .9;
   letter-spacing: -.03em;
   font-weight: 400;
-  margin: 0 0 0 -6px;
+  /* 真出血：标题从版心外 46px 起，由舞台裁断（原来只 -6px，还在内边距里） */
+  margin: 0 0 0 calc(6px - var(--sk-pad-x));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: clip;
@@ -1112,7 +1147,7 @@
 
 .pf-artist {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: var(--sk-type-body);
   letter-spacing: .04em;
   color: var(--sk-dim);
   white-space: nowrap;
@@ -1129,13 +1164,13 @@
   border-bottom: 1px solid var(--sk-line-soft);
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, .78fr);
-  gap: clamp(18px, 3.4cqh, 46px);
+  gap: var(--sk-gap);
   align-items: start;
   min-height: 0;
 }
 
 .pf-lyr {
-  font-size: 11.5px;
+  font-size: var(--sk-type-meta);
   line-height: 2;
   color: var(--sk-dim2);
   max-height: 100%;
@@ -1153,14 +1188,14 @@
 
 .pf-lyr .cur {
   color: var(--sk-accent);
-  font-size: 13px;
+  font-size: var(--sk-type-body);
   letter-spacing: .02em;
 }
 
 .pf-tbl .hd {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--sk-line);
-  font-size: 7.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .24em;
   color: var(--sk-dim2);
 }
@@ -1178,7 +1213,7 @@
   background: none;
   color: var(--sk-dim2);
   font: inherit;
-  font-size: 8.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .06em;
   text-align: left;
   cursor: pointer;
@@ -1191,7 +1226,7 @@
 
 .pf-tbl .t {
   font-family: var(--font-sans);
-  font-size: 10.5px;
+  font-size: var(--sk-type-meta);
   color: var(--sk-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1210,7 +1245,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .14em;
   color: var(--sk-dim2);
 }
@@ -1239,9 +1274,10 @@
 .pf-foot {
   margin-top: auto;
   padding: 12px 0 10px;
-  display: flex;
-  align-items: flex-end;
-  gap: 22px;
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: end;
+  gap: clamp(16px, 3cqh, 34px);
   border-top: 1px solid var(--sk-line-soft);
 }
 
@@ -1270,17 +1306,17 @@
 .pf-colo i:nth-child(4) { background: rgb(20 19 15); }
 
 .pf-colo2 {
-  display: flex;
-  gap: 26px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
   min-width: 0;
-  flex: 1;
 }
 
 .pf-colo2 div {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .14em;
   color: var(--sk-dim2);
   min-width: 0;
@@ -1294,7 +1330,7 @@
 
 .sk-pf .sk-tape {
   width: auto;
-  margin: 0 46px 0 46px;
+  margin: 0 var(--sk-pad-x);
   padding: 6px 0 14px;
 }
 
@@ -1306,14 +1342,14 @@
 }
 
 .sk-pr[data-tone="dark"] {
-  --sk-bg: rgb(6 6 7);
-  --sk-fg: rgb(242 238 230);
+  --sk-bg: var(--stage-night);
+  --sk-fg: var(--stage-light);
   --sk-dim: rgb(242 238 230 / .56);
-  --sk-dim2: rgb(242 238 230 / .34);
+  --sk-dim2: rgb(242 238 230 / .52);
   --sk-line: rgb(242 238 230 / .14);
   --sk-line-soft: rgb(242 238 230 / .07);
-  --sk-accent: rgb(216 52 28);
-  --sk-hot: rgb(216 52 28);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --pr-beam: rgb(242 238 230 / .85);
   --pr-b1: rgb(255 255 255 / .9);
   --pr-b2: rgb(255 214 150 / .9);
@@ -1324,14 +1360,14 @@
 }
 
 .sk-pr[data-tone="light"] {
-  --sk-bg: rgb(244 242 236);
-  --sk-fg: rgb(20 19 15);
+  --sk-bg: var(--stage-paper);
+  --sk-fg: var(--stage-ink);
   --sk-dim: rgb(20 19 15 / .56);
-  --sk-dim2: rgb(20 19 15 / .38);
+  --sk-dim2: rgb(20 19 15 / .62);
   --sk-line: rgb(20 19 15 / .16);
   --sk-line-soft: rgb(20 19 15 / .08);
-  --sk-accent: rgb(168 85 31);
-  --sk-hot: rgb(216 52 28);
+  --sk-accent: var(--stage-accent);
+  --sk-hot: var(--stage-accent);
   --pr-beam: rgb(20 19 15 / .7);
   --pr-b1: rgb(20 19 15 / .75);
   --pr-b2: rgb(214 146 60 / .85);
@@ -1390,27 +1426,27 @@
 /* 五道色散：越往外越暖，末端透明度渐隐 */
 .pr-fan i:nth-child(1) {
   background: linear-gradient(90deg, var(--pr-b1), transparent 96%);
-  clip-path: polygon(0 55.2%, 100% 37%, 100% 40.4%, 0 56%);
+  clip-path: polygon(0 55.9%, 100% 34%, 100% 37.2%, 0 56.1%);
 }
 
 .pr-fan i:nth-child(2) {
   background: linear-gradient(90deg, var(--pr-b2), transparent 96%);
-  clip-path: polygon(0 55.8%, 100% 42.2%, 100% 46%, 0 56.6%);
+  clip-path: polygon(0 56%, 100% 39.4%, 100% 43%, 0 56.2%);
 }
 
 .pr-fan i:nth-child(3) {
   background: linear-gradient(90deg, var(--pr-b3), transparent 96%);
-  clip-path: polygon(0 56.4%, 100% 47.8%, 100% 52%, 0 57.2%);
+  clip-path: polygon(0 56.1%, 100% 45%, 100% 49%, 0 56.3%);
 }
 
 .pr-fan i:nth-child(4) {
   background: linear-gradient(90deg, var(--pr-b4), transparent 96%);
-  clip-path: polygon(0 57%, 100% 53.8%, 100% 58.4%, 0 57.8%);
+  clip-path: polygon(0 56.2%, 100% 51%, 100% 55.4%, 0 56.4%);
 }
 
 .pr-fan i:nth-child(5) {
   background: linear-gradient(90deg, var(--pr-b5), transparent 96%);
-  clip-path: polygon(0 57.6%, 100% 60.4%, 100% 65%, 0 58.4%);
+  clip-path: polygon(0 56.3%, 100% 57.4%, 100% 61.8%, 0 56.5%);
 }
 
 .pr-body {
@@ -1420,13 +1456,13 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: clamp(12px, 3cqh, 28px) 54px 0;
+  padding: clamp(12px, 3cqh, 28px) var(--sk-pad-x) 0;
 }
 
 .pr-meta {
   display: flex;
   gap: 16px;
-  font-size: 8.5px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -1437,7 +1473,7 @@
 }
 
 .pr-lyr .cur {
-  font-size: clamp(34px, 13cqh, 76px);
+  font-size: var(--sk-type-display);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -.03em;
@@ -1451,7 +1487,7 @@
 
 .pr-lyr .zh {
   margin-top: 8px;
-  font-size: 11.5px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .2em;
   color: var(--sk-dim2);
 }
@@ -1473,7 +1509,7 @@
 
 .pr-wave i {
   flex: 1;
-  border-radius: 1px;
+  border-radius: 0;
   background: linear-gradient(180deg, var(--sk-fg), transparent);
   opacity: .8;
 }
@@ -1482,7 +1518,7 @@
   position: relative;
   z-index: 3;
   width: auto;
-  margin: 0 54px;
+  margin: 0 var(--sk-pad-x);
   padding: 0 0 12px;
 }
 
@@ -1555,7 +1591,7 @@
   width: min(792px, calc(100% - 72px));
   max-height: calc(100% - 24px);
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 16px 18px 12px;
   background: var(--sk-bg, rgb(12 12 15));
   border: 1px solid var(--sk-line, rgb(255 255 255 / .16));
@@ -1577,7 +1613,7 @@
 
 .sk-shelf-hd b {
   display: block;
-  font-size: 15px;
+  font-size: var(--sk-type-lead);
   font-weight: 500;
   letter-spacing: .02em;
   color: var(--sk-fg);
@@ -1586,7 +1622,7 @@
 .sk-shelf-hd span {
   display: block;
   margin-top: 4px;
-  font-size: 9px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .22em;
   color: var(--sk-dim2);
 }
@@ -1599,7 +1635,7 @@
   border: 1px solid var(--sk-line);
   background: transparent;
   color: var(--sk-dim);
-  font-size: 11px;
+  font-size: var(--sk-type-meta);
   cursor: pointer;
 }
 
@@ -1666,14 +1702,14 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
-  font-size: 12.5px;
+  font-size: var(--sk-type-body);
   font-weight: 500;
   color: var(--sk-fg);
 }
 
 .sk-opt-tx em {
   font-style: normal;
-  font-size: 8px;
+  font-size: var(--sk-type-micro);
   letter-spacing: .16em;
   color: var(--sk-dim2);
 }
@@ -1681,7 +1717,7 @@
 .sk-opt-tx small {
   display: block;
   margin-top: 3px;
-  font-size: 10px;
+  font-size: var(--sk-type-meta);
   line-height: 1.45;
   color: var(--sk-dim2);
 }
@@ -1729,7 +1765,7 @@
   background: transparent;
   color: var(--sk-dim);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--sk-type-meta);
   letter-spacing: .08em;
   padding: 5px 14px;
   cursor: pointer;
@@ -1742,7 +1778,7 @@
 
 .sk-shelf-hint {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--sk-type-meta);
   color: var(--sk-dim2);
 }
 
@@ -1837,7 +1873,7 @@
   top: 18%;
   width: 34%;
   height: 2px;
-  border-radius: 1px;
+  border-radius: 0;
   background: rgb(138 106 47);
   transform: rotate(38deg);
   transform-origin: 0 50%;
