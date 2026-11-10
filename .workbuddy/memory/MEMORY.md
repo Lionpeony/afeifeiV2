@@ -21,18 +21,18 @@
 - 两套 tone 次级文字 alpha：浅 .46 / 暗 .36 才是同一对比（≈3:1）。
 - 直播灯位名：冷白灯/琥珀灯/素净灯/余光灯（曾叫 ×台，随「不夜台」弃用改名）；纸面预设 = 纸面剧场/深靛唱机/极简留白/演后余光。
 
-## 不夜台主题（2026-11-10 已整体删除）
-- 用户三次明确不要：359a234 删全部可见文案（假频率 88.1/副标/频段表/ON AIR→使用中），50d9d13 补完（死 CSS、SleeveCover、命名、注释）。
-- **待用户拍板**：设置页配色档「夜航」（forest 深松绿）还在——是颜色预设非电台叙事；删法 = THEME_PRESETS 去项 + tokens.css 删 `:root[data-theme="forest"]` + 存档回落 dark。
-- 截图脚本 fixture 仍带旧味名字（夜行电台/潮汐台/夜航飙升榜），只影响证据图不进产品。
+## 不夜台 / 夜航主题（2026-11-10 已全部删除）
+- 用户三次明确不要：359a234 删可见文案，50d9d13 补死代码与命名，a9a8fac 删 forest「夜航」配色档（老存档回落 dark）+ 广播措辞中性化（首页 正在播放/播放列表；SkinTop PLAYING/PAUSED 且红灯随播放态熄火；电台页删假频率与 FM 角标）。
+- 全局配色现三档：纸色/墨色/旧档；灯位 冷白灯/琥珀灯/素净灯/余光灯；预设 纸面剧场/深靛唱机/极简留白/演后余光。
+- 截图 fixture 歌名已中性化（城市漫游/白色海岸/潮汐…），证据图无电台词。
 
 ## 证据脚本现状
-- **live-shots 39 张全绿（50d9d13 起）**：播放页段曾三处查已删 classic 选择器而假红（上午归因「duration 恒 0」是错的）。seek 判据 = .sk-tape 真指针序（pointerdown→input→pointerup）；主键先看 aria-label 防点成暂停。
+- **三条链全绿（a9a8fac 起）**：page-shots 25 / live-shots 36 / skin-shots 14。
+- live-shots 播放页段曾三处查已删 classic 选择器而假红；seek 判据 = .sk-tape 真指针序（pointerdown→input→pointerup）；主键先看 aria-label 防点成暂停。
 - **React 受控 range 坑**：直接 el.value=x + dispatch input 会被 value tracker 去重吞掉；走 pointer 事件序才可靠。
-- page-shots 25 张全绿（旧「断在下载导航」已不成立）。
 
 ## 存量坑
 - lint 禁裸 hex（写 `rgb(255 255 255)`）；`!important` 对 player.css 仍报红（HEAD 存量）。
 - 本地曲库页默认专辑墙，脚本要曲目行先点「曲目」tab。
 - 本 Shell 注入 `ELECTRON_RUN_AS_NODE=1`，跑 electron 前必须 unset；`electron …; echo $?` 若接管道取的是管道退出码（假绿陷阱）。
-- player.css 是 CRLF：node 批量 replace 会静默失败，用 Edit 工具或先 normalize。
+- **CRLF 文件黑名单（持续扩充）**：player.css、theme/presets.ts、radio/index.tsx、test/global-theme.test.mjs 等——带 \n 的多行 str.replace 静默不命中（单行中文串却能命中，造成改一半假象）；先 normalize 成 LF 或用 Edit 工具。
