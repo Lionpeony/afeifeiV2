@@ -3,10 +3,11 @@ import type { useStageData } from "../useStageData.js";
 import type { useStageLyrics } from "../useStageLyrics.js";
 
 /**
- * 皮肤目录（2026-11-10）。
+ * 皮肤目录（2026-11-10 第二代）。
  *
- * 与 presets.ts 的区别：preset 是"同一版式的四组配色"，skin 是**不同版式**。
- * （classic 旧版面已随 StageMainLayout 删除，老存档的 "classic" 由 sanitize 迁移到 editorial。）
+ * 一个皮肤 = 一个**物件**，不是一套配色：
+ * 封套（摊在桌上）/ 唱机（一台机器在放）/ 校样（一张印厂校样）/ 棱镜（一束光被分解）。
+ * 效果服从构成，动效只做这个物件真的会做的动作。
  */
 export interface SkinDef {
   id: StageSkin;
@@ -19,36 +20,43 @@ export interface SkinDef {
 
 export const SKINS: SkinDef[] = [
   {
-    id: "editorial",
-    name: "唱片内页",
-    en: "VINYL EDITORIAL",
-    desc: "一张真唱片当舞台，盘面转起来，字从盘沿长出来",
-    thumb: "th-ed",
+    id: "sleeve",
+    name: "封套",
+    en: "SLEEVE",
+    desc: "一张唱片封套摊在桌上，黑胶从右侧抽出，封面随指针微微翻",
+    thumb: "th-sl",
   },
   {
-    id: "nebula",
-    name: "声云",
-    en: "NEBULA",
-    desc: "不摆物件只摆光，歌词占满屏，底部一条会呼吸的地平线",
-    thumb: "th-nb",
+    id: "turntable",
+    name: "唱机",
+    en: "TURNTABLE",
+    desc: "一整台唱机：盘在转、唱臂落下，右侧电平表跟着频谱跳",
+    thumb: "th-tt",
   },
   {
-    id: "desk",
-    name: "转播台",
-    en: "BROADCAST DESK",
-    desc: "时间码、频谱柱、走带刻度，整页是一张仪表台",
-    thumb: "th-dk",
+    id: "proof",
+    name: "校样",
+    en: "PROOF",
+    desc: "反白印刷校样：出血标题带套印偏移，歌词、曲目、参数分三栏",
+    thumb: "th-pf",
+  },
+  {
+    id: "prism",
+    name: "棱镜",
+    en: "PRISM",
+    desc: "一束白光穿过棱镜散成五色，光束随低频呼吸，底部是发丝声浪",
+    thumb: "th-pr",
   },
 ];
 
-/** 三套版式共用的入参。 */
+/** 四套版式共用的入参。 */
 export interface SkinProps {
   state: AppState;
   data: ReturnType<typeof useStageData>;
   lyric: ReturnType<typeof useStageLyrics>;
   playing: boolean;
   tone: StageTone;
-  /** 歌词层开关（stage.layers.lyric）。关掉时三套新版式统一显示空态，不做假歌词。 */
+  /** 歌词层开关（stage.layers.lyric）。关掉时统一显示空态，不做假歌词。 */
   lyricOn: boolean;
   live: boolean;
   durationMs(): number;

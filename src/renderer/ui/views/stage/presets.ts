@@ -251,13 +251,21 @@ export const LIVE_PRESETS: Record<StagePreset, { name: string; tokens: Record<st
 const PRESET_IDS = PRESETS.map((p) => p.id);
 const RENDERERS: LyricRenderer[] = ["press", "karaoke", "minimal", "theatrical"];
 /** 换肤名单：加第四个版式时只改这里 + SKINS 目录里的条目。 */
-export const SKIN_IDS: StageSkin[] = ["editorial", "nebula", "desk"];
+export const SKIN_IDS: StageSkin[] = ["sleeve", "turntable", "proof", "prism"];
+
+/** 旧皮肤 id → 新 id。老存档只存过一个字符串，迁移一次到位（不保留旧版式）。 */
+export const SKIN_MIGRATE: Record<string, StageSkin> = {
+  classic: "sleeve",
+  editorial: "sleeve",
+  nebula: "prism",
+  desk: "proof",
+};
 
 /** 任意来源（KV 读回）→ 合法 StageConfig。classic 等已删除的皮肤值在这里自然回落到新版默认。 */
 export function sanitizeStageConfig(raw: unknown): StageConfig {
   const fallback: StageConfig = {
     preset: "paper",
-    skin: "editorial",
+    skin: "sleeve",
     tone: "dark",
     toneAuto: true,
     layers: { lyric: true },
@@ -283,8 +291,10 @@ export function sanitizeStageConfig(raw: unknown): StageConfig {
   }
   return {
     preset: PRESET_IDS.includes(r.preset as StagePreset) ? (r.preset as StagePreset) : fallback.preset,
-    // 老存档存过 "classic"（2026-11-10 删除的旧版面）：白名单外 = 自动迁移到新版默认
-    skin: SKIN_IDS.includes(r.skin as StageSkin) ? (r.skin as StageSkin) : fallback.skin,
+    // 老存档存过 classic / editorial / nebula / desk：白名单外先查迁移表，再落默认
+    skin: SKIN_IDS.includes(r.skin as StageSkin)
+      ? (r.skin as StageSkin)
+      : (SKIN_MIGRATE[String(r.skin)] ?? fallback.skin),
     tone: r.tone === "light" ? "light" : "dark",
     // 老存档没有这个字段 = 那时候明暗写死跟随不了主题（用户实测「浅色主题进播放页翻黑」
     // 的根因），缺字段按 true 迁移；只有样式库里明确点过明暗才锁成 false

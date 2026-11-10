@@ -47,8 +47,8 @@ const initialState: AppState = {
   lyrics: { offsets: {} },
   stage: {
     preset: "paper",
-    // 2026-11-10 播放页重做：默认落在「唱片内页」，明暗跟随全局主题（toneAuto）
-    skin: "editorial",
+    // 2026-11-10 播放页第二代：默认落在「封套」，明暗跟随全局主题（toneAuto）
+    skin: "sleeve",
     tone: "dark",
     toneAuto: true,
     layers: { lyric: true },

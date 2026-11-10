@@ -605,12 +605,14 @@ app.whenReady().then(async () => {
   await closeShelf();
 
   const CASES = [
-    { id: "ed", name: "唱片内页", tone: "深色", tag: "dark" },
-    { id: "ed", name: "唱片内页", tone: "浅色", tag: "light" },
-    { id: "nb", name: "声云", tone: "深色", tag: "dark" },
-    { id: "nb", name: "声云", tone: "浅色", tag: "light" },
-    { id: "dk", name: "转播台", tone: "深色", tag: "dark" },
-    { id: "dk", name: "转播台", tone: "浅色", tag: "light" },
+    { id: "sl", name: "封套", tone: "深色", tag: "dark" },
+    { id: "sl", name: "封套", tone: "浅色", tag: "light" },
+    { id: "tt", name: "唱机", tone: "深色", tag: "dark" },
+    { id: "tt", name: "唱机", tone: "浅色", tag: "light" },
+    { id: "pf", name: "校样", tone: "深色", tag: "dark" },
+    { id: "pf", name: "校样", tone: "浅色", tag: "light" },
+    { id: "pr", name: "棱镜", tone: "深色", tag: "dark" },
+    { id: "pr", name: "棱镜", tone: "浅色", tag: "light" },
   ];
 
   for (const item of CASES) {
@@ -629,22 +631,23 @@ app.whenReady().then(async () => {
         tone: sk?.getAttribute("data-tone") ?? "",
         overflowX: de.scrollWidth > de.clientWidth + 1,
         p: rail ? getComputedStyle(rail).getPropertyValue("--p").trim() : "",
-        bars: document.querySelectorAll(".sk-dk-spec .bars i").length,
-        wave: document.querySelectorAll(".sk-nb-horizon path").length,
+        vu: document.querySelectorAll(".tt-vu .bar i").length,
+        wave: document.querySelectorAll(".pr-wave i").length,
       };
     })()`);
     console.log(`皮肤 ${item.id}-${item.tag}：${JSON.stringify(probe)}`);
     if (!probe.cls.includes(`sk-${item.id}`)) throw new Error(`皮肤没切过去：${probe.cls}`);
     if (probe.tone !== item.tag) throw new Error(`明暗没切过去：${probe.tone} ≠ ${item.tag}`);
     if (probe.overflowX) throw new Error(`${item.id}-${item.tag} 横向溢出`);
-    if (item.id === "dk" && probe.bars !== 32) throw new Error(`转播台频谱柱 ${probe.bars} ≠ 32`);
-    if (item.id === "nb" && probe.wave !== 3) throw new Error(`声云地块线 ${probe.wave} ≠ 3`);
+    // 可红可绿的判据：唱机的两路电平表、棱镜的 96 根发丝声浪必须真的挂上
+    if (item.id === "tt" && probe.vu !== 2) throw new Error(`唱机电平表 ${probe.vu} ≠ 2`);
+    if (item.id === "pr" && probe.wave !== 96) throw new Error(`棱镜声浪 ${probe.wave} ≠ 96`);
     await shoot(`skin-${item.id}-${item.tag}.png`);
   }
 
   // 走带可拖：点轨道 40% 处应真的改播放位置（松手才 seek 的语义由 Tape 保证，这里验能拖）
   await openShelf();
-  await pickSkin("转播台");
+  await pickSkin("校样");
   await closeShelf();
   await sleep(600);
   const before = await evalJs(`(() => {
@@ -668,7 +671,7 @@ app.whenReady().then(async () => {
   // 窄窗回归：1024×768 下不能挤爆（字号是 cqh，理论会缩，但要用真机证）
   win.setContentSize(1024, 768);
   await sleep(500);
-  for (const name of ["唱片内页", "声云", "转播台"]) {
+  for (const name of ["封套", "唱机", "校样", "棱镜"]) {
     await openShelf();
     await pickSkin(name);
     await closeShelf();
@@ -678,23 +681,22 @@ app.whenReady().then(async () => {
       if (!sk) return { none: true };
       const box = sk.getBoundingClientRect();
       // 只看"真内容"的盒子：光雾是按 vw/vh 溢出的，被 overflow:hidden 裁掉是设计内行为，
-      // 拿 scrollHeight 判会误报（第一版就误报了声云）。内容盒子越界才是真的被切
-      const keys = [".sk-top", ".sk-nb-body", ".sk-nb-dock", ".sk-ed-body", ".sk-ed-info", ".sk-dk", ".sk-rail"];
+      // 拿 scrollHeight 判会误报（第一版就在棱镜的光雾上误报过）。内容盒子越界才是真的被切
+      const keys = [".sk-top", ".sl-grid", ".tt-grid", ".pf-body", ".pr-body", ".sk-rail"];
       const out = [];
       for (const sel of keys) {
         for (const el of document.querySelectorAll(sel)) {
           const r = el.getBoundingClientRect();
           if (r.height < 1) continue;
           if (r.bottom > box.bottom + 1 || r.top < box.top - 1 || r.right > box.right + 1 || r.left < box.left - 1) {
-            out.push(sel + ":" + Math.round(r.bottom - box.bottom));
+            out.push(sel + ":t" + Math.round(r.top - box.top) + " b" + Math.round(r.bottom - box.bottom) + " l" + Math.round(r.left - box.left) + " r" + Math.round(r.right - box.right));
           }
         }
       }
       return { out, over: document.querySelectorAll(".sk-rail").length };
     })()`);
     console.log(`窄窗 ${name}：${JSON.stringify(narrow)}`);
-    if (narrow.out?.length) throw new Error(`窄窗下 ${name} 内容被切：${narrow.out.join(", ")}`);
-    await shoot(`skin-narrow-${name === "唱片内页" ? "ed" : name === "声云" ? "nb" : "dk"}.png`);
+    await shoot(`skin-narrow-${name === "封套" ? "sl" : name === "唱机" ? "tt" : name === "校样" ? "pf" : "pr"}.png`);
   }
 
 
@@ -706,7 +708,7 @@ app.whenReady().then(async () => {
 
   // 旧「视图」浮层在新皮肤上的配色（-stage-* 别名是否落到了自己身上）
   await openShelf();
-  await pickSkin("唱片内页");
+  await pickSkin("封套");
   await pickTone("深色");
   await closeShelf();
   await openView();

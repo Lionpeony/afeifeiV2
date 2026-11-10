@@ -3,9 +3,10 @@ import type { AppState } from "../../../../contracts/index.js";
 import { sampleCoverTint } from "./tint-client.js";
 import { StageRoot } from "./StageRoot.js";
 import { StageSettings } from "./StageSettings.js";
-import { Desk } from "./skins/Desk.js";
-import { Editorial } from "./skins/Editorial.js";
-import { Nebula } from "./skins/Nebula.js";
+import { Prism } from "./skins/Prism.js";
+import { Proof } from "./skins/Proof.js";
+import { Sleeve } from "./skins/Sleeve.js";
+import { Turntable } from "./skins/Turntable.js";
 import type { SkinProps } from "./skins/registry.js";
 import { StyleShelf } from "./skins/StyleShelf.js";
 import { useStageData } from "./useStageData.js";
@@ -72,7 +73,13 @@ export function StageView(props: StageViewProps) {
     shelfOpen,
     viewOpen: menuOpen,
   };
-  const Skin = stage.skin === "editorial" ? Editorial : stage.skin === "nebula" ? Nebula : Desk;
+  const Skin = stage.skin === "sleeve"
+    ? Sleeve
+    : stage.skin === "turntable"
+      ? Turntable
+      : stage.skin === "proof"
+        ? Proof
+        : Prism;
 
   return <StageRoot state={state} wallPaperUrl={data.coverUrl} rootRef={rootRef} live={live}>
     <Skin key={stage.skin} {...skinProps} />

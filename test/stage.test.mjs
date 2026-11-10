@@ -222,12 +222,18 @@ test("stage/toggleLayer：歌词层开关生效且幂等", () => {
   assert.equal(getState().stage.layers.lyric, true);
 });
 
-test("sanitizeStageConfig：坏数据回落默认；已删除的 classic 皮肤自动迁移", () => {
+test("sanitizeStageConfig：坏数据回落默认；四套旧皮肤 id 全部迁移到新皮肤", () => {
   assert.deepEqual(sanitizeStageConfig(null).preset, "paper");
   const bad = sanitizeStageConfig({ preset: "hacker", skin: "classic", layers: { lyric: false } });
   assert.equal(bad.preset, "paper");
-  assert.equal(bad.skin, "editorial", "classic 已删除，老存档迁移到新版默认");
+  assert.equal(bad.skin, "sleeve", "classic 已删除，老存档迁移到封套");
   assert.equal(bad.layers.lyric, false, "歌词层尊重存档");
+  // 旧 id 迁移表（2026-11-10 第二代皮肤）
+  assert.equal(sanitizeStageConfig({ skin: "editorial" }).skin, "sleeve");
+  assert.equal(sanitizeStageConfig({ skin: "nebula" }).skin, "prism");
+  assert.equal(sanitizeStageConfig({ skin: "desk" }).skin, "proof");
+  assert.equal(sanitizeStageConfig({ skin: "turntable" }).skin, "turntable", "白名单内的新 id 原样保留");
+  assert.equal(sanitizeStageConfig({ skin: "nope" }).skin, "sleeve", "未知 id 落默认");
 });
 
 test("译文开关（A-03）：老存档缺字段按开，显式 false 才关", () => {

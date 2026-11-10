@@ -149,8 +149,12 @@ export type StagePreset = "paper" | "vinyl" | "minimal" | "cinema";
 /** 四个歌词渲染器（50 §7.4）。加第五个必须先删一个。 */
 export type LyricRenderer = "press" | "karaoke" | "minimal" | "theatrical";
 
-/** 播放页皮肤（2026-11-10）。三套是**不同版式**，不只是换 token：editorial 唱片内页 / nebula 声云 / desk 转播台。 */
-export type StageSkin = "editorial" | "nebula" | "desk";
+/**
+ * 播放页皮肤（2026-11-10 第二代）。四套各占一个**物件**，不只是换 token：
+ * sleeve 封套 / turntable 唱机 / proof 校样 / prism 棱镜。
+ * 旧 id（classic / editorial / nebula / desk）由 sanitize 迁移，老存档不会卡死。
+ */
+export type StageSkin = "sleeve" | "turntable" | "proof" | "prism";
 
 /** 皮肤自身的明暗（A-10：播放页与全局主题独立，切夜间不翻这一层）。 */
 export type StageTone = "dark" | "light";
