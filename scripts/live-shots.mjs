@@ -814,8 +814,13 @@ app.whenReady().then(async () => {
     }
     if (midShot.fontSize !== "44px") throw new Error(`cs-title-long 字号实测 ${midShot.fontSize}（应 44px）`);
     win.setContentSize(1024, 700);
-    await sleep(500);
-    const narrowShot = await heroStyle();
+    /* matchMedia change → React 渲染有竞态（实测同机时过时红）：轮询等降档落地，3s 不到才算红 */
+    let narrowShot = null;
+    for (let i = 0; i < 15; i++) {
+      await sleep(200);
+      narrowShot = await heroStyle();
+      if (narrowShot.cls.includes("cs-title-narrow") && narrowShot.fontSize === "38px") break;
+    }
     console.log(`长标题②b（窄窗 1024x700）：${JSON.stringify(narrowShot)}`);
     if (narrowShot.fontSize !== "38px") {
       throw new Error(`窄窗长标题没降档：实测 ${narrowShot.fontSize}（应 38px，cs-title-narrow 没生效？）`);
@@ -836,7 +841,7 @@ app.whenReady().then(async () => {
     if (!sigFoot.includes("循环列表") || !sigFoot.includes("共")) {
       throw new Error(`信号脚注不是真实统计：「${sigFoot.trim()}」`);
     }
-    if (/STEREO|L\\s*\\/\\s*R/.test(sigFoot)) throw new Error(`假仪器标签回来了：「${sigFoot.trim()}」`);
+    if (/STEREO|L\s*\/\s*R/.test(sigFoot)) throw new Error(`假仪器标签回来了：「${sigFoot.trim()}」`);
 
     await shoot("live-home-long-title.png");
 

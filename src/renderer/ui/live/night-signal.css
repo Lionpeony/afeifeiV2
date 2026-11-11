@@ -183,8 +183,10 @@
   fill: currentColor;
 }
 
-/* 主播放键：圆形实心琥珀 + 球面光（顶缘高光 + 下缘内暗），像一颗真按钮而不是一块色板。
-   40px 而非 44px：外圈进度环要留 2px 间隙，44px 会把环整个吞进按钮影子里（放大实锤）。 */
+/* 主播放键：圆形实心 + 球面光（顶缘高光 + 下缘内暗），像一颗真按钮而不是一块色板。
+   40px 而非 44px：外圈进度环要留 2px 间隙，44px 会把环整个吞进按钮影子里（放大实锤）。
+   底色走 --accent-press（2026-11-11 AA 回炉）：浅色 --accent #0e8f82 对浅底 3.5:1 不达 AA，
+   P0 填充钮 + accent-ink 字须 4.5:1；深/纸主题 token 自动回各自 --accent，高光协议不动。 */
 .shell.live .console .tb.main {
   width: 40px;
   height: 40px;
@@ -192,12 +194,12 @@
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 22%, rgb(255 255 255 / .34), rgb(255 255 255 / 0) 62%),
-    var(--live-accent);
-  color: var(--live-accent-ink);
+    var(--accent-press);
+  color: var(--accent-ink);
   box-shadow:
     inset 0 -3px 6px rgb(0 0 0 / .28),
     inset 0 1px 0 rgb(255 255 255 / .22),
-    0 8px 20px -8px color-mix(in srgb, var(--live-accent) 55%, transparent);
+    0 8px 20px -8px color-mix(in srgb, var(--accent-press) 55%, transparent);
   transition: transform 140ms ease, filter 140ms ease;
 }
 
@@ -205,8 +207,8 @@
   border-color: transparent;
   background:
     radial-gradient(circle at 50% 22%, rgb(255 255 255 / .42), rgb(255 255 255 / 0) 62%),
-    var(--live-accent);
-  color: var(--live-accent-ink);
+    var(--accent-press);
+  color: var(--accent-ink);
   transform: scale(1.05);
   filter: brightness(1.06);
 }
