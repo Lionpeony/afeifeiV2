@@ -19,3 +19,12 @@ export function splitLatinRuns(text: string): TitleRun[] {
   }
   return runs;
 }
+
+/** 视觉单位估宽：CJK/全角记 1，拉丁/数字/半角标点记 0.5（与 splitLatinRuns 同一切分）。
+    长标题降档的唯一判据（2026-11-11 拍板）：hero 大标题 >14 单位降到 44px，
+    >24 单位单行省略 + title 全文；卡面曲名/艺人一律单行省略。 */
+export function visualUnits(text: string): number {
+  let units = 0;
+  for (const ch of text) units += LATIN.test(ch) ? 0.5 : 1;
+  return units;
+}

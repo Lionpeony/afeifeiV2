@@ -5,7 +5,7 @@ import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
 import { detectCoverTrim, sampleCoverTint, type CoverTrim } from "../views/stage/tint-client.js";
-import { splitLatinRuns } from "./typography.js";
+import { splitLatinRuns, visualUnits } from "./typography.js";
 import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
 
@@ -117,6 +117,17 @@ export function LiveHome({
   const live = onAirMode || liveIndex >= 0;
   const leadIndex = onAirMode ? onAirIdx : liveIndex >= 0 ? liveIndex : 0;
   const lead: RemoteTrack | undefined = onAirMode ? onAir.list[onAirIdx] : state.songs[leadIndex];
+  /* 长标题降档（2026-11-11 拍板）：>14 视觉单位降到 44px（cs-title-long），
+     >24 单位单行省略 + title 全文（cs-title-clip）。判据 = visualUnits（CJK=1/拉丁=0.5）。 */
+  const leadUnits = lead ? visualUnits(lead.title) : 0;
+  const titleCls = [
+    "cs-title",
+    "daily-title",
+    leadUnits > 14 ? "cs-title-long" : "",
+    leadUnits > 24 ? "cs-title-clip" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
   // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
@@ -222,7 +233,13 @@ export function LiveHome({
                   {pad2(leadIndex + 1)} / {total}
                 </span>
               </p>
-              <button type="button" className="cs-title daily-title" id="leadTitle" onClick={() => play(lead)}>
+              <button
+                type="button"
+                className={titleCls}
+                id="leadTitle"
+                onClick={() => play(lead)}
+                title={leadUnits > 24 ? lead.title : undefined}
+              >
                 <MixedTitle text={lead.title} />
               </button>
               <p className="cs-artist">
@@ -313,8 +330,13 @@ export function LiveHome({
                         <span className="cs-all-art cs-all-art-blank" aria-hidden="true" />
                       )}
                       <span className="cs-all-tx">
-                        <span className="cs-all-title">{track.title}</span>
-                        <span className="cs-all-artist">{track.artist}</span>
+                        {/* 单行省略 + title 全文：卡面不折行，hover 读全（2026-11-11 统一长文案策略） */}
+                        <span className="cs-all-title" title={track.title}>
+                          {track.title}
+                        </span>
+                        <span className="cs-all-artist" title={track.artist}>
+                          {track.artist}
+                        </span>
                       </span>
                       <span className="cs-all-dur">{fmtDuration(track.durationMs)}</span>
                     </button>
@@ -330,7 +352,7 @@ export function LiveHome({
                     className="cs-tape"
                     onClick={() => play(track)}
                     aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
-                    /* 卡面只给两行：完整歌名在这条 title 里，hover 就能读到，不用折三行 */
+                    /* 卡面一律单行省略：完整歌名在这条 title 里，hover 就能读到（2026-11-11 长文案策略） */
                     title={`${track.title} — ${track.artist}`}
                   >
                     {/* 专辑封面：方形整幅在卡顶（现代专辑卡），img 直接做 flex item。
@@ -375,11 +397,13 @@ export function LiveHome({
                 ))}
               </div>
               <div className="cs-sig-foot">
+                {/* 原位是装饰件（STEREO / L·R 假仪器标签）：换成真实信息——
+                    左：真实走带状态（与眉标同词），右：列表统计（环列循环 + 总数） */}
                 <span className="cs-standby">
-                  <i />
-                  STEREO
+                  <i aria-hidden="true" />
+                  {live ? (playing ? "正在播放" : "暂停中") : "待机"}
                 </span>
-                <span>L / R</span>
+                <span>循环列表 · 共 {total} 首</span>
               </div>
             </div>
           </section>

@@ -95,38 +95,8 @@ export function NightCoverArt({ className }: { className?: string }) {
       <circle cx="424" cy="226" r="7" fill="var(--live-bg)" />
       <circle cx="424" cy="226" r="7" fill="none" stroke="var(--live-fg)" strokeOpacity="0.3" />
 
-      <text
-        x="552"
-        y="36"
-        textAnchor="end"
-        fill="var(--live-signal)"
-        fillOpacity="0.62"
-        fontFamily="Cascadia Mono, Consolas, monospace"
-        fontSize="8"
-        letterSpacing="1.6"
-      >
-        NS-1106 · SIDE A
-      </text>
-      <line x1="382" y1="46" x2="552" y2="46" stroke="var(--live-fg)" strokeOpacity="0.18" />
-      <text
-        x="552"
-        y="62"
-        textAnchor="end"
-        fill="var(--live-fg)"
-        fillOpacity="0.34"
-        fontFamily="Cascadia Mono, Consolas, monospace"
-        fontSize="7"
-        letterSpacing="1.4"
-      >
-        AFEIFEI BROADCAST · STEREO
-      </text>
-
-      <g stroke="var(--live-accent)" strokeOpacity="0.5">
-        <line x1="34" y1="340" x2="250" y2="340" strokeOpacity="0.38" />
-        {[34, 61, 88, 115, 142, 169, 196, 223, 250].map((x) => (
-          <line key={x} x1={x} y1="336" x2={x} y2="344" />
-        ))}
-      </g>
+      {/* 假目录号（NS-1106 · SIDE A / BROADCAST · STEREO）与无信息刻度已退役：
+          装饰件不编造播放器不存在的字段（2026-11-11 装饰清扫）。 */}
 
       <rect width="591" height="596" fill="url(#ns-scan)" opacity="0.5" />
       <rect x="0.5" y="0.5" width="590" height="595" fill="none" stroke="var(--live-fg)" strokeOpacity="0.12" />

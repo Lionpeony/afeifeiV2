@@ -81,9 +81,11 @@
   color: var(--live-fg-dim);
 }
 
-/* 眉标的琥珀圆点：现在播放的「呼吸灯」 */
+/* 眉标的琥珀圆点：现在播放的「呼吸灯」（图形类，维持 --accent） */
 .cs-kicker::before {
   content: "";
+  /* flex item 里的图形件一律 flex:none——svg/伪元素被 shrink 到 0 宽的教训（2026-11-10） */
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -132,7 +134,22 @@
 }
 
 .shell.live .cs-title:hover {
-  color: var(--live-accent);
+  /* 文字类 accent 浅色走 --accent-press（--accent 对浅底 3.5:1 不达 AA，2026-11-11 拍板） */
+  color: var(--accent-press);
+}
+
+/* 长标题降档：判据（visualUnits）在 LiveHome 里算，这里只管呈现。
+   >14 单位降到 44px——clamp 大字对长歌名放不下；>24 单位单行省略，全文走 title。 */
+.shell.live .cs-title.cs-title-long,
+.shell.live .cs-title.cs-title-clip {
+  font-size: 44px;
+}
+
+.shell.live .cs-title.cs-title-clip {
+  /* 从 -webkit-box 两行钳切换成单行：display 一换，line-clamp 自然失效 */
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .cs-artist {
@@ -148,13 +165,16 @@
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--live-accent);
+  /* 文字类 accent：浅色走 --accent-press（AA），深/纸主题 token 自动回 --accent */
+  color: var(--accent-press);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .cs-dur {
+  /* flex 行内的文字件：不被长艺人名挤变形（图标 0 宽同源教训） */
+  flex: none;
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--live-fg-faint);
@@ -204,7 +224,8 @@
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--live-accent);
+  /* 状态行强调字：文字类 accent 浅色走 --accent-press（AA） */
+  color: var(--accent-press);
 }
 
 .cs-feed-meta {
@@ -239,7 +260,7 @@
 
 .cs-feed-head .refresh-btn:hover {
   border-color: var(--live-accent);
-  color: var(--live-accent);
+  color: var(--accent-press);
 }
 
 .refresh-btn.is-spinning svg {
@@ -293,11 +314,11 @@
 
 .cs-more:hover {
   border-color: var(--live-accent);
-  color: var(--live-accent);
+  color: var(--accent-press);
 }
 
 .cs-more[aria-expanded="true"] {
-  color: var(--live-accent);
+  color: var(--accent-press);
   border-color: color-mix(in srgb, var(--live-accent) 55%, transparent);
 }
 
@@ -365,28 +386,17 @@
 
 
 
-/* 标题：两行硬上限 + 固定两行高度。
-   设计取舍（长歌名的处理原则）：
-   - 卡宽由栅格定，标题只占「两行」这个额度，超出就截断——列表卡的节奏不能被文案长度改写；
-   - 高度写死 2.7em（= 2 × line-height 1.35），一行标题也占两行位，
-     否则一行/两行标题的卡会差出一个行高（这正是"卡片被撑大"的来源之一）；
-   - 完整歌名靠 title 属性在 hover 时给出（见 LiveHome.tsx），不在卡面上折行三次。
-   选择器不再挂在 .shell.live 下：卡只在 live 壳层出现，挂上去只会跟 .daily-title
-   （nowrap + 单行省略）拼优先级，谁赢看文件顺序——这种偶然性不该留在布局里。 */
+/* 标题：单行省略 + 固定一行高度（2026-11-11 拍板统一长文案策略）。
+   旧版两行钳折对长歌名（如《西厢寻他(饮下我一千…》式截断）观感差——
+   卡面一律单行省略，完整歌名走按钮的 title 属性（见 LiveHome.tsx）。
+   单行天然等高，一行/两行标题的卡高差随折行一起消失。 */
 .cs-tape-title {
   min-width: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  height: 2.7em;
   margin-top: 3px;
   padding: 0 12px;
-  white-space: normal;
-  /* anywhere 而非 break-all：break-all 会把英文单词从中间劈开（"Blac/k heart"），
-     anywhere 只在需要时断长串，且不会像以前那样把 line-clamp 的数量数错 */
-  word-break: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 600;
@@ -477,6 +487,8 @@ img.cs-tape-art {
 }
 
 .cs-tape-play {
+  /* flex 行内的图形件：flex:none 防被 shrink 成 0 宽（2026-11-10 教训） */
+  flex: none;
   width: 0;
   height: 0;
   border-left: 8px solid var(--live-fg-dim);
@@ -546,14 +558,18 @@ img.cs-tape-art {
   opacity: 0.85;
 }
 
+/* 信号表脚注：左 = 真实走带状态（呼吸点 + 状态词），右 = 列表统计。
+   原 STEREO / L·R 假仪器标签已退役（2026-11-11 装饰清扫）。
+   点是图形件保持 --live-signal，文字换 --live-fg-faint（11px 小字须 4.5:1）。 */
 .cs-standby {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--live-signal);
+  color: var(--live-fg-faint);
 }
 
 .cs-standby i {
+  flex: none;
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -568,6 +584,24 @@ img.cs-tape-art {
   align-items: center;
   padding: 24px 30px;
   min-height: 0;
+}
+
+/* 空台/未登录的主操作：P0 填充钮（全态唯一）。底色浅色走 --accent-press——
+   --accent 对浅底 3.5:1 不达 AA，token 在深/纸主题自动回 --accent（2026-11-11 拍板） */
+.cs-play {
+  padding: 9px 22px;
+  border: none;
+  border-radius: 16px;
+  background: var(--accent-press);
+  color: var(--accent-ink);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cs-play:hover {
+  filter: brightness(0.94);
 }
 
 .cs-empty {
