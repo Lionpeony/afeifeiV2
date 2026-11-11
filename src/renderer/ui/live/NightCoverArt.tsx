@@ -1,10 +1,9 @@
 /**
- * 生成封套（SPEC-VISUAL §4.3.1，封面缺失/比例越界时的兜底）：
- * 网格底纹 + 黑胶盘 + 青瓷标 + 扫描线 + 外框，色全走 --live-* token。
- * 2026-11-11 按发行页规格收编：电台字样（NS-1106 · SIDE A / AFEIFEI BROADCAST · STEREO）
- * 退役，右上改挂本期目录号（mono 8 / --live-signal 62%）——无目录号就不印。
+ * 无真实封面时的「台版封套」：面板底 + 半出的黑胶 + 琥珀标签。
+ * 纯装饰（aria-hidden），真实曲名/艺人在覆盖层文字里。
+ * 颜色全走 --live-* token，三档主题自适应。
  */
-export function NightCoverArt({ className, cat }: { className?: string; cat?: string }) {
+export function NightCoverArt({ className }: { className?: string }) {
   const bgTop = "var(--live-panel)";
   const bgMid = "var(--live-bg)";
   return (
@@ -106,7 +105,20 @@ export function NightCoverArt({ className, cat }: { className?: string; cat?: st
         fontSize="8"
         letterSpacing="1.6"
       >
-        {cat ?? ""}
+        NS-1106 · SIDE A
+      </text>
+      <line x1="382" y1="46" x2="552" y2="46" stroke="var(--live-fg)" strokeOpacity="0.18" />
+      <text
+        x="552"
+        y="62"
+        textAnchor="end"
+        fill="var(--live-fg)"
+        fillOpacity="0.34"
+        fontFamily="Cascadia Mono, Consolas, monospace"
+        fontSize="7"
+        letterSpacing="1.4"
+      >
+        AFEIFEI BROADCAST · STEREO
       </text>
 
       <g stroke="var(--live-accent)" strokeOpacity="0.5">

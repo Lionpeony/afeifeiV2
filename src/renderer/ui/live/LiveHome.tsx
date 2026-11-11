@@ -1,44 +1,54 @@
 import { useEffect, useRef, useState } from "react";
 import type { RemoteTrack } from "../../../contracts/capability.js";
-import { dispatch, getState, remoteTrackId, subscribe } from "../../kernel/index.js";
+import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
+import { RefreshButton } from "../RefreshButton.js";
+import { NightCoverArt } from "./NightCoverArt.js";
+import { detectCoverTrim, sampleCoverTint, type CoverTrim } from "../views/stage/tint-client.js";
+import { splitLatinRuns } from "./typography.js";
 import { onTick } from "../compositor.js";
-import { runCommand } from "../input/commands.js";
-import { toast } from "../toast.js";
-import { isAccountLiked, subscribe as subscribeAccountLikes } from "../../domain/account-likes/index.js";
-import { isLiked, subscribe as subscribeLikes } from "../../domain/likes/index.js";
-import { sampleCoverTint } from "../views/stage/tint-client.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
-import { catCode, catNumber, pad2, sideLabel, today } from "./home-release/release-data.js";
-import { ReleaseHero } from "./home-release/ReleaseHero.js";
-import { ReleaseTracklist } from "./home-release/ReleaseTracklist.js";
-import { TransportDeck } from "./home-release/TransportDeck.js";
-import type { SleeveChip } from "./home-release/ReleaseSleeve.js";
-import { HomeEmpty, HomeSkeleton } from "./home-release/HomeStates.js";
 
 export { onAirProgram };
 export type { OnAirProgram };
 
 /**
- * 首页 = 厂牌「AFEIFEI RECORDS」今天的发行页（docs/29 体系）。
- * 三块组装：release-hero（封套 + 目录号 + 钢印三态 + 唱针灯牌 + 标题排版 + 操作组）/
- * release-tracklist（印刷曲目单，环列在播行恒 A1）/ transport-deck（双层操作台）。
- * 三态投影沿用 onAirProgram/liveIndex 单一事实源，只把「用户为什么看到这个」印在钢印上。
- * 播放状态一律读 state 投影 + dispatch，不新增本地播放状态。
+ * 首页 = 「正在播放」+「接下来播放」的现代桌面播放器布局：
+ * 左侧是悬浮大封面 + 主打信息（暗色舞台），右侧是圆角封面卡网格与真频谱。
+ * hero 跟随全局播放（onAirProgram 投影）：在播的歌来自每日推荐就按每日推荐展示，
+ * 来自榜单/歌单/搜索/FM 就整页切跟播视图、列表 = 当前队列；空闲回落今日第 1 首。
+ * 所有叙事字段来自真实数据；不编造播放时间。
  */
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
 
 /** 仅本次运行第一次进入首页时放一次入场；切页回来不重播。 */
 let homeVisited = false;
 
-const TIMEOUT_TEXT = "网络较慢，今天的推荐还没取到";
+/** 信号条柱数：与控制台/舞台同源（engine.spectrum 聚合桶），写死就是假仪器。 */
+const VU_BARS = 40;
+
+function MixedTitle({ text }: { text: string }) {
+  return (
+    <>
+      {splitLatinRuns(text).map((run, i) => (
+        <span key={i} className={run.latin ? "cs-latin" : "cs-cjk"}>
+          {run.text}
+        </span>
+      ))}
+    </>
+  );
+}
 
 export function LiveHome({
   account,
+  accountName,
   onPlayRemote,
   onAccount,
   nowPlaying,
   playing,
   onAir,
+  spectrum,
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
@@ -50,61 +60,90 @@ export function LiveHome({
   playing: boolean;
   /** 全局正在播的远程节目（onAirProgram 投影）。null = 没在播远程歌 */
   onAir: OnAirProgram | null;
-  /** 真实频谱采样。首页不再消费频谱（STEREO 装饰件随体系退役），签名保留保接线稳定。 */
+  /** 真实频谱采样（engine.spectrum）。null = 音频图未建，信号条贴底待机。 */
   spectrum(bins: number): number[] | null;
 }) {
   const state = useAccountBundle(account, "daily");
+  const [showAll, setShowAll] = useState(false);
+  const [failedCovers, setFailedCovers] = useState<ReadonlySet<string>>(new Set());
   const [tint, setTint] = useState<string | null>(null);
-  const [, setStoreRev] = useState(0);
-  const [, setLikeRev] = useState(0);
-  /** 加载相位：loading → hold（300ms 防闪）→ idle；8s 超时切错误态（不依赖 state.error） */
-  const [phase, setPhase] = useState<"idle" | "loading" | "hold" | "timeout">("idle");
-  const posRef = useRef(0);
+  const [trims, setTrims] = useState<Record<string, CoverTrim>>({});
+  const vuRefs = useRef<Array<HTMLSpanElement | null>>([]);
 
-  // store/红心的变化都要驱动重渲染（deck 模式钮、♡ 显示态都读域快照）
-  useEffect(() => subscribe(() => setStoreRev((r) => r + 1)), []);
-  useEffect(() => subscribeAccountLikes(() => setLikeRev((r) => r + 1)), []);
-  useEffect(() => subscribeLikes(() => setLikeRev((r) => r + 1)), []);
-  // 3 秒规则的上一首要实时位置；同一份合成器 t 存进参照，不触发渲染
-  useEffect(() => onTick((t) => (posRef.current = t)), []);
+  /** 白边图的反制：按检测到的最大白边比例放大（中心对称，白边被挤出圆角容器外）。
+      正常封面 trim=null 不动；上限 1.17（15% 白边全量反制）。 */
+  const trimScale = (url: string | undefined): string | undefined => {
+    if (!url) return undefined;
+    const t = trims[url];
+    if (!t) return undefined;
+    const peak = Math.max(t.top, t.right, t.bottom, t.left);
+    return peak > 0 ? `scale(${(1 + Math.min(0.15, peak) * 1.15).toFixed(3)})` : undefined;
+  };
+  /** 图片加载成功后检测一次白边（onload 时机天然就绪，canvas 采样 ~2ms）。 */
+  const detectTrim = (url: string | undefined): void => {
+    if (!url || trims[url] !== undefined) return;
+    detectCoverTrim(url, (t) => {
+      if (t) setTrims((s) => ({ ...s, [url]: t }));
+      else setTrims((s) => ({ ...s, [url]: { top: 0, right: 0, bottom: 0, left: 0 } }));
+    });
+  };
 
-  // 骨架节奏：进入 loading 8s 超时；离开 loading 后骨架再驻 300ms（数据先到也不闪）
-  useEffect(() => {
-    if (state.loading) {
-      setPhase("loading");
-      const to = window.setTimeout(() => setPhase("timeout"), 8000);
-      return () => window.clearTimeout(to);
+  /*
+   * 信号条：每帧从引擎取真频谱写 scaleY（composite-only，不走 React 渲染）。
+   * 没在播时 analyser 数据衰减为 0，条子自然贴底——空态就是仪器的待机态，不造假波形。
+   */
+  useEffect(() => onTick(() => {
+    const values = spectrum(VU_BARS);
+    for (let i = 0; i < vuRefs.current.length; i++) {
+      const el = vuRefs.current[i];
+      if (el) el.style.transform = `scaleY(${(values?.[i] ?? 0.02).toFixed(3)})`;
     }
-    setPhase((p) => (p === "loading" || p === "timeout" ? "hold" : p));
-    const t = window.setTimeout(() => setPhase((p) => (p === "hold" ? "idle" : p)), 300);
-    return () => window.clearTimeout(t);
-  }, [state.loading, state.sourceId]);
+  }), [spectrum]);
 
-  /* hero 取色管线原样保留：封面主色 → --cs-tint，页面级氛围底随歌呼吸，离开回落 transparent
-     （依赖/投影变量在下方声明，effect 闭包只在提交后执行） */
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--cs-tint", tint ?? "transparent");
-    return () => root.style.setProperty("--cs-tint", "transparent");
-  }, [tint]);
-
-  /* —— 投影（单一事实源，逻辑照旧）—— */
+  /*
+   * hero 显示哪一档——两个模式，同一投影：
+   *  - 每日推荐（默认）：正在播的歌属于今日推荐，或没在播（回落第 1 档）；
+   *  - 跟播：正在播的远程歌来自别处（榜单/歌单/搜索/FM），整页切过去，
+   *    列表 = 当前队列——在任何页选的歌，回首页都能看到它和整份列表。
+   * 单一事实源不变：播放状态由 store 唯一持有，这里只做投影，不另存 selected。
+   */
   const liveIndex =
     nowPlaying && nowPlaying.sourceId === state.sourceId
       ? state.songs.findIndex((t) => t.sourceId === nowPlaying.songId)
       : -1;
   const onAirIdx = onAir ? onAir.list.findIndex((t) => t.sourceId === onAir.meta.songId) : -1;
   const onAirMode = onAir != null && liveIndex < 0 && onAirIdx >= 0;
+
   const live = onAirMode || liveIndex >= 0;
   const leadIndex = onAirMode ? onAirIdx : liveIndex >= 0 ? liveIndex : 0;
   const lead: RemoteTrack | undefined = onAirMode ? onAir.list[onAirIdx] : state.songs[leadIndex];
+  // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
-  const guest = onAirMode;
+  // 待播带 = 真正的「接下来」：从正在播那一首的下一首起，切歌自动推进。
+  // 尾曲之后**环回**列表开头（列表循环语义，2026-11-08 用户定：播完不该是"没了"）——
+  // upcoming 是环列的全部其余曲目（不含 lead），编号按环列位置算（尾曲之后是 01）。
+  // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
+  const upcoming: RemoteTrack[] = [];
+  for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
+  const tapes = upcoming.slice(0, 5);
+  /** 环列第 k 项的列表编号（1 起）：lead 29/30 之后是 01。 */
+  const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
+  // 点待播带里的任意一格：队列 = 整份列表，从这一首开始（连播靠它）。
+  // origin 跟列表走：每日推荐重建时标「每日推荐」；跟播原样保住队列自己的来源。
+  const play = (track: RemoteTrack): void => {
+    if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list, onAir.origin ?? undefined);
+    else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
+  };
+
   const firstVisit = !homeVisited;
   homeVisited = true;
 
-  /* hero 取色：封面主色 → --cs-tint（M9-2 管线，失败静默回落 transparent） */
+  /* hero 取色（复用播放页 M9-2 管线）：封面主色 → --cs-tint。
+     唯一写入点在文档根（tokens.css @property 注册 + html 过渡）：
+     页面氛围底（cs-home）、舞台色晕（cs-stage）、底部控制台的色晕
+     三处消费同一份封面色，随歌呼吸——离开首页时回落 transparent。
+     失败静默回落 transparent（纯壳底），取色不影响任何东西。 */
   useEffect(() => {
     const url = lead?.coverUrl;
     if (!url) return;
@@ -117,154 +156,235 @@ export function LiveHome({
     };
   }, [lead?.coverUrl]);
 
-  // 点行/立即播放：队列 = 整份列表，从这一首开始（origin 跟列表走）
-  const play = (track: RemoteTrack): void => {
-    if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list, onAir.origin ?? undefined);
-    else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
-  };
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--cs-tint", tint ?? "transparent");
+    return () => {
+      root.style.setProperty("--cs-tint", "transparent");
+    };
+  }, [tint]);
 
-  // 加入队列（S 级）：元数据随队列入表（queue/add 的 remote 通道），不打断播放
-  const addToQueue = (): void => {
-    if (!lead) return;
-    const sourceId = onAirMode ? onAir.meta.sourceId : state.sourceId;
-    const id = remoteTrackId(sourceId, lead.sourceId);
-    dispatch({
-      type: "queue/add",
-      items: [id],
-      remote: {
-        [id]: {
-          sourceId,
-          songId: lead.sourceId,
-          title: lead.title,
-          artist: lead.artist,
-          coverUrl: lead.coverUrl,
-          durationMs: lead.durationMs,
-        },
-      },
-    });
-    toast(`已加入队列：${lead.title}`);
-  };
-
-  // ♡：显示态读账号红心域；按下——账号红心端口在 App 手里（期一接线零改动），
-  // 先提示去控制台（D3 自行决策，期二操作台收编时接 toggleCurrentLike）
-  const likedNow = lead ? isAccountLiked(lead.sourceId) || isLiked(lead.sourceId) : false;
-  const pressLike = (): void => {
-    if (!lead) return;
-    toast("账号红心请切到其他页面，用底部控制台操作（期二收编到发行页）");
-  };
-
-  const skeleton = phase === "loading" || phase === "hold";
-  const errorText = state.error ?? (phase === "timeout" && state.loading ? TIMEOUT_TEXT : null);
-  const stateName = !live ? "待机" : guest ? "客座发行" : "今日发行";
-  const seal = !live ? ["待机"] : guest ? ["客座", "发行"] : ["今日", "发行"];
-  const chip: SleeveChip = !live ? "standby" : playing ? "playing" : "paused";
-  const chipText = !live ? "STANDBY" : `${playing ? "PLAYING" : "PAUSED"} · ${sideLabel(0)}`;
-  const kicker = !live
-    ? "STANDBY · 06:00 换新"
-    : guest
-      ? `GUEST RELEASE · 来自 ${onAir.origin || onAir.sourceName}`
-      : `TODAY'S RELEASE · 每日 06:00 换新 · 共 ${total} 首`;
-  const catPos = lead ? program.findIndex((t) => t.sourceId === lead.sourceId) + 1 : 1;
-  const cat = catNumber(catCode(guest, guest ? (onAir?.origin ?? null) : null), catPos, new Date());
-  const { queue, player } = getState();
-  const deckSrc =
-    live && lead
-      ? `${guest ? onAir.origin || onAir.sourceName || "当前队列" : "每日推荐"} · ${pad2(leadIndex + 1)}/${pad2(total)}`
-      : "";
-
-  const rootCls = `live-home home-release${firstVisit ? " home-enter" : ""}`;
-  const deck = (
-    <TransportDeck
-      title={live && lead ? lead.title : ""}
-      srcLine={deckSrc}
-      playing={playing}
-      durationMs={live && lead ? lead.durationMs : 0}
-      mode={queue.mode}
-      volume={player.volume}
-      muted={player.muted}
-      onOpenStage={() => runCommand("tab-stage")}
-      onPrev={() => dispatch({ type: "queue/prev", atPositionMs: posRef.current })}
-      onLyric={() => runCommand("open-lyric")}
-      onMini={() => runCommand("open-mini")}
-    />
-  );
-
-  if (skeleton) {
-    return (
-      <section className={rootCls}>
-        <HomeSkeleton />
-        {deck}
-      </section>
-    );
-  }
-  if (errorText) {
-    return (
-      <section className={rootCls}>
-        <ReleaseHero
-          track={null}
-          cat={cat}
-          seal={["待机"]}
-          chip="standby"
-          chipText="STANDBY"
-          stateName="待机"
-          date={today(new Date())}
-          total={0}
-          kicker="STANDBY · 06:00 换新"
-          liked={false}
-          onPlay={() => undefined}
-          onQueue={() => undefined}
-          onLike={() => undefined}
-          error={errorText}
-          onRetry={state.reload}
-        />
-        {deck}
-      </section>
-    );
-  }
-  if (!lead) {
-    return (
-      <section className={rootCls}>
-        <HomeEmpty
-          kind={state.hint ? "hint" : "empty"}
-          hint={state.hint ?? ""}
-          reloading={state.loading}
-          onAccount={onAccount}
-          onReload={state.reload}
-        />
-        {deck}
-      </section>
-    );
-  }
   return (
-    <section className={rootCls}>
-      <ReleaseHero
-        track={lead}
-        cat={cat}
-        seal={seal}
-        chip={chip}
-        chipText={chipText}
-        stateName={stateName}
-        date={today(new Date())}
-        total={total}
-        kicker={kicker}
-        liked={likedNow}
-        onPlay={() => play(lead)}
-        onQueue={addToQueue}
-        onLike={pressLike}
-        error={errorText}
-        onRetry={state.reload}
-      />
-      <ReleaseTracklist
-        program={program}
-        leadIndex={leadIndex}
-        live={live}
-        playing={playing}
-        onPlay={(track) => play(track)}
-        showReload={!guest}
-        reloading={state.loading}
-        onReload={state.reload}
-      />
-      {deck}
+    <section
+      className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
+    >
+      {!lead ? (
+        <div className="cs-state-wrap">
+          {state.loading ? <p className="daily-state">正在载入今日推荐…</p> : null}
+          {!state.loading && state.error ? <p className="daily-state">{state.error}</p> : null}
+          {!state.loading && !state.error && state.hint ? (
+            <div className="daily-gate">
+              <p>{state.hint}</p>
+              <button type="button" className="cs-play" onClick={onAccount}>
+                去登录 / 切换账号
+              </button>
+            </div>
+          ) : null}
+          {!state.loading && !state.error && !state.hint ? (
+            <div className="cs-empty">
+              <NightCoverArt className="cs-empty-art" />
+              <div>
+                <h2>今天还没有推荐</h2>
+                <p>推荐源没有给出今天的曲目。晚点再刷新一次。</p>
+                <RefreshButton onClick={state.reload} busy={state.loading} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          {/* 左：「正在播放」大图卡。stage 按 lead.sourceId 重挂 —— 换档时封面与文案各播一次入场
+              （见 cover-stage.css）。key 放在 section 上而不是子元素上：img 单独换 key 实测不重挂。 */}
+          <section
+            className="cs-stage"
+            key={lead.sourceId}
+            aria-labelledby="leadTitle"
+          >
+            {lead.coverUrl ? (
+              <img
+                className="cs-cover"
+                src={lead.coverUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onLoad={() => detectTrim(lead.coverUrl)}
+                style={{ transform: trimScale(lead.coverUrl) }}
+              />
+            ) : (
+              <NightCoverArt className="cs-cover" />
+            )}
+
+            <div className="cs-copy">
+              <p className="cs-kicker">
+                {live ? (playing ? "正在播放" : "暂停中") : "今日主打"}
+                <span className="cs-idx">
+                  {pad2(leadIndex + 1)} / {total}
+                </span>
+              </p>
+              <button type="button" className="cs-title daily-title" id="leadTitle" onClick={() => play(lead)}>
+                <MixedTitle text={lead.title} />
+              </button>
+              <p className="cs-artist">
+                <b>{lead.artist}</b>
+                <span className="cs-dur">{fmtDuration(lead.durationMs)}</span>
+              </p>
+              <p className="cs-note">
+                {onAirMode
+                  ? `来自 ${onAir.origin || onAir.sourceName} 的播放列表${
+                      playing ? "正在播放，顺着列表往下走。" : "暂停中，随时接着听。"
+                    }`
+                  : live
+                    ? lead.album
+                      ? `收录于《${lead.album}》。`
+                      : `今日推荐第 ${leadIndex + 1} 首，正在播放。`
+                    : "今天从这一首开始，先把它听完。"}
+              </p>
+            </div>
+          </section>
+
+          {/* 右：每日推荐 + 横向待播带 + 信号 */}
+          <section className="cs-feed" aria-label="今日推荐">
+            <header className="cs-feed-head">
+              <div>
+                <p className="cs-feed-kicker">{onAirMode ? "正在播放" : "每日推荐"}</p>
+                <p className="cs-feed-meta">
+                  {onAirMode ? (
+                    <>
+                      {onAir.origin || onAir.sourceName} · 来自当前队列 · 共 <b>{total}</b> 首
+                    </>
+                  ) : (
+                    <>
+                      {accountName || "当前音源"} · 每天 <b>06:00</b> 换新 · 共 <b>{total}</b> 首
+                    </>
+                  )}
+                </p>
+              </div>
+              {onAirMode ? null : <RefreshButton onClick={state.reload} busy={state.loading} title="刷新推荐" />}
+            </header>
+
+            <div className="cs-strip-head">
+              <h2>
+                {upcoming.length === 0 ? "今天的推荐听完了" : showAll ? "完整列表" : "接下来播放"}
+              </h2>
+              <span className="cs-strip-sub">
+                {upcoming.length === 0
+                  ? `已播完 ${total} 首，今天到此`
+                  : showAll
+                    ? `剩 ${upcoming.length} 首 · 按播放顺序`
+                    : "按顺序播放"}
+              </span>
+              {upcoming.length > 0 ? (
+                <button
+                  type="button"
+                  className="cs-more"
+                  aria-expanded={showAll}
+                  onClick={() => setShowAll((v) => !v)}
+                >
+                  {showAll ? "收起列表" : "完整列表"}
+                </button>
+              ) : null}
+            </div>
+
+            {upcoming.length === 0 ? (
+              <p className="cs-end">接下来没有歌了。回完整播放器换一首，或者刷新一份新的推荐。</p>
+            ) : showAll ? (
+              <ol className="cs-all" aria-label="接下来的曲目，按播放顺序（循环回列表开头）">
+                {upcoming.map((track, i) => (
+                  <li key={track.sourceId}>
+                    <button
+                      type="button"
+                      className="cs-all-row"
+                      onClick={() => play(track)}
+                    >
+                      <span className="cs-all-no">{noOf(i + 1)}</span>
+                      {/* 缩略图：与待播带格子同一封面链路；失败切迷你黑胶垫底 */}
+                      {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
+                        <img
+                          className="cs-all-art"
+                          src={track.coverUrl}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          referrerPolicy="no-referrer"
+                          onError={() => setFailedCovers((s) => new Set(s).add(track.coverUrl as string))}
+                        />
+                      ) : (
+                        <span className="cs-all-art cs-all-art-blank" aria-hidden="true" />
+                      )}
+                      <span className="cs-all-tx">
+                        <span className="cs-all-title">{track.title}</span>
+                        <span className="cs-all-artist">{track.artist}</span>
+                      </span>
+                      <span className="cs-all-dur">{fmtDuration(track.durationMs)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <ol className="cs-tapes" aria-label="待播曲目，按播放顺序（循环回列表开头）">
+              {tapes.map((track, i) => (
+                <li key={track.sourceId}>
+                  <button
+                    type="button"
+                    className="cs-tape"
+                    onClick={() => play(track)}
+                    aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
+                    /* 卡面只给两行：完整歌名在这条 title 里，hover 就能读到，不用折三行 */
+                    title={`${track.title} — ${track.artist}`}
+                  >
+                    {/* 专辑封面：方形整幅在卡顶（现代专辑卡），img 直接做 flex item。
+                        无封面或加载失败换黑胶垫底，按 coverUrl 记失败。 */}
+                    {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
+                      <img
+                        className="cs-tape-art"
+                        src={track.coverUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        onError={() => setFailedCovers((s) => new Set(s).add(track.coverUrl as string))}
+                        onLoad={() => detectTrim(track.coverUrl)}
+                        style={{ transform: trimScale(track.coverUrl) }}
+                      />
+                    ) : (
+                      <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
+                    )}
+                    <span className="cs-tape-no">{noOf(i + 1)}</span>
+                    <span className="cs-tape-title">{track.title}</span>
+                    <span className="cs-tape-artist">{track.artist}</span>
+                    <span className="cs-tape-foot">
+                      <span className="cs-tape-dur">{fmtDuration(track.durationMs)}</span>
+                      <i className="cs-tape-play" aria-hidden="true" />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            )}
+
+            <div className="cs-signal" aria-hidden="true">
+              <div className="cs-vu">
+                {Array.from({ length: VU_BARS }, (_, i) => (
+                  <i
+                    key={i}
+                    ref={(el) => {
+                      vuRefs.current[i] = el;
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="cs-sig-foot">
+                <span className="cs-standby">
+                  <i />
+                  STEREO
+                </span>
+                <span>L / R</span>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </section>
   );
 }
