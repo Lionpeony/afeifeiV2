@@ -1,0 +1,913 @@
+/* ================= 首页 · 现代播放器（COVER STAGE v2） =================
+   视觉语言：无衬线为主、圆角卡片、阴影层次、大封面主导。
+   左：「正在播放」大图卡 = 首页的场景层（§9.3）——底色 = 封面取色 × 主题面板，
+   每首歌进来页面换一次氛围（tint 只进这一块，UI 骨架不跟色）；
+   右：接下来播放的圆角封面卡网格 + 真频谱（结构层，跟主题不跟封面）。
+   动效只保留「本次运行第一次进入首页」的一次入场；切页不重播。 */
+
+.shell.live .cs-home {
+  display: grid;
+  grid-template-columns: 40% minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  padding: 14px;
+  gap: 14px;
+  overflow: hidden;
+  /* 全页氛围：封面色的淡晕从左上（舞台方向）铺向右下——
+     页面底不是死白，它跟着正在播的歌换温度（Apple Music 式色彩氛围）。
+     tint 失败 → transparent → 纯壳底，永不影响可读性。 */
+  background:
+    radial-gradient(130% 120% at 14% 0%, color-mix(in oklch, var(--cs-tint) 16%, transparent), transparent 62%),
+    var(--live-bg);
+}
+
+/* —— 左：「正在播放」开放舞台 ——
+   不再是卡片盒：封面悬浮 + 超大歌名直接压在页面上，背后一层封面色晕（场景层）。
+   去掉盒子的边界后，「氛围舞台」和右侧「内容列表」形成两种空间——这是这一页的身份。 */
+.cs-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px 0;
+  /* 场景层色晕：从封面背后一直漫到大字区（纵向半径必须越过封面下缘，
+     否则整团色全被封面挡住，页面就"没有主题"）——
+     tint 失败时 transparent → 纯页面底，取色永不影响可读性（M9-2 管线 L 已夹取） */
+  background: radial-gradient(
+    115% 88% at 34% 8%,
+    color-mix(in oklch, var(--cs-tint) 42%, transparent),
+    transparent 72%
+  );
+}
+
+/* 封面 = flex item 弹性占满上部（文档流，信息区永不会越出卡片）。
+   img 的 intrinsic 尺寸 + 自动 aspect-ratio 会把宽度顶出格子，width 显式 100% 钉住。 */
+.cs-cover {
+  display: block;
+  flex: 1 1 auto;
+  /* 封面高度必须稳：文案行数（大字折行/note 换句）一变，弹性补位就会让封面跳大跳小——
+     下限钳住最小展示高度，copy 区恒定占位（见 .cs-copy min-height），封面 = 剩余空间，恒定 */
+  min-height: clamp(180px, 45%, 420px);
+  width: 100%;
+  object-fit: cover;
+  border-radius: 18px;
+  /* 细描边贴内缘：暗封面在深色底上不失边界（阴影在深底不可见，线可以） */
+  outline: 1px solid color-mix(in srgb, var(--live-fg) 16%, transparent);
+  outline-offset: -1px;
+  box-shadow:
+    0 30px 70px -24px rgba(0, 0, 0, 0.6),
+    0 6px 18px -8px rgba(0, 0, 0, 0.42);
+}
+
+.cs-copy {
+  flex: none;
+  /* 恒定占位：按"大字两行 + 四行内容"的满容量算——单行标题时下方多出的留白
+     换封面高度恒定（封面跳大跳小比 copy 区多点空白难看得多） */
+  min-height: 246px;
+  margin: 18px 4px 6px;
+}
+
+.cs-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--live-fg-dim);
+}
+
+/* 眉标的琥珀圆点：现在播放的「呼吸灯」 */
+.cs-kicker::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--live-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--live-accent) 70%, transparent);
+}
+
+/* 序号跟状态词串成一行（左对齐短行，不甩到右端）：
+   左栏所有行共用一条左轴 —— kicker / 标题 / 艺人 / note 宽度都由内容决定 */
+.cs-idx {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--live-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 间隔点：与状态词之间 8px（kicker 的 gap），与序号之间 8px（自身 margin） */
+.cs-idx::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .cs-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  /* 超大歌名：这一页最大的排印——直接压在色晕上，不进卡片盒 */
+  font-size: clamp(40px, 4.6vw, 62px);
+  font-weight: 700;
+  white-space: normal;
+  line-height: 1.06;
+  letter-spacing: 0.005em;
+  color: var(--live-fg);
+  overflow-wrap: anywhere;
+}
+
+.shell.live .cs-title:hover {
+  color: var(--live-accent);
+}
+
+.cs-artist {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 8px 0 0;
+  min-width: 0;
+}
+
+.cs-artist b {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--live-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-dur {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--live-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 艺人与时长的间隔点：与 kicker 的「·」同一套分隔语言（左 10px 是 cs-artist 的 gap） */
+.cs-dur::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--live-fg-faint);
+}
+
+.cs-note {
+  margin: 10px 0 0;
+  max-width: 34em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--live-fg) 76%, transparent);
+}
+
+/* —— 右：接下来播放 + 封面卡网格 —— */
+.cs-feed {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 22px 26px 16px;
+  overflow: hidden;
+}
+
+.cs-feed-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cs-feed-kicker {
+  margin: 0 0 4px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--live-accent);
+}
+
+.cs-feed-meta {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--live-fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-feed-meta b {
+  font-weight: 600;
+  color: var(--live-fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-feed-head .refresh-btn {
+  margin-left: auto;
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border-color: var(--live-line-strong);
+  background: none;
+  color: var(--live-fg-dim);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
+.cs-feed-head .refresh-btn:hover {
+  border-color: var(--live-accent);
+  color: var(--live-accent);
+}
+
+.refresh-btn.is-spinning svg {
+  animation: cs-spin 600ms linear;
+}
+
+@keyframes cs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cs-strip-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  margin: 18px 0 10px;
+}
+
+.cs-strip-head h2 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--live-fg);
+  white-space: nowrap;
+}
+
+.cs-strip-sub {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--live-fg-faint);
+  white-space: nowrap;
+}
+
+.cs-more {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--live-line-strong);
+  border-radius: 14px;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--live-fg-dim);
+  white-space: nowrap;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.cs-more:hover {
+  border-color: var(--live-accent);
+  color: var(--live-accent);
+}
+
+.cs-more[aria-expanded="true"] {
+  color: var(--live-accent);
+  border-color: color-mix(in srgb, var(--live-accent) 55%, transparent);
+}
+
+.cs-tapes {
+  flex: 1;
+  min-height: 0;
+  /* grid 而非 flex 均分：minmax(0,1fr) 轨道等宽是布局层的硬保证——
+     flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训）。
+     align-items stretch + .cs-tape height:100%：同一行的卡永远等高，
+     任何一张卡的内容（三行标题、无封面垫底）都不许把自己的高度撑出邻居一截。 */
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  /* stretch 只管"同一行内卡等高"，不能让整行被容器剩余高度拉长：
+     这一栏在首页是 flex:1（占满右下），没有这条时单行轨道会 stretch 到剩余高度，
+     卡被竖着抻成一大块空白。start = 行高按内容，卡在行内等高。 */
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-tapes li {
+  min-width: 0;
+}
+
+/* 专辑卡：方形封面整幅在顶（全出血，卡圆角即封面圆角），信息压在面板底上。
+   无边框 + 阴影浮起，hover 再抬——现代专辑网格语言，竖长条裁切的老问题随结构消失。 */
+.cs-tape {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  /* 行内等高：配合 .cs-tapes 的 stretch，卡随行高走（内容再多也只在卡内截断） */
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  text-align: left;
+  background: var(--live-panel);
+  color: inherit;
+  cursor: pointer;
+  box-shadow: 0 12px 28px -16px rgba(0, 0, 0, 0.38);
+  transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+.cs-tape:hover {
+  box-shadow: 0 16px 34px -14px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+.cs-tape-no {
+  margin: 10px 12px 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--live-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+/* 标题：两行硬上限 + 固定两行高度。
+   设计取舍（长歌名的处理原则）：
+   - 卡宽由栅格定，标题只占「两行」这个额度，超出就截断——列表卡的节奏不能被文案长度改写；
+   - 高度写死 2.7em（= 2 × line-height 1.35），一行标题也占两行位，
+     否则一行/两行标题的卡会差出一个行高（这正是"卡片被撑大"的来源之一）；
+   - 完整歌名靠 title 属性在 hover 时给出（见 LiveHome.tsx），不在卡面上折行三次。
+   选择器不再挂在 .shell.live 下：卡只在 live 壳层出现，挂上去只会跟 .daily-title
+   （nowrap + 单行省略）拼优先级，谁赢看文件顺序——这种偶然性不该留在布局里。 */
+.cs-tape-title {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 2.7em;
+  margin-top: 3px;
+  padding: 0 12px;
+  white-space: normal;
+  /* anywhere 而非 break-all：break-all 会把英文单词从中间劈开（"Blac/k heart"），
+     anywhere 只在需要时断长串，且不会像以前那样把 line-clamp 的数量数错 */
+  word-break: normal;
+  overflow-wrap: anywhere;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--live-fg);
+}
+
+.cs-tape-artist {
+  min-width: 0;
+  margin-top: 2px;
+  padding: 0 12px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--live-fg) 62%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 卡顶 = 专辑封面：方形整幅（aspect-ratio 定高，不再被格子拉成竖条），
+   img 直接做 flex item；无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素）。
+   height auto 显式：图片按宽度走正方形高，任何机制都不许它另立高度。 */
+.cs-tape-art {
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  min-height: 0;
+  border-radius: 0;
+  /* 细描边贴内缘：白/浅色封面在浅卡上不失边界 */
+  outline: 1px solid color-mix(in srgb, var(--live-fg) 12%, transparent);
+  outline-offset: -1px;
+  /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
+  background: var(--live-slot);
+  overflow: hidden;
+}
+
+img.cs-tape-art {
+  display: block;
+  /* 宽度显式 100%：img 的 intrinsic 尺寸 + 自动 aspect-ratio 会把交叉轴顶出格子，
+     不钉住就溢出右缘被裁掉一半 */
+  width: 100%;
+  min-height: 0;
+  object-fit: cover;
+}
+
+/* 垫底黑胶：不能给 flex item 加百分比外边距 —— 14% 的上下边距会把卡顶高 45px，
+   于是「没有封面的歌」卡比邻居高一整块（用户截图里第 11 张卡就是这么变高的）。
+   盒子保持 1:1 方形，黑胶用伪元素内缩 14% 画在盒子里。 */
+.cs-tape-vinyl {
+  position: relative;
+}
+
+.cs-tape-vinyl::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  /* 圆形唱片：方形盒子里画一张圆盘，比整块黑方块更像"没有封面的唱片"，
+     也不至于让占位图和真封面在视觉重量上差太远 */
+  border-radius: 50%;
+  /* closest-side 定半径，色标全用百分比，四主题 token 上色（居中一方块黑胶） */
+  background:
+    radial-gradient(circle closest-side, var(--live-slot) 0 6%, transparent 7%),
+    radial-gradient(circle closest-side, var(--live-accent) 0 26%, transparent 27%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--live-fg) 8%, var(--live-ink)) 0, var(--live-ink) 80%),
+    repeating-radial-gradient(circle, transparent 0 3px, color-mix(in srgb, var(--live-fg) 6%, transparent) 3px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 22%, transparent);
+}
+
+.cs-tape-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  /* 贴底：标题 1 行 / 2 行时，时长与播放键都落在卡底同一基线上 */
+  margin-top: auto;
+  padding: 7px 12px 11px;
+}
+
+.cs-tape-dur {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  color: var(--live-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-tape-play {
+  width: 0;
+  height: 0;
+  border-left: 8px solid var(--live-fg-dim);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transition: border-left-color 140ms ease;
+}
+
+.cs-tape:hover .cs-tape-play,
+.cs-tape:focus-visible .cs-tape-play {
+  border-left-color: var(--live-accent);
+}
+
+.cs-tape:focus-visible,
+.shell.live .cs-title:focus-visible {
+  outline: 2px solid var(--live-accent);
+  outline-offset: -2px;
+}
+
+/* 信号表：右下收底，只留频谱本体 + 一行弱化的身份行 */
+.cs-signal {
+  flex: none;
+  margin-top: 14px;
+}
+
+.cs-sig-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 8px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--live-fg-faint);
+}
+
+.cs-vu {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  /* 信号条撑满右栏余量：右下的"空白区"就是给它留的——仪器待机态也是版面的一部分 */
+  height: 64px;
+  margin: 0;
+}
+
+/* 柱高由 onTick 每帧写 transform（composite-only）；height 满格、scaleY 控视觉 */
+.cs-vu i {
+  flex: 1;
+  height: 100%;
+  transform-origin: bottom;
+  transform: scaleY(0.02);
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--live-signal) 92%, transparent),
+    color-mix(in srgb, var(--live-signal) 38%, transparent)
+  );
+  opacity: 0.85;
+}
+
+.cs-vu i:nth-child(n + 32) {
+  background: linear-gradient(
+    180deg,
+    var(--live-accent),
+    color-mix(in srgb, var(--live-accent) 38%, transparent)
+  );
+  opacity: 0.85;
+}
+
+.cs-standby {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--live-signal);
+}
+
+.cs-standby i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--live-signal);
+  box-shadow: 0 0 7px var(--live-signal);
+}
+
+/* 加载 / 未登录 / 空态：占满整页，不留洞 */
+.cs-state-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  padding: 24px 30px;
+  min-height: 0;
+}
+
+.cs-empty {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.cs-empty-art {
+  flex: none;
+  width: 220px;
+  aspect-ratio: 591 / 596;
+  border: 1px solid var(--live-line-strong);
+}
+
+.cs-empty h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--live-fg);
+}
+
+.cs-empty p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--live-fg-dim);
+}
+
+/* 低频仪式感：只在本次运行第一次进入首页时播一次 */
+.cs-enter .cs-stage {
+  animation: cs-settle 460ms ease-out both;
+}
+
+.cs-enter .cs-feed {
+  animation: cs-rise 460ms 60ms ease-out both;
+}
+
+@keyframes cs-settle {
+  from {
+    opacity: 0;
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes cs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* —— 换档：正在播放的那一档顶到左栏 ——
+   封套与文案按 lead.sourceId 重挂，各播一次；只碰 opacity（原因见 keyframes 内注释）。 */
+@keyframes cs-swap-cover {
+  /* 只碰 opacity：transform 分量（scale 1.035→1）会以 forwards 结束态**永久压制**
+     img 的内联 trimScale（白边反制 scale 1.07+）——动画优先级高于内联样式，
+     结束态恒等矩阵一压，白边裁切就再也不生效（2026-11-09 探针 matrix(1,0,0,1) 实锤） */
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cs-swap-copy {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cs-stage .cs-cover {
+  animation: cs-swap-cover 260ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+.cs-copy {
+  animation: cs-swap-copy 200ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+/* —— 窄宽 / 矮高降级 —— */
+@media (max-width: 1000px) {
+  .shell.live .cs-home {
+    grid-template-columns: 40% minmax(0, 1fr);
+  }
+
+  .cs-feed {
+    padding: 16px 20px 12px;
+  }
+
+  .cs-copy {
+    margin-top: 12px;
+  }
+
+  .shell.live .cs-title {
+    font-size: clamp(30px, 4.6vw, 38px);
+  }
+
+  .cs-note {
+    font-size: 14px;
+  }
+
+  .cs-vu {
+    height: 44px;
+  }
+}
+
+@media (max-height: 600px) {
+  .cs-feed {
+    padding: 12px 20px 10px;
+  }
+
+  .cs-strip-head {
+    margin: 10px 0 7px;
+    padding-bottom: 6px;
+  }
+
+  .cs-strip-head h2 {
+    font-size: 17px;
+  }
+
+  /* 矮窗：文案收一行为代价，封面弹性自动让位 */
+  .cs-copy {
+    margin-top: 10px;
+  }
+
+  .shell.live .cs-title {
+    font-size: 26px;
+  }
+
+  .cs-note {
+    display: none;
+  }
+
+  /* 矮窗：copy 恒定占位收缩一档，保封面有 180px 以上的展示高度 */
+  .cs-copy {
+    min-height: 200px;
+  }
+
+  .cs-signal {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-enter .cs-stage,
+  .cs-enter .cs-feed {
+    animation: cs-fade 320ms ease-out both;
+  }
+
+  /* 换档只留淡入：去掉位移与缩放（不是全关） */
+  .cs-stage .cs-cover,
+  .cs-copy {
+    animation: cs-fade 220ms ease-out both;
+  }
+
+  .cs-tape,
+  .cs-tape::before,
+  .cs-tape-play {
+    transition: none;
+  }
+}
+
+/* 节目单到头：右栏中段的收尾话术（ tapes/all 都空时替代它们的位置） */
+.cs-end {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--live-fg-faint);
+}
+
+/* —— 完整播出单（展开态，替代横向磁带） —— */
+/* 完整播出单：现代队列列表——一体式圆角容器 + 缩略图行 + 双行文本。
+   行贴行、发丝分隔，hover 整行提亮，在播行琥珀左标 + 底光。 */
+.cs-all {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--live-fg) 4.5%, transparent);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--live-fg) 18%, transparent) transparent;
+}
+
+.cs-all::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cs-all::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cs-all::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--live-fg) 16%, transparent);
+}
+
+.cs-all::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--live-fg) 28%, transparent);
+}
+
+.cs-all-row {
+  display: grid;
+  grid-template-columns: 30px 36px minmax(0, 1fr) 46px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  height: 46px;
+  padding: 0 10px 0 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.cs-all-row:hover {
+  background: color-mix(in srgb, var(--live-fg) 7%, transparent);
+}
+
+.cs-all-no {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--live-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+
+
+/* 行缩略图：36px 圆角小封面 */
+.cs-all-art {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--live-slot);
+}
+
+/* 无封面垫底：迷你黑胶（同 .cs-tape-vinyl 语言，缩小版） */
+.cs-all-art-blank {
+  position: relative;
+  background:
+    radial-gradient(circle closest-side, var(--live-slot) 0 7%, transparent 8%),
+    radial-gradient(circle closest-side, var(--live-accent) 0 30%, transparent 31%),
+    radial-gradient(circle closest-side, color-mix(in srgb, var(--live-fg) 8%, var(--live-ink)) 0, var(--live-ink) 78%);
+}
+
+.cs-all-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cs-all-title {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--live-fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-all-artist {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.3;
+  color: color-mix(in srgb, var(--live-fg) 62%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-all-dur {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--live-fg-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-all-row:focus-visible {
+  outline: 2px solid var(--live-accent);
+  outline-offset: -2px;
+}
+
+/* 扫描纹理已退役：现代观感靠干净的表面与阴影层次，不靠印刷质感 */
+
+.shell.live .cs-home {
+  position: relative;
+}
+
+@media (max-width: 1000px) {
+  .cs-all-row {
+    grid-template-columns: 26px 36px minmax(0, 1fr) 44px;
+    gap: 9px;
+  }
+
+  .cs-all-artist {
+    display: none;
+  }
+
+  .cs-all-tx {
+    gap: 0;
+  }
+}

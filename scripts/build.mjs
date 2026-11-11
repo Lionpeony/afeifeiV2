@@ -216,6 +216,7 @@ const css = [
   "src/renderer/ui/views/stage/stage-panels.css",
   "src/renderer/ui/live/live.css",
   "src/renderer/ui/live/night-signal.css",
+  "src/renderer/ui/live/cover-stage.css",
   "src/renderer/ui/views/redesign.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
