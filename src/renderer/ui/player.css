@@ -129,7 +129,9 @@
   width: 40px;
   height: 40px;
   border: 1px solid var(--fg);
-  background: var(--accent);
+  /* 控制台主键（P0 填充）：浅色主题底走 --accent-press——
+     --accent 对浅底 3.5:1 不达 AA；深/纸主题 token 自动回 --accent（2026-11-11 拍板） */
+  background: var(--accent-press);
   color: var(--accent-ink);
 }
 .transport .tb.main:hover {
