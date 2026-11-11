@@ -573,108 +573,16 @@ app.whenReady().then(async () => {
     await shoot(`live-home${sfx}-${w}x${h}.png`);
     await probeRuler(w, h);
     if (process.env.LIVE_EMPTY !== "1") {
-      const rows = await evalJs(`document.querySelectorAll(".rs-row").length`);
-      console.log(`曲目表 ${w}x${h}：${rows} 行`);
+      const tapes = await evalJs(`document.querySelectorAll(".cs-tape").length`);
+      console.log(`播出带 ${w}x${h}：${tapes} 档`);
     }
   }
 
   if (process.env.LIVE_EMPTY !== "1") {
-    /* 目录号判据 ①（docs/29 §9 / SPEC-VISUAL §3.1）：存在且格式为 CAT.{码}-{8 位日期}-{2 位序号}。
-       骨架期目录号不渲染：等数据落定（上限 10s），空到底就是真的没出来。 */
-    let cat0 = "";
-    for (let i = 0; i < 25; i++) {
-      cat0 = await evalJs(`document.querySelector(".home-cat")?.textContent ?? ""`);
-      if (cat0) break;
-      await sleep(400);
-    }
-    if (!/^CAT\.[^-]+-\d{8}-\d{2}( · STEREO)?$/.test(cat0.trim())) {
-      const diag = await evalJs(`(() => ({
-        boot: document.querySelector(".boot-splash") !== null,
-        home: document.querySelector(".home-release") !== null,
-        liveHome: document.querySelector(".live-home") !== null,
-        main: document.querySelector(".main")?.childElementCount ?? -1,
-        mainHtml: (document.querySelector(".main")?.firstElementChild?.className ?? "").toString().slice(0, 60),
-        kick: document.querySelector(".rs-kick")?.textContent ?? "",
-        title: document.querySelector(".rs-title")?.textContent ?? "",
-        skel: document.querySelectorAll(".rs-skel").length,
-        rows: document.querySelectorAll(".rs-row").length,
-        rows6: document.querySelectorAll(".rs-sk-row").length,
-        err: document.querySelector(".rs-error")?.textContent ?? "",
-      }))()`);
-      throw new Error(`目录号格式不对：${JSON.stringify(cat0)}（页面：${JSON.stringify(diag)}）`);
-    }
-    console.log(`目录号：${cat0.trim()}`);
-
-    /* accent 台账 ②（SPEC-VISUAL §1.3）：槽级计数 ≤6 + 全页游走抓「台账外的 accent 着色」。
-       律动条/在播行文字属台账槽 4（同槽多处计 1），白名单放行。 */
-    const accentAudit = await evalJs(`(() => {
-      const probe = document.createElement("i");
-      probe.style.color = "var(--accent)";
-      document.body.appendChild(probe);
-      const accent = getComputedStyle(probe).color;
-      probe.style.color = "var(--accent-press)";
-      const press = getComputedStyle(probe).color;
-      probe.remove();
-      const slots = {
-        brand: Boolean(document.querySelector(".ruler-dot")),
-        onUnderline: document.querySelectorAll(".deck-mode.on").length > 0,
-        stylusPlaying: Boolean(document.querySelector('.home-stylus[data-lamp="playing"]')),
-        onairRow: Boolean(document.querySelector(".rs-row.on")),
-        p0: Boolean(document.querySelector(".rs-btn-p0")),
-        progress: Boolean(document.querySelector(".deck-fill")),
-      };
-      const slotCount = Object.values(slots).filter(Boolean).length;
-      const allowed = (el) =>
-        Boolean(el.closest(".rs-eq, .rs-btn-p0, .deck-line, .ruler-dot, .home-stylus, .rs-row.on, .rs-play"));
-      const strays = [];
-      for (const el of document.querySelectorAll(".home-release, .home-release *")) {
-        const cs = getComputedStyle(el);
-        if (
-          (cs.backgroundColor === accent || cs.color === accent || cs.backgroundColor === press || cs.color === press) &&
-          !allowed(el)
-        ) {
-          strays.push(el.className ? String(el.className).split(" ")[0] : el.tagName);
-        }
-      }
-      return { slotCount, strays: [...new Set(strays)] };
-    })()`);
-    if (accentAudit.slotCount > 6) {
-      throw new Error(`accent 台账超槽：${accentAudit.slotCount}（${JSON.stringify(accentAudit)}）`);
-    }
-    if (accentAudit.strays.length > 0) {
-      throw new Error(`台账外 accent 着色：${JSON.stringify(accentAudit.strays)}`);
-    }
-    console.log(`accent 台账：${accentAudit.slotCount} 槽，无台账外着色`);
-
-    /* 引导点判据 ③：dotted + --ink-faint */
-    const leader = await evalJs(`(() => {
-      const el = document.querySelector(".rs-row .leader");
-      if (!el) return null;
-      const cs = getComputedStyle(el);
-      const probe = document.createElement("i");
-      probe.style.borderBottom = "1px solid var(--ink-faint)";
-      document.body.appendChild(probe);
-      const faint = getComputedStyle(probe).borderBottomColor;
-      probe.remove();
-      return { style: cs.borderBottomStyle, color: cs.borderBottomColor, faint };
-    })()`);
-    if (!leader || leader.style !== "dotted") throw new Error(`引导点不是 dotted：${JSON.stringify(leader)}`);
-    if (leader.color !== leader.faint) {
-      throw new Error(`引导点颜色不是 --ink-faint：${leader.color} ≠ ${leader.faint}`);
-    }
-    console.log(`引导点：${leader.style} · ${leader.color}`);
-
-    /* 钢印三态 ④ 之起点：开机未播 = 待机 */
-    const seal0 = await evalJs(`document.querySelector(".home-seal")?.textContent ?? ""`);
-    const stylus0 = await evalJs(`document.querySelector(".home-stylus")?.textContent ?? ""`);
-    console.log(`静置投影：钢印「${seal0.trim()}」· 灯牌「${stylus0.trim()}」`);
-    if (seal0.trim() !== "待机") throw new Error(`开机未播钢印应为「待机」：${seal0.trim()}`);
-    if (stylus0.trim() !== "STANDBY") throw new Error(`静置灯牌应为 STANDBY：${stylus0.trim()}`);
-
     /* 白边反制判据：fixture 封面自带 6% 白边 → scale(1.069)。
-       恒等矩阵 / none 都算断链（恒等 = trimScale 被换档动画 forwards 结束态压制，踩过）。 */
+       恒等矩阵 / none 都算断链：恒等 = trimScale 被换档动画 forwards 结束态压制（踩过）。 */
     const trimShot = await evalJs(`(() => {
-      const img = document.querySelector(".home-cover");
+      const img = document.querySelector(".cs-cover");
       const t = img ? getComputedStyle(img).transform : "missing";
       const m = t.match(/^matrix\\(([-\\d.]+)/);
       return { t, sx: m ? Number(m[1]) : 0 };
@@ -684,17 +592,72 @@ app.whenReady().then(async () => {
     }
     console.log(`封面白边反制：hero transform ${trimShot.t}（sx = ${trimShot.sx}）`);
 
-    /* 换档：点曲目表第 2 行 → 从那首起播，hero 跟切 + 换档动画 + 钢印 待机→今日发行（④）
-       （fixture 的 8 首共用同一封面地址：封面不重挂就没有 rs-swap-cover，断言按封面是否变化分支） */
-    const rowClick = await evalJs(`(() => {
-      const row = document.querySelectorAll(".rs-row")[1];
-      if (!row) return null;
-      const t = row.querySelector(".rs-name")?.textContent ?? "";
-      const src = document.querySelector(".home-cover")?.src ?? "";
+    /* 分诊：右栏此刻的渲染态——0 档时先看它停在哪句话上
+       （到头话术 = total≤1；「正在接通」= daily 还没回来；登录提示 = 账号没生效）。 */
+    const state0 = await evalJs(`(() => ({
+      head: document.querySelector(".cs-strip-head h2")?.textContent ?? "",
+      sub: document.querySelector(".cs-strip-sub")?.textContent ?? "",
+      end: document.querySelector(".cs-end")?.textContent ?? "",
+      gate: document.querySelector(".daily-state")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      home: document.querySelector(".live-home") !== null,
+      /* 播放模式（底栏模式钮 title）：order 快照应已被迁移成列表循环 */
+      playMode: [...document.querySelectorAll(".console .tools button")]
+        .map((b) => b.getAttribute("title") ?? "")
+        .find((t) => t.includes("播放模式")) ?? "",
+    }))()`);
+    if (!state0.playMode.includes("列表循环")) {
+      throw new Error(`默认列表循环迁移没生效（底栏模式 = ${state0.playMode || "读不到"}）`);
+    }
+    console.log(`右栏分诊：${JSON.stringify(state0)}`);
+
+    /* 左轴线判据：序号必须坐在状态词旁边（左轴短行）——谁把 .cs-idx 的
+       margin-left:auto 加回去，序号就贴到 copy 右缘、中间空一大截，这条就红
+       （2026-11-09 左下角轴线轮）。量序号左缘在 copy 内的偏移，阈值 50%。 */
+    const axis = await evalJs(`(() => {
+      const idx = document.querySelector(".cs-idx")?.getBoundingClientRect();
+      const copy = document.querySelector(".cs-copy")?.getBoundingClientRect();
+      if (!idx || !copy) return { idxLeft: -1, copyW: 0 };
+      return { idxLeft: Math.round(idx.left - copy.left), copyW: Math.round(copy.width) };
+    })()`);
+    if (axis.idxLeft < 0) throw new Error("cs-idx 读不到（白屏或结构丢了）");
+    if (axis.idxLeft > axis.copyW * 0.5) {
+      throw new Error(`左轴线破了：序号在 copy 内偏移 ${axis.idxLeft}px / 宽 ${axis.copyW}px——又甩回右端了`);
+    }
+    console.log(`左轴线：序号偏移 ${axis.idxLeft}px / copy ${axis.copyW}px（贴状态词 < 50%）`);
+
+    /* 播出带等宽等高网格：宽差/高差 ≤ 2px。长标题撑宽（min-content）或撑高
+       （line-clamp 失效折三行）都是网格破功（2026-11-08 用户两张圈图）。 */
+    const tapeGrid = await evalJs(`(() => {
+      const cards = [...document.querySelectorAll(".cs-tapes .cs-tape")];
+      const ws = cards.map((el) => el.offsetWidth);
+      const hs = cards.map((el) => el.offsetHeight);
+      return {
+        n: cards.length,
+        wMin: Math.min(...ws), wMax: Math.max(...ws),
+        hMin: Math.min(...hs), hMax: Math.max(...hs),
+      };
+    })()`);
+    if (tapeGrid.n >= 2 && (tapeGrid.wMax - tapeGrid.wMin > 2 || tapeGrid.hMax - tapeGrid.hMin > 2)) {
+      throw new Error(`播出带网格不齐：${JSON.stringify(tapeGrid)}——长标题把卡撑开了`);
+    }
+    console.log(`播出带网格：${tapeGrid.n} 档 宽 ${tapeGrid.wMin}-${tapeGrid.wMax} 高 ${tapeGrid.hMin}-${tapeGrid.hMax}`);
+
+    /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
+       旧实现把左栏锁死在 songs[0]，这条必红。 */
+    const heroBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);
+    const tapeTitle = await evalJs(`(() => {
+      const b = document.querySelectorAll(".cs-tape")[1];
+      if (!b) return null;
+      const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
       window.__swapAnim = [];
       const t0 = performance.now();
+      /* 只认阶段内的元素：页面上还有一个同名 .cs-cover（别处），
+         只查 .cs-stage 才拿得到真正换档的那两张。
+         只认 running：初始挂载那条早已结束（fill: both 会留在列表里）。 */
       const tick = () => {
-        for (const el of [document.querySelector(".rs-copy"), document.querySelector(".rs-sleeve-box")]) {
+        for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
+          const el = document.querySelector(sel);
           if (!el) continue;
           for (const a of el.getAnimations()) {
             const name = String(a.animationName);
@@ -704,122 +667,187 @@ app.whenReady().then(async () => {
         if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
         requestAnimationFrame(tick);
       };
-      row.click();
+      b.click();
       tick();
-      return { title: t, srcBefore: src };
+      return t;
     })()`);
-    if (!rowClick) throw new Error("曲目表没有第 2 行：fixture 的每日推荐没生效");
-    const rowTitle = rowClick.title;
+    if (!tapeTitle) throw new Error("播出带没有第 2 格：fixture 的每日推荐没生效");
     await sleep(1800);
-    const srcAfter = await evalJs(`document.querySelector(".home-cover")?.src ?? ""`);
-    const swapped = await evalJs(`(() => ({
-      title: document.querySelector(".rs-title")?.textContent ?? "",
-      seal: document.querySelector(".home-seal")?.textContent ?? "",
-      stylus: document.querySelector(".home-stylus")?.textContent ?? "",
-      lamp: document.querySelector(".home-stylus")?.dataset.lamp ?? "",
-      kick: document.querySelector(".rs-kick")?.textContent ?? "",
-      onRows: document.querySelectorAll(".rs-row.on").length,
-      selected: document.querySelector('.rs-row[aria-selected="true"] .rs-name')?.textContent ?? "",
+    const hero = await evalJs(`(() => ({
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      idx: document.querySelector(".cs-idx")?.textContent ?? "",
+      /* 「真接下来」判据：换档后播出带第一格的编号必须等于 hero 的下一首
+         （idx 是当前，tapeNo 是当前+1），is-live 不该再出现在播出带里（全是之后的歌） */
+      tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
+      liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
-      deckTitle: document.querySelector(".deck-title")?.textContent ?? "",
-      deckSrc: document.querySelector(".deck-src")?.textContent ?? "",
-      deckTime: document.querySelector(".deck-time")?.textContent ?? "",
-      fillW: document.querySelector(".deck-fill")?.getBoundingClientRect().width ?? 0,
-      total: document.querySelector(".deck-total")?.textContent ?? "",
+      /* 黑胶判据：在播必须真的在转（play-state running），谁把 spin 类或动画删了就红 */
+      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
     }))()`);
     console.log(
-      `首页换档：点第 2 行「${rowTitle}」→ 大字「${swapped.title}」·钢印「${swapped.seal.trim()}」` +
-        `·灯牌「${swapped.stylus.trim()}(${swapped.lamp})」·在播行「${swapped.selected}」` +
-        `·deck「${swapped.deckTitle}/${swapped.deckSrc.trim()}」@${swapped.deckTime}/${swapped.total}·fill=${Math.round(swapped.fillW)}px` +
-        `·动画 ${JSON.stringify(swapped.anim)}`,
+      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}·黑胶 ${hero.npSpin}`,
     );
-    if (swapped.title !== rowTitle) throw new Error(`hero 没跟上换档：期望「${rowTitle}」，实际「${swapped.title}」`);
-    if (swapped.seal.trim() !== "今日发行") throw new Error(`换档后钢印没换字（④）：${swapped.seal.trim()}`);
-    if (swapped.lamp !== "playing") throw new Error(`换档后灯牌没亮：${swapped.lamp}`);
-    if (swapped.stylus.trim() !== "PLAYING · A1") throw new Error(`灯牌文字不对（侧标映射）：${swapped.stylus.trim()}`);
-    if (!swapped.kick.includes("TODAY'S RELEASE")) throw new Error(`kick 行没切今日发行：${swapped.kick}`);
-    if (swapped.onRows !== 1) throw new Error(`在播行标记数量不对：${swapped.onRows}`);
-    if (swapped.selected !== rowTitle) throw new Error("aria-selected 没落在在播行");
-    if (!swapped.deckTitle) throw new Error("deck 曲名区空");
-    if (!swapped.deckSrc.includes("每日推荐")) throw new Error(`deck 来源行没写节目来源：${swapped.deckSrc}`);
-    /* 当前时间与进度等音频真正起步（fmt 按秒截断，起步第一秒内就是 0:00）——轮询到走字为止 */
-    let deckClock = "";
-    for (let i = 0; i < 20; i++) {
-      deckClock = await evalJs(`document.querySelector(".deck-time")?.textContent ?? ""`);
-      if (deckClock !== "0:00") break;
-      await sleep(300);
+    if (hero.npSpin !== "running") {
+      throw new Error(`播放中黑胶没在转（animation-play-state = ${hero.npSpin}）：spin 类或动画丢了`);
     }
-    /* 加固判据：播放中 3 秒内时间必变（单一事实源 = 合成器 t；采样值打进日志，终验可复核） */
-    const deckClockA = deckClock;
-    await sleep(3000);
-    const deckClockB = await evalJs(`document.querySelector(".deck-time")?.textContent ?? ""`);
-    console.log(`deck 走带：时间 ${deckClockA} → ${deckClockB}（3s 采样）`);
-    if (deckClockA === "0:00") throw new Error(`deck 当前时间没走：${deckClockA}`);
-    if (deckClockB === deckClockA) {
-      throw new Error(`deck 时间 3 秒没动：${deckClockA} → ${deckClockB}`);
+    if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
+    if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
+    if (!hero.kicker.includes("正在播放")) throw new Error("换档后眉标没变成「正在播放」");
+    if (hero.liveTape > 0) throw new Error("播出带里不该有 is-live：它是「接下来」，全是之后的歌");
+    if (Number(hero.idx.trim().split("/")[0].trim()) + 1 !== Number(hero.tapeNo.trim())) {
+      throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${Number(hero.idx.trim().split("/")[0].trim()) + 1}，实际首位 ${hero.tapeNo.trim()}`);
     }
-    /* 进度断言取 onTick 直写的内联 width（CSS 960ms 过渡会滞后，量 computed rect 会误报） */
-    const fillAt = async () =>
-      parseFloat(await evalJs(`document.querySelector(".deck-fill")?.style.width ?? "0"`));
-    const fillA = await fillAt();
-    await sleep(1300);
-    const fillB = await fillAt();
-    if (!(fillB > fillA)) throw new Error(`唱针线没前进：${fillA}% → ${fillB}%`);
-    console.log(`deck 进度：${fillA.toFixed(2)}% → ${fillB.toFixed(2)}%（内联 width 采样）`);
-    if (swapped.fillW <= 0) throw new Error("唱针线已播填充没走");
-    if (swapped.total === "--:--") throw new Error(`deck 总时长没读到曲目时长：${swapped.total}`);
-    if (!swapped.anim.includes("rs-swap-copy")) {
-      throw new Error(`换档没播文字 pane-swap：${JSON.stringify(swapped.anim)}`);
+    if (!hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
+      throw new Error(`换档没有播动画：${JSON.stringify(hero.anim)}`);
     }
-    if (rowClick.srcBefore !== srcAfter && !swapped.anim.includes("rs-swap-cover")) {
-      throw new Error(`封面变了却没播 crossfade：${JSON.stringify(swapped.anim)}`);
+    for (const want of ["cs-swap-copy", "cs-swap-cover"]) {
+      if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
     }
+
+    /* 完整播出单（cs-more 展开）：一体式队列列表——行数 = 节目单总数、
+       缩略图与在播标记就位。列表空或缩略图缺失都是列表坏了。 */
+    await evalJs(`document.querySelector(".cs-more")?.click()`);
+    await sleep(500);
+    const allList = await evalJs(`(() => {
+      const rows = [...document.querySelectorAll(".cs-all-row")];
+      const arts = [...document.querySelectorAll(".cs-all-art")];
+      const okArt = arts.filter((el) => el.tagName !== "IMG" || el.naturalWidth > 0).length;
+      return {
+        rows: rows.length,
+        liveRow: rows.filter((r) => r.classList.contains("is-live")).length,
+        arts: arts.length,
+        okArt,
+        artW: arts[0]?.getBoundingClientRect().width ?? 0,
+      };
+    })()`);
+    console.log(`完整播出单：${JSON.stringify(allList)}`);
+    if (allList.rows < 1) throw new Error("展开后播出单是空的");
+    /* 播出单 = 「接下来」的展开态（569551e），全是之后的歌——is-live 不该出现（fc08af3 已删死类） */
+    if (allList.liveRow !== 0) throw new Error(`播出单里不该有在播标记（是接下来，不是在播）：${allList.liveRow}`);
+    if (allList.okArt < Math.min(6, allList.rows)) throw new Error(`播出单缩略图不足：${JSON.stringify(allList)}`);
+    if (allList.artW < 20) throw new Error(`缩略图塌了（宽 ${allList.artW}）`);
+    await shoot("live-home-all-list.png");
+    await evalJs(`document.querySelector(".cs-more")?.click()`);
+    await sleep(400);
+
+    /* 播出带格子 = 真封面：img 直接做格子中段，fixture 至少 1 格加载成功且真的画出来了（宽>0）。 */
+    const covers = await evalJs(`(() => {
+      const arts = [...document.querySelectorAll(".cs-tape-art")];
+      const imgs = arts.filter((el) => el.tagName === "IMG");
+      const vinyl = arts.filter((el) => el.classList.contains("cs-tape-vinyl")).length;
+      const r = imgs[0]?.getBoundingClientRect();
+      return { total: arts.length, img: imgs.length, vinyl, ok: imgs.filter((i) => i.naturalWidth > 0).length, w: r?.width ?? 0, h: r?.height ?? 0 };
+    })()`);
+    console.log(`播出带封面：${JSON.stringify(covers)}`);
+    if (covers.ok < 1 || covers.w < 10) throw new Error(`播出带真封面没画出来：${JSON.stringify(covers)}`);
+    if (covers.vinyl > 0) throw new Error(`有封面数据却落到了黑胶垫底（${covers.vinyl} 格）——失败态误判`);
+
+    /* 信号条 = 真频谱：在播时柱子应该跳起来（几何量测：柱高/容器高），贴底就是死数据。 */
+    await sleep(400);
+    const vu = await evalJs(`(() => {
+      const bars = [...document.querySelectorAll(".cs-vu i")];
+      const box = document.querySelector(".cs-vu").getBoundingClientRect().height;
+      const ratio = Math.max(...bars.map((b) => b.getBoundingClientRect().height / box));
+      return { bars: bars.length, max: ratio.toFixed(3) };
+    })()`);
+    console.log(`信号条：${JSON.stringify(vu)}`);
+    if (vu.bars === 0) throw new Error("信号条一根柱子都没有");
+    if (Number(vu.max) < 0.05) throw new Error(`在播时信号条全贴底（${vu.max}）—— 还是死数据`);
 
     await shoot("live-home-playing.png");
 
-    /* 键盘模型（SPEC-UX §2.3）：listbox roving——↓ 移行、Home 跳首、↑ 钳首、Enter 激活 = 起播 */
-    const kb = await evalJs(`(() => {
-      const list = document.querySelector(".rs-list");
-      list.focus();
-      const fire = (key) => list.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
-      const rowIdx = () => [...document.querySelectorAll(".rs-row")].indexOf(document.activeElement);
-      fire("ArrowDown");
-      const afterDown = rowIdx();
-      fire("ArrowDown");
-      const afterDown2 = rowIdx();
-      fire("Home");
-      const afterHome = rowIdx();
-      fire("ArrowUp");
-      const clamped = rowIdx();
-      return {
-        focused: document.activeElement?.classList?.contains("rs-row") ?? false,
-        afterDown,
-        afterDown2,
-        afterHome,
-        clamped,
+    /* 同一份节目单里跳档：队列已就位时再点一格走的是光标跳转（不重建队列）——
+       hero 仍要跟着切、换档动画仍要播。队列已被上一次点击装好，这条必走跳转路径。 */
+    const swapTitle = await evalJs(`(() => {
+      const b = document.querySelectorAll(".cs-tape")[2];
+      if (!b) return null;
+      const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
+      window.__swapAnim = [];
+      const t0 = performance.now();
+      const tick = () => {
+        for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
+          const el = document.querySelector(sel);
+          if (!el) continue;
+          for (const a of el.getAnimations()) {
+            const name = String(a.animationName);
+            if (a.playState === "running" && !window.__swapAnim.includes(name)) window.__swapAnim.push(name);
+          }
+        }
+        if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
+        requestAnimationFrame(tick);
       };
-    })()`);
-    if (!kb.focused || kb.afterDown !== 0 || kb.afterDown2 !== 1 || kb.afterHome !== 0 || kb.clamped !== 0) {
-      throw new Error(`listbox 键盘模型不对：${JSON.stringify(kb)}`);
-    }
-    console.log(
-      `键盘模型：↓→第 ${kb.afterDown + 1} 行 · ↓→第 ${kb.afterDown2 + 1} 行 · Home→首行 · ↑钳在首行`,
-    );
-    const kbPlay = await evalJs(`(() => {
-      const rows = document.querySelectorAll(".rs-row");
-      const row = rows[1];
-      const t = row.querySelector(".rs-name")?.textContent ?? "";
-      row.focus();
-      document.querySelector(".rs-list").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+      b.click();
+      tick();
       return t;
     })()`);
-    await sleep(1500);
-    const heroAfterEnter = await evalJs(`document.querySelector(".rs-title")?.textContent ?? ""`);
-    console.log(`键盘激活：Enter 落在第 2 行「${kbPlay}」→ 大字「${heroAfterEnter}」`);
-    if (heroAfterEnter !== kbPlay) throw new Error(`Enter 激活没起播：期望「${kbPlay}」实际「${heroAfterEnter}」`);
+    await sleep(1800);
+    const jumped = await evalJs(`(() => {
+      const b = document.querySelector(".cs-artist b");
+      const cs = getComputedStyle(b);
+      const note = document.querySelector(".cs-note");
+      const nc = getComputedStyle(note);
+      const copy = document.querySelector(".cs-copy");
+      const stage = document.querySelector(".cs-stage");
+      const cover = document.querySelector(".cs-cover");
+      const home = document.querySelector(".cs-home");
+      const hc = getComputedStyle(home);
+      return {
+        title: document.querySelector(".cs-title")?.textContent ?? "",
+        anim: window.__swapAnim ?? [],
+        artist: b?.textContent ?? "",
+        color: cs.color,
+        h: b?.getBoundingClientRect().height ?? 0,
+        note: note?.textContent.slice(0, 16) ?? "",
+        noteOpacity: nc.opacity,
+        noteRect: note?.getBoundingClientRect().toJSON(),
+        copyRect: copy?.getBoundingClientRect().toJSON(),
+        copyPos: getComputedStyle(copy).position,
+        stageRect: stage?.getBoundingClientRect().toJSON(),
+        coverRect: cover?.getBoundingClientRect().toJSON(),
+        stagePos: stage ? getComputedStyle(stage).position : "",
+        stageDisp: stage ? getComputedStyle(stage).display : "",
+        home: {
+          disp: hc.display,
+          rows: hc.gridTemplateRows,
+          h: Math.round(home.getBoundingClientRect().height),
+          cls: home.className,
+        },
+        chain: (() => {
+          const out = [];
+          let el = document.querySelector(".cs-home")?.parentElement;
+          while (el && out.length < 6) {
+            const cs = getComputedStyle(el);
+            out.push(el.tagName + "." + String(el.className).split(" ")[0] + ":" + Math.round(el.getBoundingClientRect().height) + "(" + cs.height + "/" + cs.overflow + ")");
+            el = el.parentElement;
+          }
+          return out;
+        })(),
+      };
+    })()`);
+    console.log(
+      `同队列跳档：点第 3 格「${swapTitle}」→ 大字「${jumped.title}」·艺人「${jumped.artist}」(${jumped.color} h=${jumped.h})` +
+        `·note「${jumped.note}」op=${jumped.noteOpacity} y=${Math.round(jumped.noteRect?.y ?? -1)}` +
+        `·copy pos=${jumped.copyPos} y=${Math.round(jumped.copyRect?.y ?? -1)} h=${Math.round(jumped.copyRect?.height ?? 0)}` +
+        `·stage pos=${jumped.stagePos} disp=${jumped.stageDisp} y=${Math.round(jumped.stageRect?.y ?? -1)} h=${Math.round(jumped.stageRect?.height ?? 0)}` +
+        `·cover y=${Math.round(jumped.coverRect?.y ?? -1)} h=${Math.round(jumped.coverRect?.height ?? 0)}` +
+        `·home disp=${jumped.home.disp} rows=[${jumped.home.rows}] h=${jumped.home.h}` +
+        `·链 ${jumped.chain.join(" <- ")}` +
+        `·动画 ${JSON.stringify(jumped.anim)}`,
+    );
+    if (!swapTitle) throw new Error("播出带没有第 3 格");
+    if (jumped.title !== swapTitle) throw new Error(`跳档后 hero 没跟上：期望「${swapTitle}」，实际「${jumped.title}」`);
+    if (!jumped.artist) throw new Error("hero 艺人名为空");
+    if (jumped.h < 10) throw new Error(`hero 艺人行塌了（h=${jumped.h}）`);
+    if (Number(jumped.noteOpacity) < 0.5) throw new Error(`note 透明（op=${jumped.noteOpacity}）`);
+    if (!jumped.anim.includes("cs-swap-copy")) throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
 
-    /* 跟播：播一首**不在每日推荐里**的歌（榜单第一行）→ 回首页。
-       判据：钢印换「客座发行」（④）、kick 标来源、曲目表整表切榜单队列、「换一张」隐藏（拍板 #5）。 */
+    /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停
+       会影响后续直播段的现场；ON AIR 段验的是同一套 live 分支，验一次就够）。 */
+
+    /* 跟播视图：播一首**不在每日推荐里**的歌（榜单列表第一行）→ 回首页。
+       判据：hero 换成那首歌、文案标来源、右栏整栏切「正在播放 · 来自当前队列」、
+       播出带换成榜单队列且标出在播档。旧实现左栏永远钉死在每日推荐，这条必红。 */
     await click(
       `(() => { const t = document.querySelector('.ruler-tick[data-page="online"]'); t?.click(); return Boolean(t); })()`,
       "站尺「在线」",
@@ -839,99 +867,75 @@ app.whenReady().then(async () => {
     );
     await sleep(800);
     const onAir = await evalJs(`(() => ({
-      title: document.querySelector(".rs-title")?.textContent ?? "",
-      seal: document.querySelector(".home-seal")?.textContent ?? "",
-      kick: document.querySelector(".rs-kick")?.textContent ?? "",
-      stylus: document.querySelector(".home-stylus")?.textContent ?? "",
-      rows: document.querySelectorAll(".rs-row").length,
-      selected: document.querySelector('.rs-row[aria-selected="true"] .rs-name')?.textContent ?? "",
-      side: document.querySelector(".rs-side")?.textContent ?? "",
-      reload: document.querySelector(".rs-tracks .rs-reload") !== null,
-      deckSrc: document.querySelector(".deck-src")?.textContent ?? "",
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      note: document.querySelector(".cs-note")?.textContent ?? "",
+      feed: document.querySelector(".cs-feed-kicker")?.textContent ?? "",
+      meta: document.querySelector(".cs-feed-meta")?.textContent ?? "",
+      tapes: document.querySelectorAll(".cs-tape").length,
+      /* 「真接下来」跟播版：hero idx 的下一首必须坐在待播带首位 */
+      idx: document.querySelector(".cs-idx")?.textContent ?? "",
+      tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
     }))()`);
     console.log(
-      `首页跟播：播榜单「${chartPick}」→ 大字「${onAir.title}」·钢印「${onAir.seal.trim()}」·kick「${onAir.kick.trim()}」` +
-        `·${onAir.rows} 行·在播「${onAir.selected}」·表头「${onAir.side.trim()}」·换一张=${onAir.reload}·deck「${onAir.deckSrc.trim()}」`,
+      `首页跟播：播榜单「${chartPick}」→ 大字「${onAir.title}」·${onAir.idx.trim()}·文案「${onAir.note.trim()}」·右栏「${onAir.feed}·${onAir.meta.trim()}」·播出带 ${onAir.tapes} 档·首位 ${onAir.tapeNo.trim()}`,
     );
     if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
     if (onAir.title !== chartPick) throw new Error(`跟播后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
-    if (onAir.seal.trim() !== "客座发行") throw new Error(`跟播后钢印没换「客座发行」（④）：${onAir.seal.trim()}`);
-    if (!onAir.kick.includes("GUEST RELEASE")) throw new Error(`kick 行没标客座来源：${onAir.kick}`);
-    if (onAir.rows < 4) throw new Error(`曲目表没换成榜单队列：只有 ${onAir.rows} 行`);
-    if (onAir.selected !== chartPick) throw new Error("在播标记没跟到榜单那首");
-    if (onAir.reload) throw new Error("客座发行投影下「换一张」不该出现（拍板 #5）");
-    if (!/\d{2}\/\d{2}/.test(onAir.deckSrc)) throw new Error(`deck 来源行没写节目来源与播位：${onAir.deckSrc}`);
+    if (!onAir.kicker.includes("正在播放")) throw new Error(`跟播后眉标没变成「正在播放」：${onAir.kicker}`);
+    if (!onAir.note.includes("来自")) throw new Error(`ON AIR 文案没标来源：${onAir.note}`);
+    if (!onAir.feed.includes("正在播放")) throw new Error(`右栏没切到跟播视图：${onAir.feed}`);
+    if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
+    if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
+    if (Number(onAir.idx.trim().split("/")[0].trim()) + 1 !== Number(onAir.tapeNo.trim())) {
+      throw new Error(`ON AIR 播出带不是「接下来」：hero ${onAir.idx.trim()} 之后首位应是 ${Number(onAir.idx.trim().split("/")[0].trim()) + 1}，实际 ${onAir.tapeNo.trim()}`);
+    }
     await shoot("live-home-onair.png");
 
-    /* 暂停态：deck 主键（控制台已在首页隐藏，走带键是首页唯一入口）——
-       灯牌换 PAUSED（警示橙静止）、律动条定格、钢印不动。 */
+    /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——
+       眉标换「暂停中」、文案换「暂停中，随时接着听」，不许再谎称「正在播放」。
+       点击走底栏主键（hero 大钮已随去重移除，全局控制台是唯一的播放/暂停入口）。 */
     await click(
-      `(() => { const b = document.querySelector(".deck-key.main"); b?.click(); return Boolean(b); })()`,
-      "deck 主键 播放/暂停",
+      `(() => { const b = document.querySelector(".console .tb.main"); b?.click(); return Boolean(b); })()`,
+      "底栏主键 播放/暂停",
     );
     await sleep(500);
     const paused = await evalJs(`(() => ({
-      lamp: document.querySelector(".home-stylus")?.dataset.lamp ?? "",
-      stylus: document.querySelector(".home-stylus")?.textContent ?? "",
-      seal: document.querySelector(".home-seal")?.textContent ?? "",
-      eqAnim: getComputedStyle(document.querySelector(".rs-eq i")).animationName,
-      eqH: getComputedStyle(document.querySelector(".rs-eq i")).height,
+      kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
+      note: document.querySelector(".cs-note")?.textContent ?? "",
+      /* 暂停后黑胶必须停在当前角度（paused 而不是 running）：唱针抬起来了 */
+      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
     }))()`);
-    console.log(`首页暂停：灯牌「${paused.stylus.trim()}(${paused.lamp})」·钢印「${paused.seal.trim()}」·律动 ${paused.eqH}/${paused.eqAnim}`);
-    if (paused.lamp !== "paused") throw new Error(`暂停后灯牌没切 PAUSED：${paused.lamp}`);
-    if (paused.stylus.trim() !== "PAUSED · A1") throw new Error(`灯牌文字不对：${paused.stylus.trim()}`);
-    if (paused.seal.trim() !== "客座发行") throw new Error(`暂停不该换投影态：${paused.seal.trim()}`);
-    if (paused.eqAnim !== "none" || paused.eqH !== "6px") {
-      throw new Error(`暂停后律动条没定格（${paused.eqH}/${paused.eqAnim}）——不播假动画`);
+    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·黑胶 ${paused.npSpin}`);
+    if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
+    if (!paused.note.includes("暂停中")) throw new Error(`暂停文案没换：${paused.note}`);
+    if (paused.npSpin !== "paused") {
+      throw new Error(`暂停后黑胶还在转（animation-play-state = ${paused.npSpin}）`);
     }
     await shoot("live-home-onair-paused.png");
 
-    /* 恢复播放：给 reduce 判据一个「灯在呼吸」的对照态 */
-    await click(
-      `(() => { const b = document.querySelector(".deck-key.main"); b?.click(); return Boolean(b); })()`,
-      "deck 主键 继续播放",
-    );
-    await sleep(500);
-
-    /* reduce 判据 ⑤：CDP 模拟 prefers-reduced-motion——运行中的动画清零、灯不呼吸、过渡直切 */
-    win.webContents.debugger.attach("1.3");
-    await win.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-reduced-motion", value: "reduce" }],
-    });
-    await sleep(300);
-    const reduceProbe = await evalJs(`(() => {
-      const anims = document
-        .querySelector(".home-release")
-        .getAnimations({ subtree: true })
-        .filter((a) => a.playState === "running");
-      return {
-        anims: anims.length,
-        lamp: getComputedStyle(document.querySelector(".rs-lamp")).animationName,
-        fill: getComputedStyle(document.querySelector(".deck-fill")).transitionDuration,
-        rowT: getComputedStyle(document.querySelector(".rs-row")).transitionDuration,
-      };
+    /* 悬停浮起判据：CSS :hover 只认真实指针，用 sendInputEvent 把指针移到盘心，
+       scale 应到 1.07（独立 scale 属性，与旋转的 transform 并存）。这条红说明规则或选择器丢了。 */
+    const artBox = await evalJs(`(() => {
+      const r = document.querySelector(".console .np-art")?.getBoundingClientRect();
+      return r ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } : null;
     })()`);
-    console.log(
-      `reduce 模拟：运行中动画 ${reduceProbe.anims} 条 · lamp=${reduceProbe.lamp} · fill=${reduceProbe.fill} · row=${reduceProbe.rowT}`,
+    if (!artBox) throw new Error("找不到黑胶盘：hover 判据没意义");
+    win.webContents.sendInputEvent({ type: "mouseMove", x: artBox.x, y: artBox.y });
+    await sleep(250);
+    const hoverScale = await evalJs(`getComputedStyle(document.querySelector(".console .np-art")).scale`);
+    console.log(`黑胶悬停：指针移到盘心 → scale = ${hoverScale}`);
+    if (Math.abs(parseFloat(hoverScale) - 1.07) > 0.01) {
+      throw new Error(`悬停浮起没生效（scale = ${hoverScale}，期望 1.07）`);
+    }
+    // 不走 shoot：它会先把光标挪走。悬停证据就要带着光标拍。
+    await win.webContents.executeJavaScript(
+      `new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`,
+      true,
     );
-    if (reduceProbe.anims > 0) throw new Error(`reduce 下还有 ${reduceProbe.anims} 条动画在跑`);
-    if (reduceProbe.lamp !== "none") throw new Error(`reduce 下唱针灯还在呼吸：${reduceProbe.lamp}`);
-    if (reduceProbe.fill !== "0s") throw new Error(`reduce 下进度线还在过渡：${reduceProbe.fill}`);
-    if (reduceProbe.rowT !== "0s") throw new Error(`reduce 下曲目行还在过渡：${reduceProbe.rowT}`);
-    await shoot("live-home-reduce.png");
-    await win.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", {
-      features: [{ name: "prefers-reduced-motion", value: "" }],
-    });
-    await sleep(200);
-    win.webContents.debugger.detach();
-
-    /* 暂停收尾：后续播放页矮窗探针在「暂停态」下标定（黑胶静止、封套包围盒稳定），
-       播着进播放页会让旋转黑胶的包围盒随相位抖动，探针会误报溢出。 */
-    await click(
-      `(() => { const b = document.querySelector(".deck-key.main"); b?.click(); return Boolean(b); })()`,
-      "deck 主键 暂停收尾",
-    );
-    await sleep(400);
+    const hoverShot = await win.webContents.capturePage();
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, "live-home-hover.png"), hoverShot.toPNG());
   }
 
   if (process.env.LIVE_EMPTY === "1" || process.env.HOME_ONLY === "1") {
@@ -1859,40 +1863,7 @@ app.whenReady().then(async () => {
     })()`);
     console.log(`播放页矮窗 ${w}x${h} 溢出：${JSON.stringify(spill)}`);
     const scrolling = spill.filter((item) => item.y > 1);
-    if (scrolling.length) {
-      const sleeveDiag = await evalJs(`(() => {
-        const s = document.querySelector(".sl-sleeve");
-        const v = document.querySelector(".sl-vinyl");
-        const grid = document.querySelector(".sl-grid");
-        const r = (el) => {
-          if (!el) return null;
-          const b = el.getBoundingClientRect();
-          const cs = getComputedStyle(el);
-          return { w: Math.round(b.width), h: Math.round(b.height), disp: cs.display, anim: cs.animationName };
-        };
-        return {
-          sleeve: r(s), vinyl: r(v), grid: r(grid),
-          skin: document.querySelector(".stage .sk")?.className ?? "",
-          playing: document.querySelector(".stage .sk")?.dataset.playing ?? "",
-          chain: (() => {
-            const out = [];
-            let el = document.querySelector(".stage")?.parentElement;
-            while (el && out.length < 6) {
-              const cs = getComputedStyle(el);
-              out.push(
-                el.tagName + "." + String(el.className).split(" ")[0] +
-                  ":" + Math.round(el.getBoundingClientRect().height) + "(" + cs.height + "/" + cs.display + ")",
-              );
-              el = el.parentElement;
-            }
-            return out;
-          })(),
-        };
-      })()`);
-      throw new Error(
-        `播放页矮窗 ${w}x${h} 还在滚：${JSON.stringify(scrolling)}（${JSON.stringify(sleeveDiag)}）`,
-      );
-    }
+    if (scrolling.length) throw new Error(`播放页矮窗 ${w}x${h} 还在滚：${JSON.stringify(scrolling)}`);
 
     /* 细探针：.st-page 横向越界到底是哪个元素撑的。
        只测 scrollWidth 不够——那告诉你「超了 28px」，不告诉你「谁超的」。 */
@@ -1980,17 +1951,6 @@ app.whenReady().then(async () => {
   await sleep(700);
   await shoot("live-room-local.png");
 
-  /* 默认列表循环迁移判据（原在首页段；控制台只在首页隐藏，房间页控制台可见，挪到这里验） */
-  const playMode = await evalJs(
-    `[...document.querySelectorAll(".console .tools button")]
-      .map((b) => b.getAttribute("title") ?? "")
-      .find((t) => t.includes("播放模式")) ?? ""`,
-  );
-  if (!playMode.includes("列表循环")) {
-    throw new Error(`默认列表循环迁移没生效（底栏模式 = ${playMode || "读不到"}）`);
-  }
-  console.log(`底栏模式迁移：${playMode}`);
-
   // 站尺在 1024 宽下的排布（溢出检查的视觉证据）
   win.setContentSize(1024, 768);
   await sleep(400);
@@ -2012,11 +1972,11 @@ app.whenReady().then(async () => {
 
   /* 四档全局配色：控制室跟着换灯，播放页舞台恒暗（2026-11-08「深浅要能看出区别」）。
      判据取 --live-bg 的实际值：改前四档完全相同（--live-bg 是固定值），这条会红。
-     第二条判据取首页发行面的 --live-bg：氛围底跟主题（tint 场景层），
+     第二条判据取首页封面台的 --live-bg：封面台 2026-11-08 起跟主题（tint 场景层），
      四档都必须等于当档壳底色（原「恒 = --night-bg」断言随设计更新反转）。 */
   const themeProbe = () => evalJs(`(() => {
     const shell = document.querySelector(".shell.live");
-    const hero = document.querySelector(".home-release");
+    const hero = document.querySelector(".cs-stage");
     return {
       theme: document.documentElement.dataset.theme ?? "light",
       shellBg: shell ? getComputedStyle(shell).getPropertyValue("--live-bg").trim() : null,
