@@ -217,6 +217,42 @@
   transform: scale(0.97);
 }
 
+/* 前后曲：与主键同一材质协议的中性圆片——主键是青瓷球，它是同房间的白瓷钮。
+   裸三角孤零零漂在主键两侧是「画风割裂」最刺眼的一处（2026-11-11 用户实测反馈）。 */
+.shell.live .console .transport .tb:not(.main) {
+  width: 32px;
+  height: 32px;
+  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
+  border-radius: 50%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .5),
+    0 1px 2px rgb(23 48 44 / .08),
+    0 3px 8px -4px rgb(23 48 44 / .16);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.shell.live .console .transport .tb:not(.main):hover {
+  color: var(--live-fg);
+  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .55),
+    0 2px 4px rgb(23 48 44 / .1),
+    0 5px 12px -5px rgb(23 48 44 / .2);
+}
+
+.shell.live .console .transport .tb:not(.main):active {
+  transform: scale(0.93);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / .12),
+    0 1px 2px rgb(23 48 44 / .06);
+}
+
 /* —— 主键进度环：走带键外的细环 ——
    弧长 = 已播比例（dashoffset 由 App syncPosition 每帧直写），播放中整环
    缓速旋转（磁带盘语言），暂停停在当前角度——状态即动效。 */
@@ -266,21 +302,32 @@
   transition: stroke-dashoffset 90ms linear;
 }
 
-/* 工具钮：图标胶囊。浮起感来自成对的亮/暗内缘（上亮下暗 = 顶光假设），
-   hover 只提亮底色，高光不换方向——光源钉死在房间上。 */
+/* 工具钮：图标胶囊。与主键同一「实体按钮」材质协议——顶光渐变 + 顶缘高光 + 外投影，
+   只是中性白瓷色（青瓷只留给主键）：整排按钮因此同属一个画风（2026-11-11 用户实测反馈）。
+   顶光假设钉死：渐变自上而下由亮转暗，主题切换靠 token 自动换底。 */
 .shell.live .console .tools button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   height: 30px;
   padding: 0 10px;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
+  );
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .07),
-    inset 0 -1px 0 rgb(0 0 0 / .22);
-  transition: background-color 140ms ease, color 140ms ease;
+    inset 0 1px 0 rgb(255 255 255 / .5),
+    0 1px 2px rgb(23 48 44 / .08),
+    0 3px 8px -4px rgb(23 48 44 / .16);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 .shell.live .console .tools button svg {
@@ -298,15 +345,35 @@
 }
 
 .shell.live .console .tools button:hover {
-  background: color-mix(in srgb, var(--live-fg) 10%, transparent);
+  color: var(--live-fg);
+  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .55),
+    0 2px 4px rgb(23 48 44 / .1),
+    0 5px 12px -5px rgb(23 48 44 / .2);
+}
+
+/* 按压 = 按钮被按进面板里：外投影收走，换内凹 */
+.shell.live .console .tools button:active {
+  transform: translateY(0) scale(0.96);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / .12),
+    0 1px 2px rgb(23 48 44 / .06);
 }
 
 .shell.live .console .tools button.on {
-  background: color-mix(in srgb, var(--live-accent) 20%, transparent);
   color: var(--live-accent);
+  border-color: color-mix(in srgb, var(--live-accent) 45%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-accent) 20%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-accent) 24%, var(--live-panel))
+  );
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .1),
-    inset 0 -1px 0 rgb(0 0 0 / .2);
+    inset 0 1px 0 rgb(255 255 255 / .3),
+    0 1px 2px rgb(23 48 44 / .08),
+    0 3px 8px -4px color-mix(in srgb, var(--live-accent) 40%, transparent);
 }
 
 /* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点。

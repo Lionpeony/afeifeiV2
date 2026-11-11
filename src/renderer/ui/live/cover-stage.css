@@ -262,12 +262,21 @@
   height: 30px;
   padding: 0 12px;
   border-radius: 15px;
-  border-color: var(--live-line-strong);
-  background: none;
+  border-color: color-mix(in srgb, var(--live-fg) 8%, transparent);
+  /* 白瓷片材质：与控制台工具排同一协议 */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 1px 2px rgb(23 48 44 / 0.08),
+    0 3px 8px -4px rgb(23 48 44 / 0.16);
   color: var(--live-fg-dim);
   font-family: var(--font-sans);
   font-size: 12px;
-  transition: border-color 140ms ease, color 140ms ease, transform 120ms ease;
+  transition: border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
 }
 
 .cs-feed-head .refresh-btn:active {
@@ -275,8 +284,13 @@
 }
 
 .cs-feed-head .refresh-btn:hover {
-  border-color: var(--live-accent);
+  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
   color: var(--accent-press);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 2px 4px rgb(23 48 44 / 0.1),
+    0 5px 12px -5px rgb(23 48 44 / 0.2);
 }
 
 .refresh-btn.is-spinning svg {
@@ -317,20 +331,34 @@
 .cs-more {
   margin-left: auto;
   padding: 5px 12px;
-  border: 1px solid var(--live-line-strong);
+  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
   border-radius: 14px;
-  background: none;
+  /* 白瓷片材质：与控制台工具排同一「实体按钮」协议（2026-11-11 画风统一） */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 1px 2px rgb(23 48 44 / 0.08),
+    0 3px 8px -4px rgb(23 48 44 / 0.16);
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--live-fg-dim);
   white-space: nowrap;
-  transition: border-color 140ms ease, color 140ms ease, transform 120ms ease;
+  transition: border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
 }
 
 .cs-more:hover {
-  border-color: var(--live-accent);
+  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
   color: var(--accent-press);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 2px 4px rgb(23 48 44 / 0.1),
+    0 5px 12px -5px rgb(23 48 44 / 0.2);
 }
 
 /* 按压态：小钮统一的「点中了」反馈（与卡片协议同源） */
@@ -388,14 +416,20 @@
   background: var(--live-panel);
   color: inherit;
   cursor: pointer;
-  box-shadow: 0 12px 28px -16px rgba(23, 48, 44, 0.28);
-  transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
+  box-shadow:
+    0 1px 2px rgb(23 48 44 / 0.07),
+    0 10px 24px -12px rgb(23 48 44 / 0.28),
+    0 28px 56px -28px rgb(23 48 44 / 0.22);
+  transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
 .cs-tape:hover {
-  border-color: color-mix(in srgb, var(--live-accent) 26%, transparent);
-  box-shadow: 0 16px 34px -14px rgba(23, 48, 44, 0.36);
-  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
+  box-shadow:
+    0 2px 4px rgb(23 48 44 / 0.08),
+    0 16px 32px -14px rgb(23 48 44 / 0.34),
+    0 32px 64px -28px rgb(23 48 44 / 0.26);
+  transform: translateY(-3px);
 }
 
 .cs-tape:active {
@@ -516,19 +550,55 @@ img.cs-tape-art {
 }
 
 .cs-tape-play {
-  /* flex 行内的图形件：flex:none 防被 shrink 成 0 宽（2026-11-10 教训） */
+  /* 圆片播放键：与控制台主键同一「实体按钮」语言的白瓷小钮——
+     卡不再是平面，foot 右下角有一颗摸得到的按钮（2026-11-11 用户实测反馈）。
+     flex:none 防被 shrink 成 0 宽（2026-11-10 教训） */
   flex: none;
-  width: 0;
-  height: 0;
-  border-left: 8px solid var(--live-fg-dim);
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  transition: border-left-color 140ms ease;
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
+    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 1px 2px rgb(23 48 44 / 0.1),
+    0 3px 8px -4px rgb(23 48 44 / 0.16);
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+/* 三角改画在伪元素上：圆片与符号分层，hover 只换色不换形 */
+.cs-tape-play::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* 光学居中：三角重心偏左，右挪 1px 才看着居中 */
+  transform: translate(-50%, -50%) translateX(1px);
+  border-left: 7px solid var(--live-fg-dim);
+  border-top: 4.5px solid transparent;
+  border-bottom: 4.5px solid transparent;
+  transition: border-left-color 160ms ease;
 }
 
 .cs-tape:hover .cs-tape-play,
 .cs-tape:focus-visible .cs-tape-play {
-  border-left-color: var(--live-accent);
+  background: var(--accent-press);
+  transform: scale(1.08);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.25),
+    0 3px 8px -2px color-mix(in srgb, var(--live-accent) 45%, transparent);
+}
+
+.cs-tape:hover .cs-tape-play::before,
+.cs-tape:focus-visible .cs-tape-play::before {
+  border-left-color: var(--accent-ink);
 }
 
 .cs-tape:focus-visible,
@@ -622,18 +692,29 @@ img.cs-tape-art {
   padding: 9px 22px;
   border: none;
   border-radius: 16px;
-  background: var(--accent-press);
+  background:
+    linear-gradient(to bottom, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 46%),
+    var(--accent-press);
   color: var(--accent-ink);
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
+  /* 与控制台主键同一材质协议：球面光 + 下缘内暗 + 青瓷投影 */
+  box-shadow:
+    inset 0 -2px 5px rgb(0 0 0 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 8px 18px -8px color-mix(in srgb, var(--accent-press) 55%, transparent);
   transition: filter 140ms ease, transform 120ms ease, box-shadow 140ms ease;
 }
 
 .cs-play:hover {
-  filter: brightness(0.94);
-  box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--accent-press) 60%, transparent);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 -2px 5px rgb(0 0 0 / 0.18),
+    inset 0 1px 0 rgb(255 255 255 / 0.26),
+    0 10px 22px -8px color-mix(in srgb, var(--accent-press) 62%, transparent);
 }
 
 .cs-play:active {
