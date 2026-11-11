@@ -10,12 +10,14 @@
      米色 / 朱砂 / 墨黑全部退场。token 名保持不变，消费方零改动） */
   --bg: #eef2f1; /* 雾青白 */
   --fg: #17302c; /* 深青灰 */
-  --fg-dim: #54706b; /* 青-2：正文/说明默认色（对底 6:1+） */
+  --fg-dim: #54706b; /* 青-2：正文/说明默认色（对底 ≥4.8:1，实测浅 4.8 / 深 6.7 / 纸 5.4） */
   --line: rgba(23, 48, 44, 0.18); /* 发丝 hair：分区/表格线 */
   --line-soft: rgba(23, 48, 44, 0.08); /* 发丝-2：行分隔、弱线 */
   --row-hover: rgba(23, 48, 44, 0.05);
   --accent: #0e8f82; /* 青瓷印：主操作 / 正在播放 / 进度头 / 品牌句号，其余禁止 */
   --accent-ink: #f4faf8; /* 青瓷上的字 */
+  --accent-press: #0c7d72; /* 深一档青：浅色主题的**文字类 accent**（在播行曲名）与 P0 填充底（--accent 对浅底 3.5:1 不达 AA）；深/纸主题同 --accent */
+  --ink-faint: rgba(23, 48, 44, 0.45); /* 印刷装饰件：引导点 / 目录号 / 序号灰 / 分隔点。禁作信息性文字（实测 2.6:1） */
   --brass: #4a7a96; /* 石板蓝：状态徽章（已登录/缺失/提示） */
   --danger: #c2620f; /* 警示橙棕（红色退场） */
   --bg-raised: #f7faf9; /* 青-2：面板/表头 */
@@ -175,6 +177,8 @@ html {
   --row-hover: rgba(220, 235, 230, 0.06);
   --accent: #2ec9a7; /* 青碧在暗底上提亮一档，否则发乌 */
   --accent-ink: #0c1514;
+  --accent-press: var(--accent); /* 深底上 --accent 已达标，press 不另设档 */
+  --ink-faint: rgba(220, 235, 230, 0.45);
   --brass: #5e9bb8;
   --danger: #e0703a;
   --bg-raised: #16211f;
@@ -220,6 +224,8 @@ html {
   --row-hover: rgba(43, 33, 24, 0.07);
   --accent: #a34a1f;
   --accent-ink: #f6efe0;
+  --accent-press: var(--accent); /* 纸底上 --accent 已达标（4.8:1），press 不另设档 */
+  --ink-faint: rgba(107, 89, 70, 0.45);
   --brass: #7d6027;
   --danger: #9b3a21;
   --bg-raised: #e5d8bd;
