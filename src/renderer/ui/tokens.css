@@ -6,9 +6,9 @@
    2026-11-03 换装：结构层采用旧仓「唱片节目单」视觉（ref/20）——
    纸 #f3f1ea / 墨 #17150f / 朱砂印 #d8341c / 发丝线；直角是默认。 */
 :root {
-  /* ① 结构层（2026-11-10 二次换装：青瓷体系——雾青白底 / 深青灰字 / 青瓷印；
-     米色 / 朱砂 / 墨黑全部退场。token 名保持不变，消费方零改动） */
-  --bg: #eef2f1; /* 雾青白 */
+  /* ① 结构层（2026-11-11 三次换装：默认色改白——用户拍板「播放器默认颜色是白色」。
+     底从雾青白 #eef2f1 提到瓷白，面板比底更亮一档的层次纪律保持；青瓷印不跟） */
+  --bg: #fbfcfc; /* 瓷白 */
   --fg: #17302c; /* 深青灰 */
   --fg-dim: #54706b; /* 青-2：正文/说明默认色（对底 ≥4.8:1，实测浅 4.8 / 深 6.7 / 纸 5.4） */
   --line: rgba(23, 48, 44, 0.18); /* 发丝 hair：分区/表格线 */
@@ -20,7 +20,7 @@
   --ink-faint: rgba(23, 48, 44, 0.45); /* 印刷装饰件：引导点 / 目录号 / 序号灰 / 分隔点。禁作信息性文字（实测 2.6:1） */
   --brass: #4a7a96; /* 石板蓝：状态徽章（已登录/缺失/提示） */
   --danger: #c2620f; /* 警示橙棕（红色退场） */
-  --bg-raised: #f7faf9; /* 青-2：面板/表头 */
+  --bg-raised: #ffffff; /* 面板/表头：纯白，比瓷白底亮半档 */
   --mask: rgba(12, 21, 20, 0.5);
 
   /* ② 场景层（四套预设只改这里 + 布局参数）。
@@ -48,8 +48,8 @@
   --stage-dur: 200ms;
   --stage-ease: ease-out;
 
-  /* ③ 材质层（只给浮层）：青白卡 + 双层影（外投影 + 1px 发丝），无毛玻璃 */
-  --glass-bg: rgba(247, 250, 249, 0.97);
+  /* ③ 材质层（只给浮层）：瓷白卡 + 双层影（外投影 + 1px 发丝），无毛玻璃 */
+  --glass-bg: rgba(255, 255, 255, 0.97);
   --glass-border: rgba(23, 48, 44, 0.28);
   --glass-shadow:
     0 12px 32px rgba(12, 21, 20, 0.16),
@@ -74,9 +74,9 @@
      控制室是**随灯**的一层——日间青白控制室（这里），夜间深青控制室（见 [data-theme="dark"]）。
      换主题只换这一层的值，版式、刻度、节目带结构一律不动。
      舞台（播放页 / 首页封面台）是暗区，不吃这一层，用下面的 ⑤ 钉死。 */
-  --live-bg: #edf2f1;
-  --live-panel: #f6faf9; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
-  --live-panel-2: #e6eeec;
+  --live-bg: #fafbfb; /* 瓷白-2：首页底（比 --bg 深半档，衬白卡） */
+  --live-panel: #ffffff; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
+  --live-panel-2: #f3f7f6;
   --live-fg: #17302c;
   --live-fg-dim: #4c6a64;
   /* 11px mono 标签/读数：对 --live-panel 5.5:1+，小字号读着不吃力 */
@@ -87,10 +87,10 @@
   --live-accent: #0e8f82; /* 青瓷强调：选中/在用/进度（原 --live-accent 琥珀退场，token 改名） */
   --live-phosphor: #23a391; /* 设备灯薄荷青 */
   --live-signal: #3f7a96; /* 频谱石板蓝 */
-  --live-slot: #dde5e3; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档 */
+  --live-slot: #e3eae8; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档 */
   --live-accent-ink: #f4faf8; /* 强调**填充**上的字；强调当字用 --live-accent 本身 */
   --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
-  --live-paper: #f4f8f6; /* 锁定页冷纸 */
+  --live-paper: #fcfdfd; /* 锁定页冷纸 */
   --live-ink: #17302c;
   --live-ruler-h: 56px;
 
@@ -135,7 +135,7 @@ html {
 /* 播放页新皮肤（2026-11-10）：舞台接管了明暗，外壳（站尺 / 控制台）跟着走。
    浅色皮肤在暗色主题下也要把外壳拉回纸色，否则会是一圈深框套一张白纸。 */
 .shell.live:has(.stage[data-tone="light"]) {
-  --bg: #eef2f1;
+  --bg: #fbfcfc;
   --fg: #17302c;
   --fg-dim: #54706b;
   --line: rgba(23, 48, 44, 0.18);
@@ -145,13 +145,13 @@ html {
   --accent-ink: #f4faf8;
   --brass: #4a7a96;
   --danger: #c2620f;
-  --bg-raised: #f7faf9;
+  --bg-raised: #ffffff;
   --grain-opacity: 0.05;
   --grain-blend: multiply;
 
-  --live-bg: #edf2f1;
-  --live-panel: #f6faf9;
-  --live-panel-2: #e6eeec;
+  --live-bg: #fafbfb;
+  --live-panel: #ffffff;
+  --live-panel-2: #f3f7f6;
   --live-fg: #17302c;
   --live-fg-dim: #4c6a64;
   --live-fg-faint: #5d7c75;
@@ -161,7 +161,7 @@ html {
   --live-accent: #0e8f82;
   --live-phosphor: #23a391;
   --live-signal: #3f7a96;
-  --live-slot: #dde5e3;
+  --live-slot: #e3eae8;
   --live-accent-ink: #f4faf8;
 
   color-scheme: light;

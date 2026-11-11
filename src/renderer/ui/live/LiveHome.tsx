@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { RemoteTrack } from "../../../contracts/capability.js";
 import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
@@ -332,7 +332,7 @@ export function LiveHome({
             ) : (
               <ol className="cs-tapes" aria-label="待播曲目，按播放顺序（循环回列表开头）">
               {tapes.map((track, i) => (
-                <li key={track.sourceId}>
+                <li key={track.sourceId} style={{ "--i": i } as CSSProperties}>
                   <button
                     type="button"
                     className="cs-tape"
