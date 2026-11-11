@@ -115,6 +115,8 @@
 }
 
 .refresh-btn svg {
+  /* inline-flex 行内的 svg：不钉 flex:none 会被 shrink 到 0 宽（2026-11-10 教训） */
+  flex: none;
   width: 11px;
   height: 11px;
 }
