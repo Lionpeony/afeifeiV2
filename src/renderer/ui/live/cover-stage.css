@@ -152,6 +152,13 @@
   text-overflow: ellipsis;
 }
 
+.shell.live .cs-title.cs-title-narrow {
+  /* 窄窗（<1180 宽，T1）/ 矮窗（<760 高）：44px 降 38px——与窄屏字号阶同纪律，占位可控。
+     两行省略由 base 的 line-clamp:2 继续生效（clip 单行档不降，单行本就可控）。
+     档位判定在 typography.heroTitleTiers + useViewportTier，这里只管数值（2026-11-11 拍板） */
+  font-size: 38px;
+}
+
 .cs-artist {
   display: flex;
   align-items: baseline;
@@ -587,7 +594,8 @@ img.cs-tape-art {
 }
 
 /* 空台/未登录的主操作：P0 填充钮（全态唯一）。底色浅色走 --accent-press——
-   --accent 对浅底 3.5:1 不达 AA，token 在深/纸主题自动回 --accent（2026-11-11 拍板） */
+   --accent 对浅底 3.5:1 不达 AA，token 在深/纸主题自动回 --accent。
+   造型（accent-press 底 + accent-ink 字 + 16px 圆角）2026-11-11 领队追认通过 */
 .cs-play {
   padding: 9px 22px;
   border: none;

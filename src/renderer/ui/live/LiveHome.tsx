@@ -5,7 +5,8 @@ import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
 import { NightCoverArt } from "./NightCoverArt.js";
 import { detectCoverTrim, sampleCoverTint, type CoverTrim } from "../views/stage/tint-client.js";
-import { splitLatinRuns, visualUnits } from "./typography.js";
+import { splitLatinRuns, visualUnits, heroTitleTiers } from "./typography.js";
+import { useViewportTier } from "./useViewport.js";
 import { onTick } from "../compositor.js";
 import { onAirProgram, type OnAirProgram } from "./on-air.js";
 
@@ -117,10 +118,11 @@ export function LiveHome({
   const live = onAirMode || liveIndex >= 0;
   const leadIndex = onAirMode ? onAirIdx : liveIndex >= 0 ? liveIndex : 0;
   const lead: RemoteTrack | undefined = onAirMode ? onAir.list[onAirIdx] : state.songs[leadIndex];
-  /* 长标题降档（2026-11-11 拍板）：>14 视觉单位降 44px（cs-title-long），
-     >24 单位单行省略 + title 全文（cs-title-clip）。判据 = visualUnits（CJK=1/拉丁=0.5）。 */
+  /* 长标题降档：档位判定在 typography.heroTitleTiers（>24 单行省略 / >14 两行钳 44px，
+     窄窗 <1180 宽或矮窗 <760 高降 38px）。判据 = visualUnits（CJK=1/拉丁=0.5）。 */
+  const vp = useViewportTier();
   const leadUnits = lead ? visualUnits(lead.title) : 0;
-  const titleCls = `cs-title daily-title${leadUnits > 14 ? " cs-title-long" : ""}${leadUnits > 24 ? " cs-title-clip" : ""}`;
+  const titleCls = `cs-title daily-title ${heroTitleTiers(leadUnits, vp.narrow, vp.short)}`.trim();
   // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;

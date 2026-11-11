@@ -28,3 +28,14 @@ export function visualUnits(text: string): number {
   for (const ch of text) units += LATIN.test(ch) ? 0.5 : 1;
   return units;
 }
+
+/** hero 大标题档位（2026-11-11 领队拍板；可红判据在 live-shots 长标题段）：
+ *  >24 单位 → cs-title-clip：任意窗形单行省略（44px，单行本就占位可控）；
+ *  >14 ≤24 → cs-title-long：44px 两行钳；窄窗（<1180 宽，T1）或矮窗（<760 高）
+ *  追加 cs-title-narrow 降到 38px——与窄屏字号阶同纪律，占位可控。
+ *  两个布尔由 useViewportTier（matchMedia）喂；字号数值落在 cover-stage.css。 */
+export function heroTitleTiers(units: number, narrow: boolean, short: boolean): string {
+  if (units > 24) return "cs-title-clip";
+  if (units > 14) return narrow || short ? "cs-title-long cs-title-narrow" : "cs-title-long";
+  return "";
+}

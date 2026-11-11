@@ -757,6 +757,98 @@ app.whenReady().then(async () => {
 
     await shoot("live-home-playing.png");
 
+    /* —— 长标题降档判据（2026-11-11 回炉四条，全部可红）——
+       fixture 现场改「正在播那一档」的曲名 + 点刷新，hero 必须跟着换：
+       ① >24 视觉单位 → .cs-title-clip：单行省略实测（nowrap + ellipsis + 真溢出）；
+       ② >14 ≤24 → .cs-title-long：44px 实测（窄窗降到 38px 实测），且不串 clip；
+       ③ AA：浅色态控制台主键底色 == --accent-press（#0c7d72 = rgb(12,125,114)）；
+       ④ 脚注：cs-sig-foot 是真实信息（循环列表 + 共 N 首），STEREO / L·R 不许回来。
+       全部落当前正在播的档位（hero 跟播），改完全部名字保 hero 必中；走完还原。 */
+    const LONG_TITLE = "Chaikovsky（战个痛快）Reimagined Deluxe Edition（现场录音版）";
+    const MID_TITLE = "夜行列车慢速快门驶过平交道的午夜电台";
+    const dailyNamesBefore = DAILY.map((t) => t.name);
+    const heroTextBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);
+    const refreshHome = async (label) => {
+      await click(
+        `(() => { const b = document.querySelector(".cs-feed-head .refresh-btn"); b?.click(); return Boolean(b); })()`,
+        label,
+      );
+      await sleep(900);
+    };
+    const heroStyle = () =>
+      evalJs(`(() => {
+        const t = document.querySelector(".cs-title");
+        if (!t) return null;
+        const cs = getComputedStyle(t);
+        return {
+          cls: t.className,
+          text: t.textContent,
+          fontSize: cs.fontSize,
+          whiteSpace: cs.whiteSpace,
+          textOverflow: cs.textOverflow,
+          display: cs.display,
+          overflowed: t.scrollWidth > t.clientWidth,
+        };
+      })()`);
+
+    /* ① >24 单位 → 单行省略 */
+    DAILY.forEach((t) => { t.name = LONG_TITLE; });
+    await refreshHome("刷新推荐（长标题注入）");
+    const longShot = await heroStyle();
+    console.log(`长标题①（>24 单位）：${JSON.stringify(longShot)}`);
+    if (!longShot) throw new Error("hero 标题读不到（刷新后页面空了？）");
+    if (longShot.text !== LONG_TITLE) throw new Error(`刷新没把长曲名换上来：「${longShot.text}」`);
+    if (!longShot.cls.includes("cs-title-clip")) throw new Error(`>24 单位没走 clip 档（class = ${longShot.cls}）`);
+    if (longShot.display !== "block" || longShot.whiteSpace !== "nowrap" || longShot.textOverflow !== "ellipsis") {
+      throw new Error(`单行省略没生效：${JSON.stringify(longShot)}`);
+    }
+    if (!longShot.overflowed) throw new Error("长标题没真溢出（scrollWidth == clientWidth）——省略号是空的，判据落空");
+
+    /* ② >14 ≤24 单位 → 44px；同曲名缩到窄窗（1024x700：T1 且矮窗）实测降 38px */
+    DAILY.forEach((t) => { t.name = MID_TITLE; });
+    await refreshHome("刷新推荐（中长标题注入）");
+    const midShot = await heroStyle();
+    console.log(`长标题②（>14 ≤24 单位）：${JSON.stringify(midShot)}`);
+    if (!midShot.cls.includes("cs-title-long") || midShot.cls.includes("cs-title-clip")) {
+      throw new Error(`中长曲名档位不对（class = ${midShot.cls}）`);
+    }
+    if (midShot.fontSize !== "44px") throw new Error(`cs-title-long 字号实测 ${midShot.fontSize}（应 44px）`);
+    win.setContentSize(1024, 700);
+    await sleep(500);
+    const narrowShot = await heroStyle();
+    console.log(`长标题②b（窄窗 1024x700）：${JSON.stringify(narrowShot)}`);
+    if (narrowShot.fontSize !== "38px") {
+      throw new Error(`窄窗长标题没降档：实测 ${narrowShot.fontSize}（应 38px，cs-title-narrow 没生效？）`);
+    }
+    win.setContentSize(1440, 900);
+    await sleep(500);
+
+    /* ③ AA 主键：浅色态 --accent-press */
+    const aaMain = await evalJs(`getComputedStyle(document.querySelector(".console .tb.main")).backgroundColor`);
+    console.log(`长标题③（AA 主键）：${aaMain}`);
+    if (aaMain !== "rgb(12, 125, 114)") {
+      throw new Error(`浅色态控制台主键底色 ${aaMain}（应 --accent-press #0c7d72 = rgb(12,125,114)）`);
+    }
+
+    /* ④ 脚注真实信息 */
+    const sigFoot = await evalJs(`document.querySelector(".cs-sig-foot")?.textContent ?? ""`);
+    console.log(`长标题④（脚注真实信息）：「${sigFoot.trim()}」`);
+    if (!sigFoot.includes("循环列表") || !sigFoot.includes("共")) {
+      throw new Error(`信号脚注不是真实统计：「${sigFoot.trim()}」`);
+    }
+    if (/STEREO|L\\s*\\/\\s*R/.test(sigFoot)) throw new Error(`假仪器标签回来了：「${sigFoot.trim()}」`);
+
+    await shoot("live-home-long-title.png");
+
+    /* 还原 fixture：后续段落（跟播/暂停/房间）继续用原始曲名 */
+    DAILY.forEach((t, i) => { t.name = dailyNamesBefore[i]; });
+    await refreshHome("刷新推荐（fixture 还原）");
+    const heroRestored = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);
+    if (heroRestored !== heroTextBefore) {
+      throw new Error(`fixture 没还原：hero =「${heroRestored}」，应为「${heroTextBefore}」`);
+    }
+    console.log(`长标题判据收尾：fixture 已还原（hero =「${heroRestored}」）`);
+
     /* 同一份节目单里跳档：队列已就位时再点一格走的是光标跳转（不重建队列）——
        hero 仍要跟着切、换档动画仍要播。队列已被上一次点击装好，这条必走跳转路径。 */
     const swapTitle = await evalJs(`(() => {
