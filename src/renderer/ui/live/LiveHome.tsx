@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { RemoteTrack } from "../../../contracts/capability.js";
 import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
@@ -34,6 +34,85 @@ let homeVisited = false;
  */
 const LENS_MAP =
   "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='148' height='259'><defs><linearGradient id='y' gradientUnits='userSpaceOnUse' x1='0' y1='0' x2='0' y2='259'><stop offset='0' stop-color='rgb(128,0,128)'/><stop offset='0.046' stop-color='rgb(128,128,128)'/><stop offset='0.954' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(128,255,128)'/></linearGradient><linearGradient id='xl' gradientUnits='userSpaceOnUse' x1='0' y1='0' x2='12' y2='0'><stop offset='0' stop-color='rgb(0,128,128)'/><stop offset='1' stop-color='rgb(128,128,128)'/></linearGradient><linearGradient id='xr' gradientUnits='userSpaceOnUse' x1='136' y1='0' x2='148' y2='0'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,128,128)'/></linearGradient><radialGradient id='c1' gradientUnits='userSpaceOnUse' cx='12' cy='12' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(0,0,128)'/></radialGradient><radialGradient id='c2' gradientUnits='userSpaceOnUse' cx='136' cy='12' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,0,128)'/></radialGradient><radialGradient id='c3' gradientUnits='userSpaceOnUse' cx='12' cy='247' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(0,255,128)'/></radialGradient><radialGradient id='c4' gradientUnits='userSpaceOnUse' cx='136' cy='247' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,255,128)'/></radialGradient></defs><rect width='148' height='259' fill='url(%23y)'/><rect width='12' height='259' fill='url(%23xl)'/><rect x='136' width='12' height='259' fill='url(%23xr)'/><rect width='12' height='12' fill='url(%23c1)'/><rect x='136' width='12' height='12' fill='url(%23c2)'/><rect y='247' width='12' height='12' fill='url(%23c3)'/><rect x='136' y='247' width='12' height='12' fill='url(%23c4)'/></svg>";
+
+/* ================= 切歌转场 · 封面飞行层 =================
+   「列表里的歌飞进大图」不是换图，是共享元素转场：同一张封面在两组坐标之间连续移动。
+   落地方式 = 换歌瞬间在 body 上挂 fixed 副本补间，落位后交回真正的 .cs-cover。
+
+   为什么必须另起图层、不能直接动 .cs-cover：
+   · .cs-stage 是 overflow:hidden，放大途中的封面在它内部会被裁掉；
+   · .cs-stage 挂 key={lead.sourceId}，换歌即销毁重建，容器内没有可补间的中间态。
+   副本是裸 <img>（无 backdrop-filter），进 body 不进组件树 → 不触发玻璃三死因，也不碰卡上的折射。
+
+   时序（2026-11-12 用户定：380ms + 轻微过冲，旧图走到七成路程淡出）：
+     0ms    两份副本同时起步（新封面飞入卡位→大图，旧封面大图→列表方向）
+     0ms    列表整排左移一格（300ms，只动卡自身，理由见调用处）
+     380ms  新封面落位，副本原地与真图交叉淡变 140ms（同位置同图，肉眼无接缝） */
+type FlyBox = { left: number; top: number; width: number; height: number };
+
+/** 副本的速度曲线：末段减速，落位时有 1~2px 的收势（不是回弹）。 */
+const FLY_EASE = "cubic-bezier(0.32, 1.05, 0.34, 1)";
+const FLY_MS = 380;
+/** 落位交接：副本淡出的时长，与真封面的淡入重叠。 */
+const FLY_HANDOFF_MS = 140;
+
+const boxOf = (r: DOMRect): FlyBox => ({
+  left: r.left,
+  top: r.top,
+  width: r.width,
+  height: r.height,
+});
+
+/** 建一份封面副本，按 from→to 补间位移/尺寸/圆角。返回副本元素与其动画。 */
+function spawnFly(opts: {
+  from: FlyBox;
+  to: FlyBox;
+  url: string | undefined;
+  radius: readonly [number, number];
+  duration: number;
+  fadeOut: boolean;
+}): { el: HTMLDivElement; anim: Animation } {
+  const { from, to, url, radius, duration, fadeOut } = opts;
+  const el = document.createElement("div");
+  el.className = "cs-fly";
+  if (url) {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    img.referrerPolicy = "no-referrer";
+    // 副本必须当帧有像素：否则飞行前半程是一块空白圆角
+    img.decoding = "sync";
+    el.appendChild(img);
+  } else {
+    el.classList.add("cs-fly-blank");
+  }
+  document.body.appendChild(el);
+
+  /* 宽高逐帧补间，而不是 transform: scale()：卡面是正方形、大图是竖矩形，
+     统一 scale 会把封面拉变形；object-fit: cover 只有在盒子真的变尺寸时才裁得对。 */
+  const first: Keyframe = {
+    transform: `translate3d(${from.left}px, ${from.top}px, 0)`,
+    width: `${from.width}px`,
+    height: `${from.height}px`,
+    borderRadius: `${radius[0]}px`,
+    opacity: 1,
+  };
+  const last: Keyframe = {
+    transform: `translate3d(${to.left}px, ${to.top}px, 0)`,
+    width: `${to.width}px`,
+    height: `${to.height}px`,
+    borderRadius: `${radius[1]}px`,
+    opacity: fadeOut ? 0 : 1,
+  };
+  const frames: Keyframe[] = [first];
+  /* 旧封面走到七成路程就开始散：它的真实落点是环列队尾（在屏外的那一格），
+     精确塞进第一格是撒谎，硬撑满全程又会看到"缩到一半忽然没了"。 */
+  if (fadeOut) frames.push({ offset: 0.68, opacity: 0.9 });
+  frames.push(last);
+
+  const anim = el.animate(frames, { duration, easing: FLY_EASE, fill: "forwards" });
+  return { el, anim };
+}
 
 /** 信号条柱数：与控制台/舞台同源（engine.spectrum 聚合桶），写死就是假仪器。 */
 const VU_BARS = 40;
@@ -79,6 +158,19 @@ export function LiveHome({
   const [tint, setTint] = useState<string | null>(null);
   const [trims, setTrims] = useState<Record<string, CoverTrim>>({});
   const vuRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  /** 转场要在地面坐标上操作，所以整块首页挂一个 ref 兜底 query。 */
+  const rootRef = useRef<HTMLElement | null>(null);
+  /** 上一次 commit 测到的卡封面 rect（songId → 视口坐标）。
+      切歌那一刻新列表里已经没有被点那首的格子了，所以快照必须**提前**存在：
+      转场 effect（声明在前）读它，测量 effect（声明在后）每次 commit 重写它。 */
+  const tapeRects = useRef<Map<string, FlyBox>>(new Map());
+  const coverBox = useRef<FlyBox | null>(null);
+  const prevLead = useRef<{ id: string; url?: string } | null>(null);
+  const flySeq = useRef(0);
+  const [flying, setFlying] = useState(false);
+  /** 转场落位标记：真封面要**当帧**不透明（副本已精确停在终态），
+      否则 260ms 淡入会在副本摘掉后透出页面底色。每次换 lead 先复位。 */
+  const [landed, setLanded] = useState(false);
 
   /** 白边图的反制：按检测到的最大白边比例放大（中心对称，白边被挤出圆角容器外）。
       正常封面 trim=null 不动；上限 1.17（15% 白边全量反制）。 */
@@ -151,6 +243,139 @@ export function LiveHome({
     else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
   };
 
+  /* —— 切歌转场：换 lead 时把封面"飞"过去 ——
+     命中条件 = 新 lead 的封面 rect 在**上一帧**的待播带快照里。
+     手动点卡命中（点的就是那格）；自动播完也命中（自动下一首正是原第一格）。
+     上一首 / 随机 / 跨列表跳转命中不了 → 回落原有的淡入，不硬编造出发点。 */
+  useLayoutEffect(() => {
+    const id = lead?.sourceId ?? null;
+    const prev = prevLead.current;
+    prevLead.current = id ? { id, url: lead?.coverUrl } : null;
+    // 每次换 lead 先复位"落位"标记：没命中转场的换歌（上一首/随机）要回到正常淡入
+    setLanded(false);
+    if (!id || !lead || !prev || prev.id === id) return;
+    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    const root = rootRef.current;
+    const from = tapeRects.current.get(id);
+    const coverEl = root?.querySelector<HTMLElement>(".cs-stage .cs-cover");
+    if (!root || !from || !coverEl) return;
+    // 目标位在这一帧才定下来：新歌标题的行数决定 copy 高度，进而决定封面高度
+    const to = boxOf(coverEl.getBoundingClientRect());
+    if (to.width < 48 || from.width < 8) return;
+
+    const seq = ++flySeq.current;
+    // 连点切歌：上一份副本立刻撤掉，不让两层影子叠在一起飞
+    for (const stale of document.querySelectorAll(".cs-fly")) stale.remove();
+    setFlying(true); // layout effect 里的 setState 在 paint 前冲刷，不会闪一帧
+
+    /* 先建退回的那份（旧封面）：两份副本 z-index 相同，同层里由 DOM 顺序决定叠放，
+       后插入的在上。前景必须是"正在靠近的新封面"，所以旧的先建、垫在下面——
+       反过来新封面会在交叉点被旧封面整块盖住，"飞进来"这个动作就看不见了。 */
+    const back = coverBox.current;
+    if (back) {
+      const slot = root.querySelector<HTMLElement>(".cs-tapes .cs-tape-art");
+      const slotBox = slot ? boxOf(slot.getBoundingClientRect()) : null;
+      const outgoing = spawnFly({
+        from: back,
+        to: slotBox
+          ? { left: slotBox.left, top: slotBox.top, width: slotBox.width, height: slotBox.width }
+          : {
+              left: back.left + back.width * 0.55,
+              top: back.top + back.height * 0.42,
+              width: back.width * 0.4,
+              height: back.width * 0.4,
+            },
+        url: prev.url,
+        radius: [18, 12],
+        duration: FLY_MS - 60,
+        fadeOut: true,
+      });
+      // 它自己不会退场（fadeOut 只是透明度）：不回收就是 body 上一块永久不动的 0 透明度节点
+      outgoing.anim.finished.then(
+        () => outgoing.el.remove(),
+        () => outgoing.el.remove(),
+      );
+    }
+
+    /* 新封面：卡位 → 大图位。最后创建 = 压在最上层。 */
+    const incoming = spawnFly({
+      from,
+      to,
+      url: lead.coverUrl,
+      radius: [12, 18],
+      duration: FLY_MS,
+      fadeOut: false,
+    });
+
+    /* 整排左移一格：**只动 .cs-tape 自己，绝不动 li**。
+       li 是光场 position-anchor 的宿主，li 一旦被 transform 带动，anchor() 每帧重算，
+       整排卡的 backdrop 折射跟着逐帧重算（2026-11-11 实测）。 */
+    const cards = Array.from(root.querySelectorAll<HTMLElement>(".cs-tapes .cs-tape"));
+    if (cards.length > 1) {
+      const step = cards[1].getBoundingClientRect().left - cards[0].getBoundingClientRect().left;
+      if (step > 4) {
+        for (const card of cards) {
+          // 每张都从"右一格"起跑 = 整排同步左移一格（同一步长、同一时长，不搞错峰波浪）
+          card.animate([{ transform: `translateX(${step}px)` }, { transform: "none" }], {
+            duration: 300,
+            easing: FLY_EASE,
+          });
+        }
+      }
+    }
+
+    /* 落位交接：副本停在终态原地淡出，同时解除 flying 让真封面淡入。
+       两张同位置、同图、同圆角叠着交叉，看到的是"图变成了真的那一层"，没有接缝。 */
+    let landed = false;
+    const land = (): void => {
+      if (landed || flySeq.current !== seq) return;
+      landed = true;
+      window.clearTimeout(guard);
+      /* 两个 setState 同批：landed 让真封面**当帧**不透明（跳过 260ms 淡入，
+         否则副本摘掉时底下一半透明 → 透出页面底色），flying 解除让文案开始浮现。 */
+      setLanded(true);
+      setFlying(false);
+      incoming.anim.finished
+        .then(() =>
+          incoming.el
+            .animate([{ opacity: 1 }, { opacity: 0 }], { duration: FLY_HANDOFF_MS, fill: "forwards" })
+            .finished.then(
+              () => incoming.el.remove(),
+              () => incoming.el.remove(),
+            ),
+        )
+        .catch(() => incoming.el.remove());
+    };
+    // 兜底：动画被系统冻结（窗口最小化等）时不能让 flying 永远挂住，真封面会一直透明
+    const guard = window.setTimeout(land, FLY_MS + 240);
+    incoming.anim.finished.then(land, () => {});
+    // lead 变了就是一次新的转场，旧 effect 无需 cleanup（副本自己会退场）
+  }, [lead?.sourceId]);
+
+  /* 每次 commit 后刷新测量快照。**必须在转场 effect 之后声明**：
+     React 按声明顺序跑 layout effect，先读上一帧旧快照，再写本帧新快照。 */
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const next = new Map<string, FlyBox>();
+    for (const card of root.querySelectorAll<HTMLElement>(".cs-tape[data-song]")) {
+      const art = card.querySelector<HTMLElement>(".cs-tape-art");
+      const id = card.dataset.song;
+      if (art && id) next.set(id, boxOf(art.getBoundingClientRect()));
+    }
+    tapeRects.current = next;
+    const cover = root.querySelector<HTMLElement>(".cs-stage .cs-cover");
+    coverBox.current = cover ? boxOf(cover.getBoundingClientRect()) : null;
+  });
+
+  // 卸载/切页时把还在飞的副本收干净（body 上的节点不在 React 树里，不回收就永久残留）
+  useEffect(() => () => {
+    for (const el of document.querySelectorAll(".cs-fly")) el.remove();
+  }, []);
+
   const firstVisit = !homeVisited;
   homeVisited = true;
 
@@ -181,6 +406,7 @@ export function LiveHome({
 
   return (
     <section
+      ref={rootRef}
       className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
     >
       {/* 折射透镜：整页只渲染一次，CSS 侧 --lg-backdrop: url(#lg-lens) 引用它。
@@ -227,7 +453,7 @@ export function LiveHome({
           {/* 左：「正在播放」大图卡。stage 按 lead.sourceId 重挂 —— 换档时封面与文案各播一次入场
               （见 cover-stage.css）。key 放在 section 上而不是子元素上：img 单独换 key 实测不重挂。 */}
           <section
-            className="cs-stage"
+            className={`cs-stage${flying ? " cs-flying" : ""}${landed ? " cs-landed" : ""}`}
             key={lead.sourceId}
             aria-labelledby="leadTitle"
           >
@@ -367,6 +593,7 @@ export function LiveHome({
                   <button
                     type="button"
                     className="cs-tape"
+                    data-song={track.sourceId}
                     onClick={() => play(track)}
                     aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                     /* 卡面一律单行省略：完整歌名在这条 title 里，hover 就能读到（2026-11-11 长文案策略） */

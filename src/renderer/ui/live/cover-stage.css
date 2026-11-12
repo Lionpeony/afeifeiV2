@@ -1019,12 +1019,66 @@ img.cs-tape-art {
   }
 }
 
+/* fill-mode 一律 backwards：forwards 的结束态会以动画优先级永久压住内联样式
+   （trimScale 曾被 matrix(1,0,0,1) 压死，2026-11-09 探针），也会滞留合成层。 */
 .cs-stage .cs-cover {
-  animation: cs-swap-cover 260ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+  animation: cs-swap-cover 260ms cubic-bezier(0.3, 0.7, 0.3, 1) backwards;
 }
 
 .cs-copy {
-  animation: cs-swap-copy 200ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
+  animation: cs-swap-copy 200ms cubic-bezier(0.3, 0.7, 0.3, 1) backwards;
+}
+
+/* —— 转场落位：真封面当帧就位 ——
+   副本已经精确停在终态，此时任何淡入都会在副本摘掉的那一帧透出页面底色：
+   两层同图叠加时 alpha 之和 < 1（0.5 叠 0.5 仍有 25% 底透出来）。
+   1ms 不是"很短的动画"，是"跳过这条动画"——真身的可见性由副本的淡出负责交接。
+   必须写在 .cs-flying 之前：同特异性下 flying 要赢（飞行中仍然是 opacity 0）。 */
+.cs-stage.cs-landed .cs-cover {
+  animation: cs-swap-cover 1ms linear backwards;
+}
+
+/* —— 切歌转场：真身让位 ——
+   飞行副本（.cs-fly，LiveHome.tsx spawnFly）接管封面与文案的进出；
+   这里的 animation:none 是**必须**的：否则 cs-swap-cover 的淡入会和副本同时跑，
+   副本还在半路上，大图上就先浮出一张半透明的新图（两张同图不同位置 = 重影）。 */
+.cs-stage.cs-flying .cs-cover,
+.cs-stage.cs-flying .cs-copy {
+  animation: none;
+  opacity: 0;
+}
+
+/* —— 飞行副本 ——
+   挂在 body 上（不进 .cs-stage，绕开 overflow:hidden 与 key 重挂），
+   位移/尺寸/圆角由 WAAPI 逐帧补间。裸 <img>，不带 backdrop-filter，
+   所以不进玻璃三死因的因果链，飞行期间卡的折射照常。
+   阴影与 .cs-cover 同源：落位交叉淡变时边缘不会"跳一下"。 */
+.cs-fly {
+  position: fixed;
+  left: 0;
+  top: 0;
+  /* 全局层序里 40 = 页面浮层、50 = 模态层（00 §9.2）。飞行副本取 50：
+     它是"内容正在搬家"的临时层，飞过底部控制台时不能被切掉；
+     切歌不可能发生在模态打开时，所以不与对话框争抢。 */
+  z-index: 50;
+  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 0 0;
+  box-shadow:
+    0 26px 60px -24px rgba(23, 48, 44, 0.38),
+    0 8px 20px -10px rgba(23, 48, 44, 0.2);
+}
+
+.cs-fly img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 无封面曲目：黑胶垫底的同色底（真像素由 .cs-cover 落位后补上） */
+.cs-fly-blank {
+  background: var(--live-ink);
 }
 
 /* —— 窄宽 / 矮高降级 —— */

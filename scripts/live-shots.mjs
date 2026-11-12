@@ -1114,7 +1114,94 @@ app.whenReady().then(async () => {
       return t;
     })()`);
     if (!tapeTitle) throw new Error("播出带没有第 2 格：fixture 的每日推荐没生效");
-    await sleep(1800);
+
+    /* 切歌转场判据（2026-11-12「列表飞进大图」）：
+       · 换歌瞬间 body 上必须挂**两份** .cs-fly —— 新封面飞入 + 旧封面退回，
+         只剩一份 = "上一首缩小回去"那半个动作丢了；
+       · 真封面必须让位（.cs-flying + opacity 0），否则两张同图不同位置 = 重影；
+       · 待播带整排要动（卡上有 transform 动画）；
+       · 落位后副本必须摘干净、flying 解除、封面回到不透明（漏摘 = 永久挡住真图）。 */
+    const fly = await evalJs(`new Promise((resolve) => {
+      const read = () => {
+        const flies = [...document.querySelectorAll(".cs-fly")];
+        const cover = document.querySelector(".cs-stage .cs-cover");
+        return {
+          n: flies.length,
+          flies: flies.map((f) => {
+            const r = f.getBoundingClientRect();
+            return { l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+          }),
+          flying: !!document.querySelector(".cs-stage.cs-flying"),
+          coverOp: cover ? getComputedStyle(cover).opacity : null,
+          cover: cover
+            ? (() => { const r = cover.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; })()
+            : null,
+          moving: [...document.querySelectorAll(".cs-tapes .cs-tape")].filter((c) => c.getAnimations().length > 0).length,
+          cards: document.querySelectorAll(".cs-tapes .cs-tape").length,
+        };
+      };
+      /* 播放是异步的（onPlayRemote → IPC → store），lead 不会在 click 的同步帧里变。
+         检测到副本的那一刻立刻交回：380ms 的飞行经不起 executeJavaScript 的往返。 */
+      const t0 = performance.now();
+      const tick = () => {
+        if (document.querySelectorAll(".cs-fly").length > 0) { resolve(read()); return; }
+        if (performance.now() - t0 > 5000) { resolve({ n: 0, timeout: true }); return; }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    const flyStart = fly;
+    console.log(`切歌转场起步：${JSON.stringify(flyStart)}`);
+    /* 中间态取证图只能靠"临时把 FLY_MS 放大到 2000 + SWAP_SHOTS=1"产出：
+       capturePage 自身有几百毫秒延迟，380ms 的飞行永远抓不到中段。
+       正常速度跑不设这个开关，免得把已有的取证图覆盖成落位后的样子。 */
+    if (process.env.SWAP_SHOTS === "1") {
+      await sleep(500);
+      await quickShot("live-home-swap-fly.png");
+      await sleep(700);
+      await quickShot("live-home-swap-fly2.png");
+    }
+    const flyEnd = await evalJs(`new Promise((resolve) => {
+      const read = () => {
+        const cover = document.querySelector(".cs-stage .cs-cover");
+        return {
+          n: document.querySelectorAll(".cs-fly").length,
+          flying: !!document.querySelector(".cs-stage.cs-flying"),
+          coverOp: cover ? getComputedStyle(cover).opacity : null,
+        };
+      };
+      const t0 = performance.now();
+      const tick = () => {
+        const r = read();
+        if (r.n === 0 && !r.flying) { resolve(r); return; }
+        if (performance.now() - t0 > 6000) { resolve(r); return; }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    console.log(`切歌转场落位：${JSON.stringify(flyEnd)}`);
+    if (flyStart.n < 2) throw new Error(`转场副本不是两份（${flyStart.n}）：旧封面退回缺失`);
+    {
+      /* 两份副本尺寸必须一大一小：小的是新封面（从卡位起飞），大的是旧封面（从大图退回）。
+         尺寸一样 = 两个动作从同一处出发，说明 rect 快照取错了（例如读的是本帧新 DOM）。 */
+      const ws = flyStart.flies.map((f) => f.w);
+      if (ws.length < 2 || Math.max(...ws) / Math.min(...ws) < 2) {
+        throw new Error(`两份副本尺寸不成"卡位 vs 大图"：${JSON.stringify(ws)}`);
+      }
+      /* 后插入的副本在上一层：新封面（小的那份）必须在最后，否则旧封面缩小途中会盖住它 */
+      if (ws[ws.length - 1] > ws[0]) {
+        throw new Error(`新封面副本不在最上层（DOM 顺序反了）：${JSON.stringify(ws)}`);
+      }
+    }
+    if (!flyStart.flying) throw new Error("换歌瞬间没有 cs-flying：真封面没让位，会和副本重影");
+    if (flyStart.coverOp !== "0") throw new Error(`转场期间真封面没让位（opacity ${flyStart.coverOp}）`);
+    if (flyStart.moving < Math.min(2, flyStart.cards)) {
+      throw new Error(`待播带没跟着位移（${flyStart.moving}/${flyStart.cards} 张卡在动）`);
+    }
+    if (flyEnd.n !== 0) throw new Error(`落位后副本没摘干净：还剩 ${flyEnd.n} 份 .cs-fly`);
+    if (flyEnd.flying) throw new Error("落位后 cs-flying 没解除：真封面会一直透明");
+    if (flyEnd.coverOp !== "1") throw new Error(`落位后封面没回到不透明（opacity ${flyEnd.coverOp}）`);
+    await sleep(700);
     const hero = await evalJs(`(() => ({
       title: document.querySelector(".cs-title")?.textContent ?? "",
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
