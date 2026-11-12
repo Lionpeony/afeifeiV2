@@ -1542,46 +1542,125 @@ html::after {
   text-align: right;
 }
 
-/* 纸面小票 toast（docs/09 B2，旧仓 press.css #toast 还原）：左 3px 朱砂标尺 + mono 顶标 */
+/* 底部居中胶囊（2026-11-12 重做）：瞬态反馈的唯一出口。
+   旧样式是钉在左下的小票（左 3px 朱砂标尺），实际几乎没人用——
+   收藏成功、播放失败全塞进了顶部常驻 notice，于是"一直显示不消失"。
+   现在贴着底栏上方居中：不挡左侧曲目信息，也不需要用户去找。 */
 .toast {
   position: fixed;
-  left: 24px;
-  bottom: 120px;
+  left: 50%;
+  bottom: 92px;
+  /* 入场/退场动画都只演 y 方向的位移，水平居中靠这条基础 transform 兜住——
+     动画 fill 是 backwards，播完会交还样式，没有它 toast 会从居中跳回偏右。 */
+  transform: translateX(-50%);
   z-index: 60;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 320px;
-  padding: 8px 12px 8px 14px;
-  background: var(--bg-raised);
+  align-items: center;
+  gap: 9px;
+  max-width: min(560px, calc(100vw - 48px));
+  padding: 9px 16px 9px 13px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
-  box-shadow: var(--glass-shadow);
+  border-radius: 999px;
+  background: var(--bg-raised);
+  cursor: pointer;
+  box-shadow:
+    0 16px 36px -18px rgb(23 48 44 / .5),
+    0 2px 8px -4px rgb(23 48 44 / .18);
+  animation: toast-in 220ms cubic-bezier(.2, .9, .3, 1) backwards;
 }
-.toast-tag {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 9px;
-  letter-spacing: 0.16em;
+.toast-out {
+  animation: toast-out 180ms ease-in forwards;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+.toast-ic {
+  display: flex;
+  flex: none;
+}
+.toast-ic svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.toast-ok .toast-ic {
+  color: var(--accent-press);
+}
+.toast-bad .toast-ic {
+  color: var(--danger);
+}
+.toast-info .toast-ic {
   color: var(--fg-dim);
 }
 .toast p {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--fg);
 }
 
-/* 顶栏提示（M8）：状态徽章用黄铜（ref/20 §3.1），红只留给法定四处 */
+/* 常驻提示（M8）：新版本 / 上次异常退出这类"要用户动手"的消息。
+   2026-11-12：原来是零圆角黄铜描边，和整机的白面板 + 青瓷语言不搭；
+   现在收成胶囊 + 淡底，右侧跟一颗 ×，关掉就不再回来。 */
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
 .notice {
-  background: none;
-  border: 1px solid var(--brass);
-  border-radius: 0;
+  background: color-mix(in srgb, var(--brass) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brass) 42%, transparent);
+  border-radius: 999px;
   color: var(--brass);
   cursor: pointer;
-  padding: 2px 10px;
-  font-size: 12px;
+  padding: 5px 13px;
+  font-size: 12.5px;
+  line-height: 1.4;
 }
 span.notice {
   cursor: default;
+}
+.notice-x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+.notice-x svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+.notice-x:hover {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
 }
 
 /* 下载（M7）：行内按钮 + 管理页操作列 */

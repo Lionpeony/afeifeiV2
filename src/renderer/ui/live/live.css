@@ -204,14 +204,32 @@
   min-height: 0;
 }
 
-.shell.live .notice {
+/* 常驻提示条（新版本 / 上次异常退出）：绝对定位浮在内容顶部，不推版面。
+   2026-11-12 起外层多了一个 .notice-bar（装着提示本身 + 关闭 ×）：
+   定位必须挂到 bar 上，否则 × 会脱离提示跑到页面左上角。 */
+.shell.live .notice-bar {
   position: absolute;
   z-index: 40;
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 78%;
+}
+
+.shell.live .notice {
+  position: static;
+  transform: none;
+  max-width: none;
   background: var(--live-panel);
-  max-width: 70%;
+  border-color: color-mix(in srgb, var(--live-fg) 16%, transparent);
+  color: var(--live-fg);
+}
+
+.shell.live .notice-bar .notice-x {
+  color: var(--live-fg-dim);
 }
 
 .live-bleed,

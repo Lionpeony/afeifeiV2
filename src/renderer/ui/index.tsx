@@ -11,6 +11,7 @@ import type { Track } from "../domain/library/schema.js";
 import { onFrame } from "./compositor.js";
 import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
+import { toast } from "./toast.js";
 import { StageView } from "./views/stage/index.js";
 import { ChartsView } from "./views/charts/index.js";
 import { PlaylistsView } from "./views/playlists/index.js";
@@ -196,7 +197,10 @@ function App() {
     // 主键进度环：弧长 = 已播比例，与进度条同一份 position/duration，不触发渲染
     if (ringEl.current) {
       const ringPct = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-      ringEl.current.style.strokeDashoffset = (RING_CIRC * (1 - ringPct)).toFixed(2);
+      // 不足 2% 不画：54px 的环上 1.4% 只有一个点那么长，
+      // 读起来像污渍而不是进度（2026-11-12 用户截图里的"球旁小绿点"）。
+      const shown = ringPct < 0.02 ? 0 : ringPct;
+      ringEl.current.style.strokeDashoffset = (RING_CIRC * (1 - shown)).toFixed(2);
     }
     // 睡眠定时剩余时间同样只写 DOM：1s 一个 setInterval 会违反「时间唯一」（I1），
     // 而 deadline 是绝对的，掉帧后补算也不会累积误差。
@@ -347,6 +351,14 @@ function App() {
 
   const { status, trackId, volume, muted, error, trackTitle, remote } = state.player;
   const playing = status === "playing";
+  /*
+   * 底栏的曲名 / 歌手分开取：在线曲目的 trackTitle 是「歌名 — 歌手」拼好的整串，
+   * 按「—」拆会误伤带横线的歌名；队列元数据里本来就分开存着。
+   * 本地曲目从曲库取，取不到就留空（副行只剩播放状态，不编一个"未知歌手"）。
+   */
+  const npMeta = trackId ? state.queue.remote[trackId] : undefined;
+  const npTitle = npMeta?.title ?? trackTitle;
+  const npArtist = npMeta?.artist ?? (trackId && !remote ? trackById(trackId)?.artist ?? "" : "");
   /* 底栏副行的信号源名（「网易云」）：比「在线音源」多一句实话。sources 列表启动后不变。 */
   const sourceName = remote
     ? services.current?.sources().find((s) => s.id === remote.sourceId)?.name ?? null
@@ -377,7 +389,10 @@ function App() {
     trackId,
     trackTitle,
     status,
-    remote,
+    /* 在线曲目的封面地址在队列元数据里（player.remote 只存 sourceId/songId，
+       常常没有 coverUrl）。不补这一手，底栏就只剩盘纹占位，而首页大图明明有图
+       （2026-11-12 用户截图："只有看到歌名"）。 */
+    remote: remote && npMeta?.coverUrl && !remote.coverUrl ? { ...remote, coverUrl: npMeta.coverUrl } : remote,
   });
 
   /**
@@ -741,14 +756,15 @@ function App() {
     origin?: string,
   ): void => {
     void playRemote(sourceId, track, list, stream, origin).catch((err: unknown) => {
-      setNotice({ text: err instanceof Error ? err.message : "这首歌暂时播不了" });
+      // 播放失败是瞬态反馈：4.2 秒后自清，不再挂成顶部常驻条
+      toast(err instanceof Error ? err.message : "这首歌暂时播不了", "bad");
     });
   };
 
   /* 账号红心（底栏 + 喜欢页取消红心 + 绑定生命周期）：hooks/use-account-likes.ts */
   const { accountSource, ensureAccount, unlikeAccount, toggleCurrentLike, likeActionRef } = useAccountLikes({
     services,
-    notify: setNotice,
+    notify: (text, kind) => toast(text, kind ?? "info"),
     resolveAccountSource,
   });
 
@@ -1173,22 +1189,37 @@ function App() {
       <div className="body">
         <section className="main">
           {notice ? (
-            notice.url ? (
+            /* 常驻提示（新版本 / 上次异常退出）必须能关：这类不自动消退，
+               没有 × 就只能等下次覆盖或重启（2026-11-12 用户："一直显示不会消失"）。 */
+            <div className="notice-bar">
+              {notice.url ? (
+                <button
+                  type="button"
+                  className="notice"
+                  title={notice.text}
+                  onClick={() => {
+                    const url = notice.url;
+                    if (url) void services.current?.openExternal(url);
+                    setNotice(null);
+                  }}
+                >
+                  {notice.text}
+                </button>
+              ) : (
+                <span className="notice">{notice.text}</span>
+              )}
               <button
                 type="button"
-                className="notice"
-                title={notice.text}
-                onClick={() => {
-                  const url = notice.url;
-                  if (url) void services.current?.openExternal(url);
-                  setNotice(null);
-                }}
+                className="notice-x"
+                aria-label="关闭提示"
+                title="关闭"
+                onClick={() => setNotice(null)}
               >
-                {notice.text}
+                <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                  <path d="M3.2 3.2l5.6 5.6M8.8 3.2l-5.6 5.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
               </button>
-            ) : (
-              <span className="notice">{notice.text}</span>
-            )
+            </div>
           ) : null}
           {/* key=page：切页即重挂容器，进场动画（live.css room-tune/bleed-tune）每次都重播 */}
           {page === "home" ? (
@@ -1208,7 +1239,8 @@ function App() {
         phase={phase}
         likedNow={likedNow}
         sourceName={sourceName}
-        title={trackTitle ?? baseName(trackId)}
+        title={npTitle ?? baseName(trackId)}
+        artist={npArtist || null}
         trackId={trackId}
         error={error}
         status={status}
@@ -1227,7 +1259,6 @@ function App() {
         setQueueOpen={setQueueOpen}
         setFxOpen={setFxOpen}
         setPage={setPage}
-        setNotice={setNotice}
         toggleCurrentLike={toggleCurrentLike}
         timeEl={timeEl}
         totalEl={totalEl}

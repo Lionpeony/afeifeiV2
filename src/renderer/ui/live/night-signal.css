@@ -95,39 +95,68 @@
   box-shadow: 0 -12px 30px -22px rgba(23, 48, 44, 0.32);
 }
 
-.shell.live .console .np-art {
-  width: 50px;
-  height: 50px;
-  border: none;
-  border-radius: 10px;
-  box-shadow: 0 6px 16px -8px rgba(23, 48, 44, 0.35);
+/* 监听区排版：内容左对齐、红心紧跟文字，不再被 flex:1 推到列尾当孤儿。
+   整块仍是同一个按钮（点哪都能进播放页），只是视觉上收紧成一组。 */
+.shell.live .console .np-zone {
+  gap: 8px;
+  justify-content: flex-start;
 }
 
-/* 盘位包裹层：几何与盘同位，反射带 ::after 盖在盘上但不随盘转（旋转在内层 np-art） */
+.shell.live .console .np-zone .np {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* 封面：圆角方形，和首页大图同一套圆角语言。
+   2026-11-12 用户："最起码像 QQ 音乐这种，把歌曲封面展示出来"——
+   圆盘是黑胶隐喻，方形才是"封面"；而且方框上的圆角 12px 与首页 hero 一致，
+   切页时同一张图从大图缩到底栏仍然是同一个形状。
+   以前这里是 CSS background-image：拿不到 referrer 策略，网易云图床 403，
+   底色又是近白 —— 白底上等于没有封面。现在由 JSX 挂 <img>，这里只管外观。 */
+.shell.live .console .np-art {
+  display: block;
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 12px;
+  object-fit: cover;
+  background-color: color-mix(in srgb, var(--live-fg) 7%, transparent);
+  box-shadow: 0 4px 12px -8px rgba(23, 48, 44, 0.42);
+}
+
+/* 包裹层：几何与封面同位，顶光反射带 ::after 盖在图上一层（不跟着图走） */
 .shell.live .console .np-art-wrap {
   position: relative;
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   flex: none;
-  border-radius: 50%;
+  border-radius: 12px;
 }
 
 .shell.live .console .np-art-wrap::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: 12px;
   pointer-events: none;
-  background: radial-gradient(120% 58% at 32% 6%, rgb(255 255 255 / .2), rgb(255 255 255 / 0) 56%);
+  background: radial-gradient(120% 58% at 32% 6%, rgb(255 255 255 / .18), rgb(255 255 255 / 0) 56%);
 }
 
-/* 监听区只留两行：曲名（主角）+ 状态行（琥珀呼吸点 = 播放指示灯）。
+/* 监听区只留两行：曲名（主角）+ 歌手·状态。
    之前的"正在播放"眉标是第三行冗余——状态行本身就是它。 */
 .shell.live .console .np-tx::before {
   content: none;
 }
 
-.shell.live .console .np-tx span::before {
+.shell.live .console .np-tx b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* 副行的小圆点 = 播放指示灯：在播时呼吸，暂停/缓冲时熄火成中性灰。
+   熄火靠 footer 上的 data-playing 切，不给每个状态各写一档颜色。 */
+.shell.live .console .np-sub::before {
   content: "";
   display: inline-block;
   width: 5px;
@@ -139,46 +168,21 @@
   animation: live-pulse 2.6s ease-in-out infinite;
 }
 
-.shell.live .console .np-tx b {
-  font-size: 15.5px;
-  font-weight: 600;
+.shell.live .console[data-playing="false"] .np-sub::before {
+  background: color-mix(in srgb, var(--live-fg) 32%, transparent);
+  box-shadow: none;
+  animation: none;
 }
 
-/* 监听区封面位：圆形黑胶盘（与首页卡垫底同一套盘纹语言），
-   有封面时圆形裁切 + 内描边；无封面时黑胶占位——同心圆纹 + 琥珀标环。
-   黑胶隐喻：唱针压上（playing）才转，抬起（暂停/缓冲）停在当前角度——
-   用 animation-play-state 切换而不是增删 animation，恢复播放时不跳回 0 点。 */
-@keyframes np-spin {
-  to {
-    transform: rotate(1turn);
-  }
+/* 歌手与状态词之间的分隔点（原来是「歌名 — 歌手」硬连，现在拆两行） */
+.shell.live .console .np-sep {
+  margin: 0 5px;
+  font-style: normal;
+  color: var(--live-fg-faint);
 }
 
-.shell.live .console .np-art {
-  border: none;
-  border-radius: 50%;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 16%, transparent),
-    0 4px 14px -6px rgba(0, 0, 0, 0.42);
-  animation: np-spin 9s linear infinite;
-  animation-play-state: paused;
-  /* 悬停浮起走独立 scale 属性：旋转占着 transform，动画的 transform 优先级
-     会压过普通 transform 声明——scale 属性与它互不覆盖，hover 才敢放大 */
-  transition: scale 140ms ease-out, box-shadow 140ms ease-out;
-}
-
-.shell.live .console .np-art.spin {
-  animation-play-state: running;
-}
-
-/* 悬停：盘轻微浮起 + 阴影加深（按钮反馈档 140ms）；只对盘本身，文字区 hover 不打扰 */
-.shell.live .console .np-art:hover {
-  scale: 1.07;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 28%, transparent),
-    0 8px 22px -6px rgba(0, 0, 0, 0.58);
-}
-
+/* 无封面占位：黑胶盘纹（同心圆 + 中心标环）。方形裁切照样读得懂，
+   和首页那张"没有封面"的垫底是同一套语言。 */
 .shell.live .console .np-art.blank {
   background-color: var(--live-ink);
   background-image:
@@ -191,29 +195,60 @@
     );
 }
 
-/* 红心图标化：描边心 + on 态实心填充（♥ 字符和描边图标体系不统一） */
+/* 红心：给一个 30×30 的落脚点。原来是 34×40 的裸图标、默认 opacity 0.3，
+   孤零零浮在封面和走带区之间的空白里（2026-11-12 用户："工具牌左下角这也简单了"）。
+   现在它是监听区的一部分：有底的圆形 hover，激活态实心青。 */
 .shell.live .console .np-like {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  opacity: 0.45;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.shell.live .console .np-like.on {
+  opacity: 1;
+}
+
+.shell.live .console .np-like:hover:not(:disabled),
+.shell.live .console .np-like:focus-visible {
+  opacity: 1;
+  transform: none;
+  background: color-mix(in srgb, var(--live-fg) 6%, transparent);
+}
+
+.shell.live .console .np-like:active:not(:disabled) {
+  transform: scale(0.92);
 }
 
 .shell.live .console .np-like svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 .shell.live .console .np-like.on svg {
   fill: currentColor;
 }
 
-/* 主播放键：圆形实心 + 球面光（顶缘高光 + 下缘内暗），像一颗真按钮而不是一块色板。
-   40px 而非 44px：外圈进度环要留 2px 间隙，44px 会把环整个吞进按钮影子里（放大实锤）。
-   底色走 --accent-press（2026-11-11 AA 回炉）：浅色 --accent #0e8f82 对浅底 3.5:1 不达 AA，
-   P0 填充钮 + accent-ink 字须 4.5:1；深/纸主题 token 自动回各自 --accent，高光协议不动。 */
+/* 主播放键：双向态（2026-11-12 用户定 B 方案）——
+   · 播放中 = 实心青球（顶缘高光 + 下缘内暗），读作"声音正在出来"；
+   · 暂停中 = 白瓷球（白底 + 青边 + 青三角），白底上"可以点我"反而更跳。
+   40px 球 + 50px 环（留 5px 间隙）：这个尺寸不是随手定的——球再大 4px 就顶高底栏，
+   播放页矮窗档（1160x740）立刻多出 11px 纵向滚动（实测：改 44px 后判据红）。
+   实心态底色走 --accent-press（2026-11-11 AA 回炉）：浅色 --accent #0e8f82
+   对浅底 3.5:1 不达 AA，P0 填充钮 + accent-ink 字须 4.5:1。 */
 .shell.live .console .tb.main {
   width: 40px;
   height: 40px;
+  display: grid;
+  place-items: center;
   border: none;
   border-radius: 50%;
   background:
@@ -224,7 +259,20 @@
     inset 0 -3px 6px rgb(0 0 0 / .28),
     inset 0 1px 0 rgb(255 255 255 / .22),
     0 8px 20px -8px color-mix(in srgb, var(--accent-press) 55%, transparent);
-  transition: transform 140ms ease, filter 140ms ease;
+  transition:
+    transform 140ms ease,
+    filter 140ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+/* 图标走 SVG：18px、圆角三角、视觉重心略偏右（三角要往右挪才正）。
+   原来是 CSS border 拼的三角，硬边 + 重心偏左，在球里读作"贴纸"。 */
+.shell.live .console .tb-main-svg {
+  display: block;
+  width: 18px;
+  height: 18px;
 }
 
 .shell.live .console .tb.main:hover {
@@ -233,8 +281,30 @@
     radial-gradient(circle at 50% 22%, rgb(255 255 255 / .42), rgb(255 255 255 / 0) 62%),
     var(--accent-press);
   color: var(--accent-ink);
-  transform: scale(1.05);
+  transform: scale(1.04);
   filter: brightness(1.06);
+}
+
+/* 暂停态：白瓷球。不是"变淡的主键"，是另一种材质——
+   白底微青 + 1.5px 青边 + 青字，和整条白面板同族，但一眼能认出是按钮。
+   2026-11-12 第一版边太亮、里面全白，看着像"单选圈"：垫 4% 青底 +
+   顶缘内高光，才有"瓷"的实体感。 */
+.shell.live .console .tb.main.is-paused {
+  background: color-mix(in srgb, var(--live-accent) 4%, var(--live-panel));
+  color: var(--accent-press);
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--live-accent) 40%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / .9),
+    0 2px 8px -5px rgba(23, 48, 44, 0.24);
+}
+
+.shell.live .console .tb.main.is-paused:hover {
+  background: color-mix(in srgb, var(--live-accent) 7%, var(--live-panel));
+  color: var(--accent-press);
+  filter: none;
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--live-accent) 68%, transparent),
+    0 6px 16px -8px rgba(23, 48, 44, 0.32);
 }
 
 .shell.live .console .tb.main:active {
@@ -267,8 +337,10 @@
 }
 
 /* —— 主键进度环：走带键外的细环 ——
-   弧长 = 已播比例（dashoffset 由 App syncPosition 每帧直写），播放中整环
-   缓速旋转（磁带盘语言），暂停停在当前角度——状态即动效。 */
+   弧长 = 已播比例（dashoffset 由 App syncPosition 每帧直写）。
+   环**不整体旋转**（2026-11-12 用户截图实锤）：原来 16s 转一圈，
+   已播 1.4% 的那段弧被甩到 10 点钟方向，在球左边读作"粘了个绿点"。
+   进度会跑位置就不叫进度，转盘动效让给了首页的黑胶。 */
 .tb-wrap {
   position: relative;
   width: 50px;
@@ -283,18 +355,12 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  animation: tb-ring-spin 16s linear infinite;
-  animation-play-state: paused;
+  transition: opacity 200ms ease;
 }
 
-.tb-wrap .tb-ring.spin {
-  animation-play-state: running;
-}
-
-@keyframes tb-ring-spin {
-  to {
-    transform: rotate(1turn);
-  }
+/* 暂停时环整体退场：没在播就没有"进度"，留一圈空轨道只会被读成第二个按钮。 */
+.shell.live .console[data-playing="false"] .tb-wrap .tb-ring {
+  opacity: 0;
 }
 
 .tb-ring circle {
@@ -668,7 +734,8 @@
   border: 1px solid var(--live-line-strong);
   background: var(--live-panel);
   color: var(--live-fg);
-  box-shadow:/n    0 24px 56px -18px rgb(0 0 0 / .5),
+  box-shadow:
+    0 24px 56px -18px rgb(0 0 0 / .5),
     0 2px 10px -4px rgb(0 0 0 / .38),
     inset 0 1px 0 rgb(255 255 255 / .08);
   animation: dlg-tune-in 200ms ease-out both;
@@ -684,7 +751,8 @@
 .shell.live .vol-pop .mute {
   border: 1px solid var(--live-line-strong);
   background: color-mix(in srgb, var(--live-fg) 4%, transparent);
-  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .06),
     inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 3px 10px;
   color: var(--live-fg-dim);
@@ -728,7 +796,8 @@
 .shell.live .rate-opts button {
   border: 1px solid var(--live-line-strong);
   background: color-mix(in srgb, var(--live-fg) 4%, transparent);
-  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .06),
     inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 3px 9px;
   color: var(--live-fg-dim);
@@ -797,7 +866,8 @@
 .shell.live .sleep-opts button {
   border: 1px solid var(--live-line-strong);
   background: color-mix(in srgb, var(--live-fg) 4%, transparent);
-  box-shadow:/n    inset 0 1px 0 rgb(255 255 255 / .06),
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / .06),
     inset 0 -1px 0 rgb(0 0 0 / .18);
   padding: 4px 10px;
   color: var(--live-fg-dim);

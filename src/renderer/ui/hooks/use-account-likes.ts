@@ -30,8 +30,11 @@ export type AccountKind = "daily" | "liked" | "week" | "fm";
  */
 export function useAccountLikes(input: {
   services: RefObject<Services | null>;
-  /** 顶部通知（成功 / 失败提示）。失败时提示里说清"已恢复"。 */
-  notify: (n: { text: string; url?: string } | null) => void;
+  /**
+   * 瞬态反馈（成功 / 失败 / 需要登录）。2026-11-12 起走底部胶囊 toast：
+   * 原来这些文案塞进顶部常驻 notice，"已加入喜欢"会一直挂在页面上不消失。
+   */
+  notify: (text: string, kind?: "ok" | "info" | "bad") => void;
   /** App 侧的账号解析（含「未登录」的提示文案），红心点下去时现场解析一次。 */
   resolveAccountSource: () => Promise<{
     id: string | null;
@@ -77,9 +80,9 @@ export function useAccountLikes(input: {
     try {
       await pressAccountLike(portOf(sourceId), songId, false);
       invalidatePrefix(accountKey(sourceId, "liked"));
-      notify({ text: "已从账号红心移除" });
+      notify("已从账号红心移除", "ok");
     } catch (err) {
-      notify({ text: err instanceof Error ? err.message : "取消红心失败，已恢复" });
+      notify(err instanceof Error ? err.message : "取消红心失败，已恢复", "bad");
       throw err;
     }
   };
@@ -105,16 +108,16 @@ export function useAccountLikes(input: {
       }
       if (!id) {
         const resolved = await resolveAccountSource();
-        notify({ text: resolved.hint("liked") ?? "登录后才能红心在线曲目" });
+        notify(resolved.hint("liked") ?? "登录后才能红心在线曲目", "info");
         return;
       }
       const wanted = !isAccountLiked(songId);
       try {
         await pressAccountLike(portOf(id), songId, wanted);
         invalidatePrefix(accountKey(id, "liked"));
-        notify({ text: wanted ? "已加入账号红心" : "已从账号红心移除" });
+        notify(wanted ? "已加入账号红心" : "已从账号红心移除", "ok");
       } catch (err) {
-        notify({ text: err instanceof Error ? err.message : "红心没改成" });
+        notify(err instanceof Error ? err.message : "红心没改成", "bad");
       }
     })();
   };

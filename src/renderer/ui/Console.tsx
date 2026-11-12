@@ -8,6 +8,7 @@ import { fmt, phaseLabel, type PlaybackPhase } from "./playback-phase.js";
 import { PLAY_MODE_LABEL, nextPlayMode } from "./play-mode.js";
 import type { PlayMode } from "../../contracts/index.js";
 import { NavIcon, type IconName } from "./icons.js";
+import { toast } from "./toast.js";
 import type { PageId } from "./pages.js";
 import type { PlayerRemote } from "./hooks/use-media-session.js";
 
@@ -44,6 +45,8 @@ export function Console(props: {
   /** 在线曲目当前音源名（「网易云」）：副行报「信号来自哪」，比「在线音源」有信息量 */
   sourceName: string | null;
   title: string | null;
+  /** 歌手单独一行：曲名与歌手不再用「—」挤在一行（2026-11-12 用户要「像 QQ 音乐那样」） */
+  artist: string | null;
   trackId: string | null;
   error: AppState["player"]["error"];
   status: string;
@@ -63,7 +66,6 @@ export function Console(props: {
   setQueueOpen: Dispatch<SetStateAction<boolean>>;
   setFxOpen: Dispatch<SetStateAction<boolean>>;
   setPage: (page: PageId) => void;
-  setNotice: (n: { text: string; url?: string } | null) => void;
   toggleCurrentLike: () => void;
   /* ref 所有权在 App：syncPosition 每帧写这四个节点 + 睡眠倒计时 + 主键进度环 */
   timeEl: RefObject<HTMLSpanElement | null>;
@@ -82,6 +84,7 @@ export function Console(props: {
     likedNow,
     sourceName,
     title,
+    artist,
     trackId,
     error,
     status,
@@ -100,7 +103,6 @@ export function Console(props: {
     setQueueOpen,
     setFxOpen,
     setPage,
-    setNotice,
     toggleCurrentLike,
     timeEl,
     totalEl,
@@ -114,18 +116,34 @@ export function Console(props: {
   const [volOpen, setVolOpen] = useState(false);
   const [sleepOpen, setSleepOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
+  /* 封面加载失败的地址：失败过一次就退到盘纹占位，别留一块白框。
+     用「地址」而不是布尔值，换歌后新地址自然重试，不用手动清。 */
+  const [coverFailed, setCoverFailed] = useState<string | null>(null);
+  const showCover = npCover !== null && npCover !== coverFailed;
 
   return (
-    <footer className="console">
+    <footer className="console" data-playing={playing}>
       {/* 监听区：正在播放 + 红心。整块可点跳播放页；红心是对"这一首"的表态，跟曲目走 */}
       <div className="np-zone">
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
-          {/* 包裹层只承担「静止的光」：盘在里层自转，顶光反射带钉在外层不跟着转 */}
+          {/* 封面必须是 <img referrerPolicy="no-referrer">：原来的 CSS background-image
+              拿不到 referrer 策略，网易云图床一律 403，底色又是近白 —— 白底上等于没有封面
+              （2026-11-12 用户截图实锤：底栏左侧一片空白只剩两行字）。
+              onError 退到 .blank 的黑胶盘纹，任何情况下都不留白框。 */}
           <span className="np-art-wrap">
-            <span
-              className={`np-art${npCover ? "" : " blank"}${phase === "loading" || phase === "buffering" ? " busy" : ""}${playing ? " spin" : ""}`}
-              style={npCover ? { backgroundImage: `url("${npCover}")` } : undefined}
-            />
+            {showCover ? (
+              <img
+                className="np-art"
+                src={npCover}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onError={() => setCoverFailed(npCover)}
+              />
+            ) : (
+              <span className="np-art blank" aria-hidden="true" />
+            )}
           </span>
           <span className="np-tx">
             <b>{title}</b>
@@ -135,10 +153,19 @@ export function Console(props: {
                 {errorText(error)}
               </span>
             ) : (
-              /* 在播的在线曲目副行报具体源名（「网易云」）——「在线音源」每首一样，等于没说；
-                 其余阶段词（解码中/缓冲中/已暂停…）与本地曲库照旧 */
-              <span>
-                {phase === "playing" && remote ? sourceName ?? "在线音源" : phaseLabel(phase, false)}
+              /* 副行 = 歌手 + 状态。歌手原来和曲名用「—」挤在同一行，
+                 切到别的页只剩一行字，认不出是谁的歌（2026-11-12 用户：只看到歌名）。
+                 在播的在线曲目仍报具体源名（「网易云」），「在线音源」每首一样等于没说。 */
+              <span className="np-sub">
+                {artist ? (
+                  <>
+                    {artist}
+                    <i className="np-sep" aria-hidden="true">
+                      ·
+                    </i>
+                  </>
+                ) : null}
+                {phase === "playing" && remote ? sourceName ?? "正在播放" : phaseLabel(phase, false)}
               </span>
             )}
           </span>
@@ -175,7 +202,7 @@ export function Console(props: {
               播放中整环缓速旋转（磁带盘语言），暂停停在当前角度。svg 在前、
               button position:relative 在后，层级自然正确，不需要 z-index。 */}
           <span className="tb-wrap">
-            <svg className={`tb-ring${playing ? " spin" : ""}`} viewBox="0 0 50 50" aria-hidden="true">
+            <svg className="tb-ring" viewBox="0 0 50 50" aria-hidden="true">
               <circle className="tb-ring-track" cx="25" cy="25" r="23" />
               <circle
                 ref={ringEl}
@@ -188,14 +215,26 @@ export function Console(props: {
             </svg>
             <button
               type="button"
-              className="tb main"
+              className={`tb main${playing ? "" : " is-paused"}`}
               aria-label={playing ? "暂停" : "播放"}
               onClick={() => dispatch({ type: "player/toggle" })}
             >
-              <i className={`tb-ic ${playing ? "ic-pause" : "ic-play"}`}>
-                <i />
-                {playing ? <i /> : null}
-              </i>
+              {/* 图标用 SVG 而不是 CSS border 三角：border 三角是硬边、视觉重心偏左
+                  （要手调偏移才正），在 44px 球里读作"贴纸"。暂停态走白瓷球
+                  （.is-paused），只有播放中才是实心青球——两种状态一眼可分。 */}
+              <svg className="tb-main-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                {playing ? (
+                  <>
+                    <rect x="7.5" y="5.5" width="3.4" height="13" rx="1.7" fill="currentColor" />
+                    <rect x="13.1" y="5.5" width="3.4" height="13" rx="1.7" fill="currentColor" />
+                  </>
+                ) : (
+                  <path
+                    d="M8.6 5.9a1 1 0 0 1 1.53-.85l8.2 4.9a1.12 1.12 0 0 1 0 1.92l-8.2 4.9a1 1 0 0 1-1.53-.85V5.9Z"
+                    fill="currentColor"
+                  />
+                )}
+              </svg>
             </button>
           </span>
           <button
@@ -208,7 +247,7 @@ export function Console(props: {
               // 没换歌 = 队列里没得切（在线单曲不进队列）。说一句，别让按钮像坏了
               if (getState().player.trackId === before) {
                 const stuck = getState();
-                setNotice({ text: stuck.queue.stream ? "正在续下一批…" : "队列里没有下一首" });
+                toast(stuck.queue.stream ? "正在续下一批…" : "队列里没有下一首", "info");
               }
             }}
           >

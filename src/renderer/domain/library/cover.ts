@@ -26,10 +26,11 @@ function remember(id: string, url: string | null): void {
 
 /** 同一张图并发请求只发一次 —— 快速滚动时同一行会被挂载两次。 */
 export async function loadCover(port: LibraryPort, id: string, path: string): Promise<string | null> {
-  /* 在线直链不进主进程读文件：port.cover 只认本地路径，https URL 送进去必 null
-     （底栏黑胶占位而 hero 有图的根因）。CSP img-src 已放开 https/http，渲染层直接可用。
-     不占 LRU 坑位——URL 稳定且浏览器自带 HTTP 缓存，坑位留给真正要解析的本地封面。 */
-  if (/^https?:\/\//i.test(path)) return path;
+  /* 在线直链/内联图不进主进程读文件：port.cover 只认本地路径，
+     https 与 data: 送进去必 null（底栏只剩占位而 hero 有图的根因，2026-11-12 实锤）。
+     CSP img-src 已放开 https/http 与 data，渲染层直接可用。
+     不占 LRU 坑位——地址稳定且浏览器自带缓存，坑位留给真正要解析的本地封面。 */
+  if (/^(https?:|data:)/i.test(path)) return path;
 
   const hit = byId.get(id);
   if (hit !== undefined) return hit;

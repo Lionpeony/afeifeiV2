@@ -49,6 +49,10 @@
   background-color: var(--bg-raised);
   background-position: center;
   background-size: cover;
+  /* 封面现在是 <img>（2026-11-12）：原来用 CSS background-image，拿不到
+     referrer 策略，网易云图床一律 403；失败后底色又是近白，白底上等于没封面。 */
+  display: block;
+  object-fit: cover;
 }
 /* 无封面（P0-26）：画唱片刻纹当占位。留白会被读成"图还没加载出来" */
 .np-art.blank {
@@ -57,19 +61,6 @@
     var(--line-soft) 0 1px,
     transparent 1px 4px
   );
-}
-/* 解码中 / 缓冲中：封面轻微呼吸，与"就绪"区分开（文字在下一行说明是哪一个） */
-.np-art.busy {
-  animation: np-busy 1.2s ease-in-out infinite;
-}
-@keyframes np-busy {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.45;
-  }
 }
 .np-tx {
   min-width: 0;

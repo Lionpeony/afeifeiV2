@@ -1220,14 +1220,16 @@ app.whenReady().then(async () => {
       liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
       sawFly: window.__sawFly ?? 0,
-      /* 黑胶判据：在播必须真的在转（play-state running），谁把 spin 类或动画删了就红 */
-      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
+      /* 封面判据：2026-11-12 起底栏封面是圆角方形的 <img>，"黑胶在转"这套隐喻退场。
+         谁把旋转动画加回来就是回潮——方封面转起来只会歪。 */
+      npTag: document.querySelector(".console .np-art")?.tagName ?? "",
+      npAnim: getComputedStyle(document.querySelector(".console .np-art")).animationName,
     }))()`);
     console.log(
-      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}·黑胶 ${hero.npSpin}`,
+      `首页换档：点播出带第 2 格「${tapeTitle}」→ 大字「${hero.title}」·${hero.idx.trim()}·播出带首位 ${hero.tapeNo.trim()}·动画 ${JSON.stringify(hero.anim)}·封面 ${hero.npTag}/${hero.npAnim}`,
     );
-    if (hero.npSpin !== "running") {
-      throw new Error(`播放中黑胶没在转（animation-play-state = ${hero.npSpin}）：spin 类或动画丢了`);
+    if (hero.npAnim !== "none") {
+      throw new Error(`底栏封面又转起来了（animation-name = ${hero.npAnim}）：方封面不该有旋转`);
     }
     if (heroBefore === tapeTitle) throw new Error("第 1 档与第 2 格同名，这条判据没有意义");
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
@@ -1890,30 +1892,36 @@ app.whenReady().then(async () => {
     const paused = await evalJs(`(() => ({
       kicker: document.querySelector(".cs-kicker")?.textContent ?? "",
       note: document.querySelector(".cs-note")?.textContent ?? "",
-      /* 暂停后黑胶必须停在当前角度（paused 而不是 running）：唱针抬起来了 */
-      npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
+      /* 暂停 = 主键切白瓷态（is-paused）+ 封面不转（已经是方图，没有黑胶隐喻了） */
+      npAnim: getComputedStyle(document.querySelector(".console .np-art")).animationName,
+      mainPaused: document.querySelector(".console .tb.main")?.classList.contains("is-paused") ?? false,
     }))()`);
-    console.log(`首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·黑胶 ${paused.npSpin}`);
+    console.log(
+      `首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·封面 ${paused.npAnim}·主键白瓷 ${paused.mainPaused}`,
+    );
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
     if (!paused.note.includes("暂停中")) throw new Error(`暂停文案没换：${paused.note}`);
-    if (paused.npSpin !== "paused") {
-      throw new Error(`暂停后黑胶还在转（animation-play-state = ${paused.npSpin}）`);
-    }
+    if (paused.npAnim !== "none") throw new Error(`暂停后底栏封面还在做动画（${paused.npAnim}）`);
+    if (!paused.mainPaused) throw new Error("暂停后主键没切到白瓷态：is-paused 丢了");
     await shoot("live-home-onair-paused.png");
 
-    /* 悬停浮起判据：CSS :hover 只认真实指针，用 sendInputEvent 把指针移到盘心，
-       scale 应到 1.07（独立 scale 属性，与旋转的 transform 并存）。这条红说明规则或选择器丢了。 */
+    /* 封面是静态方图（黑胶隐喻退场）：指针压上去不许有任何缩放/旋转。
+       这条钉住"别再往封面加动效"——hover 放大加回来就红。 */
     const artBox = await evalJs(`(() => {
       const r = document.querySelector(".console .np-art")?.getBoundingClientRect();
       return r ? { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) } : null;
     })()`);
-    if (!artBox) throw new Error("找不到黑胶盘：hover 判据没意义");
+    if (!artBox) throw new Error("找不到底栏封面：hover 判据没意义");
     win.webContents.sendInputEvent({ type: "mouseMove", x: artBox.x, y: artBox.y });
     await sleep(250);
-    const hoverScale = await evalJs(`getComputedStyle(document.querySelector(".console .np-art")).scale`);
-    console.log(`黑胶悬停：指针移到盘心 → scale = ${hoverScale}`);
-    if (Math.abs(parseFloat(hoverScale) - 1.07) > 0.01) {
-      throw new Error(`悬停浮起没生效（scale = ${hoverScale}，期望 1.07）`);
+    const coverHover = await evalJs(`(() => {
+      const cs = getComputedStyle(document.querySelector(".console .np-art"));
+      return { scale: cs.scale, transform: cs.transform };
+    })()`);
+    console.log(`封面悬停：${JSON.stringify(coverHover)}`);
+    const hoverScale = coverHover.scale === "none" ? 1 : parseFloat(coverHover.scale);
+    if (Math.abs(hoverScale - 1) > 0.01 || (coverHover.transform !== "none" && coverHover.transform !== "matrix(1, 0, 0, 1, 0, 0)")) {
+      throw new Error(`封面被加了悬停动效（scale ${coverHover.scale} / transform ${coverHover.transform}）`);
     }
     // 不走 shoot：它会先把光标挪走。悬停证据就要带着光标拍。
     await win.webContents.executeJavaScript(
@@ -2721,31 +2729,115 @@ app.whenReady().then(async () => {
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(600);
 
-  /* 质感判据（2026-11-12 第二轮）：这一版控制台是「白底 + 无框图标 + 唯一主键实体」，
-     所以除了主键球面光与盘位反射带，另外两条钉住新契约：
-       · boardWhite —— 面板必须是纯白（用户要"播放器默认白色"，青灰/色晕都算回潮）；
-       · toolFlat  —— 工具钮不许再有边/底/影（一轮的实体白片正是"和播放器不是一个风格"的来源）。
+  /* 质感判据（2026-11-12 第三轮）：控制台是「白底 + 无框图标 + 主键双向态」。
+       · mainSolid  —— 主键两态都要有实体感：播放 = 实心球（radial 球面光），
+                       暂停 = 白瓷球（无渐变 + 有 inset 描边）。只测一种态等于没测。
+       · boardWhite —— 面板必须纯白（用户要"播放器默认白色"）；
+       · toolFlat   —— 工具钮不许有边/底/影；
+       · wrapSheen  —— 封面位顶光反射带；
+       · coverImg   —— 封面必须是 <img>：CSS background-image 拿不到 referrer 策略，
+                       网易云一律 403，白底上等于没有封面（2026-11-12 用户截图实锤）。
      判据要跟着设计走：设计改了而判据不改，等于把旧皮钉死。 */
   const tex = await evalJs(`(() => {
     const main = document.querySelector(".console .tb.main");
     const tool = document.querySelector(".console .tools button");
     const wrap = document.querySelector(".console .np-art-wrap");
     const shell = document.querySelector(".console");
+    const art = document.querySelector(".console .np-art");
     const scs = shell ? getComputedStyle(shell) : null;
     const tcs = tool ? getComputedStyle(tool) : null;
+    const mcs = main ? getComputedStyle(main) : null;
+    const paused = main ? main.classList.contains("is-paused") : false;
     return {
-      mainSphere: main ? getComputedStyle(main).backgroundImage.includes("radial-gradient") : false,
+      state: paused ? "paused" : "playing",
+      mainSolid: mcs
+        ? paused
+          ? mcs.backgroundImage === "none" && mcs.boxShadow.includes("inset")
+          : mcs.backgroundImage.includes("radial-gradient")
+        : false,
       boardWhite: scs ? scs.backgroundColor === "rgb(255, 255, 255)" && scs.backgroundImage === "none" : false,
       toolFlat: tcs
         ? tcs.backgroundImage === "none" && tcs.borderTopWidth === "0px" && tcs.boxShadow === "none"
         : false,
       wrapSheen: wrap ? getComputedStyle(wrap, "::after").backgroundImage.includes("radial-gradient") : false,
+      coverImg: art ? art.tagName === "IMG" || art.classList.contains("blank") : false,
+      coverRef: art && art.tagName === "IMG" ? art.referrerPolicy : "n/a",
     };
   })()`);
   console.log(`控制台质感：${JSON.stringify(tex)}`);
   for (const [k, v] of Object.entries(tex)) {
-    if (!v) throw new Error(`控制台质感判据 ${k} 不成立（样式丢了或被覆盖）`);
+    if (typeof v === "boolean" && !v) throw new Error(`控制台质感判据 ${k} 不成立（样式丢了或被覆盖）`);
   }
+  if (tex.coverRef !== "n/a" && tex.coverRef !== "no-referrer") {
+    throw new Error(`封面 <img> 没带 referrerPolicy=no-referrer（拿到的是 ${tex.coverRef}），线上会被图床 403`);
+  }
+
+  /* 主键双向态：点一下必须真的换材质（白瓷 ↔ 实心球）。
+     只验其中一种态，等于默认"另一态没写错"——这里直接翻两次。 */
+  const mainCls = () => evalJs(`document.querySelector(".console .tb.main")?.className ?? ""`);
+  const hitMain = `(() => { const b = document.querySelector(".console .tb.main"); b?.click(); return Boolean(b); })()`;
+  const clsBefore = await mainCls();
+  await click(hitMain, "主键");
+  await sleep(360);
+  const flipped = await evalJs(`(() => {
+    const b = document.querySelector(".console .tb.main");
+    if (!b) return null;
+    const cs = getComputedStyle(b);
+    return { cls: b.className, bg: cs.backgroundImage, color: cs.color };
+  })()`);
+  await click(hitMain, "主键");
+  await sleep(360);
+  console.log(`主键双向态：${JSON.stringify({ before: clsBefore, after: flipped })}`);
+  if (flipped === null) throw new Error("点主键后按钮消失");
+  if (clsBefore.includes("is-paused") === flipped.cls.includes("is-paused")) {
+    throw new Error("主键点了没换态：is-paused 没翻转");
+  }
+  if (flipped.cls.includes("is-paused") && flipped.bg !== "none") {
+    throw new Error(`暂停态主键不是白瓷球（背景仍是 ${flipped.bg}）`);
+  }
+  if (!flipped.cls.includes("is-paused") && !flipped.bg.includes("radial-gradient")) {
+    throw new Error("播放态主键丢了球面光（没有 radial-gradient）");
+  }
+
+  /* 提示必须会自己消失（2026-11-12 用户："提示一直显示不会消失"）。
+     点底栏红心：未登录时是"请先登录"类的提示，已登录是"已加入/已移除"——
+     两条都走同一套 toast，正好验通路。 */
+  await click(
+    `(() => { const b = document.querySelector(".console .np-like"); b?.click(); return Boolean(b) && !b.disabled; })()`,
+    "底栏红心",
+  );
+  await sleep(420);
+  const toastOn = await evalJs(`(() => {
+    const t = document.querySelector(".toast");
+    if (!t) return null;
+    const r = t.getBoundingClientRect();
+    return {
+      text: t.textContent?.trim() ?? "",
+      kind: [...t.classList].find((c) => c.startsWith("toast-")) ?? "",
+      centerX: Math.round(r.left + r.width / 2),
+      winW: window.innerWidth,
+      bottomGap: Math.round(window.innerHeight - r.bottom),
+    };
+  })()`);
+  console.log(`toast 弹出：${JSON.stringify(toastOn)}`);
+  if (toastOn === null) throw new Error("点红心没有任何提示（toast 没出现）");
+  if (Math.abs(toastOn.centerX - toastOn.winW / 2) > 6) {
+    throw new Error(`toast 没居中：中心 ${toastOn.centerX}，窗宽 ${toastOn.winW}`);
+  }
+  if (toastOn.bottomGap < 80) throw new Error(`toast 压在底栏里了（离窗口底 ${toastOn.bottomGap}px）`);
+  await shoot("live-home-toast.png");
+  // 截图别带着一颗刚点亮的心：点回去了再验"会不会消失"
+  const likedOn = await evalJs(`document.querySelector(".console .np-like")?.classList.contains("on") ?? false`);
+  if (likedOn) {
+    await click(
+      `(() => { const b = document.querySelector(".console .np-like"); b?.click(); return Boolean(b); })()`,
+      "取消底栏红心",
+    );
+  }
+  await sleep(4800);
+  const toastGone = await evalJs(`document.querySelectorAll(".toast").length`);
+  console.log(`toast 4.8s 后剩余：${toastGone}`);
+  if (toastGone !== 0) throw new Error("提示不会自己消失（4.8s 后还挂着）");
 
   /* 控制台三弹层（音量 / 睡眠定时 / 完整队列）：纸面板皮肤 + 队列 top 不盖窗控 */
   const toolBtn = (label) =>
@@ -2844,8 +2936,9 @@ app.whenReady().then(async () => {
         const cs = getComputedStyle(el);
         const overY = el.scrollHeight - el.clientHeight;
         const overX = el.scrollWidth - el.clientWidth;
+        const isDoc = el === document.documentElement || el === document.body;
         if (overY > 1 && el.clientHeight > 0) {
-          out.push({ el: String(el.className).slice(0, 44) || el.tagName, y: overY, can: cs.overflowY !== "visible" && cs.overflowY !== "hidden" });
+          out.push({ el: String(el.className).slice(0, 44) || el.tagName, y: overY, can: cs.overflowY !== "visible" && cs.overflowY !== "hidden", doc: isDoc });
         }
         // 提词器通栏（stage 里的 -28px margin）不算：它铺的是 .stage 的 padding
         if (overX > 1 && el.clientWidth > 0 && !el.classList.contains("st-page")) {
@@ -2855,7 +2948,30 @@ app.whenReady().then(async () => {
       return out.slice(0, 12);
     })()`);
     console.log(`播放页矮窗 ${w}x${h} 溢出：${JSON.stringify(spill)}`);
-    const scrolling = spill.filter((item) => item.y > 1);
+    /* 溢出诊断：只报"谁超了"不够，还要知道容器到底给少了多少。
+       sl-sleeve 的纵向溢出必须能对上几何，否则会把底栏高度的锅算到别处。 */
+    const geo = await evalJs(`(() => {
+      const s = document.querySelector(".sl-sleeve");
+      const c = document.querySelector(".console");
+      if (!s) return { console: c ? c.offsetHeight : -1 };
+      const sr = s.getBoundingClientRect();
+      const p = s.parentElement;
+      return {
+        console: c ? c.offsetHeight : -1,
+        sleeve: { h: Math.round(sr.height), offset: s.offsetHeight, scroll: s.scrollHeight },
+        parent: p ? { cls: String(p.className).slice(0, 30), h: Math.round(p.getBoundingClientRect().height) } : null,
+        kids: [...s.children].map((k) => {
+          const r = k.getBoundingClientRect();
+          return { c: String(k.className).slice(0, 22), h: Math.round(r.height), overBottom: Math.round(r.bottom - sr.bottom) };
+        }),
+      };
+    })()`);
+    console.log(`矮窗几何 ${w}x${h}：${JSON.stringify(geo)}`);
+    /* 只判"用户真能滚到"的溢出：文档级 + overflow 非 visible/hidden 的盒子。
+       装饰盒（.sl-sleeve 里正在转的黑胶把 scrollHeight 撑大 11px）overflow 是 visible，
+       既不出现滚动条也裁不到内容——把它算红只会让判据随播放态抖动（2026-11-12 实测：
+       同一份代码，播放态红、暂停态绿）。真回归跑不掉：文档级和可滚盒子仍会红。 */
+    const scrolling = spill.filter((item) => item.y > 1 && (item.doc || item.can));
     if (scrolling.length) throw new Error(`播放页矮窗 ${w}x${h} 还在滚：${JSON.stringify(scrolling)}`);
 
     /* 细探针：.st-page 横向越界到底是哪个元素撑的。
