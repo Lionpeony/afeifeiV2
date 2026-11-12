@@ -67,6 +67,10 @@
   /* 封面高度必须稳：文案行数（大字折行/note 换句）一变，弹性补位就会让封面跳大跳小——
      下限钳住最小展示高度，copy 区恒定占位（见 .cs-copy min-height），封面 = 剩余空间，恒定 */
   min-height: clamp(180px, 45%, 420px);
+  /* 上限 58%（2026-11-12）：copy 收窄后封面把省下的高度全吃了，变成一面"封面墙"，
+     标题被挤到贴底、整屏头重脚轻。封顶之后多出的空间交给 .cs-copy 的 margin-top:auto，
+     读作"标题浮在封面下方"，而不是"封面撑满格子"。 */
+  max-height: 58%;
   width: 100%;
   object-fit: cover;
   border-radius: 18px;
@@ -82,10 +86,13 @@
 
 .cs-copy {
   flex: none;
-  /* 恒定占位：按"大字两行 + 四行内容"的满容量算——单行标题时下方多出的留白
-     换封面高度恒定（封面跳大跳小比 copy 区多点空白难看得多） */
-  min-height: 246px;
-  margin: 18px 4px 6px;
+  /* 恒定占位按「大字两行 + 三行内容」算（2026-11-12 从 246 收到 200）：
+     原来的 246 是按四行内容留的，单行标题时余量全落在底部，左栏比右栏早结束 130px
+     （整页视觉重心偏右上）。收到 200 后两行标题仍放得下，不抖。
+     margin-top: auto —— 封面封顶 58% 之后，剩余高度全部落在封面与文字之间，
+     文字块贴住左栏底边，两栏底边因此齐平。 */
+  min-height: 200px;
+  margin: auto 4px 6px;
 }
 
 /* —— 标题滚动交接 ——
@@ -240,14 +247,19 @@
 .cs-note {
   margin: 10px 0 0;
   max-width: 34em;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   font-family: var(--font-sans);
   font-size: 13.5px;
   line-height: 1.7;
   color: color-mix(in srgb, var(--live-fg) 76%, transparent);
+}
+
+/* 说明的第二行（音源）：比第一行低一档，两行一起把左栏底部撑住——
+   2026-11-12 之前这里是一句 60 字的系统自述，读完不增加任何信息 */
+.cs-note-2 {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--live-fg-faint);
 }
 
 /* —— 右：接下来播放 + 封面卡网格 —— */
@@ -368,40 +380,36 @@
 
 .cs-more {
   margin-left: auto;
-  padding: 5px 12px;
-  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
-  border-radius: 14px;
-  /* 白瓷片材质：与控制台工具排同一「实体按钮」协议（2026-11-11 画风统一） */
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
-    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.5),
-    0 1px 2px rgb(23 48 44 / 0.08),
-    0 3px 8px -4px rgb(23 48 44 / 0.16);
+  /* 无框文字链接（2026-11-12 收口）：原来是一枚白瓷胶囊，是全页唯一带边带影的
+     小按钮——底栏刚把 8 个胶囊全拆成无框图标，这里再留一枚，等于"统一"没收完。
+     它做的是导航（去看完整列表），不是开关，用文字 + 箭头更诚实。 */
+  padding: 3px 2px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 12px;
   color: var(--live-fg-dim);
   white-space: nowrap;
-  transition: border-color 140ms ease, color 140ms ease, transform 120ms ease, box-shadow 140ms ease;
+  transition: color 140ms ease;
+}
+
+.cs-more::after {
+  content: "›";
+  margin-left: 4px;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .cs-more:hover {
-  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
   color: var(--accent-press);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 2px 4px rgb(23 48 44 / 0.1),
-    0 5px 12px -5px rgb(23 48 44 / 0.2);
 }
 
-/* 按压态：小钮统一的「点中了」反馈（与卡片协议同源） */
+/* 按压态：文字链接只给颜色，不做缩放——缩放开销读作"按钮"，与链接语义打架 */
 .cs-more:active {
-  transform: scale(0.96);
+  color: var(--live-accent);
 }
 
 .cs-more[aria-expanded="true"] {
@@ -552,17 +560,18 @@
   transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
-/* —— hover：只动 rim / 影 / 位移，**不动 blur** ——
+/* —— hover：只动 rim / 影，**不动 blur，也不位移**（2026-11-12）——
    backdrop-filter 里换数值会触发逐帧重算（180ms × 每帧一次 backdrop），
-   视觉收益只是"厚一点点的玻璃"，不值；抬起来之后由 --lg-lift 那道内高光负责"灯照上来了"。
+   视觉收益只是"厚一点点的玻璃"，不值；"灯照上来"由 --lg-lift 那道内高光负责。
+   原来的 translateY(-3px) 拿掉了：四张卡并排是一条强对齐线，其中一张抬 3px，
+   底边就不再齐——而"抬起来"并不代表任何等级含义，纯属多余信号。
    注意：hover 的"边被照亮"只有 1.39:1（#b5d3d0 vs #e6f2f0）——**它不是状态信号**，
    只是材质过场，别把它算成一条可见反馈（docs/08 §6 已标注）。 */
 .cs-tape:hover {
   border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
-  transform: translateY(-3px);
   box-shadow:
     inset 0 0 0 1px var(--lg-edge-ink-hi),
-    inset 0 -1px 0 0 var(--lg-rim-dim), /* 抬起来后被下缘接住的一道高光 */
+    inset 0 -1px 0 0 var(--lg-rim-dim), /* 灯照上来后被下缘接住的一道高光 */
     inset 0 -34px 30px -34px var(--lg-lift), /* 底缘升起的内高光 */
     inset 0 -20px 24px -18px var(--lg-bevel),
     var(--lg-shadow-hi);
@@ -580,18 +589,30 @@
     0 6px 14px -10px rgb(23 48 44 / 0.24);
 }
 
-/* 序号：四级层次的最下一级 —— 11.5px/600 + 字距 .06em（与时长同色不同字重，
-   靠 600 的密度把"编号"和"读数"分开；v4 里两者同色同字重，四级层次塌成三级）。
-   颜色走 --lg-ink-3（墨 76% 透），对玻璃实测 5.98:1。 */
+/* 序号：从「文字区第一行」搬到「封面左上角标」（2026-11-12）。
+   原来它压在歌名上方，队列位置比歌名还靠前，读起来像"21 是这张卡的标题"；
+   搬进封面后文字区第一行直接是歌名，四级层次变成三级（歌名 / 歌手 / 读数）。
+   底片走 --live-panel 混合色：浅色主题是白片、深色主题自动变深片，不用各写一份。 */
 .cs-tape-no {
-  margin: 10px 12px 0;
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  top: 8px;
+  margin: 0;
+  padding: 0 6px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--live-panel) 86%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--live-fg) 10%, transparent),
+    0 1px 3px rgb(23 48 44 / 0.16);
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
-  line-height: 1.42;
-  letter-spacing: 0.06em;
-  color: var(--lg-ink-3);
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  color: var(--live-fg);
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 
@@ -602,7 +623,8 @@
    单行天然等高，一行/两行标题的卡高差随折行一起消失。 */
 .cs-tape-title {
   min-width: 0;
-  margin-top: 3px;
+  /* 编号搬去封面角标后，文字区顶部留白改由标题自己承担（原来靠 .cs-tape-no 的 10px margin） */
+  margin-top: 12px;
   padding: 0 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -854,18 +876,13 @@ img.cs-tape-art {
   opacity: 0.85;
 }
 
-.cs-vu i:nth-child(n + 32) {
-  background: linear-gradient(
-    180deg,
-    var(--live-accent),
-    color-mix(in srgb, var(--live-accent) 38%, transparent)
-  );
-  opacity: 0.85;
-}
+/* 频谱统一单色（2026-11-12）：原来第 32 条之后硬编码转青绿 —— 纯粹按序号分色，
+   不表达任何频段或进度含义，却让人以为"右端那几个绿的有意思"。
+   强调色要稀缺：整页只留给主键、进度与选中态。 */
 
-/* 信号表脚注：左 = 真实走带状态（呼吸点 + 状态词），右 = 列表统计。
-   原 STEREO / L·R 假仪器标签已退役（2026-11-11 装饰清扫）。
-   点是图形件保持 --live-signal，文字换 --live-fg-faint（11px 小字须 4.5:1）。 */
+/* 信号表脚注：左 = 这才是波形本身的名字（实时频谱，非状态词），右 = 队列总量。
+   2026-11-12 之前左右各写一遍「正在播放」和「循环列表」——状态词全页出现四次，
+   循环开关底栏已有图标，两处都是占位而非信息。 */
 .cs-standby {
   display: inline-flex;
   align-items: center;

@@ -205,7 +205,9 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  opacity: 0.45;
+  /* 0.45 → 0.6（2026-11-12）：未收藏时它仍是一个"可点"的控件，
+     不该淡到需要盯着找；0.6 既低于歌名，又不会被读成禁用态。 */
+  opacity: 0.6;
   transition:
     background-color 140ms ease,
     color 140ms ease,
@@ -213,11 +215,15 @@
     transform 140ms ease;
 }
 
+/* 已收藏 = 与工具钮 .on 同一浓度（10% 青瓷底 + 青字）：全页"开启状态"只有两种长相，
+   一是有底、二是青字，不再各自发明第三种 */
 .shell.live .console .np-like.on {
   opacity: 1;
+  color: var(--live-accent);
+  background: color-mix(in srgb, var(--live-accent) 10%, transparent);
 }
 
-.shell.live .console .np-like:hover:not(:disabled),
+.shell.live .console .np-like:hover:not(:disabled):not(.on),
 .shell.live .console .np-like:focus-visible {
   opacity: 1;
   transform: none;
@@ -437,11 +443,43 @@
   background: color-mix(in srgb, var(--live-accent) 15%, transparent);
 }
 
+/* 下拉角标：8 个图标里有 4 个点了会弹层，但基础三角只有 7×4、亮度 .55，
+   摆在 16px 图标旁边读作"图标的一部分"。放到 9×5 / .7——仍然是小角标，
+   但"这颗会展开"与"这颗会跳转"终于分得开（gap 5 已给间距，去掉额外 margin）。 */
+.shell.live .console .tools button.pop::after {
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-top: 5px solid currentColor;
+  margin-left: 0;
+  opacity: 0.7;
+}
+
 /* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点。
    input 的固有尺寸 + flex min-width:auto 会把中列撑出 52px（1024 窗实测）——
    seek 行与 bar 都要清收缩下限，进度条才有资格被压窄。 */
+/* 走带区中轴（2026-11-12）：主键与进度条本来各算各的宽度 ——
+   transport 是按内容居中，seek 是撑满中列，结果主键圆心比进度条中心偏左约 90px
+   （1280 窗实测：606 vs 714），整条底栏读作"歪"。
+   这里给两者同一个居中盒：同 max-width + margin auto，中心必然重合；
+   不追根因（中列宽度受工具排内容影响，随时会变），只把结论钉死。 */
+.shell.live .console .transport,
+.shell.live .console .seek {
+  width: 100%;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
 .shell.live .console .seek {
   min-width: 0;
+}
+
+/* 两端时间定宽：不定宽时 3:10 → 12:04 会让轨道左右跳一格（时长位数变长），
+   进度条动一下不是"在播放"，是排版在抖。 */
+.shell.live .console .seek .tm {
+  flex: 0 0 44px;
+  text-align: center;
 }
 
 .shell.live .console input.bar {

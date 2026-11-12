@@ -331,6 +331,11 @@ export function Console(props: {
         >
           <NavIcon name={PLAY_MODE_ICON[queueMode]} />
         </button>
+        {/* 组间发丝线（2026-11-12）：8 个图标原来只被一条线分成 4|4，
+            但语义是三组——「怎么播」（模式）/「参数」（音量、定时、速率）/
+            「打开什么」（队列、音效、歌词、迷你）。少一条线，前四和后四中间
+            就只剩等距，读不出"这一组管听感、那一组管窗口"。 */}
+        <span className="sep" aria-hidden="true" />
         <button
           type="button"
           className={`pop${volOpen || muted ? " on" : ""}`}

@@ -53,7 +53,10 @@ export function StationRuler({
   const [query, setQuery] = useState("");
   const second = useNowSecond();
   const now = new Date(second * 1000);
-  const clock = `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
+  /* 只到分钟（2026-11-12）：秒级跳动等于每秒钟一次全屏文本变化，
+     在一台"正在听歌"的设备上是持续噪声，而且没人靠顶栏读秒。
+     dateTime 仍走完整时间戳，语义不受影响。 */
+  const clock = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
 
   const go = (tick: Tick): void => {
     if (tick.id === page) return;

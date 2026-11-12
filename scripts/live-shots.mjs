@@ -1235,8 +1235,10 @@ app.whenReady().then(async () => {
     if (hero.title !== tapeTitle) throw new Error(`左栏没跟着切：期望「${tapeTitle}」，实际「${hero.title}」`);
     if (!hero.kicker.includes("正在播放")) throw new Error("换档后眉标没变成「正在播放」");
     if (hero.liveTape > 0) throw new Error("播出带里不该有 is-live：它是「接下来」，全是之后的歌");
-    if (Number(hero.idx.trim().split("/")[0].trim()) + 1 !== Number(hero.tapeNo.trim())) {
-      throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${Number(hero.idx.trim().split("/")[0].trim()) + 1}，实际首位 ${hero.tapeNo.trim()}`);
+    /* 眉标改成「第 N 首」、角标仍是裸编号：解析口径跟着改，否则这条会拿 NaN 去比 */
+    const heroNo = Number((hero.idx.match(/\d+/) ?? [])[0]);
+    if (!Number.isFinite(heroNo) || heroNo + 1 !== Number(hero.tapeNo.trim())) {
+      throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${heroNo + 1}，实际首位 ${hero.tapeNo.trim()}`);
     }
     if (!hero.sawFly && !hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
       throw new Error(`换档既没起飞副本、也没播入场动画：${JSON.stringify(hero.anim)}`);
@@ -1707,11 +1709,15 @@ app.whenReady().then(async () => {
       throw new Error(`浅色态控制台主键底色 ${aaMain}（应 --accent-press #0c7d72 = rgb(12,125,114)）`);
     }
 
-    /* ④ 脚注真实信息 */
+    /* ④ 脚注真实信息 + 状态词去重（2026-11-12：脚注改「实时频谱 / 共 N 首」，
+          状态词只许在眉标出现一次——这里再写一遍就是第四次） */
     const sigFoot = await evalJs(`document.querySelector(".cs-sig-foot")?.textContent ?? ""`);
     console.log(`长标题④（脚注真实信息）：「${sigFoot.trim()}」`);
-    if (!sigFoot.includes("循环列表") || !sigFoot.includes("共")) {
+    if (!sigFoot.includes("共") || !/\d/.test(sigFoot)) {
       throw new Error(`信号脚注不是真实统计：「${sigFoot.trim()}」`);
+    }
+    if (sigFoot.includes("正在播放")) {
+      throw new Error(`脚注还在重复状态词（与眉标撞车）：「${sigFoot.trim()}」`);
     }
     if (/STEREO|L\s*\/\s*R/.test(sigFoot)) throw new Error(`假仪器标签回来了：「${sigFoot.trim()}」`);
 
@@ -1872,17 +1878,25 @@ app.whenReady().then(async () => {
     if (chartPick === null || chartPick === "") throw new Error("榜单页没有可点的曲目行");
     if (onAir.title !== chartPick) throw new Error(`跟播后 hero 没换成在播歌：期望「${chartPick}」，实际「${onAir.title}」`);
     if (!onAir.kicker.includes("正在播放")) throw new Error(`跟播后眉标没变成「正在播放」：${onAir.kicker}`);
-    if (!onAir.note.includes("来自")) throw new Error(`ON AIR 文案没标来源：${onAir.note}`);
-    if (!onAir.feed.includes("正在播放")) throw new Error(`右栏没切到跟播视图：${onAir.feed}`);
-    if (!onAir.meta.includes("当前队列")) throw new Error(`右栏没写明节目单来自当前队列：${onAir.meta}`);
+    /* 去重后的分工（2026-11-12）：说明句只说「还要听多久」，
+       状态词与来源分别归眉标与右栏 meta，谁越界谁红。 */
+    if (!/还剩\s*\d+\s*首/.test(onAir.note)) throw new Error(`说明句没报剩余曲目：${onAir.note}`);
+    if (onAir.note.includes("正在播放")) throw new Error(`说明句还在复述状态词：${onAir.note}`);
+    if (!onAir.feed.includes("播放队列")) throw new Error(`右栏小标题没改成「播放队列」：${onAir.feed}`);
+    if (onAir.feed.includes("正在播放")) throw new Error(`右栏小标题还在说「正在播放」：${onAir.feed}`);
+    if (onAir.meta.includes("来自当前队列")) throw new Error(`右栏 meta 还留着「来自当前队列」这串冗余：${onAir.meta}`);
+    if (!onAir.meta.trim()) throw new Error("右栏 meta 空了：来源标签丢了");
     if (onAir.tapes < 4) throw new Error(`ON AIR 播出带没换成榜单队列：只有 ${onAir.tapes} 档`);
-    if (Number(onAir.idx.trim().split("/")[0].trim()) + 1 !== Number(onAir.tapeNo.trim())) {
-      throw new Error(`ON AIR 播出带不是「接下来」：hero ${onAir.idx.trim()} 之后首位应是 ${Number(onAir.idx.trim().split("/")[0].trim()) + 1}，实际 ${onAir.tapeNo.trim()}`);
+    /* 眉标「第 N 首」/ 角标「N+1」：编号搬去封面角标后，两处都得仍可解析 */
+    const onAirNo = Number((onAir.idx.match(/\d+/) ?? [])[0]);
+    if (!Number.isFinite(onAirNo) || onAirNo + 1 !== Number(onAir.tapeNo.trim())) {
+      throw new Error(`ON AIR 播出带不是「接下来」：hero ${onAir.idx.trim()} 之后首位应是 ${onAirNo + 1}，实际 ${onAir.tapeNo.trim()}`);
     }
     await shoot("live-home-onair.png");
 
     /* 暂停态：fixture 出真声之后这条能真验了（以前永远卡 buffering）——
-       眉标换「暂停中」、文案换「暂停中，随时接着听」，不许再谎称「正在播放」。
+       眉标换「暂停中」，而说明句不该再跟着换：它现在只说队列还剩多少，
+       状态只在眉标说一次（2026-11-12 去重，原来同屏四遍「正在播放」）。
        点击走底栏主键（hero 大钮已随去重移除，全局控制台是唯一的播放/暂停入口）。 */
     await click(
       `(() => { const b = document.querySelector(".console .tb.main"); b?.click(); return Boolean(b); })()`,
@@ -1900,7 +1914,10 @@ app.whenReady().then(async () => {
       `首页暂停：眉标「${paused.kicker.trim()}」·文案「${paused.note.trim()}」·封面 ${paused.npAnim}·主键白瓷 ${paused.mainPaused}`,
     );
     if (!paused.kicker.includes("暂停中")) throw new Error(`暂停后眉标没换：${paused.kicker}`);
-    if (!paused.note.includes("暂停中")) throw new Error(`暂停文案没换：${paused.note}`);
+    /* 说明句与播放态解耦：暂停后它仍报「还剩 N 首」而不是改口成"暂停中"——
+       状态只有一个出口（眉标），文案不再随播放态抖动。 */
+    if (paused.note.includes("正在播放")) throw new Error(`暂停文案还在谎称正在播放：${paused.note}`);
+    if (!/还剩\s*\d+\s*首/.test(paused.note)) throw new Error(`暂停后说明句被换掉了（应保持队列剩余）：${paused.note}`);
     if (paused.npAnim !== "none") throw new Error(`暂停后底栏封面还在做动画（${paused.npAnim}）`);
     if (!paused.mainPaused) throw new Error("暂停后主键没切到白瓷态：is-paused 丢了");
     await shoot("live-home-onair-paused.png");

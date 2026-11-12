@@ -282,6 +282,13 @@ export function LiveHome({
   // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表（两者都是**队列原顺序**）
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
+  /* 左栏说明行（2026-11-12 去重）：原来写「来自 X 的播放列表正在播放，顺着列表往下走」——
+     状态词与眉标重复、句子本身是系统自述、还替用户指路（右边四张卡已经在指路了）。
+     现在只说一件全页只有这里能给的事：还要听多久。 */
+  const restCount = Math.max(0, total - leadIndex - 1);
+  const restMinutes = Math.round(
+    program.slice(leadIndex + 1).reduce((sum, t) => sum + (t.durationMs || 0), 0) / 60000,
+  );
   /* 播出顺序（shuffle 投影）：随机模式下 program 的原顺序**不等于**真会播的顺序，
      列表若按原顺序取名，「接下来」就是假的（实测：播 04 时第 1 格写 05、实际播 01）。
      重排之后切歌时新 lead 必然落在旧列表第 1 格 → 转场 rect 快照命中，
@@ -672,7 +679,7 @@ export function LiveHome({
               <p className="cs-kicker">
                 {live ? (playing ? "正在播放" : "暂停中") : "今日主打"}
                 <span className="cs-idx">
-                  {pad2(leadIndex + 1)} / {total}
+                  第 {leadIndex + 1} 首
                 </span>
               </p>
               {/* 标题滚动交接（2026-11-12 用户定）：落位后旧字推出、新字推上来。
@@ -700,16 +707,25 @@ export function LiveHome({
                   </p>
                 </div>
               </div>
+              {/* 两行信息块：上行「还要听多久」（全页唯一），下行只报音源。
+                  原句「来自 每日推荐 的播放列表正在播放」被中英混排空格切成三段，
+                  而且状态词在上面的眉标里已经说过一次——同屏四遍「正在播放」就是这么来的。 */}
               <p className="cs-note">
-                {onAirMode
-                  ? `来自 ${onAir.origin || onAir.sourceName} 的播放列表${
-                      playing ? "正在播放，顺着列表往下走。" : "暂停中，随时接着听。"
-                    }`
-                  : live
-                    ? lead.album
-                      ? `收录于《${lead.album}》。`
-                      : `今日推荐第 ${leadIndex + 1} 首，正在播放。`
-                    : "今天从这一首开始，先把它听完。"}
+                {live ? (
+                  <>
+                    {restCount > 0 ? (
+                      <>
+                        队列还剩 {restCount} 首
+                        {restMinutes > 0 ? ` · 约 ${restMinutes} 分钟` : null}
+                      </>
+                    ) : (
+                      "这是队列的最后一首"
+                    )}
+                    <span className="cs-note-2">{onAirMode ? onAir.sourceName : "今日推荐"}</span>
+                  </>
+                ) : (
+                  "今天从这一首开始，先把它听完。"
+                )}
               </p>
             </div>
           </section>
@@ -718,11 +734,11 @@ export function LiveHome({
           <section className="cs-feed" aria-label="今日推荐">
             <header className="cs-feed-head">
               <div>
-                <p className="cs-feed-kicker">{onAirMode ? "正在播放" : "每日推荐"}</p>
+                <p className="cs-feed-kicker">{onAirMode ? "播放队列" : "每日推荐"}</p>
                 <p className="cs-feed-meta">
                   {onAirMode ? (
                     <>
-                      {onAir.origin || onAir.sourceName} · 来自当前队列 · 共 <b>{total}</b> 首
+                      来自 {onAir.origin || onAir.sourceName}
                     </>
                   ) : (
                     <>
@@ -852,13 +868,14 @@ export function LiveHome({
                 ))}
               </div>
               <div className="cs-sig-foot">
-                {/* 原 STEREO / L·R 假仪器标签换真实信息：左 = 走带状态词（与眉标同源），
-                    右 = 列表统计（环列循环 + 真实总数）。2026-11-11 装饰清扫 */}
+                {/* 波形脚注只描述波形自己（实时频谱）与队列总量。
+                    原来左边又写一遍「正在播放」——同屏第四次；右边「循环列表」
+                    则是底栏循环键已表达的开关状态。 */}
                 <span className="cs-standby">
                   <i aria-hidden="true" />
-                  {live ? (playing ? "正在播放" : "暂停中") : "待机"}
+                  实时频谱
                 </span>
-                <span>循环列表 · 共 {total} 首</span>
+                <span>共 {total} 首</span>
               </div>
             </div>
           </section>
