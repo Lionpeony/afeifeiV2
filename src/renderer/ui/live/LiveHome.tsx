@@ -71,8 +71,10 @@ function spawnFly(opts: {
   radius: readonly [number, number];
   duration: number;
   fadeOut: boolean;
+  /** 起点透明：倒退时新封面没有真实出发点，靠"位移 + 渐显"入场，不凭空出现。 */
+  fadeIn?: boolean;
 }): { el: HTMLDivElement; anim: Animation } {
-  const { from, to, url, radius, duration, fadeOut } = opts;
+  const { from, to, url, radius, duration, fadeOut, fadeIn } = opts;
   const el = document.createElement("div");
   el.className = "cs-fly";
   if (url) {
@@ -95,7 +97,7 @@ function spawnFly(opts: {
     width: `${from.width}px`,
     height: `${from.height}px`,
     borderRadius: `${radius[0]}px`,
-    opacity: 1,
+    opacity: fadeIn ? 0 : 1,
   };
   const last: Keyframe = {
     transform: `translate3d(${to.left}px, ${to.top}px, 0)`,
@@ -105,6 +107,8 @@ function spawnFly(opts: {
     opacity: fadeOut ? 0 : 1,
   };
   const frames: Keyframe[] = [first];
+  /* 渐显要在前半程就到位：拖到终点才不透明，整段飞行都是"一张淡影在飘"。 */
+  if (fadeIn) frames.push({ offset: 0.42, opacity: 1 });
   /* 旧封面走到七成路程就开始散：它的真实落点是环列队尾（在屏外的那一格），
      精确塞进第一格是撒谎，硬撑满全程又会看到"缩到一半忽然没了"。 */
   if (fadeOut) frames.push({ offset: 0.68, opacity: 0.9 });
@@ -138,6 +142,7 @@ export function LiveHome({
   playing,
   onAir,
   spectrum,
+  replaySeq,
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
@@ -151,6 +156,10 @@ export function LiveHome({
   onAir: OnAirProgram | null;
   /** 真实频谱采样（engine.spectrum）。null = 音频图未建，信号条贴底待机。 */
   spectrum(bins: number): number[] | null;
+  /** ⏮ 命中 3 秒规则时的脉冲计数（store 的 player.replaySeq）。
+      重播时 trackId 不变、positionMs 本来就是 0，转场 effect 的依赖一个都不动，
+      所以需要一个显式信号来接住"按到了、从头开始"。 */
+  replaySeq: number;
 }) {
   const state = useAccountBundle(account, "daily");
   const [showAll, setShowAll] = useState(false);
@@ -166,8 +175,14 @@ export function LiveHome({
   const tapeRects = useRef<Map<string, FlyBox>>(new Map());
   const coverBox = useRef<FlyBox | null>(null);
   const prevLead = useRef<{ id: string; url?: string } | null>(null);
+  /** 上一次见到的重播计数。挂载时对齐当前值 —— 否则从别的页面按完 ⏮ 再回首页，
+     首次 effect 会把"历史遗留的变化"当成刚发生的重播，莫名压一下。 */
+  const replaySeen = useRef(replaySeq);
   const flySeq = useRef(0);
   const [flying, setFlying] = useState(false);
+  /** 倒退方向标记（⏮）：飞行期间列表第 1 格的封面要让位给"正往这儿落"的副本。
+      和 flying 一起构成 CSS 的隐藏条件，flying 一解除自动恢复，不需要额外清理。 */
+  const [backDir, setBackDir] = useState(false);
   /** 转场落位标记：真封面要**当帧**不透明（副本已精确停在终态），
       否则 260ms 淡入会在副本摘掉后透出页面底色。每次换 lead 先复位。 */
   const [landed, setLanded] = useState(false);
@@ -244,14 +259,17 @@ export function LiveHome({
   };
 
   /* —— 切歌转场：换 lead 时把封面"飞"过去 ——
-     命中条件 = 新 lead 的封面 rect 在**上一帧**的待播带快照里。
-     手动点卡命中（点的就是那格）；自动播完也命中（自动下一首正是原第一格）。
-     上一首 / 随机 / 跨列表跳转命中不了 → 回落原有的淡入，不硬编造出发点。 */
+     两个方向共用一个 effect，靠「新 lead 在不在旧待播带上」分岔：
+       · 在   → 顺播（点卡 / 自动下一首）：起点就是那张卡，坐标真实可测；
+       · 不在，但旧 lead 这一帧出现在带上 → 倒退（⏮）：落点是它新的那一格，
+         同样真实可测；而"上一首从哪来"在环列里位于队尾、屏幕之外，
+         没有可测的出发点，所以只做「从左侧 72px 推入 + 渐显」，不假称某一格是它的起点；
+       · 两者都不成立（随机 / 跨列表跳转）→ 一个坐标都不编，回落原有的淡入。 */
   useLayoutEffect(() => {
     const id = lead?.sourceId ?? null;
     const prev = prevLead.current;
     prevLead.current = id ? { id, url: lead?.coverUrl } : null;
-    // 每次换 lead 先复位"落位"标记：没命中转场的换歌（上一首/随机）要回到正常淡入
+    // 每次换 lead 先复位"落位"标记：没命中转场的换歌（随机/跨列表）要回到正常淡入
     setLanded(false);
     if (!id || !lead || !prev || prev.id === id) return;
     if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -259,26 +277,43 @@ export function LiveHome({
     }
 
     const root = rootRef.current;
-    const from = tapeRects.current.get(id);
     const coverEl = root?.querySelector<HTMLElement>(".cs-stage .cs-cover");
-    if (!root || !from || !coverEl) return;
+    if (!root || !coverEl) return;
     // 目标位在这一帧才定下来：新歌标题的行数决定 copy 高度，进而决定封面高度
     const to = boxOf(coverEl.getBoundingClientRect());
-    if (to.width < 48 || from.width < 8) return;
+    if (to.width < 48) return;
+
+    /* data-song 的值是音源内 id，拼进属性选择器要转义 —— 直接按 dataset 比对，
+       不走字符串拼选择器（id 里出现引号或方括号就会静默查不到，转场无声消失）。 */
+    const cards = Array.from(root.querySelectorAll<HTMLElement>(".cs-tapes .cs-tape"));
+    const findArt = (song: string): HTMLElement | null => {
+      const card = cards.find((c) => c.dataset.song === song);
+      return card ? card.querySelector<HTMLElement>(".cs-tape-art") : null;
+    };
+
+    const from = tapeRects.current.get(id) ?? null;
+    // 倒退的落点：旧 lead 这一帧被"退"回了列表，找它现在所在的格子
+    const backArt = from ? null : findArt(prev.id);
+    const backBox = backArt ? boxOf(backArt.getBoundingClientRect()) : null;
+    if (!from && !backBox) return;
+    if (from && from.width < 8) return;
+    const isBack = !from;
 
     const seq = ++flySeq.current;
     // 连点切歌：上一份副本立刻撤掉，不让两层影子叠在一起飞
     for (const stale of document.querySelectorAll(".cs-fly")) stale.remove();
     setFlying(true); // layout effect 里的 setState 在 paint 前冲刷，不会闪一帧
+    setBackDir(isBack);
 
-    /* 先建退回的那份（旧封面）：两份副本 z-index 相同，同层里由 DOM 顺序决定叠放，
+    /* 先建退场的那份（旧封面）：两份副本 z-index 相同，同层里由 DOM 顺序决定叠放，
        后插入的在上。前景必须是"正在靠近的新封面"，所以旧的先建、垫在下面——
        反过来新封面会在交叉点被旧封面整块盖住，"飞进来"这个动作就看不见了。 */
     const back = coverBox.current;
+    let outgoing: { el: HTMLDivElement; anim: Animation } | null = null;
     if (back) {
-      const slot = root.querySelector<HTMLElement>(".cs-tapes .cs-tape-art");
-      const slotBox = slot ? boxOf(slot.getBoundingClientRect()) : null;
-      const outgoing = spawnFly({
+      const firstArt = findArt(cards[0]?.dataset.song ?? "");
+      const slotBox = backBox ?? (firstArt ? boxOf(firstArt.getBoundingClientRect()) : null);
+      outgoing = spawnFly({
         from: back,
         to: slotBox
           ? { left: slotBox.left, top: slotBox.top, width: slotBox.width, height: slotBox.width }
@@ -291,35 +326,45 @@ export function LiveHome({
         url: prev.url,
         radius: [18, 12],
         duration: FLY_MS - 60,
-        fadeOut: true,
+        /* 顺播时它的真实落点在环列队尾（屏外），走到七成就要散；
+           倒退时它是真的"回家"，落点那一格真实存在，走满全程、落位后再交接。 */
+        fadeOut: !isBack,
       });
-      // 它自己不会退场（fadeOut 只是透明度）：不回收就是 body 上一块永久不动的 0 透明度节点
-      outgoing.anim.finished.then(
-        () => outgoing.el.remove(),
-        () => outgoing.el.remove(),
-      );
+      if (!isBack) {
+        // 顺播它自己已散到透明，不会退场：不回收就是 body 上一块永久残留的节点
+        outgoing.anim.finished.then(
+          () => outgoing?.el.remove(),
+          () => outgoing?.el.remove(),
+        );
+      }
     }
 
-    /* 新封面：卡位 → 大图位。最后创建 = 压在最上层。 */
+    /* 新封面：最后创建 = 压在最上层。
+       顺播从卡位起飞（宽高逐帧长，圆角 12→18）；倒退没有可见起点，
+       直接从大图尺寸沿 x 推入 72px 并渐显 —— 是"推进来"而不是"从空气里长出来"。 */
     const incoming = spawnFly({
-      from,
+      from: from ?? { left: to.left - 72, top: to.top, width: to.width, height: to.height },
       to,
       url: lead.coverUrl,
-      radius: [12, 18],
+      radius: from ? [12, 18] : [18, 18],
       duration: FLY_MS,
       fadeOut: false,
+      fadeIn: isBack,
     });
 
-    /* 整排左移一格：**只动 .cs-tape 自己，绝不动 li**。
+    /* 整排位移一格：**只动 .cs-tape 自己，绝不动 li**。
        li 是光场 position-anchor 的宿主，li 一旦被 transform 带动，anchor() 每帧重算，
-       整排卡的 backdrop 折射跟着逐帧重算（2026-11-11 实测）。 */
-    const cards = Array.from(root.querySelectorAll<HTMLElement>(".cs-tapes .cs-tape"));
-    if (cards.length > 1) {
+       整排卡的 backdrop 折射跟着逐帧重算（2026-11-11 实测）。
+       倒退时严格成立的是"整排右移一格"；若一跳不止一首，步长就不是一格了，
+       硬套一个 step 会把中间那几张推错位 —— 那种情况不做整排，只做封面交接。 */
+    const oneStep = !isBack || cards[0]?.dataset.song === prev.id;
+    if (oneStep && cards.length > 1) {
       const step = cards[1].getBoundingClientRect().left - cards[0].getBoundingClientRect().left;
       if (step > 4) {
+        const dir = isBack ? -1 : 1;
         for (const card of cards) {
-          // 每张都从"右一格"起跑 = 整排同步左移一格（同一步长、同一时长，不搞错峰波浪）
-          card.animate([{ transform: `translateX(${step}px)` }, { transform: "none" }], {
+          // 每张都从"邻格"起跑 = 整排同步移一格（同一步长、同一时长，不搞错峰波浪）
+          card.animate([{ transform: `translateX(${dir * step}px)` }, { transform: "none" }], {
             duration: 300,
             easing: FLY_EASE,
           });
@@ -335,9 +380,11 @@ export function LiveHome({
       landed = true;
       window.clearTimeout(guard);
       /* 两个 setState 同批：landed 让真封面**当帧**不透明（跳过 260ms 淡入，
-         否则副本摘掉时底下一半透明 → 透出页面底色），flying 解除让文案开始浮现。 */
+         否则副本摘掉时底下一半透明 → 透出页面底色），flying 解除让文案开始浮现。
+         backDir 同时归零：倒退时列表第 1 格的封面是"让位"状态，飞行一结束就得显示。 */
       setLanded(true);
       setFlying(false);
+      setBackDir(false);
       incoming.anim.finished
         .then(() =>
           incoming.el
@@ -348,6 +395,17 @@ export function LiveHome({
             ),
         )
         .catch(() => incoming.el.remove());
+
+      /* 倒退时旧封面停在终态、不透明 —— 它下面就是那张真正回到列表的卡，
+         原地淡出 140ms，两层的同图交叉，看不到接缝。 */
+      if (outgoing && isBack) {
+        const el = outgoing.el;
+        el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FLY_HANDOFF_MS, fill: "forwards" })
+          .finished.then(
+            () => el.remove(),
+            () => el.remove(),
+          );
+      }
     };
     // 兜底：动画被系统冻结（窗口最小化等）时不能让 flying 永远挂住，真封面会一直透明
     const guard = window.setTimeout(land, FLY_MS + 240);
@@ -370,6 +428,29 @@ export function LiveHome({
     const cover = root.querySelector<HTMLElement>(".cs-stage .cs-cover");
     coverBox.current = cover ? boxOf(cover.getBoundingClientRect()) : null;
   });
+
+  /* —— ⏮ 重播反馈 ——
+     播过 3 秒按上一首 = 回开头重播（不换歌）。store 那边只发一个 replaySeq 脉冲，
+     trackId / positionMs / remote 一个都没变，转场 effect 完全感知不到。
+     这里接住脉冲给一次可见的确认：封面轻压一下再弹回，不加文字提示。 */
+  useEffect(() => {
+    if (replaySeq === replaySeen.current) return;
+    replaySeen.current = replaySeq;
+    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    const cover = rootRef.current?.querySelector<HTMLElement>(".cs-stage .cs-cover");
+    if (!cover) return;
+    /* 关键帧在这 180ms 内会盖掉 inline 的白边补偿 scale —— 那补偿只对有白边的封面
+       生效，短暂丢失看不出差别，换来的是"按到了"的确切反馈。 */
+    cover.animate(
+      [
+        { transform: "scale(0.975)", offset: 0 },
+        { transform: "scale(1)", offset: 1 },
+      ],
+      { duration: 180, easing: FLY_EASE },
+    );
+  }, [replaySeq]);
 
   // 卸载/切页时把还在飞的副本收干净（body 上的节点不在 React 树里，不回收就永久残留）
   useEffect(() => () => {
@@ -407,7 +488,11 @@ export function LiveHome({
   return (
     <section
       ref={rootRef}
-      className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
+      /* cs-flying / cs-back 是给「倒退时第 1 格让位」用的根级状态标记。
+         真正的飞行样式仍然挂在 .cs-stage.cs-flying 上，两者互不干扰。 */
+      className={`live-home cs-home${firstVisit ? " cs-enter" : ""}${flying ? " cs-flying" : ""}${
+        backDir ? " cs-back" : ""
+      }`}
     >
       {/* 折射透镜：整页只渲染一次，CSS 侧 --lg-backdrop: url(#lg-lens) 引用它。
           id 一旦拼错，整条 backdrop-filter 声明失效（不是"只丢折射"）——J1 判据兜这一条。

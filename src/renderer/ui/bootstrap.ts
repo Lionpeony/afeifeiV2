@@ -1271,6 +1271,13 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
     clock.seek(n.positionMs, now);
   }
 
+  /* 重播脉冲（⏮ 命中 3 秒规则）：positionMs 0→0 不构成"变化"，上面那条 catch 不到，
+     但音乐必须真的绕回开头。positionMs 确实变过时（用户拖过进度条）上面已经 seek 过了，不必重复。 */
+  if (n.replaySeq !== p.replaySeq && n.positionMs === p.positionMs) {
+    engine.seek(0);
+    clock.seek(0, now);
+  }
+
   if (n.volume !== p.volume) engine.setVolume(n.volume);
   if (n.muted !== p.muted) engine.setMuted(n.muted);
   // 倍速与音调补偿：跟音量一样直接落到引擎（抄 lx 的 defaultPlaybackRate + playbackRate 双写）

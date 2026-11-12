@@ -23,6 +23,7 @@ const initialState: AppState = {
     error: null,
     buffering: false,
     remote: null,
+    replaySeq: 0,
   },
   queue: {
     items: [],
@@ -468,8 +469,13 @@ function reduce(current: AppState, intent: Intent): AppState {
     case "queue/prev": {
       const at = intent.atPositionMs ?? player.positionMs;
       if (prevAction(at) === "restart") {
-        if (player.positionMs === 0) return current;
-        return { ...current, player: { ...player, positionMs: 0 } };
+        /* 这里不需要"已经在开头"的守卫：prevAction 只在 at > 3 秒时才给 restart，
+           at=0 走的是 prev（切上一首），语义本来就对。
+           原来那句 `if (player.positionMs === 0) return current` 用错了变量 ——
+           store 的 positionMs 只在 seek / 切歌时写，正常播放期间恒为 0（见文件头），
+           于是每一次重播都被它吞掉：播了 10 秒按 ⏮ 既不切歌也不回开头（2026-11-12 实测）。
+           回到开头也不能靠 positionMs 0→0 的变化触发 seek，所以另发一个 replaySeq 脉冲。 */
+        return { ...current, player: { ...player, positionMs: 0, replaySeq: player.replaySeq + 1 } };
       }
       const order = orderOf(queue.items, queue.mode, queue.shuffleSeed);
       const prev = stepBackward(order, playingCursor(current), queue.mode, true);

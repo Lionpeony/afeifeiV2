@@ -1234,6 +1234,145 @@ app.whenReady().then(async () => {
       if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
     }
 
+    /* —— 倒退（⏮）判据 T6–T8 ——
+       上一首的落点比下一首更准：旧封面正好回到新列表第 1 格（真实坐标，不是"走七成就散"）。
+       先测 T8：等真实播放跨过 3 秒规则，此时 ⏮ 是「重播当前曲」而不是切歌 ——
+       既验证脉冲信号，也顺手把位置拉回 0，为 T6/T7 的"真切上一首"铺好条件。 */
+    const posA = await evalJs(`(() => {
+      const b = document.querySelector(".seek .bar");
+      return { v: b ? Number(b.value) : null, tm: document.querySelector(".seek .tm")?.textContent ?? "" };
+    })()`);
+    await sleep(4200);
+    const posB = await evalJs(`(() => {
+      const b = document.querySelector(".seek .bar");
+      return { v: b ? Number(b.value) : null, tm: document.querySelector(".seek .tm")?.textContent ?? "" };
+    })()`);
+    console.log(`播放位置：${posA.tm} → ${posB.tm}`);
+    if (posA.v === null || posB.v === null) throw new Error("找不到进度条：重播判据读不到真实位置");
+    if (posA.v < 0 || posB.v - posA.v < 1500) {
+      throw new Error(`fixture 没有真在播：4.2 秒里进度只走了 ${posB.v - posA.v}ms，「3 秒规则」这条判据不成立`);
+    }
+
+    const replay = await evalJs(`new Promise((resolve) => {
+      const titleBefore = document.querySelector(".cs-title")?.textContent ?? "";
+      const btn = document.querySelector('button[aria-label="上一首"]');
+      if (!btn) { resolve({ err: "no-prev-button" }); return; }
+      btn.click();
+      /* 压制反馈是程序化 WAAPI 关键帧，没有 animationName —— 认 keyframes 里的 scale。 */
+      const t0 = performance.now();
+      const tick = () => {
+        const cover = document.querySelector(".cs-stage .cs-cover");
+        const anims = cover ? cover.getAnimations().filter((a) => a.playState === "running") : [];
+        const pressed = anims.some((a) => {
+          const k = a.effect && a.effect.getKeyframes ? a.effect.getKeyframes() : [];
+          return k.some((f) => String(f.transform ?? "").indexOf("scale(0.975)") >= 0);
+        });
+        if (pressed || performance.now() - t0 > 1500) {
+          resolve({
+            titleBefore: titleBefore,
+            titleAfter: document.querySelector(".cs-title")?.textContent ?? "",
+            pressed: pressed,
+            anims: anims.length,
+          });
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    console.log(`重播反馈：${JSON.stringify(replay)}`);
+    if (replay.err) throw new Error(`找不到上一首按钮：${replay.err}`);
+    if (replay.titleAfter !== replay.titleBefore) {
+      throw new Error(`播了 ${posB.tm} 按 ⏮ 却切了歌（${replay.titleBefore} → ${replay.titleAfter}）：3 秒规则没生效`);
+    }
+    if (!replay.pressed) throw new Error(`重播没有压制反馈：封面没跑 180ms 的 scale 关键帧（running 动画 ${replay.anims} 条）`);
+
+    /* T6/T7：位置已被重播拉回开头，这一下才是真的"切上一首"。 */
+    const back = await evalJs(`new Promise((resolve) => {
+      const read = () => {
+        const flies = [...document.querySelectorAll(".cs-fly")];
+        const root = document.querySelector(".cs-home");
+        const art = document.querySelector(".cs-tapes li:first-child .cs-tape-art");
+        const second = document.querySelector(".cs-tapes li:nth-child(2) .cs-tape-art");
+        return {
+          n: flies.length,
+          flies: flies.map((f) => { const r = f.getBoundingClientRect(); return Math.round(r.width); }),
+          back: !!root && root.classList.contains("cs-back"),
+          flying: !!root && root.classList.contains("cs-flying"),
+          firstVis: art ? getComputedStyle(art).visibility : null,
+          secondVis: second ? getComputedStyle(second).visibility : null,
+          moving: [...document.querySelectorAll(".cs-tapes .cs-tape")].filter((c) => c.getAnimations().length > 0).length,
+          cards: document.querySelectorAll(".cs-tapes .cs-tape").length,
+        };
+      };
+      const btn = document.querySelector('button[aria-label="上一首"]');
+      if (!btn) { resolve({ err: "no-prev-button" }); return; }
+      btn.click();
+      const t0 = performance.now();
+      const tick = () => {
+        if (document.querySelectorAll(".cs-fly").length > 0) { resolve(read()); return; }
+        if (performance.now() - t0 > 5000) { resolve({ n: 0, timeout: true }); return; }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    console.log(`倒退转场：${JSON.stringify(back)}`);
+    if (back.err) throw new Error(`倒退转场失败：${back.err}`);
+    if (back.n < 2) throw new Error(`倒退副本不是两份（${back.n}）：找不到旧封面回家或新封面推入`);
+    {
+      /* 倒退和顺播的尺寸关系**正好相反**：顺播是新封面从卡位长出来（一窄一宽，比例 ~3.8），
+         倒退是新封面从大图尺寸推入（两份都是大图宽，比例 ~1）。
+         这里比例接近 1 才说明走的是倒退分支，而不是误跑了顺播那套。 */
+      const ws = back.flies;
+      if (Math.min(...ws) / Math.max(...ws) <= 0.8) {
+        throw new Error(`倒退两份副本尺寸不成"都是大图"：${JSON.stringify(ws)}（像顺播分支）`);
+      }
+    }
+    if (!back.back) throw new Error("倒退没有 cs-back 标记：列表第 1 格不会让位，会和副本重影");
+    if (!back.flying) throw new Error("倒退没有 cs-flying：真封面没让位");
+    if (back.firstVis !== "hidden") {
+      throw new Error(`倒退期间列表第 1 格没让位（visibility=${back.firstVis}）：同一张图会同时出现在副本与格子里`);
+    }
+    /* 只许藏第 1 格。.cs-tape:first-child 这种写法会命中每一张卡（button 都是各自 li 的首个子元素），
+       整排封面一起消失也会让上面那条"绿"，所以必须有一条反向判据钉住。 */
+    if (back.secondVis !== "visible") {
+      throw new Error(`倒退期间第 2 格也被藏了（visibility=${back.secondVis}）：选择器命中了不止一格`);
+    }
+    if (back.moving < Math.min(2, back.cards)) {
+      throw new Error(`倒退时待播带没跟着位移（${back.moving}/${back.cards} 张卡在动）`);
+    }
+
+    const backEnd = await evalJs(`new Promise((resolve) => {
+      const read = () => {
+        const root = document.querySelector(".cs-home");
+        const cover = document.querySelector(".cs-stage .cs-cover");
+        const art = document.querySelector(".cs-tapes li:first-child .cs-tape-art");
+        return {
+          n: document.querySelectorAll(".cs-fly").length,
+          back: !!root && root.classList.contains("cs-back"),
+          flying: !!root && root.classList.contains("cs-flying"),
+          coverOp: cover ? getComputedStyle(cover).opacity : null,
+          firstVis: art ? getComputedStyle(art).visibility : null,
+        };
+      };
+      const t0 = performance.now();
+      const tick = () => {
+        const r = read();
+        if (r.n === 0 && !r.flying) { resolve(r); return; }
+        if (performance.now() - t0 > 6000) { resolve(r); return; }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    console.log(`倒退落位：${JSON.stringify(backEnd)}`);
+    if (backEnd.n !== 0) throw new Error(`倒退落位后副本没摘干净：还剩 ${backEnd.n} 份`);
+    if (backEnd.flying) throw new Error("倒退落位后 cs-flying 没解除");
+    if (backEnd.back) throw new Error("倒退落位后 cs-back 没清除：下一次顺播会把第 1 格一起藏掉");
+    if (backEnd.coverOp !== "1") throw new Error(`倒退落位后封面没回到不透明（opacity ${backEnd.coverOp}）`);
+    if (backEnd.firstVis !== "visible") {
+      throw new Error(`倒退落位后第 1 格没恢复（visibility=${backEnd.firstVis}）：刚退回去的那首在列表里看不见`);
+    }
+
     /* 完整播出单（cs-more 展开）：一体式队列列表——行数 = 节目单总数、
        缩略图与在播标记就位。列表空或缩略图缺失都是列表坏了。 */
     await evalJs(`document.querySelector(".cs-more")?.click()`);

@@ -62,6 +62,13 @@ export interface PlayerState {
    * 没有标题、封面、歌词，等于把在线曲目退化成裸 URL。代价是快照多几十字节，换来可用。
    */
   remote: { sourceId: string; songId: string; coverUrl?: string } | null;
+  /**
+   * 「重头播当前曲」的脉冲计数（⏮ 命中 3 秒规则）。
+   * 重播时 trackId 不变、positionMs 本来就是 0（见 store 文件头：它只记"最后一次
+   * seek / 切歌"的位置，不是实时位置），所以**没有任何字段会变** ——
+   * bootstrap 靠这个计数把引擎绕回开头，首页靠它给一次压制反馈。不持久化。
+   */
+  replaySeq: number;
 }
 
 /**

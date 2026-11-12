@@ -1048,6 +1048,16 @@ img.cs-tape-art {
   opacity: 0;
 }
 
+/* —— 倒退（⏮）时列表第 1 格让位 ——
+   切上一首时那一格是**全新的 DOM 节点**（旧 lead 刚被退回列表），飞行副本正往这儿落。
+   不让位的话它会立刻画出封面，和路上的副本同图重叠（两张同图不同位置 = 重影）。
+   只在「飞行中 + 倒退」这个交集里生效：flying 一解除自动恢复，不需要额外的清理状态。
+   注意用 li:first-child 而不是 .cs-tape:first-child ——
+   后者会命中**每一张**卡的按钮（button 都是各自 li 的第一个子元素）。 */
+.cs-home.cs-flying.cs-back .cs-tapes li:first-child .cs-tape-art {
+  visibility: hidden;
+}
+
 /* —— 飞行副本 ——
    挂在 body 上（不进 .cs-stage，绕开 overflow:hidden 与 key 重挂），
    位移/尺寸/圆角由 WAAPI 逐帧补间。裸 <img>，不带 backdrop-filter，
