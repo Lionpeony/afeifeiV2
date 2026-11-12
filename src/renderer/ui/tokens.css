@@ -3,6 +3,7 @@
    ① 结构层 —— UI 骨架，永不跟封面/场景/预设变；
    ② 场景层 —— 只被播放页（stage）读取，预设只准写这一层 + 布局参数；
    ③ 材质层 —— 只给浮层（面板/弹窗），正文区不消费。
+   ⑥ 玻璃层（--lg-*）—— 只给首页待播网格，是唯一允许 backdrop-filter 的材料（2026-11-11 v5 规范）。
    2026-11-03 换装：结构层采用旧仓「唱片节目单」视觉（ref/20）——
    纸 #f3f1ea / 墨 #17150f / 朱砂印 #d8341c / 发丝线；直角是默认。 */
 :root {
@@ -54,6 +55,49 @@
   --glass-shadow:
     0 12px 32px rgba(12, 21, 20, 0.16),
     0 1px 0 rgba(12, 21, 20, 0.1);
+
+  /* ⑥ 玻璃层（--lg-*）：只给首页待播网格（.cs-tape / .cs-tapes::before）消费。
+     与 ③ 材质层是两种材料，禁止混用：
+       ③ 瓷白瓷片：必须 .97 不透明，否则浮层后面的正文会透上来；
+       ⑥ 丙烯板：故意半透，它存在的意义就是让背后的灯穿过来（唯一允许 backdrop-filter 的材料）。
+     纪律：**结构层不跟封面色** —— 玻璃的色源是固定光场 --lg-lamp，不是 --cs-tint
+     （待播网格属结构层，永不跟封面/场景变；5 张卡各取封面色会让「干净白」失控）。
+     依据：design-demos/glass-probe/spec-v1.md §6.3（v5，95 分）。 */
+  --lg-cols: 5; /* 列数：卡数、光池收口、fallback 行高三者共用 */
+  --lg-gap: 12px;
+  --lg-bleed: 84px;
+  /* 仅 fallback（引擎不支持 anchor positioning 时）。手算自字号阶梯，
+     对字号/边距改动**静默失准**（扰动实测 −9.44px），正解见 cover-stage.css 的 @supports。 */
+  --lg-band-h: 111.5px;
+  --lg-film: rgba(246, 250, 249, 0.62);
+  --lg-base: transparent;
+  --lg-tint: rgba(14, 143, 130, 0.05);
+  --lg-thick: rgba(23, 48, 44, 0.05);
+  --lg-rim-dim: rgba(255, 255, 255, 0.95);
+  --lg-lift: rgba(255, 255, 255, 0.85);
+  --lg-bevel: rgba(23, 48, 44, 0.16);
+  --lg-edge: rgba(255, 255, 255, 0.7);
+  --lg-edge-ink: rgba(23, 48, 44, 0.09);
+  --lg-edge-ink-hi: rgba(23, 48, 44, 0.05);
+  --lg-edge-ink-lo: rgba(23, 48, 44, 0.14);
+  --lg-seam: rgba(255, 255, 255, 0.9);
+  --lg-hatch: rgba(255, 255, 255, 0.72);
+  --lg-art-drop: rgba(12, 21, 20, 0.3);
+  --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
+  --lg-lamp-2: color-mix(in srgb, var(--live-signal) 9%, transparent);
+  --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);
+  --lg-ink-3: color-mix(in srgb, var(--live-fg) 76%, transparent);
+  /* 整值 token：url() 指向不存在的 filter 时整条声明被判无效，
+     降级只能整值替换（blur 只许 4px —— 14px 会把 1.5px 结构抹成雾，位移就再没有东西可弯）。 */
+  --lg-backdrop: url(#lg-lens) blur(4px) saturate(1.6);
+  --lg-shadow:
+    0 1px 2px rgba(23, 48, 44, 0.07),
+    0 10px 24px -12px rgba(23, 48, 44, 0.26),
+    0 26px 52px -26px rgba(23, 48, 44, 0.2);
+  --lg-shadow-hi:
+    0 2px 4px rgba(23, 48, 44, 0.08),
+    0 16px 32px -14px rgba(23, 48, 44, 0.32),
+    0 32px 60px -28px rgba(23, 48, 44, 0.24);
 
   /* 纸纹（app.css html::after 消费）：日间 .05 multiply */
   --grain-opacity: 0.05;
@@ -115,6 +159,16 @@
   color-scheme: light;
 }
 
+/* 版式裁决（体验组定）：<1300 降 4 列。5 列时 1024 卡宽只有 96.7px、只能放 5 字，
+   信息带占卡高 54.4%（1440 是 43.8%），封面从 144.7 掉到 94.7 →「封面是主体」塌了；
+   且 1024×700 真机可用高 540，两行 481.7 > 网格可用的 ≈383 会被裁。
+   几何类 --lg-* 只写在 :root，靠继承生效——别往下面四个作用域块里复制（断点切换会漏更新）。 */
+@media (max-width: 1299px) {
+  :root {
+    --lg-cols: 4;
+  }
+}
+
 /* 封面取色 tint（LiveHome 写入文档根，cs-home / cs-stage / 底栏色晕共同消费）：
    注册成 <color> 才能过渡——换歌时氛围色淡入淡出，不是硬切。
    值本身无 hex：由 tint-client 量化产出，写进内联样式。 */
@@ -164,6 +218,37 @@ html {
   --live-slot: #e3eae8;
   --live-accent-ink: #f4faf8;
 
+  /* ⑥ 玻璃层整份复制（浅色档）：这个块的作用就是「不管全局主题，把这一面拉回浅色」，
+     而 --live-* 在这里被重写 → 派生类 token（color-mix(var(--live-*))）必须在这里重算，
+     否则强制浅色 tone 会拿全局主题（深色）的灯色配浅色底。几何类不复制。 */
+  --lg-film: rgba(246, 250, 249, 0.62);
+  --lg-base: transparent;
+  --lg-tint: rgba(14, 143, 130, 0.05);
+  --lg-thick: rgba(23, 48, 44, 0.05);
+  --lg-rim-dim: rgba(255, 255, 255, 0.95);
+  --lg-lift: rgba(255, 255, 255, 0.85);
+  --lg-bevel: rgba(23, 48, 44, 0.16);
+  --lg-edge: rgba(255, 255, 255, 0.7);
+  --lg-edge-ink: rgba(23, 48, 44, 0.09);
+  --lg-edge-ink-hi: rgba(23, 48, 44, 0.05);
+  --lg-edge-ink-lo: rgba(23, 48, 44, 0.14);
+  --lg-seam: rgba(255, 255, 255, 0.9);
+  --lg-hatch: rgba(255, 255, 255, 0.72);
+  --lg-art-drop: rgba(12, 21, 20, 0.3);
+  --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
+  --lg-lamp-2: color-mix(in srgb, var(--live-signal) 9%, transparent);
+  --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);
+  --lg-ink-3: color-mix(in srgb, var(--live-fg) 76%, transparent);
+  --lg-backdrop: url(#lg-lens) blur(4px) saturate(1.6);
+  --lg-shadow:
+    0 1px 2px rgba(23, 48, 44, 0.07),
+    0 10px 24px -12px rgba(23, 48, 44, 0.26),
+    0 26px 52px -26px rgba(23, 48, 44, 0.2);
+  --lg-shadow-hi:
+    0 2px 4px rgba(23, 48, 44, 0.08),
+    0 16px 32px -14px rgba(23, 48, 44, 0.32),
+    0 32px 60px -28px rgba(23, 48, 44, 0.24);
+
   color-scheme: light;
 }
 
@@ -210,6 +295,38 @@ html {
   --live-slot: var(--night-slot);
   --live-accent-ink: var(--night-accent-ink);
 
+  /* ⑥ 玻璃层整份复制（深色档）：膜 alpha ≈ 浅色的 1/8 且必须再垫 .44 不透底；
+     rim 降到 .20 且色相换 rgb(226,240,236)（纯白在墨绿底上发蓝、.55 会成一根白刺）；
+     厚度影必须纯黑；saturate 降 1.45。
+     深色 --lg-ink-3 68% 是下限——62% 对卡面只有 4.25:1（AA 不过），别再降。 */
+  --lg-film: rgba(232, 240, 245, 0.075);
+  --lg-base: rgba(9, 16, 15, 0.44);
+  --lg-tint: rgba(46, 201, 167, 0.035);
+  --lg-thick: rgba(0, 0, 0, 0.14);
+  --lg-rim-dim: rgba(226, 240, 236, 0.34);
+  --lg-lift: rgba(226, 240, 236, 0.16);
+  --lg-bevel: rgba(0, 0, 0, 0.5);
+  --lg-edge: rgba(226, 240, 236, 0.2);
+  --lg-edge-ink: rgba(0, 0, 0, 0.55);
+  --lg-edge-ink-hi: rgba(0, 0, 0, 0.34);
+  --lg-edge-ink-lo: rgba(0, 0, 0, 0.7);
+  --lg-seam: rgba(226, 240, 236, 0.24);
+  --lg-hatch: rgba(220, 235, 230, 0.16);
+  --lg-art-drop: rgba(0, 0, 0, 0.46);
+  --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
+  --lg-lamp-2: color-mix(in srgb, var(--live-signal) 11%, transparent);
+  --lg-ink-2: color-mix(in srgb, var(--live-fg) 74%, transparent);
+  --lg-ink-3: color-mix(in srgb, var(--live-fg) 68%, transparent);
+  --lg-backdrop: url(#lg-lens) blur(4px) saturate(1.45);
+  --lg-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 10px 24px -12px rgba(0, 0, 0, 0.55),
+    0 26px 52px -26px rgba(0, 0, 0, 0.45);
+  --lg-shadow-hi:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 16px 32px -14px rgba(0, 0, 0, 0.62),
+    0 32px 60px -28px rgba(0, 0, 0, 0.5);
+
   color-scheme: dark;
 }
 
@@ -253,6 +370,36 @@ html {
   --live-signal: #2a6478;
   --live-accent-ink: #fdf8ec;
   --live-slot: #dccfb3;
+
+  /* ⑥ 玻璃层整份复制（纸色档）：膜取纸面板色 #f0e9d6、alpha 与浅色同档；
+     rim 换**暖白**（冷白在纸上发青）；灯心用纸面磷光青 --live-phosphor #2a6b55。 */
+  --lg-film: rgba(240, 233, 214, 0.62);
+  --lg-base: transparent;
+  --lg-tint: rgba(125, 74, 18, 0.05);
+  --lg-thick: rgba(43, 33, 24, 0.055);
+  --lg-rim-dim: rgba(255, 253, 246, 0.92);
+  --lg-lift: rgba(255, 253, 246, 0.8);
+  --lg-bevel: rgba(43, 33, 24, 0.18);
+  --lg-edge: rgba(255, 252, 244, 0.66);
+  --lg-edge-ink: rgba(43, 33, 24, 0.11);
+  --lg-edge-ink-hi: rgba(43, 33, 24, 0.06);
+  --lg-edge-ink-lo: rgba(43, 33, 24, 0.17);
+  --lg-seam: rgba(255, 253, 246, 0.88);
+  --lg-hatch: rgba(255, 252, 242, 0.2);
+  --lg-art-drop: rgba(43, 33, 24, 0.34);
+  --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
+  --lg-lamp-2: color-mix(in srgb, var(--live-accent) 7%, transparent);
+  --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);
+  --lg-ink-3: color-mix(in srgb, var(--live-fg) 74%, transparent);
+  --lg-backdrop: url(#lg-lens) blur(4px) saturate(1.5);
+  --lg-shadow:
+    0 1px 2px rgba(43, 33, 24, 0.1),
+    0 10px 24px -12px rgba(43, 33, 24, 0.24),
+    0 26px 52px -26px rgba(43, 33, 24, 0.18);
+  --lg-shadow-hi:
+    0 2px 4px rgba(43, 33, 24, 0.12),
+    0 16px 32px -14px rgba(43, 33, 24, 0.3),
+    0 32px 60px -28px rgba(43, 33, 24, 0.22);
 
   color-scheme: light;
 }

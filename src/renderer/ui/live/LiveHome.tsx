@@ -26,6 +26,15 @@ const pad2 = (n: number): string => String(n).padStart(2, "0");
 /** 仅本次运行第一次进入首页时放一次入场；切页回来不重播。 */
 let homeVisited = false;
 
+/**
+ * 折射透镜的位移图（design-demos/glass-probe/spec-v1.md §4.1，原样）。
+ * 参考系 148×259 = 1440 窗的真实卡尺寸，preserveAspectRatio=none 按实际 box 拉伸。
+ * R 控 X 位移、G 控 Y 位移，128 = 零位移 → **中间必须整片 rgb(128,128,128)**：
+ * 信息带 100% 不被位移，13.5px 的歌名一个像素都不许弯；只在四条边画 12px 倒角带。
+ */
+const LENS_MAP =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='148' height='259'><defs><linearGradient id='y' gradientUnits='userSpaceOnUse' x1='0' y1='0' x2='0' y2='259'><stop offset='0' stop-color='rgb(128,0,128)'/><stop offset='0.046' stop-color='rgb(128,128,128)'/><stop offset='0.954' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(128,255,128)'/></linearGradient><linearGradient id='xl' gradientUnits='userSpaceOnUse' x1='0' y1='0' x2='12' y2='0'><stop offset='0' stop-color='rgb(0,128,128)'/><stop offset='1' stop-color='rgb(128,128,128)'/></linearGradient><linearGradient id='xr' gradientUnits='userSpaceOnUse' x1='136' y1='0' x2='148' y2='0'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,128,128)'/></linearGradient><radialGradient id='c1' gradientUnits='userSpaceOnUse' cx='12' cy='12' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(0,0,128)'/></radialGradient><radialGradient id='c2' gradientUnits='userSpaceOnUse' cx='136' cy='12' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,0,128)'/></radialGradient><radialGradient id='c3' gradientUnits='userSpaceOnUse' cx='12' cy='247' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(0,255,128)'/></radialGradient><radialGradient id='c4' gradientUnits='userSpaceOnUse' cx='136' cy='247' r='12'><stop offset='0' stop-color='rgb(128,128,128)'/><stop offset='1' stop-color='rgb(255,255,128)'/></radialGradient></defs><rect width='148' height='259' fill='url(%23y)'/><rect width='12' height='259' fill='url(%23xl)'/><rect x='136' width='12' height='259' fill='url(%23xr)'/><rect width='12' height='12' fill='url(%23c1)'/><rect x='136' width='12' height='12' fill='url(%23c2)'/><rect y='247' width='12' height='12' fill='url(%23c3)'/><rect x='136' y='247' width='12' height='12' fill='url(%23c4)'/></svg>";
+
 /** 信号条柱数：与控制台/舞台同源（engine.spectrum 聚合桶），写死就是假仪器。 */
 const VU_BARS = 40;
 
@@ -132,7 +141,7 @@ export function LiveHome({
   // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
   const upcoming: RemoteTrack[] = [];
   for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
-  const tapes = upcoming.slice(0, 5);
+  const tapes = upcoming.slice(0, vp.cols);
   /** 环列第 k 项的列表编号（1 起）：lead 29/30 之后是 01。 */
   const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
   // 点待播带里的任意一格：队列 = 整份列表，从这一首开始（连播靠它）。
@@ -174,6 +183,22 @@ export function LiveHome({
     <section
       className={`live-home cs-home${firstVisit ? " cs-enter" : ""}`}
     >
+      {/* 折射透镜：整页只渲染一次，CSS 侧 --lg-backdrop: url(#lg-lens) 引用它。
+          id 一旦拼错，整条 backdrop-filter 声明失效（不是"只丢折射"）——J1 判据兜这一条。
+          绝对定位 + 0×0：不占栅格、不进版面。 */}
+      <svg width="0" height="0" aria-hidden="true" focusable="false" style={{ position: "absolute" }}>
+        <filter id="lg-lens" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+          <feImage href={LENS_MAP} result="map" preserveAspectRatio="none" />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="map"
+            scale="10"
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
+
       {!lead ? (
         <div className="cs-state-wrap">
           {state.loading ? <p className="daily-state">正在载入今日推荐…</p> : null}
@@ -330,7 +355,13 @@ export function LiveHome({
                 ))}
               </ol>
             ) : (
-              <ol className="cs-tapes" aria-label="待播曲目，按播放顺序（循环回列表开头）">
+              <ol
+                className="cs-tapes"
+                aria-label="待播曲目，按播放顺序（循环回列表开头）"
+                /* --lg-n：光场的右侧收口按**实际卡数**收（CSS 侧 min() 夹到列数）。
+                   少一首就少一节空光池，不靠写死列数。 */
+                style={{ "--lg-n": tapes.length } as CSSProperties}
+              >
               {tapes.map((track, i) => (
                 <li key={track.sourceId} style={{ "--i": i } as CSSProperties}>
                   <button
