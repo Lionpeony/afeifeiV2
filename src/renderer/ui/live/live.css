@@ -1207,7 +1207,9 @@
 
 .shell.live .console {
   border-top: 1px solid var(--live-line-strong);
-  background: var(--live-panel-2);
+  /* 白底（2026-11-12）：night-signal.css 里那条也改成 var(--live-panel)，
+     两处同值 —— 谁后加载都是同一个白，不会因为拼接顺序回落到青灰。 */
+  background: var(--live-panel);
 }
 
 .shell.live .stamp {

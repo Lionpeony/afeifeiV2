@@ -10,9 +10,11 @@
   align-items: center;
   justify-content: center;
   margin: 8px 0;
-  /* 横向 padding 9px：10 枚签子在 1024 窗只剩 ~466px，12px 会贴到折行 */
-  padding: 3px 9px 4px;
-  border-radius: 10px;
+  /* 横向 padding 9px：10 枚签子在 1024 窗只剩 ~466px，12px 会贴到折行。
+     底部 6px：选中那道 2px 刻度线要离开文字，不能贴着字脚 */
+  padding: 3px 9px 6px;
+  /* 999 只服务于 hover 的淡底（胶囊形）；选中态是「字 + 底线」，见下方 .ruler-tick.on */
+  border-radius: 999px;
   transition: background-color 140ms ease;
 }
 
@@ -24,9 +26,33 @@
   color: var(--live-fg-dim);
 }
 
-/* 选中 = 整枚签子亮起：琥珀底光 + 琥珀字，比"只变字色"的选中感强一个量级 */
+/* 选中 = 青瓷字 + 签子底部一道 2px 刻度线（站尺语义），不再铺彩色药丸。
+   2026-11-12：用户说"按钮与播放器不是一个风格"——控制台已经收成「白底 + 无框图标 +
+   唯一青球」，顶栏再挂一枚青绿药丸，等于全机还剩一个"彩色按钮"在说话。
+   把选中还原成「字 + 线」，导航与播放器就不再争谁更像按钮。 */
 .ruler-tick.on {
-  background: color-mix(in srgb, var(--live-accent) 14%, transparent);
+  background: none;
+}
+
+/* 刻度线用伪元素，不用 inset box-shadow：
+   签子是 border-radius 999，inset 阴影会顺着圆角走成一道"笑弧"（2026-11-12 截图实锤）。 */
+.ruler-tick::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--live-accent);
+  opacity: 0;
+  transform: scaleX(0.6);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.ruler-tick.on::after {
+  opacity: 1;
+  transform: none;
 }
 
 .ruler-tick.on > span:first-child {
@@ -39,7 +65,7 @@
 }
 
 .ruler-tick.on:hover {
-  background: color-mix(in srgb, var(--live-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 8%, transparent);
 }
 
 /* 窄窗：签子收一档。live.css 的 media 字号压不住签子的 span 专属字号，这里成对给 */
@@ -54,20 +80,18 @@
 }
 
 /* —— 控制台：现代控制条 ——
-   浮起的一条：上缘发丝线 + 向上投影（elevation），主键圆形实心、工具钮胶囊化。 */
+   浮起的一条：上缘发丝线 + 向上投影（elevation），主键圆形实心、次级钮无框。 */
 .shell.live .console {
   /* 工具排按内容自适应宽：全局壳的固定 250px 装不下 8 个胶囊 + 分隔线，
      溢出会压进走带区，读成"排序混乱"（2026-11-08 用户圈图实锤）。
      中列必须 minmax(0,1fr)：裸 1fr 的 min 是 auto，走带区 min-content 会把它撑爆（1024 窗实测 +52px）。 */
   grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) auto;
   border-top: 1px solid var(--live-line);
-  /* 封面色晕从下缘往上漫（--cs-tint 由 LiveHome 写入文档根，随歌呼吸）：
-     tint 失败/离开首页 → transparent → 原版面板渐变，可读性零影响。
-     最上叠一层 feTurbulence 噪点（0.03）：面板从「塑料」变「磨砂」，塑料感是平面感的一半来源。 */
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
-    radial-gradient(90% 240% at 50% 135%, color-mix(in srgb, var(--cs-tint) 16%, transparent), transparent 72%),
-    linear-gradient(180deg, var(--live-panel) 0%, var(--live-panel-2) 100%);
+  /* 播放器默认白底（2026-11-12 用户定）：原来是「封面色晕 + 磨砂噪点 + 白→青灰渐变」，
+     浅色下整条读作一块青灰板，和页面的白不是同一种白——用户圈图直说"要白色"。
+     这里把三层材质全撤掉，面板与 --live-panel 同白；层次只留上缘发丝线 + 向上投影。
+     代价：底栏不再随封面色呼吸（色晕只在首页舞台/底色两处消费）。 */
+  background: var(--live-panel);
   box-shadow: 0 -12px 30px -22px rgba(23, 48, 44, 0.32);
 }
 
@@ -217,40 +241,29 @@
   transform: scale(0.97);
 }
 
-/* 前后曲：与主键同一材质协议的中性圆片——主键是青瓷球，它是同房间的白瓷钮。
-   裸三角孤零零漂在主键两侧是「画风割裂」最刺眼的一处（2026-11-11 用户实测反馈）。 */
+/* 前后曲：与工具排同一「无框图标」语言 —— 白底上不再贴实体白片。
+   之前是「同材质的白瓷钮」，但底栏本身是青灰渐变时，一排白片浮在上面像
+   外挂的贴纸（2026-11-12 用户第二次反馈"按钮与播放器不是一个风格"）。
+   现在只有主键是实体（青瓷球，唯一强调点），次级键靠 hover 的 6% 底交代可点。 */
 .shell.live .console .transport .tb:not(.main) {
-  width: 32px;
-  height: 32px;
-  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
+  width: 34px;
+  height: 34px;
+  border: none;
   border-radius: 50%;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
-    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .5),
-    0 1px 2px rgb(23 48 44 / .08),
-    0 3px 8px -4px rgb(23 48 44 / .16);
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease, color 140ms ease;
+  background: none;
+  color: var(--live-fg-dim);
+  box-shadow: none;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 .shell.live .console .transport .tb:not(.main):hover {
   color: var(--live-fg);
-  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .55),
-    0 2px 4px rgb(23 48 44 / .1),
-    0 5px 12px -5px rgb(23 48 44 / .2);
+  background: color-mix(in srgb, var(--live-fg) 6%, transparent);
 }
 
 .shell.live .console .transport .tb:not(.main):active {
-  transform: scale(0.93);
-  box-shadow:
-    inset 0 2px 4px rgb(0 0 0 / .12),
-    0 1px 2px rgb(23 48 44 / .06);
+  background: color-mix(in srgb, var(--live-fg) 10%, transparent);
+  transform: scale(0.92);
 }
 
 /* —— 主键进度环：走带键外的细环 ——
@@ -302,32 +315,26 @@
   transition: stroke-dashoffset 90ms linear;
 }
 
-/* 工具钮：图标胶囊。与主键同一「实体按钮」材质协议——顶光渐变 + 顶缘高光 + 外投影，
-   只是中性白瓷色（青瓷只留给主键）：整排按钮因此同属一个画风（2026-11-11 用户实测反馈）。
-   顶光假设钉死：渐变自上而下由亮转暗，主题切换靠 token 自动换底。 */
+/* 工具钮：无框图标（原来是一排白瓷胶囊）。
+   与走带次级键同一条规则：白底上不贴实体片，默认只有图标；hover 浮 6% 底，
+   激活（.on）用 10% 青瓷底 + 青字。整条控制台因此只有主键一颗实体球 ——
+   用户 2026-11-12 反馈"按钮与播放器不是一个风格"，根因就是一排白片 + 蓝灰图标
+   自成一套材质，和左边无框的曲目信息、中间一颗青球断成两个世界。 */
 .shell.live .console .tools button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--live-fg) 8%, transparent);
+  /* 32 = 16 图标 + 两侧各 8：只有图标时正好是正圆，带倒计时文字才拉成胶囊 */
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
   border-radius: 999px;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--live-panel) 86%, rgb(255 255 255)),
-    color-mix(in srgb, var(--live-panel-2) 55%, var(--live-panel))
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .5),
-    0 1px 2px rgb(23 48 44 / .08),
-    0 3px 8px -4px rgb(23 48 44 / .16);
-  transition:
-    transform 140ms ease,
-    box-shadow 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease,
-    color 140ms ease;
+  background: none;
+  color: var(--live-fg-dim);
+  box-shadow: none;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 .shell.live .console .tools button svg {
@@ -346,34 +353,22 @@
 
 .shell.live .console .tools button:hover {
   color: var(--live-fg);
-  border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .55),
-    0 2px 4px rgb(23 48 44 / .1),
-    0 5px 12px -5px rgb(23 48 44 / .2);
+  background: color-mix(in srgb, var(--live-fg) 6%, transparent);
 }
 
-/* 按压 = 按钮被按进面板里：外投影收走，换内凹 */
+/* 按压 = 指尖压下去：淡底加深一档 + 轻微缩合，不再做"按进面板"的内凹阴影 */
 .shell.live .console .tools button:active {
-  transform: translateY(0) scale(0.96);
-  box-shadow:
-    inset 0 2px 4px rgb(0 0 0 / .12),
-    0 1px 2px rgb(23 48 44 / .06);
+  background: color-mix(in srgb, var(--live-fg) 10%, transparent);
+  transform: scale(0.94);
 }
 
 .shell.live .console .tools button.on {
   color: var(--live-accent);
-  border-color: color-mix(in srgb, var(--live-accent) 45%, transparent);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--live-accent) 20%, rgb(255 255 255)),
-    color-mix(in srgb, var(--live-accent) 24%, var(--live-panel))
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / .3),
-    0 1px 2px rgb(23 48 44 / .08),
-    0 3px 8px -4px color-mix(in srgb, var(--live-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--live-accent) 10%, transparent);
+}
+
+.shell.live .console .tools button.on:hover {
+  background: color-mix(in srgb, var(--live-accent) 15%, transparent);
 }
 
 /* 进度轨：4px 圆头 + 琥珀已播 + 光晕圆点。
@@ -457,7 +452,9 @@
 
 .ruler-search:focus-within {
   background: color-mix(in srgb, var(--live-fg) 9%, transparent);
-  box-shadow:/n    inset 0 1px 2px rgb(0 0 0 / .16),
+  /* 原为 box-shadow:/n …（把换行写成 /n，整条声明是废的）——顺手修掉 */
+  box-shadow:
+    inset 0 1px 2px rgb(0 0 0 / .16),
     inset 0 0 0 1px color-mix(in srgb, var(--live-accent) 45%, transparent);
 }
 

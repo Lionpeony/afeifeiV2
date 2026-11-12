@@ -169,9 +169,10 @@
   }
 }
 
-/* 封面取色 tint（LiveHome 写入文档根，cs-home / cs-stage / 底栏色晕共同消费）：
+/* 封面取色 tint（LiveHome 写入文档根，cs-home / cs-stage 共同消费）：
    注册成 <color> 才能过渡——换歌时氛围色淡入淡出，不是硬切。
-   值本身无 hex：由 tint-client 量化产出，写进内联样式。 */
+   值本身无 hex：由 tint-client 量化产出，写进内联样式。
+   （底栏色晕 2026-11-12 撤掉：用户要"播放器默认白色"，控制台不再吃这一层。） */
 @property --cs-tint {
   syntax: "<color>";
   inherits: true;

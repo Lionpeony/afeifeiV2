@@ -472,10 +472,28 @@ export function LiveHome({
           [{ transform: "translateY(100%)", opacity: 0.4 }, { transform: "none", opacity: 1 }],
           { duration: ROLL_MS, delay: ROLL_DELAY_MS, easing: ROLL_EASE, fill: "backwards" },
         );
-        rollOld.animate(
-          [{ transform: "none", opacity: 1 }, { transform: "translateY(-100%)", opacity: 0 }],
-          { duration: ROLL_MS, delay: ROLL_DELAY_MS, easing: ROLL_EASE, fill: "backwards" },
-        );
+        /* 离场层**必须** fill: forwards 且播完立刻摘节点（2026-11-12 用户截图实锤）：
+           backwards 只兜住延迟段，动画一结束样式就交还 → 旧标题弹回原位、不透明，
+           正压在新标题上叠成"重影一下"，要等 900ms 兜底定时器才散。
+           项目禁用 forwards 的理由是"结束态会压住内联样式/滞留合成层"，
+           而这里节点紧接着就被移除，残留只存在一帧，代价为零。
+           闭包里比对 flySeq：连点切歌时上一轮的 finished 可能落在新一轮之后，
+           不加守卫会把**新的**离场层一起清掉（滚动交接只剩新字推入）。 */
+        const clearGhost = (): void => {
+          if (flySeq.current !== seq) return;
+          window.clearTimeout(ghostTimer.current);
+          setPrevText(null);
+        };
+        rollOld
+          .animate(
+            [{ transform: "none", opacity: 1 }, { transform: "translateY(-100%)", opacity: 0 }],
+            { duration: ROLL_MS, delay: ROLL_DELAY_MS, easing: ROLL_EASE, fill: "forwards" },
+          )
+          .finished.then(clearGhost, clearGhost);
+      } else {
+        /* 没挂上离场层（例如连点切歌时 DOM 已换过一轮）就别把它留在台面上——
+           一句旧标题压着真标题，看起来像没换歌。 */
+        setPrevText(null);
       }
       incoming.anim.finished
         .then(() =>
@@ -554,8 +572,9 @@ export function LiveHome({
 
   /* hero 取色（复用播放页 M9-2 管线）：封面主色 → --cs-tint。
      唯一写入点在文档根（tokens.css @property 注册 + html 过渡）：
-     页面氛围底（cs-home）、舞台色晕（cs-stage）、底部控制台的色晕
-     三处消费同一份封面色，随歌呼吸——离开首页时回落 transparent。
+     页面氛围底（cs-home）、舞台色晕（cs-stage）两处消费同一份封面色，随歌呼吸——
+     离开首页时回落 transparent。底部控制台 2026-11-12 起改纯白，不再吃这层色晕
+     （用户要"播放器默认白色"）。
      失败静默回落 transparent（纯壳底），取色不影响任何东西。 */
   useEffect(() => {
     const url = lead?.coverUrl;

@@ -1472,17 +1472,75 @@ app.whenReady().then(async () => {
       throw new Error(`列表没有晚于封面起步（lag ${randFly.lag}ms）：因果编排丢了，三件事又同时启动`);
     }
 
-    /* T12：落位后标题要有推入动画（旧字上推、新字归位），且离场层必须被回收 */
-    await sleep(520);
-    const rollMid = await evalJs(`(() => ({
-      roll: document.querySelector(".cs-lead-now")?.getAnimations().length ?? 0,
-      ghostAnim: document.querySelector(".cs-lead-ghost")?.getAnimations().length ?? 0,
-      ghost: document.querySelectorAll(".cs-lead-ghost").length,
-    }))()`);
-    console.log(`标题交接（520ms）：${JSON.stringify(rollMid)}`);
-    if (rollMid.ghost > 0 && rollMid.roll === 0 && rollMid.ghostAnim === 0) {
-      throw new Error("落位后标题没有任何推入动画：滚动交接没跑起来（只剩淡入）");
+    /* T12 + T13：落位后标题要有滚动交接，且**离场层不许弹回原位**。
+       T13 是 2026-11-12 用户截图抓到的真 bug：离场层用 fill:backwards，
+       动画一结束样式交还 → 旧标题弹回原位、不透明，正压在新标题上叠成"重影一下"，
+       要等 900ms 兜底定时器才散。所以不能只在一个时间点采样（旧实现 1140ms 采样照样绿），
+       要在整个交接窗口里逐帧看：只要出现「已落位（!.cs-flying）+ 旧层不透明 + transform 归零」
+       这一帧，就是重影。 */
+    /* T13 前提自检：backwards 动画结束后**样式会交还**（元素回原位、不透明度复原）——
+       正是这一点让旧实现里的离场层弹回新标题上。先证明浏览器如今仍是这个行为，
+       否则 T13 可能因为"前提变了"而永远绿（假绿）。 */
+    const rollPremise = await evalJs(`new Promise((resolve) => {
+      const el = document.createElement("div");
+      el.style.cssText = "position:fixed;left:-9999px;top:0;width:10px;height:10px;transform:none;opacity:1";
+      document.body.appendChild(el);
+      const a = el.animate(
+        [{ transform: "none", opacity: 1 }, { transform: "translateY(-100%)", opacity: 0 }],
+        { duration: 60, fill: "backwards" },
+      );
+      a.finished.then(() => {
+        const cs = getComputedStyle(el);
+        const r = { op: cs.opacity, t: cs.transform };
+        el.remove();
+        resolve(r);
+      }, () => { el.remove(); resolve({ op: "err", t: "err" }); });
+    })`);
+    const identOf = (t) => t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
+    console.log(`离场层前提（backwards 结束交还样式）：${JSON.stringify(rollPremise)}`);
+    if (rollPremise.op !== "1" || !identOf(rollPremise.t)) {
+      throw new Error(
+        `前提不成立：backwards 结束后没有回原位（${JSON.stringify(rollPremise)}）——T13 的判据失去意义，先复查浏览器行为`,
+      );
     }
+
+    const rollProbe = await evalJs(`new Promise((resolve) => {
+      const t0 = performance.now();
+      let bad = null;
+      let rolling = false;
+      let sawGhost = false;
+      const ident = (t) => t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
+      const tick = () => {
+        const now = document.querySelector(".cs-lead-now");
+        const g = document.querySelector(".cs-lead-ghost");
+        if (now && now.getAnimations().length) rolling = true;
+        if (g) {
+          sawGhost = true;
+          const gcs = getComputedStyle(g);
+          const ncs = now ? getComputedStyle(now) : null;
+          const op = Number(gcs.opacity);
+          const flying = !!document.querySelector(".cs-home.cs-flying");
+          /* 关键是「两层同时归零」才是重影：
+             动画 delay 的 40ms 里旧字本来就在原位，但新字还压在 +100% 处（不可见），
+             那是正常的停留，不是重叠 —— 所以必须同时看新字的 transform。
+             旧实现弹回原位时，新字也早已动画结束回到 none → 两层同位置同透明度 = 重影。 */
+          if (!flying && op > 0.85 && ident(gcs.transform) && ncs && ident(ncs.transform)) {
+            bad = { op, t: gcs.transform, nowT: ncs.transform, ms: Math.round(performance.now() - t0) };
+          }
+        }
+        if (performance.now() - t0 < 1300 && !bad) requestAnimationFrame(tick);
+        else resolve({ bad, rolling, sawGhost, ms: Math.round(performance.now() - t0) });
+      };
+      requestAnimationFrame(tick);
+    })`);
+    console.log(`标题交接：${JSON.stringify(rollProbe)}`);
+    if (rollProbe.bad) {
+      throw new Error(
+        `标题离场层弹回原位（${JSON.stringify(rollProbe.bad)}）：旧字压在新字上会出现"重叠一下"`,
+      );
+    }
+    if (!rollProbe.sawGhost) throw new Error("离场层根本没挂上：滚动交接缺了旧字那一层");
+    if (!rollProbe.rolling) throw new Error("落位后标题没有推入动画：滚动交接没跑起来（只剩淡入）");
     await sleep(620);
     const randEnd = await evalJs(`(() => ({
       title: document.querySelector(".cs-title")?.textContent ?? "",
@@ -2663,19 +2721,25 @@ app.whenReady().then(async () => {
   await evalJs(`document.querySelector(".acct-menu-x")?.click()`);
   await sleep(600);
 
-  /* 质感判据（2026-11-10 升级）：控制台的光照协议必须真的挂在计算样式上——
-     主键球面光（radial 高光）、胶囊成对内缘（inset shadow）、盘位静止反射带、
-     面板磨砂噪点（feTurbulence data-uri）。任何一项丢 = 质感回潮成平涂。 */
+  /* 质感判据（2026-11-12 第二轮）：这一版控制台是「白底 + 无框图标 + 唯一主键实体」，
+     所以除了主键球面光与盘位反射带，另外两条钉住新契约：
+       · boardWhite —— 面板必须是纯白（用户要"播放器默认白色"，青灰/色晕都算回潮）；
+       · toolFlat  —— 工具钮不许再有边/底/影（一轮的实体白片正是"和播放器不是一个风格"的来源）。
+     判据要跟着设计走：设计改了而判据不改，等于把旧皮钉死。 */
   const tex = await evalJs(`(() => {
     const main = document.querySelector(".console .tb.main");
     const tool = document.querySelector(".console .tools button");
     const wrap = document.querySelector(".console .np-art-wrap");
-    const shell = document.querySelector(".shell.live .console");
+    const shell = document.querySelector(".console");
+    const scs = shell ? getComputedStyle(shell) : null;
+    const tcs = tool ? getComputedStyle(tool) : null;
     return {
       mainSphere: main ? getComputedStyle(main).backgroundImage.includes("radial-gradient") : false,
-      toolEdge: tool ? getComputedStyle(tool).boxShadow.includes("inset") : false,
+      boardWhite: scs ? scs.backgroundColor === "rgb(255, 255, 255)" && scs.backgroundImage === "none" : false,
+      toolFlat: tcs
+        ? tcs.backgroundImage === "none" && tcs.borderTopWidth === "0px" && tcs.boxShadow === "none"
+        : false,
       wrapSheen: wrap ? getComputedStyle(wrap, "::after").backgroundImage.includes("radial-gradient") : false,
-      panelNoise: shell ? getComputedStyle(shell).backgroundImage.includes("data:image/svg+xml") : false,
     };
   })()`);
   console.log(`控制台质感：${JSON.stringify(tex)}`);
