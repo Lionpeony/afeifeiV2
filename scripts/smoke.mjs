@@ -548,8 +548,11 @@ async function main() {
 
     /* 换词入口（P0-19）：控制台「正在播放」→ 播放页 →「视图」→「换一份…」 */
     await app2.evaluate(`document.querySelector("button.np")?.click()`);
-    assert.ok(await app2.waitFor(`!!document.querySelector(".st-viewbtn")`, 3000), "应能进入播放页");
-    await app2.evaluate(`document.querySelector(".st-viewbtn")?.click()`);
+    // 皮肤系统第二代（50d9d13）视图入口改名 st-viewbtn → sk-top-b；
+    // 且 sk-top-b 有「样式」「视图」两颗，必须按文字挑「视图」
+    const viewBtn = `[...document.querySelectorAll(".sk-top-b")].find((b) => b.textContent.trim() === "视图")`;
+    assert.ok(await app2.waitFor(`!!(${viewBtn})`, 3000), "应能进入播放页");
+    await app2.evaluate(`${viewBtn}?.click()`);
     const hasFind = await app2.waitFor(
       `[...document.querySelectorAll(".st-menu-row button")].some((b) => b.textContent.includes("换一份"))`,
       3000,
