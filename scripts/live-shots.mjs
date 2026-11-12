@@ -1065,7 +1065,10 @@ app.whenReady().then(async () => {
           bleed: 84,
         };
       })()`);
-      if (j10 && j10.w === 1024) break;
+      /* 等**卡数也收敛**再采样，不是"窗口宽度到了就走"：
+         innerWidth 是同步改的，React 的 vp.cols 要等一次 re-render，
+         只判 w 会在中间态采样，偶尔读到"CSS 已 4 列、DOM 还是 5 张"而假红。 */
+      if (j10 && j10.w === 1024 && j10.n === 4) break;
     }
     console.log(`J10 四列（1024×700）：${JSON.stringify(j10)}`);
     if (j10.tracks !== 4) red(`J10 红：gridTemplateColumns ${j10.tracks} 段（应 4）——--lg-cols 断点没生效`);
@@ -1093,11 +1096,13 @@ app.whenReady().then(async () => {
       if (!b) return null;
       const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
       window.__swapAnim = [];
+      window.__sawFly = 0;
       const t0 = performance.now();
       /* 只认阶段内的元素：页面上还有一个同名 .cs-cover（别处），
          只查 .cs-stage 才拿得到真正换档的那两张。
          只认 running：初始挂载那条早已结束（fill: both 会留在列表里）。 */
       const tick = () => {
+        if (document.querySelector(".cs-fly")) window.__sawFly = 1;
         for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
           const el = document.querySelector(sel);
           if (!el) continue;
@@ -1106,7 +1111,10 @@ app.whenReady().then(async () => {
             if (a.playState === "running" && !window.__swapAnim.includes(name)) window.__swapAnim.push(name);
           }
         }
-        if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
+        /* 转场命中时 .cs-copy / .cs-cover 的 cs-swap 被 flying **主动禁用**（那是对的：
+           封面由副本飞、文案由落位后的滚动交接，两套整块淡入同时在跑才是错的）。
+           所以看到副本就收工，别在这里白等 3 秒、把后面的时序一起拖歪。 */
+        if (window.__sawFly || window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
         requestAnimationFrame(tick);
       };
       b.click();
@@ -1211,6 +1219,7 @@ app.whenReady().then(async () => {
       tapeNo: document.querySelector(".cs-tape-no")?.textContent ?? "",
       liveTape: document.querySelectorAll(".cs-tape.is-live").length,
       anim: window.__swapAnim ?? [],
+      sawFly: window.__sawFly ?? 0,
       /* 黑胶判据：在播必须真的在转（play-state running），谁把 spin 类或动画删了就红 */
       npSpin: getComputedStyle(document.querySelector(".console .np-art")).animationPlayState,
     }))()`);
@@ -1227,11 +1236,16 @@ app.whenReady().then(async () => {
     if (Number(hero.idx.trim().split("/")[0].trim()) + 1 !== Number(hero.tapeNo.trim())) {
       throw new Error(`播出带没推进：hero ${hero.idx.trim()} 的下一首应是 ${Number(hero.idx.trim().split("/")[0].trim()) + 1}，实际首位 ${hero.tapeNo.trim()}`);
     }
-    if (!hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
-      throw new Error(`换档没有播动画：${JSON.stringify(hero.anim)}`);
+    if (!hero.sawFly && !hero.anim.some((n) => String(n).startsWith("cs-swap"))) {
+      throw new Error(`换档既没起飞副本、也没播入场动画：${JSON.stringify(hero.anim)}`);
     }
-    for (const want of ["cs-swap-copy", "cs-swap-cover"]) {
-      if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
+    /* 两条路只能走一条：
+       · 命中转场（sawFly）→ 封面由副本飞、文案由落位后的滚动交接，cs-swap 被主动禁用；
+       · 没命中（随机回落 / 跨列表）→ 才是封套与文案各播一次 cs-swap。 */
+    if (!hero.sawFly) {
+      for (const want of ["cs-swap-copy", "cs-swap-cover"]) {
+        if (!hero.anim.includes(want)) throw new Error(`换档缺 ${want}：${JSON.stringify(hero.anim)}`);
+      }
     }
 
     /* —— 倒退（⏮）判据 T6–T8 ——
@@ -1372,6 +1386,136 @@ app.whenReady().then(async () => {
     if (backEnd.firstVis !== "visible") {
       throw new Error(`倒退落位后第 1 格没恢复（visibility=${backEnd.firstVis}）：刚退回去的那首在列表里看不见`);
     }
+
+    /* —— 随机播放判据 T9–T12（2026-11-12）——
+       T9 是这一轮的核心：随机模式下「列表第 1 格」必须**就是真会播的下一首**。
+       改动之前这里必然红：列表按歌单原顺序环列取名，播出走 orderOf 打乱后的顺序，
+       两个数字互不相干（实测播第 04 首时第 1 格写 05、实际播 01）。
+       修法不是加动画，是让列表改用播出顺序 —— 于是随机切歌也走同一套共享元素转场。 */
+    const modeBefore = await evalJs(
+      `document.querySelector('button[aria-label^="播放模式："]')?.getAttribute("aria-label") ?? ""`,
+    );
+    const toShuffle = await evalJs(`new Promise((resolve) => {
+      const btn = document.querySelector('button[aria-label^="播放模式："]');
+      if (!btn) { resolve({ ok: false, why: "没找到播放模式按钮" }); return; }
+      let n = 0;
+      const tick = () => {
+        const label = btn.getAttribute("aria-label") ?? "";
+        if (label.includes("随机")) { resolve({ ok: true, label }); return; }
+        if (n++ > 4) { resolve({ ok: false, why: "四个档位里没切到随机，停在：" + label }); return; }
+        btn.click();
+        setTimeout(tick, 150);
+      };
+      tick();
+    })`);
+    if (!toShuffle.ok) throw new Error(`切不到随机模式：${toShuffle.why}`);
+    await sleep(700);
+    console.log(`随机模式：${modeBefore} → ${toShuffle.label}`);
+
+    /* 点之前先把"列表第 1 格"记下来 —— 它就是这一刀要验证的"真接下来" */
+    const expectNext = await evalJs(`(() => {
+      const first = document.querySelectorAll(".cs-tapes .cs-tape")[0];
+      return {
+        title: first?.querySelector(".cs-tape-title")?.textContent ?? "",
+        artist: first?.querySelector(".cs-tape-artist")?.textContent ?? "",
+        no: first?.querySelector(".cs-tape-no")?.textContent ?? "",
+        cards: document.querySelectorAll(".cs-tapes .cs-tape").length,
+      };
+    })()`);
+    if (!expectNext.title) throw new Error("随机模式下待播带第 1 格是空的：列表没渲染");
+    await evalJs(`(() => {
+      const b = document.querySelector('button[aria-label="下一首"]');
+      if (!b) throw new Error("没找到下一首按钮");
+      b.click();
+      return true;
+    })()`);
+
+    /* T10 + T11：随机切歌必须起飞两份副本（拿不到就是回落了淡入），
+       且列表位移要比封面晚 40–80ms 起步（因果编排：先抽走、后补位）。 */
+    const randFly = await evalJs(`new Promise((resolve) => {
+      const startOf = (a) => (a && typeof a.startTime === "number"
+        ? a.startTime + (a.effect?.getTiming?.().delay || 0)
+        : null);
+      const snap = () => {
+        const flies = [...document.querySelectorAll(".cs-fly")];
+        const root = document.querySelector(".cs-home");
+        const coverA = flies[0]?.getAnimations()[0];
+        const cardA = document.querySelector(".cs-tapes .cs-tape")?.getAnimations()[0];
+        const t0 = startOf(coverA);
+        const t1 = startOf(cardA);
+        return {
+          n: flies.length,
+          ws: flies.map((f) => Math.round(f.getBoundingClientRect().width)),
+          flying: !!root && root.classList.contains("cs-flying"),
+          lag: t0 !== null && t1 !== null ? Math.round(t1 - t0) : null,
+        };
+      };
+      const t0 = performance.now();
+      const tick = () => {
+        if (document.querySelectorAll(".cs-fly").length >= 2) {
+          /* animation.startTime 要等一次动画 tick 才有值，而 tick 排在 rAF **之后**——
+             在 rAF 回调里读永远是 null（会误报成"测不到"）。延 60ms 再采样，
+             副本此时仍在飞行（380ms），两组 startTime 都已落定。 */
+          setTimeout(() => resolve(snap()), 60);
+          return;
+        }
+        if (performance.now() - t0 > 6000) { resolve({ n: 0, timeout: true }); return; }
+        requestAnimationFrame(tick);
+      };
+      tick();
+    })`);
+    console.log(`随机切歌起步：${JSON.stringify(randFly)}`);
+    if (randFly.n < 2) {
+      throw new Error(`随机切歌没起飞两份副本（${randFly.n}）：转场回落到淡入了，随机没有复用共享元素`);
+    }
+    if (randFly.lag === null || randFly.lag < 30) {
+      throw new Error(`列表没有晚于封面起步（lag ${randFly.lag}ms）：因果编排丢了，三件事又同时启动`);
+    }
+
+    /* T12：落位后标题要有推入动画（旧字上推、新字归位），且离场层必须被回收 */
+    await sleep(520);
+    const rollMid = await evalJs(`(() => ({
+      roll: document.querySelector(".cs-lead-now")?.getAnimations().length ?? 0,
+      ghostAnim: document.querySelector(".cs-lead-ghost")?.getAnimations().length ?? 0,
+      ghost: document.querySelectorAll(".cs-lead-ghost").length,
+    }))()`);
+    console.log(`标题交接（520ms）：${JSON.stringify(rollMid)}`);
+    if (rollMid.ghost > 0 && rollMid.roll === 0 && rollMid.ghostAnim === 0) {
+      throw new Error("落位后标题没有任何推入动画：滚动交接没跑起来（只剩淡入）");
+    }
+    await sleep(620);
+    const randEnd = await evalJs(`(() => ({
+      title: document.querySelector(".cs-title")?.textContent ?? "",
+      ghost: document.querySelectorAll(".cs-lead-ghost").length,
+      flying: !!document.querySelector(".cs-home.cs-flying"),
+      flies: document.querySelectorAll(".cs-fly").length,
+    }))()`);
+    console.log(`随机切歌落位：hero「${randEnd.title}」· 预期「${expectNext.title}」· 离场层 ${randEnd.ghost}`);
+    if (randEnd.title !== expectNext.title) {
+      throw new Error(
+        `随机模式下列表在骗人：第 1 格写「${expectNext.title}」，实际换成「${randEnd.title}」`,
+      );
+    }
+    if (randEnd.ghost !== 0) throw new Error(`标题离场层没回收（剩 ${randEnd.ghost} 个）：旧字会一直压在真标题上`);
+    if (randEnd.flying || randEnd.flies !== 0) throw new Error("随机切歌后飞行态没清干净");
+    /* 证据帧：随机模式下列表按播出顺序排、编号按歌单位置跳（21 → 07 这种）。
+       这张图是「列表不再骗人」的视觉凭证，切回顺序前拍。 */
+    await shoot("live-home-shuffle.png");
+
+    /* 切回顺序播放：后面的判据（完整播出单 / 长标题降档）都按顺序播放取数。
+       shuffle → order 只差一档，点一次就到；仍用轮询，不靠"点一次"的巧合。 */
+    await evalJs(`new Promise((resolve) => {
+      const btn = document.querySelector('button[aria-label^="播放模式："]');
+      let n = 0;
+      const tick = () => {
+        const label = btn?.getAttribute("aria-label") ?? "";
+        if (label.includes("顺序") || n++ > 4) { resolve(label); return; }
+        btn.click();
+        setTimeout(tick, 150);
+      };
+      tick();
+    })`);
+    await sleep(500);
 
     /* 完整播出单（cs-more 展开）：一体式队列列表——行数 = 节目单总数、
        缩略图与在播标记就位。列表空或缩略图缺失都是列表坏了。 */
@@ -1529,8 +1673,10 @@ app.whenReady().then(async () => {
       if (!b) return null;
       const t = b.querySelector(".cs-tape-title")?.textContent ?? "";
       window.__swapAnim = [];
+      window.__sawFly = 0;
       const t0 = performance.now();
       const tick = () => {
+        if (document.querySelector(".cs-fly")) window.__sawFly = 1;
         for (const sel of [".cs-stage .cs-copy", ".cs-stage .cs-cover"]) {
           const el = document.querySelector(sel);
           if (!el) continue;
@@ -1539,7 +1685,7 @@ app.whenReady().then(async () => {
             if (a.playState === "running" && !window.__swapAnim.includes(name)) window.__swapAnim.push(name);
           }
         }
-        if (window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
+        if (window.__sawFly || window.__swapAnim.length >= 2 || performance.now() - t0 > 3000) return;
         requestAnimationFrame(tick);
       };
       b.click();
@@ -1560,6 +1706,7 @@ app.whenReady().then(async () => {
       return {
         title: document.querySelector(".cs-title")?.textContent ?? "",
         anim: window.__swapAnim ?? [],
+        sawFly: window.__sawFly ?? 0,
         artist: b?.textContent ?? "",
         color: cs.color,
         h: b?.getBoundingClientRect().height ?? 0,
@@ -1572,6 +1719,7 @@ app.whenReady().then(async () => {
         coverRect: cover?.getBoundingClientRect().toJSON(),
         stagePos: stage ? getComputedStyle(stage).position : "",
         stageDisp: stage ? getComputedStyle(stage).display : "",
+        stageCls: stage?.className ?? "",
         home: {
           disp: hc.display,
           rows: hc.gridTemplateRows,
@@ -1605,7 +1753,23 @@ app.whenReady().then(async () => {
     if (!jumped.artist) throw new Error("hero 艺人名为空");
     if (jumped.h < 10) throw new Error(`hero 艺人行塌了（h=${jumped.h}）`);
     if (Number(jumped.noteOpacity) < 0.5) throw new Error(`note 透明（op=${jumped.noteOpacity}）`);
-    if (!jumped.anim.includes("cs-swap-copy")) throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
+    /* 两条路只能走一条，但都必须**真的有动**：
+       · 命中转场（sawFly）→ 封面由副本飞、文案由落位后的滚动交接（cs-swap-copy 被主动禁用）。
+         这里不能用 .cs-lead-now 的 getAnimations 当证据：滚动交接 240ms 就跑完了，
+         fill: backwards 的动画在 finish 后会被浏览器移除，1800ms 后读必然是 0 条。
+         用 cs-landed（land() 里与 flying 同时下的）证明"这次跳档真的落位了"。
+       · 没命中 → 才是 cs-swap-copy 整块入场。 */
+    if (jumped.sawFly) {
+      /* cs-landed 挂在 .cs-stage 上（cs-flying 才在根节点）—— 别读错元素 */
+      if (!jumped.stageCls.includes("cs-landed")) {
+        throw new Error(`跳档命中转场但没落位（cs-landed 不在 .cs-stage）：${jumped.stageCls}`);
+      }
+      if (jumped.home.cls.includes("cs-flying")) {
+        throw new Error(`跳档后飞行态没解除：${jumped.home.cls}`);
+      }
+    } else if (!jumped.anim.includes("cs-swap-copy")) {
+      throw new Error(`跳档没播动画：${JSON.stringify(jumped.anim)}`);
+    }
 
     /* 「暂停/继续」的判据放在下面 ON AIR 段做（fixture 现在出真声，这里按下暂停
        会影响后续直播段的现场；ON AIR 段验的是同一套 live 分支，验一次就够）。 */

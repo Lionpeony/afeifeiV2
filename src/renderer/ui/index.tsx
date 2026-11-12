@@ -791,6 +791,7 @@ function App() {
           playing={playing}
           spectrum={(bins) => services.current?.spectrum(bins) ?? null}
           replaySeq={state.player.replaySeq}
+          queue={state.queue}
           onAir={onAirProgram(state.player.trackId, state.queue, (id) => sources.find((s) => s.id === id)?.name ?? id)}
         />
       );

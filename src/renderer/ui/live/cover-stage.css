@@ -5,6 +5,19 @@
    右：接下来播放的圆角封面卡网格 + 真频谱（结构层，跟主题不跟封面）。
    动效只保留「本次运行第一次进入首页」的一次入场；切页不重播。 */
 
+/* —— 氛围色插值 ——
+   --cs-tint 由 LiveHome 直接 setProperty 写在 :root 上，未注册时它是"替换字符串"，
+   颜色一变整块渐变当帧重画 —— 切到风格差异大的歌时背景会"啪"一下换色，
+   比封面动画本身更破坏连续感（随机播放尤其明显）。
+   注册成 <color> 之后它才可插值：transparent ↔ 具体色的过渡走预乘 alpha
+   （rgba(0,0,0,0) 不会经过"半透明黑"，中途不会暗一下），取色失败也能平滑回退。
+   700ms 比飞行 380ms 长：落位之后空间还在缓慢换气，不是同步结束的机械感。 */
+@property --cs-tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
 .shell.live .cs-home {
   display: grid;
   grid-template-columns: 40% minmax(0, 1fr);
@@ -19,6 +32,7 @@
   background:
     radial-gradient(130% 120% at 14% 0%, color-mix(in oklch, var(--cs-tint) 16%, transparent), transparent 62%),
     var(--live-bg);
+  transition: --cs-tint 700ms cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 /* —— 左：「正在播放」开放舞台 ——
@@ -40,6 +54,9 @@
     color-mix(in oklch, var(--cs-tint) 42%, transparent),
     transparent 72%
   );
+  /* 与 .cs-home 的底色同一个变量、同一条时长：两处若只有一处过渡，
+     会看到"底色慢慢变、色晕硬切"，比两处都不过渡更怪。 */
+  transition: --cs-tint 700ms cubic-bezier(0.33, 0, 0.2, 1);
 }
 
 /* 封面 = flex item 弹性占满上部（文档流，信息区永不会越出卡片）。
@@ -69,6 +86,27 @@
      换封面高度恒定（封面跳大跳小比 copy 区多点空白难看得多） */
   min-height: 246px;
   margin: 18px 4px 6px;
+}
+
+/* —— 标题滚动交接 ——
+   离场层（.cs-lead-ghost）绝对定位：它必须不参与布局。让它进文档流的话，
+   旧标题的行数会撑高这一块 → 封面是 flex:1，跟着缩水 → 每次切歌版面抖一下。
+   overflow 只裁上下（滚动需要），左右不裁：长歌名要靠 .cs-title 自己的省略号收口。 */
+.cs-lead-roll {
+  position: relative;
+  overflow: hidden;
+}
+
+.cs-lead-now {
+  position: relative;
+}
+
+.cs-lead-ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* 纯展示：它盖在真标题上，绝不能吃掉"点歌名播放"的点击 */
+  pointer-events: none;
 }
 
 .cs-kicker {
@@ -1036,6 +1074,13 @@ img.cs-tape-art {
    必须写在 .cs-flying 之前：同特异性下 flying 要赢（飞行中仍然是 opacity 0）。 */
 .cs-stage.cs-landed .cs-cover {
   animation: cs-swap-cover 1ms linear backwards;
+}
+
+/* 落位后文案也当帧可见：滚动交接由 .cs-lead-now / .cs-lead-ghost 自己驱动，
+   再叠一层 200ms 的整块淡入会与它同方向打架（看着发糊、字像在抖）。 */
+.cs-stage.cs-landed .cs-copy {
+  animation: none;
+  opacity: 1;
 }
 
 /* —— 切歌转场：真身让位 ——

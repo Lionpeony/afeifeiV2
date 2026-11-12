@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { RemoteTrack } from "../../../contracts/capability.js";
+import type { PlayMode } from "../../../contracts/index.js";
 import { fmtDuration } from "../views/library/rows.js";
 import { useAccountBundle, type AccountBundle } from "../account-data.js";
 import { RefreshButton } from "../RefreshButton.js";
@@ -8,11 +9,10 @@ import { detectCoverTrim, sampleCoverTint, type CoverTrim } from "../views/stage
 import { splitLatinRuns, visualUnits, heroTitleTiers } from "./typography.js";
 import { useViewportTier } from "./useViewport.js";
 import { onTick } from "../compositor.js";
-import { onAirProgram, type OnAirProgram } from "./on-air.js";
+import { onAirProgram, orderProgram, type OnAirProgram } from "./on-air.js";
 
 export { onAirProgram };
 export type { OnAirProgram };
-
 /**
  * 首页 = 「正在播放」+「接下来播放」的现代桌面播放器布局：
  * 左侧是悬浮大封面 + 主打信息（暗色舞台），右侧是圆角封面卡网格与真频谱。
@@ -55,6 +55,18 @@ const FLY_EASE = "cubic-bezier(0.32, 1.05, 0.34, 1)";
 const FLY_MS = 380;
 /** 落位交接：副本淡出的时长，与真封面的淡入重叠。 */
 const FLY_HANDOFF_MS = 140;
+/* 轨迹微弧（px，负 = 向上）：直线补间看着像"贴在玻璃上平移"，中段抬 9px 才有被拿起来的分量。
+   只在 380ms 的中段可见，落位终点分毫不动——它不许影响最后那一帧的坐标。
+   标 number 而非字面量：下面要判 `!== 0`（留一个"关掉微弧"的开关，字面量类型会被 TS 判死代码）。 */
+const FLY_ARC: number = -9;
+/* 因果编排：封面先被抽走，队列随后补位。三件事（起飞 / 左移 / 换字）0ms 齐发时
+   像三张贴纸被一根棍子同时推；错开 50ms 才读得出"抽走 → 补位 → 落字"的先后。 */
+const LIST_DELAY_MS = 50;
+/* 歌名滚动交接：落位后等 40ms 再推（先让封面稳住，字再走），240ms 走完一格。 */
+const ROLL_MS = 240;
+const ROLL_DELAY_MS = 40;
+/** 滚动用标准的 ease-out —— 和封面的过冲曲线分开：字是"翻过去"，不是"弹出来"。 */
+const ROLL_EASE = "cubic-bezier(0.22, 0.9, 0.24, 1)";
 
 const boxOf = (r: DOMRect): FlyBox => ({
   left: r.left,
@@ -93,6 +105,7 @@ function spawnFly(opts: {
   /* 宽高逐帧补间，而不是 transform: scale()：卡面是正方形、大图是竖矩形，
      统一 scale 会把封面拉变形；object-fit: cover 只有在盒子真的变尺寸时才裁得对。 */
   const first: Keyframe = {
+    offset: 0,
     transform: `translate3d(${from.left}px, ${from.top}px, 0)`,
     width: `${from.width}px`,
     height: `${from.height}px`,
@@ -100,15 +113,25 @@ function spawnFly(opts: {
     opacity: fadeIn ? 0 : 1,
   };
   const last: Keyframe = {
+    offset: 1,
     transform: `translate3d(${to.left}px, ${to.top}px, 0)`,
     width: `${to.width}px`,
     height: `${to.height}px`,
     borderRadius: `${radius[1]}px`,
     opacity: fadeOut ? 0 : 1,
   };
+  /* 关键帧按 offset 递增排列。Web Animations 对**每个属性独立**插值：
+     中间帧只写 transform，宽高就仍由首尾两帧线性补间，互不干扰。
+     弧线段不写 width/height，正是为了不让它干扰尺寸曲线。 */
   const frames: Keyframe[] = [first];
   /* 渐显要在前半程就到位：拖到终点才不透明，整段飞行都是"一张淡影在飘"。 */
   if (fadeIn) frames.push({ offset: 0.42, opacity: 1 });
+  if (FLY_ARC !== 0) {
+    frames.push({
+      offset: 0.5,
+      transform: `translate3d(${(from.left + to.left) / 2}px, ${(from.top + to.top) / 2 + FLY_ARC}px, 0)`,
+    });
+  }
   /* 旧封面走到七成路程就开始散：它的真实落点是环列队尾（在屏外的那一格），
      精确塞进第一格是撒谎，硬撑满全程又会看到"缩到一半忽然没了"。 */
   if (fadeOut) frames.push({ offset: 0.68, opacity: 0.9 });
@@ -143,6 +166,7 @@ export function LiveHome({
   onAir,
   spectrum,
   replaySeq,
+  queue,
 }: {
   account(): Promise<AccountBundle>;
   accountName: string;
@@ -160,6 +184,9 @@ export function LiveHome({
       重播时 trackId 不变、positionMs 本来就是 0，转场 effect 的依赖一个都不动，
       所以需要一个显式信号来接住"按到了、从头开始"。 */
   replaySeq: number;
+  /** 队列投影（items / mode / seed）。随机模式下列表必须按**播出顺序**显示，
+      否则「接下来」是假的，切歌也拿不到可补间的源坐标。见 on-air.ts orderProgram()。 */
+  queue: { items: readonly string[]; mode: PlayMode; shuffleSeed: number } | null;
 }) {
   const state = useAccountBundle(account, "daily");
   const [showAll, setShowAll] = useState(false);
@@ -174,7 +201,11 @@ export function LiveHome({
       转场 effect（声明在前）读它，测量 effect（声明在后）每次 commit 重写它。 */
   const tapeRects = useRef<Map<string, FlyBox>>(new Map());
   const coverBox = useRef<FlyBox | null>(null);
-  const prevLead = useRef<{ id: string; url?: string } | null>(null);
+  /** 上一首的文本快照。转场落位后要做"整块上推"，就必须留着上一首的字：
+      React 已经把 .cs-copy 换成新内容了，不留快照就只能淡入，做不出滚动交接。 */
+  const prevLead = useRef<{ id: string; url?: string; title: string; artist: string } | null>(null);
+  const [prevText, setPrevText] = useState<{ title: string; artist: string } | null>(null);
+  const ghostTimer = useRef(0);
   /** 上一次见到的重播计数。挂载时对齐当前值 —— 否则从别的页面按完 ⏮ 再回首页，
      首次 effect 会把"历史遗留的变化"当成刚发生的重播，莫名压一下。 */
   const replaySeen = useRef(replaySeq);
@@ -186,6 +217,10 @@ export function LiveHome({
   /** 转场落位标记：真封面要**当帧**不透明（副本已精确停在终态），
       否则 260ms 淡入会在副本摘掉后透出页面底色。每次换 lead 先复位。 */
   const [landed, setLanded] = useState(false);
+
+  /* 卸载时收掉标题交接的定时器。飞行副本不在这里管：它们挂在 body 上，
+     由各自的 anim.finished 回收（见转场 effect 里的 outgoing / incoming）。 */
+  useEffect(() => () => window.clearTimeout(ghostTimer.current), []);
 
   /** 白边图的反制：按检测到的最大白边比例放大（中心对称，白边被挤出圆角容器外）。
       正常封面 trim=null 不动；上限 1.17（15% 白边全量反制）。 */
@@ -239,20 +274,37 @@ export function LiveHome({
   const vp = useViewportTier();
   const leadUnits = lead ? visualUnits(lead.title) : 0;
   const titleCls = `cs-title daily-title ${heroTitleTiers(leadUnits, vp.narrow, vp.short)}`.trim();
-  // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表
+  /* 离场层要复现上一首的字号档位：两行歌名与单行歌名高度不同，
+     若统一用当前档位，滚动交接时两层字会错位（看起来像两首歌叠在一起）。 */
+  const ghostCls = prevText
+    ? `cs-title daily-title ${heroTitleTiers(visualUnits(prevText.title), vp.narrow, vp.short)}`.trim()
+    : "";
+  // 本期列表：跟播 = 当前队列，每日推荐 = 账号推荐列表（两者都是**队列原顺序**）
   const program: RemoteTrack[] = onAirMode ? onAir.list : state.songs;
   const total = program.length;
-  // 待播带 = 真正的「接下来」：从正在播那一首的下一首起，切歌自动推进。
-  // 尾曲之后**环回**列表开头（列表循环语义，2026-11-08 用户定：播完不该是"没了"）——
-  // upcoming 是环列的全部其余曲目（不含 lead），编号按环列位置算（尾曲之后是 01）。
+  /* 播出顺序（shuffle 投影）：随机模式下 program 的原顺序**不等于**真会播的顺序，
+     列表若按原顺序取名，「接下来」就是假的（实测：播 04 时第 1 格写 05、实际播 01）。
+     重排之后切歌时新 lead 必然落在旧列表第 1 格 → 转场 rect 快照命中，
+     随机与顺序共用同一套动画，不需要任何新动效分支。null = 不重排，回落原顺序。 */
+  const byOrder = orderProgram(program, queue, onAirMode ? onAir.meta.sourceId : state.sourceId);
+  const view = byOrder ?? program;
+  /* 编号 = 这首歌在**歌单**里的位置，不是它在播出顺序里的位置。
+     随机时编号乱跳（21 → 07 → 13）本身就是「随机生效了」的可视化；
+     若按播出顺序编号，随机看起来会和顺序播放一模一样，白瞎了这个区别。 */
+  const baseAt = new Map<string, number>();
+  program.forEach((t, i) => baseAt.set(t.sourceId, i));
+  const noOf = (t: RemoteTrack): string => pad2((baseAt.get(t.sourceId) ?? 0) + 1);
+  // 待播带 = 真正的「接下来」：在播出顺序里从 lead 的下一格起环列（尾曲之后回到开头）。
   // 单首歌单（total<=1）没有"接下来"，upcoming 为空走到头话术。
+  const viewAt = lead ? view.findIndex((t) => t.sourceId === lead.sourceId) : -1;
+  const at = viewAt >= 0 ? viewAt : 0;
   const upcoming: RemoteTrack[] = [];
-  for (let k = 1; k < total; k++) upcoming.push(program[(leadIndex + k) % total]);
+  for (let k = 1; k < total; k++) upcoming.push(view[(at + k) % total]);
   const tapes = upcoming.slice(0, vp.cols);
-  /** 环列第 k 项的列表编号（1 起）：lead 29/30 之后是 01。 */
-  const noOf = (k: number) => pad2(((leadIndex + k) % total) + 1);
-  // 点待播带里的任意一格：队列 = 整份列表，从这一首开始（连播靠它）。
-  // origin 跟列表走：每日推荐重建时标「每日推荐」；跟播原样保住队列自己的来源。
+  // 点待播带里的任意一格：队列 = **整份原顺序列表**，从这一首开始（连播靠它）。
+  // ⚠ 传的必须是 program（原顺序），不能传 view（播出顺序）：
+  //    queue/set 会把 items 重排成 view 的顺序，同 seed 算出的 order 整个变，
+  //    列表会自己跳一下。顺序播放时 view === program 无差别，随机时这里是分水岭。
   const play = (track: RemoteTrack): void => {
     if (onAirMode) onPlayRemote(onAir.meta.sourceId, track, onAir.list, onAir.origin ?? undefined);
     else onPlayRemote(state.sourceId, track, state.songs, "每日推荐");
@@ -268,7 +320,10 @@ export function LiveHome({
   useLayoutEffect(() => {
     const id = lead?.sourceId ?? null;
     const prev = prevLead.current;
-    prevLead.current = id ? { id, url: lead?.coverUrl } : null;
+    /* 快照要带文本：落位后的"整块上推"得把上一首的字留在台面上，
+       而 React 已经把 .cs-copy 换成新内容了。 */
+    prevLead.current =
+      id && lead ? { id, url: lead.coverUrl, title: lead.title, artist: lead.artist } : null;
     // 每次换 lead 先复位"落位"标记：没命中转场的换歌（随机/跨列表）要回到正常淡入
     setLanded(false);
     if (!id || !lead || !prev || prev.id === id) return;
@@ -298,6 +353,13 @@ export function LiveHome({
     if (!from && !backBox) return;
     if (from && from.width < 8) return;
     const isBack = !from;
+
+    /* 确定要走转场了才挂离场层（上一首的字）。没命中就一个节点都不加——
+       否则那句旧标题会一直压在真标题上，看起来像没换歌。
+       900ms 后收掉：落位 380 + 延迟 40 + 滚动 240 = 660，留足余量。 */
+    window.clearTimeout(ghostTimer.current);
+    setPrevText({ title: prev.title, artist: prev.artist });
+    ghostTimer.current = window.setTimeout(() => setPrevText(null), 900);
 
     const seq = ++flySeq.current;
     // 连点切歌：上一份副本立刻撤掉，不让两层影子叠在一起飞
@@ -363,11 +425,26 @@ export function LiveHome({
       if (step > 4) {
         const dir = isBack ? -1 : 1;
         for (const card of cards) {
-          // 每张都从"邻格"起跑 = 整排同步移一格（同一步长、同一时长，不搞错峰波浪）
-          card.animate([{ transform: `translateX(${dir * step}px)` }, { transform: "none" }], {
-            duration: 300,
-            easing: FLY_EASE,
-          });
+          /* 顺播时最右那张是**本次新插入的节点**（上一帧的待播带里没有这个 id）：
+             它本来就在位移队列里（从右一格滑进来），只缺透明度 —— 补上淡入，
+             补位才不是"凭空出现"。这就是为什么不需要另找"新卡"：diff 已经在 tapeRects 里。
+             倒退不做淡入：第 1 格是旧 lead 飞回来的落点，它有自己的副本交接；
+             再叠一层卡片淡入会在 380~600ms 之间出现半透明卡，透出底下的玻璃。 */
+          const fresh =
+            !isBack && card.dataset.song ? !tapeRects.current.has(card.dataset.song) : false;
+          card.animate(
+            fresh
+              ? [
+                  { transform: `translateX(${dir * step}px)`, opacity: 0 },
+                  { offset: 0.67, opacity: 1 },
+                  { transform: "none", opacity: 1 },
+                ]
+              : [{ transform: `translateX(${dir * step}px)` }, { transform: "none" }],
+            /* fill: backwards —— delay 期间必须保持第一帧（opacity 0），
+               否则新卡会在 50ms 的等待里先以全不透明出现、再跳回透明淡入一次。
+               backwards 不带 forwards：动画结束就交还样式，不在合成层上滞留。 */
+            { duration: 300, delay: LIST_DELAY_MS, easing: FLY_EASE, fill: "backwards" },
+          );
         }
       }
     }
@@ -385,6 +462,21 @@ export function LiveHome({
       setLanded(true);
       setFlying(false);
       setBackDir(false);
+      /* 歌名整块上推：旧字走到 −100%、新字从 +100% 归位。
+         必须在落位这一刻施加初始位移（fill: backwards 让 40ms 延迟里停在起点）——
+         提前写 transform，真文案会在落位瞬间先闪一下再跳到下面。 */
+      const rollNow = root.querySelector<HTMLElement>(".cs-lead-now");
+      const rollOld = root.querySelector<HTMLElement>(".cs-lead-ghost");
+      if (rollNow && rollOld) {
+        rollNow.animate(
+          [{ transform: "translateY(100%)", opacity: 0.4 }, { transform: "none", opacity: 1 }],
+          { duration: ROLL_MS, delay: ROLL_DELAY_MS, easing: ROLL_EASE, fill: "backwards" },
+        );
+        rollOld.animate(
+          [{ transform: "none", opacity: 1 }, { transform: "translateY(-100%)", opacity: 0 }],
+          { duration: ROLL_MS, delay: ROLL_DELAY_MS, easing: ROLL_EASE, fill: "backwards" },
+        );
+      }
       incoming.anim.finished
         .then(() =>
           incoming.el
@@ -564,14 +656,31 @@ export function LiveHome({
                   {pad2(leadIndex + 1)} / {total}
                 </span>
               </p>
-              <button type="button" className={titleCls} id="leadTitle" onClick={() => play(lead)}
-                title={leadUnits > 24 ? lead.title : undefined}>
-                <MixedTitle text={lead.title} />
-              </button>
-              <p className="cs-artist">
-                <b>{lead.artist}</b>
-                <span className="cs-dur">{fmtDuration(lead.durationMs)}</span>
-              </p>
+              {/* 标题滚动交接（2026-11-12 用户定）：落位后旧字推出、新字推上来。
+                  离场层绝对定位，不参与布局 —— 否则它会把 .cs-copy 撑高，
+                  封面（flex:1）跟着缩水，每次切歌版面都抖一下。 */}
+              <div className="cs-lead-roll">
+                {prevText ? (
+                  <div className="cs-lead-ghost" aria-hidden="true">
+                    <div className={ghostCls}>
+                      <MixedTitle text={prevText.title} />
+                    </div>
+                    <p className="cs-artist">
+                      <b>{prevText.artist}</b>
+                    </p>
+                  </div>
+                ) : null}
+                <div className="cs-lead-now">
+                  <button type="button" className={titleCls} id="leadTitle" onClick={() => play(lead)}
+                    title={leadUnits > 24 ? lead.title : undefined}>
+                    <MixedTitle text={lead.title} />
+                  </button>
+                  <p className="cs-artist">
+                    <b>{lead.artist}</b>
+                    <span className="cs-dur">{fmtDuration(lead.durationMs)}</span>
+                  </p>
+                </div>
+              </div>
               <p className="cs-note">
                 {onAirMode
                   ? `来自 ${onAir.origin || onAir.sourceName} 的播放列表${
@@ -613,9 +722,7 @@ export function LiveHome({
               <span className="cs-strip-sub">
                 {upcoming.length === 0
                   ? `已播完 ${total} 首，今天到此`
-                  : showAll
-                    ? `剩 ${upcoming.length} 首 · 按播放顺序`
-                    : "按顺序播放"}
+                  : `${showAll ? `剩 ${upcoming.length} 首 · ` : ""}${byOrder ? "随机" : "顺序"}播放`}
               </span>
               {upcoming.length > 0 ? (
                 <button
@@ -633,14 +740,14 @@ export function LiveHome({
               <p className="cs-end">接下来没有歌了。回完整播放器换一首，或者刷新一份新的推荐。</p>
             ) : showAll ? (
               <ol className="cs-all" aria-label="接下来的曲目，按播放顺序（循环回列表开头）">
-                {upcoming.map((track, i) => (
+                {upcoming.map((track) => (
                   <li key={track.sourceId}>
                     <button
                       type="button"
                       className="cs-all-row"
                       onClick={() => play(track)}
                     >
-                      <span className="cs-all-no">{noOf(i + 1)}</span>
+                      <span className="cs-all-no">{noOf(track)}</span>
                       {/* 缩略图：与待播带格子同一封面链路；失败切迷你黑胶垫底 */}
                       {track.coverUrl && !failedCovers.has(track.coverUrl) ? (
                         <img
@@ -680,7 +787,7 @@ export function LiveHome({
                     className="cs-tape"
                     data-song={track.sourceId}
                     onClick={() => play(track)}
-                    aria-label={`播放 ${noOf(i + 1)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
+                    aria-label={`播放 ${noOf(track)} ${track.title}，${track.artist}，${fmtDuration(track.durationMs)}`}
                     /* 卡面一律单行省略：完整歌名在这条 title 里，hover 就能读到（2026-11-11 长文案策略） */
                     title={`${track.title} — ${track.artist}`}
                   >
@@ -701,7 +808,7 @@ export function LiveHome({
                     ) : (
                       <span className="cs-tape-art cs-tape-vinyl" aria-hidden="true" />
                     )}
-                    <span className="cs-tape-no">{noOf(i + 1)}</span>
+                    <span className="cs-tape-no">{noOf(track)}</span>
                     <span className="cs-tape-title">{track.title}</span>
                     <span className="cs-tape-artist">{track.artist}</span>
                     <span className="cs-tape-foot">
