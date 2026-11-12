@@ -374,13 +374,16 @@
 .cs-tapes {
   flex: 1;
   min-height: 0;
+  /* 光场（::before）是这个容器的绝对定位子元素 —— 没有本行，灯会跑到 .cs-home 上去 */
+  position: relative;
   /* grid 而非 flex 均分：minmax(0,1fr) 轨道等宽是布局层的硬保证——
      flex 均分会被内容 minimum、溢出、shrink 参数这类细节逐个击破（连修三轮的教训）。
      align-items stretch + .cs-tape height:100%：同一行的卡永远等高，
-     任何一张卡的内容（三行标题、无封面垫底）都不许把自己的高度撑出邻居一截。 */
+     任何一张卡的内容（三行标题、无封面垫底）都不许把自己的高度撑出邻居一截。
+     列数走 --lg-cols（:root 5 / <1300 4）：卡数、光池收口、fallback 行高三者共用一套。 */
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(var(--lg-cols), minmax(0, 1fr));
+  gap: var(--lg-gap);
   align-items: stretch;
   /* stretch 只管"同一行内卡等高"，不能让整行被容器剩余高度拉长：
      这一栏在首页是 flex:1（占满右下），没有这条时单行轨道会 stretch 到剩余高度，
@@ -393,12 +396,87 @@
 
 .cs-tapes li {
   min-width: 0;
+  /* 锚的宿主 = li 而不是卡本身：卡 hover 有 translateY(-3px)，锚在卡上灯会跟着抬 3px
+     （= hover 时 5 张卡逐帧重算一次 backdrop）；li 不被 transform，灯不动。
+     li 是 stretch 的栅格子项，高度恒等于卡高（实测 257.578 = 257.578）。 */
+  position: relative;
+  z-index: 1;
 }
 
-/* 专辑卡：方形封面整幅在顶（全出血，卡圆角即封面圆角），信息压在面板底上。
-   无边框 + 阴影浮起，hover 再抬——现代专辑网格语言，竖长条裁切的老问题随结构消失。
-   瓷白底上白卡靠「发丝线 + 双层影」分离（2026-11-11 默认色改白）；
-   hover 抬升 + 按压回落的微动效是一套卡片协议（按下 = 你点中了它）。 */
+/* —— 光场（「架下灯」）——
+   一条独立光带，顶端贴卡顶、高 = 卡高 + 出血。绝对定位的栅格子元素：不进栅格流、不占格、不撑高。
+   **不要给负 z-index**：.cs-tapes 没有自己的层叠上下文，z-index:-1 会沉到 .cs-home 的
+   （不透明）背景底下，灯整个看不见。用 0；卡片 position:relative 且 DOM 在后，自然压在灯上。
+
+   几何（本块 = 老引擎 fallback）：padding 百分比解析的是**宽度**，所以
+   (100% − (cols−1)·gap)/cols 就是卡宽；+ 信息带高 + 出血 = 灯带高。
+   ⚠ --lg-band-h 是手算常量（字号阶梯），字号/边距一改就**静默失准**（扰动实测 −9.44px）。
+   正解是下面 @supports 里的 CSS anchor positioning（实测 delta 0.00px，扰动后仍 0.00）。 */
+.cs-tapes::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: -18px;
+  /* 右侧收口按实际卡数收：LiveHome 写 --lg-n={tapes.length}。
+     min() 把 n 夹到列数：4 列断点下就算 --lg-n 还是 5，也不会把光池推到画面外。 */
+  right: calc(
+    -18px + (var(--lg-cols) - min(var(--lg-n, var(--lg-cols)), var(--lg-cols))) *
+      ((100% - (var(--lg-cols) - 1) * var(--lg-gap)) / var(--lg-cols) + var(--lg-gap))
+  );
+  height: 0;
+  padding-top: calc(
+    (100% - (var(--lg-cols) - 1) * var(--lg-gap)) / var(--lg-cols) + var(--lg-band-h) + var(--lg-bleed)
+  );
+  pointer-events: none;
+  /* 灯不带 filter: blur()：radial-gradient 自带柔化；加 blur 只多一次离屏，
+     还会把「祖先 filter 断 backdrop root」这个雷埋进文档树。 */
+  background:
+    /* ① 主灯：灯心正落在卡底线上，池子一半在玻璃里、一半在页面上 */
+    radial-gradient(46% 82px at 50% calc(100% - var(--lg-bleed)), var(--lg-lamp) 0%, transparent 78%),
+    /* ② 左右辅灯：冷一号、弱一号，避免「一条通亮的横带」 */
+    radial-gradient(30% 78px at 14% calc(100% - var(--lg-bleed)), var(--lg-lamp-2) 0%, transparent 80%),
+    radial-gradient(30% 78px at 86% calc(100% - var(--lg-bleed)), var(--lg-lamp-2) 0%, transparent 80%);
+  /* 两端收口：否则光带在最外侧卡边处被元素框硬切一刀。
+     mask 里的黑是「完全不透明」的技术值，不是配色（lint 禁裸 hex，写 rgb()）。 */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    rgb(0 0 0) 8%,
+    rgb(0 0 0) 92%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to right, transparent 0, rgb(0 0 0) 8%, rgb(0 0 0) 92%, transparent 100%);
+}
+
+/* —— 正解：CSS anchor positioning（Chromium 125+；本项目 Electron 33 = 130）——
+   灯带顶端 = 卡顶、高度 = 卡高 + 出血。无常量、无 JS、无新增 DOM、无合成层，
+   字号/行高/边距怎么改都对得上（J3/J3b 回归项）。
+   失效模式比"静默偏"好：anchor() 解析不到时 top 退回 auto → 灯跑到容器底部，
+   是看得见的丑，QA 一眼能发现，再叠 J3 打红兜住。 */
+@supports (position-anchor: --x) {
+  .cs-tapes > li:first-child {
+    anchor-name: --lg-lamp-anchor;
+  }
+
+  .cs-tapes::before {
+    position-anchor: --lg-lamp-anchor;
+    top: anchor(top);
+    height: calc(anchor-size(height) + var(--lg-bleed));
+    padding-top: 0; /* 必须清掉，否则两条高度叠加 */
+  }
+}
+
+/* 专辑卡 = 一块丙烯板：封面是贴在板上的照片，板下压着一盏青瓷灯，
+   光从板底透上来、从卡缝漏出去（design-demos/glass-probe/spec-v1.md v5）。
+
+   **align-items: stretch 是修一个存量布局 bug，不是玻璃的一部分**：
+   .cs-tape 是 <button>，列方向 flex，UA 样式给的是 flex-start（项目没有全局重置），
+   于是每个子项都变成 fit-content ——
+     · .cs-tape-title 的 text-overflow:ellipsis **永不触发**（长歌名被横切在字中间）；
+     · .cs-tape-foot 没有自由空间，justify-content 失效，26px 播放圆片飘在卡中腰。
+   实测：foot 85.75 → 144.64（= 卡内宽）、播放键右缘 71.89 → 13（= 12 padding + 1 border）、
+   长标题 92/92（无省略号）→ 145/147（真截断）。 */
 .cs-tape {
   position: relative;
   width: 100%;
@@ -409,41 +487,72 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   padding: 0;
-  border: 1px solid var(--live-line-soft);
+  /* 倒角的外侧亮线（内侧暗线在 box-shadow 的 inset 里，成对才读得出"一条厚边"） */
+  border: 1px solid var(--lg-edge);
   border-radius: 14px;
   text-align: left;
-  background: var(--live-panel);
   color: inherit;
   cursor: pointer;
+  /* 玻璃板 = 板厚 / 青瓷底偏 / 主膜 / 深色不透底（浅色为 transparent，不占层）。
+     顺序有讲究：厚度在最上、主膜是被灯穿过的那层、不透底在最下。
+     --lg-thick 必须**压暗**而不是提亮：提亮会和倒角暗线打架，压暗才出体积。 */
+  background:
+    linear-gradient(to top, var(--lg-thick) 0 0, transparent 30px),
+    linear-gradient(var(--lg-tint), var(--lg-tint)),
+    linear-gradient(var(--lg-film), var(--lg-film)),
+    linear-gradient(var(--lg-base), var(--lg-base));
+  backdrop-filter: var(--lg-backdrop);
+  -webkit-backdrop-filter: var(--lg-backdrop);
   box-shadow:
-    0 1px 2px rgb(23 48 44 / 0.07),
-    0 10px 24px -12px rgb(23 48 44 / 0.28),
-    0 28px 56px -28px rgb(23 48 44 / 0.22);
+    /* 内侧暗 1px —— 与 border 一起才是"一条厚边" */
+    inset 0 0 0 1px var(--lg-edge-ink),
+    /* 内下缘厚度影 */
+    inset 0 -18px 22px -18px var(--lg-bevel),
+    var(--lg-shadow);
   transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
 }
 
+/* —— hover：只动 rim / 影 / 位移，**不动 blur** ——
+   backdrop-filter 里换数值会触发逐帧重算（180ms × 每帧一次 backdrop），
+   视觉收益只是"厚一点点的玻璃"，不值；抬起来之后由 --lg-lift 那道内高光负责"灯照上来了"。
+   注意：hover 的"边被照亮"只有 1.39:1（#b5d3d0 vs #e6f2f0）——**它不是状态信号**，
+   只是材质过场，别把它算成一条可见反馈（docs/08 §6 已标注）。 */
 .cs-tape:hover {
   border-color: color-mix(in srgb, var(--live-accent) 30%, transparent);
-  box-shadow:
-    0 2px 4px rgb(23 48 44 / 0.08),
-    0 16px 32px -14px rgb(23 48 44 / 0.34),
-    0 32px 64px -28px rgb(23 48 44 / 0.26);
   transform: translateY(-3px);
+  box-shadow:
+    inset 0 0 0 1px var(--lg-edge-ink-hi),
+    inset 0 -1px 0 0 var(--lg-rim-dim), /* 抬起来后被下缘接住的一道高光 */
+    inset 0 -34px 30px -34px var(--lg-lift), /* 底缘升起的内高光 */
+    inset 0 -20px 24px -18px var(--lg-bevel),
+    var(--lg-shadow-hi);
 }
 
+/* —— active：玻璃被按密（膜变厚、rim 退光、blur 收紧）—— */
 .cs-tape:active {
   transform: translateY(0) scale(0.985);
   transition-duration: 80ms;
+  border-color: var(--lg-edge);
+  box-shadow:
+    inset 0 0 0 1px var(--lg-edge-ink-lo),
+    inset 0 -12px 16px -14px var(--lg-bevel),
+    0 1px 2px rgb(23 48 44 / 0.1),
+    0 6px 14px -10px rgb(23 48 44 / 0.24);
 }
 
+/* 序号：四级层次的最下一级 —— 11.5px/600 + 字距 .06em（与时长同色不同字重，
+   靠 600 的密度把"编号"和"读数"分开；v4 里两者同色同字重，四级层次塌成三级）。
+   颜色走 --lg-ink-3（墨 76% 透），对玻璃实测 5.98:1。 */
 .cs-tape-no {
   margin: 10px 12px 0;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: var(--live-fg-faint);
+  line-height: 1.42;
+  letter-spacing: 0.06em;
+  color: var(--lg-ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -468,6 +577,8 @@
   color: var(--live-fg);
 }
 
+/* 歌手：--lg-ink-2（墨 70% 透）。旧值 fg 62% 在纯白卡上只有 4.2:1（12px 属正文，AA 要 4.5）
+   —— 这条是既有缺陷的顺带修复，不是回归。 */
 .cs-tape-artist {
   min-width: 0;
   margin-top: 2px;
@@ -475,7 +586,7 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 1.45;
-  color: color-mix(in srgb, var(--live-fg) 62%, transparent);
+  color: var(--lg-ink-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -492,9 +603,13 @@
   aspect-ratio: 1 / 1;
   min-height: 0;
   border-radius: 0;
-  /* 细描边贴内缘：白/浅色封面在浅卡上不失边界 */
-  outline: 1px solid color-mix(in srgb, var(--live-fg) 12%, transparent);
+  /* 「缝」= 封面压进玻璃的接缝：贴内侧 1px 亮边（画在照片自己身上）+ 照片下缘 1px 亮缝 + 一圈紧影。
+     影必须**紧**（blur 11 / spread −4）：松了就变成"卡内又有一层渐变"，读者把照片下缘读成脏。 */
+  outline: 1px solid var(--lg-hatch);
   outline-offset: -1px;
+  box-shadow:
+    0 1px 0 var(--lg-seam),
+    0 5px 11px -4px var(--lg-art-drop);
   /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
   background: var(--live-slot);
   overflow: hidden;
@@ -545,7 +660,7 @@ img.cs-tape-art {
 .cs-tape-dur {
   font-family: var(--font-sans);
   font-size: 11.5px;
-  color: var(--live-fg-faint);
+  color: var(--lg-ink-3);
   font-variant-numeric: tabular-nums;
 }
 
@@ -601,10 +716,63 @@ img.cs-tape-art {
   border-left-color: var(--accent-ink);
 }
 
+/* —— 焦点环：色换墨色 --live-fg、偏移 −2px → 2px（环移到卡外）——
+   环移到卡外后并不落在"干净页面"上，而是落在**卡底灯池**上，而灯也是青瓷色系：
+   旧值 --live-accent #0e8f82 对灯池实测只有 **2.27:1**、对卡内边 2.62:1
+   （对干净页面才有 3.84:1 —— 原来那个 3.5:1 是拿干净页面算的）。
+   换 --live-fg 后对灯池 10.3:1、对卡内边 6.7:1；深色自动 #dcebe6、纸色 #2b2118，
+   **一个 token 三主题全过，不需要分主题写 focus 规则**。
+
+   ⚠ 特异性坑（J5a 判据实测抓到）：live.css:55 有一条 `.shell.live button:focus-visible`
+   （0,3,1）——本文件原来的 `.cs-tape:focus-visible`（0,2,0）**从来没赢过它**：
+   卡上的环一直是 accent + offset 2px（所以 `-2px` 那条其实是死代码）。
+   要真换色必须同档以上：`.shell.live .cs-tape:focus-visible` = (0,4,0)，且本文件在 bundle 里靠后。
+   裸 `.cs-tape:focus-visible` 保留一份给"不在 live 壳里"的情形（那时通用规则也不生效）。
+
+   代价：与页内其它焦点环（.cs-title / .cs-all-row 仍用 accent）语言不统一——这是 P2-6，
+   待统一到 --live-fg；本次只动待播网格，不扩散。
+   另：focus 的 box-shadow **必须排在 :hover/:active 之后**（本块在文件里正好在它们下面），
+   否则键盘 + 鼠标同时作用时环被覆盖。 */
 .cs-tape:focus-visible,
+.shell.live .cs-tape:focus-visible {
+  outline: 2px solid var(--live-fg);
+  outline-offset: 2px;
+  box-shadow:
+    inset 0 0 0 1px var(--lg-edge-ink),
+    inset 0 -18px 22px -18px var(--lg-bevel),
+    0 0 0 5px color-mix(in srgb, var(--live-fg) 10%, transparent),
+    var(--lg-shadow);
+}
+
 .shell.live .cs-title:focus-visible {
   outline: 2px solid var(--live-accent);
   outline-offset: -2px;
+}
+
+/* —— 降级开关（必须实现：低电量 / 截图对比 / 兜底）——
+   flat：不挂 backdrop-filter，退回 2026-11-11 的实心白卡（--live-panel）；灯一并熄掉，
+   否则光照在一块实心卡上没处透、只剩一块脏斑。
+   off ：只给评审用（证明 url(#lg-lens) 到底有没有产生差异），不进产品逻辑。 */
+:root[data-glass="flat"] .cs-tape,
+:root[data-glass="flat"] .cs-tapes::before {
+  --lg-backdrop: none;
+  --lg-lamp: transparent;
+  --lg-lamp-2: transparent;
+}
+
+:root[data-glass="flat"] .cs-tape {
+  background: var(--live-panel);
+}
+
+:root[data-lens="off"] .cs-tape {
+  --lg-backdrop: blur(4px) saturate(1.6);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .cs-tape {
+    --lg-backdrop: none;
+    background: var(--live-panel);
+  }
 }
 
 /* 信号表：右下收底，只留频谱本体 + 一行弱化的身份行 */
@@ -748,21 +916,42 @@ img.cs-tape-art {
   color: var(--live-fg-dim);
 }
 
-/* 低频仪式感：只在本次运行第一次进入首页时播一次 */
+/* 低频仪式感：只在本次运行第一次进入首页时播一次。
+   fill-mode 一律 **backwards**（不是 both）——见下面「玻璃失效三死因」。 */
 .cs-enter .cs-stage {
-  animation: cs-settle 460ms ease-out both;
+  animation: cs-settle 460ms ease-out backwards;
 }
 
-.cs-enter .cs-feed {
-  animation: cs-rise 460ms 60ms ease-out both;
+/* ⚠ 玻璃失效三死因（v5 像素证据：4px 黑白条纹 + .62 白膜 + blur(4px)，"残留" 1 = 模糊生效 / 94–97 = 只剩白膜）：
+   · 祖先或**自身** opacity < 1（.999 也算）        → 残留 97，致命
+   · 祖先或自身带**已播完**的 animation … both/forwards → 残留 97，**永久**失效
+   · 祖先链有 filter（形成 backdrop root）          → 立刻失效
+   静态 transform（自身/祖先）**无害**（残留 1）——所以 hover 的 translateY(-3px)、
+   active 的 scale 都不用改；旧规则要求"祖先 transform === none"是过严，会给 hover 报假红。
+
+   本条原来罩住的是**卡的祖先**（.cs-enter .cs-feed{animation:cs-rise … both}）：
+   .cs-enter 没有 animationend 移除逻辑（LiveHome.tsx 用模块级 homeVisited，只在下一次
+   re-render 时才丢类）→ 数据已缓存时不 re-render → 玻璃**整场不出现**。
+   修法：rise 拆给三个标题块（backwards），卡自己的入场挪到 .cs-tape 上。 */
+.cs-enter .cs-feed > .cs-feed-head,
+.cs-enter .cs-feed > .cs-strip-head,
+.cs-enter .cs-feed > .cs-signal {
+  animation: cs-rise 460ms 60ms ease-out backwards;
 }
 
-/* 小巧思：待播卡瀑布入场——每张错开 45ms 落位（--i 由 LiveHome 内联写入）。
-   fill-mode 用 backwards 不要 both：backwards 只补「延迟期的 from 态」，
-   结束后回归自然样式，不残留 forwards 的合成层（主题切换重绘的坑，见 MEMORY）。 */
-.cs-enter .cs-tapes li {
-  animation: cs-rise 420ms ease-out backwards;
+/* 小巧思：待播卡瀑布入场——每张错开 45ms 落位（--i 由 LiveHome 内联写在 li 上，
+   自定义属性会继承，所以选择器打在卡上也能读到）。
+   打在卡上而不是 li 上：li 是灯的 anchor 宿主，li 一旦被 transform 带动，
+   anchor() 每帧重算 → 5 张卡的 backdrop 跟着逐帧重算。 */
+.cs-enter .cs-tape {
+  animation: cs-rise 420ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
   animation-delay: calc(120ms + var(--i, 0) * 45ms);
+}
+
+/* 灯也跟着亮：不加这一段会看到"空白页 + 一块绿斑"（入场 200ms 的第一版就是这个）。
+   backwards 不是 both：灯是 backdrop 的采样源，不留残留。 */
+.cs-enter .cs-tapes::before {
+  animation: lg-lamp-in 640ms ease-out backwards;
 }
 
 @keyframes cs-settle {
@@ -788,6 +977,15 @@ img.cs-tape-art {
 }
 
 @keyframes cs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lg-lamp-in {
   from {
     opacity: 0;
   }
@@ -894,24 +1092,27 @@ img.cs-tape-art {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cs-enter .cs-stage,
-  .cs-enter .cs-feed {
-    animation: cs-fade 320ms ease-out both;
-  }
-
-  /* 瀑布错峰在 reduced-motion 下取消：整块淡入已经够了 */
-  .cs-enter .cs-tapes li {
+  /* 待播卡与光场：直接出现，不做任何动画。
+     原 `.cs-enter .cs-feed { animation: cs-fade 320ms … both }` 整条删掉——
+     纯淡入本来是为了降运动，但 opacity < 1 的**祖先**会让玻璃跟着消失 320ms，两头不讨好；
+     而且 both 播完还留着合成层（永久没有玻璃）。 */
+  .cs-enter .cs-tape,
+  .cs-enter .cs-feed > .cs-feed-head,
+  .cs-enter .cs-feed > .cs-strip-head,
+  .cs-enter .cs-feed > .cs-signal,
+  .cs-enter .cs-tapes::before {
     animation: none;
   }
 
-  /* 换档只留淡入：去掉位移与缩放（不是全关） */
+  /* 左栏舞台不是玻璃的祖先：保留纯淡入，但 fill 改 backwards（不留合成层）。
+     换档只留淡入：去掉位移与缩放（不是全关）。 */
+  .cs-enter .cs-stage,
   .cs-stage .cs-cover,
   .cs-copy {
-    animation: cs-fade 220ms ease-out both;
+    animation: cs-fade 220ms ease-out backwards;
   }
 
   .cs-tape,
-  .cs-tape::before,
   .cs-tape-play {
     transition: none;
   }

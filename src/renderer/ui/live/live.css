@@ -263,7 +263,11 @@
 }
 
 .live-bleed {
-  animation: bleed-tune 260ms ease-out both;
+  /* fill 用 backwards 不用 both（2026-11-11 玻璃落地）：.live-bleed 是首页待播卡的**祖先**，
+     `both` 播完仍留合成层 → 祖先带已结束的 animation 会让子元素的 backdrop-filter
+     永久失效（实测条纹残留 97，与"没有玻璃"等价）。两条 keyframes 的终态就是自然样式
+     （opacity 1），backwards 视觉零差异。 */
+  animation: bleed-tune 260ms ease-out backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
