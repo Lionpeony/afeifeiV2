@@ -31,6 +31,15 @@
 - live-shots 播放页段曾三处查已删 classic 选择器而假红；seek 判据 = .sk-tape 真指针序（pointerdown→input→pointerup）；主键先看 aria-label 防点成暂停。
 - **React 受控 range 坑**：直接 el.value=x + dispatch input 会被 value tracker 去重吞掉；走 pointer 事件序才可靠。
 
+## 液态玻璃（2026-11-12 落地，c677e65 一带）
+- **Chromium 确实支持 `backdrop-filter: url(#f)` + feDisplacementMap 折射**（Electron 33 / Chromium 130 实测），"Web 不支持位移"是错的；死的是 liquid-glass-react 的架构（它自己给祖先加 filter）。
+- **三条死因**（玻璃整卡失效）：祖先/自身 `opacity < 1`（0.999 也算）、任何 `animation … fill: both`（已播完也留）、祖先 `filter`。静态 `transform` **无害**（别断言 transform === none，会假红）。动画一律 `backwards`。
+- **灯带锚定用 CSS anchor positioning**：`.cs-tapes > li:first-child { anchor-name: --lg-lamp-anchor }` + `::before { position:absolute; position-anchor; top:anchor(top); height:calc(anchor-size(height) + bleed) }`。手算常量和"栅格兄弟伪元素"都实测漂移（−9px / −265px，后者会把卡挤到第二行）。
+- **`<button>` 的 UA `align-items: flex-start`**：flex 列容器里子项 fit-content → ellipsis 永不触发、space-between 失效（一行 `align-items: stretch` 修）。
+- **CSP `style-src 'self'` 会静默拒绝注入的 `<style>`**：判据里装样式要走 CSSOM，且回读确认，否则量到的是"没生效但也不报错"的假值。
+- **插入 DOM 后 Chromium 不重拍 backdrop 快照**：玻璃判据必须显式推 style 失效 + 读两遍差值 ≤8 才认。
+- 1× 下玻璃感来自"淡青膜 + 2px 倒角 + 灯池溢出"，不是体量——用户若说"看不出来"，调的是 `--lg-lamp` 强度 / 膜 α / scale 三个旋钮，不是重做。
+
 ## 存量坑
 - lint 禁裸 hex（写 `rgb(255 255 255)`）；`!important` 对 player.css 仍报红（HEAD 存量）。
 - 本地曲库页默认专辑墙，脚本要曲目行先点「曲目」tab。
