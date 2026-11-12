@@ -422,11 +422,6 @@ button.primary:hover:not(:disabled) {
 .vol-pop[hidden] {
   display: none;
 }
-/* 睡眠定时弹层（A-23）：与音量弹层同一套纸底墨边，往左让开一格 */
-.sleep-pop {
-  right: 96px;
-  min-width: 176px;
-}
 /* 「播完当前曲再停」（P0-24）：勾选项在档位按钮上方，一行放下，不换行 */
 .sleep-wait {
   display: flex;
@@ -468,16 +463,8 @@ button.primary:hover:not(:disabled) {
   pointer-events: none;
 }
 
-/* 倍速弹层（抄 lx 的 PlaybackRateBtn：档位 + 音调补偿） */
-.rate-pop {
-  right: 140px;
-  min-width: 200px;
-}
-.rate-title {
-  margin: 0 0 8px;
-  color: var(--fg-dim);
-  font-size: 12px;
-}
+/* 倍速/睡眠的段级类（rate-opts / rate-pitch / sleep-*）被「更多」弹层的内联段继续消费；
+   独立弹层容器（.rate-pop / .sleep-pop）已随工具排 8→5 收拢拆除（2026-11-12）。 */
 .rate-opts {
   display: flex;
   flex-wrap: wrap;

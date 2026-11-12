@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PageId } from "../pages.js";
+import type { Theme } from "../theme.js";
 import { NavIcon } from "../icons.js";
 import { useNowSecond } from "./useStation.js";
 
@@ -37,6 +38,7 @@ export function StationRuler({
   page,
   onGo,
   onToggleTheme,
+  theme,
   account,
   onAccount,
   onSearch,
@@ -44,6 +46,8 @@ export function StationRuler({
   page: PageId;
   onGo(page: PageId): void;
   onToggleTheme(): void;
+  /** 当前全局主题：图标表示「现在所处模式」（浅=太阳 / 深=月亮），title 说「切到哪」 */
+  theme: Theme;
   /** 当前账号摘要；未登录也要给（显示「未登录」入口） */
   account: { nick: string | null; avatarUrl: string | null; sourceName: string; loggedIn: boolean };
   onAccount(): void;
@@ -129,10 +133,12 @@ export function StationRuler({
           type="button"
           className="theme-toggle"
           onClick={onToggleTheme}
-          title="日间 / 夜间（只换 token 值）"
-          aria-label="切换日间 / 夜间"
+          title={theme === "dark" ? "切换到日间" : "切换到夜间"}
+          aria-label={theme === "dark" ? "切换到日间" : "切换到夜间"}
         >
-          <i className="moon" />
+          {/* 图标随主题翻（2026-11-12 评审）：写死月亮时浅色下看不出当前在哪档。
+              太阳/月亮都表示「当前所处模式」，切换去向交给 title/aria-label。 */}
+          <i className={theme === "dark" ? "moon" : "sun"} />
         </button>
       </div>
     </header>

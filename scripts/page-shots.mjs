@@ -701,20 +701,32 @@ app.whenReady().then(async () => {
   await shoot(`page-local-dark${suffix}.png`);
 
   // 音效面板（A-06 证据）：10 段竖排滑杆 + 预设。点了「人声」才拍，曲线要跟着变
+  // 2026-11-13 工具排 8→5：音效入口收进「更多」弹层（先开弹层再点行）
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
   await sleep(200);
   const fxOk = await win.webContents.executeJavaScript(
     `(() => {
-      const b = [...document.querySelectorAll(".tools button")].find(
-        (x) => x.getAttribute("aria-label") === "音效",
+      const more = [...document.querySelectorAll(".tools button")].find(
+        (x) => x.getAttribute("aria-label") === "更多",
       );
+      if (!more) return false;
+      more.click();
+      return true;
+    })()`,
+    true,
+  );
+  if (!fxOk) throw new Error("找不到控制台的「更多」按钮");
+  await sleep(300);
+  const fxRowOk = await win.webContents.executeJavaScript(
+    `(() => {
+      const b = document.querySelector('.more-pop button[aria-label="打开音效面板"]');
       if (!b) return false;
       b.click();
       return true;
     })()`,
     true,
   );
-  if (!fxOk) throw new Error("找不到控制台的「音效」按钮");
+  if (!fxRowOk) throw new Error("「更多」弹层里没有音效入口（打开音效面板）");
   await sleep(300);
   const presetOk = await win.webContents.executeJavaScript(
     `(() => {
@@ -740,7 +752,7 @@ app.whenReady().then(async () => {
       })()`,
       true,
     );
-  // 控制台面板区已图标化，只能认 aria-label（音效/播放队列/桌面歌词/迷你窗）
+  // 控制台面板区已图标化，只能认 aria-label（播放队列/迷你窗/更多；音效入口在「更多」弹层里）
   const clickLabel = (label) =>
     win.webContents.executeJavaScript(
       `(() => {
@@ -751,8 +763,22 @@ app.whenReady().then(async () => {
       })()`,
       true,
     );
+  // 音效面板开合也走「更多」弹层的行钮（aria-label 随开合态翻转）
+  const toggleFx = async () => {
+    await clickLabel("更多");
+    await sleep(250);
+    return win.webContents.executeJavaScript(
+      `(() => {
+        const b = document.querySelector('.more-pop button[aria-label="收起音效面板"]');
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+      true,
+    );
+  };
 
-  await clickLabel("音效"); // 关掉音效弹层，别挡
+  await toggleFx(); // 关掉音效面板，别挡
   await sleep(200);
 
   // ① 空队列态：真实置空时该说的话（不是留白）

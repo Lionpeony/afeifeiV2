@@ -28,7 +28,8 @@ export type IconName =
   | "queue"
   | "eq"
   | "lyrics"
-  | "mini";
+  | "mini"
+  | "more";
 
 const PATHS: Record<IconName, ReactNode> = {
   home: (
@@ -198,6 +199,14 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M2.2 4.2A1.2 1.2 0 0 1 3.4 3H8" />
       <path d="M2.2 4.2v6.4a1.2 1.2 0 0 0 1.2 1.2H7" />
       <rect x="8.6" y="8.4" width="5.2" height="4.2" rx="0.9" />
+    </>
+  ),
+  /* 「更多⋯」：三枚实心点（描边笔画画不出点，fill 直给） */
+  more: (
+    <>
+      <circle cx="3.2" cy="8" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="8" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="12.8" cy="8" r="1.15" fill="currentColor" stroke="none" />
     </>
   ),
 };

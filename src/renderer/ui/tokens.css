@@ -17,7 +17,10 @@
   --row-hover: rgba(23, 48, 44, 0.05);
   --accent: #0e8f82; /* 青瓷印：主操作 / 正在播放 / 进度头 / 品牌句号，其余禁止 */
   --accent-ink: #f4faf8; /* 青瓷上的字 */
-  --accent-press: #0c7d72; /* 深一档青：浅色主题的**文字类 accent**（在播行曲名）与 P0 填充底（--accent 对浅底 3.5:1 不达 AA）；深/纸主题同 --accent */
+  /* 2026-11-12 评审：press 档往 --accent 拉近（#0c7d72 → #0d857a）。
+     实测对白底对比度 4.51:1（≥ AA 4.5，WCAG 相对亮度公式），
+     与旧值 5.01:1 同为达标档，视觉上不再与 --accent 断成两色。 */
+  --accent-press: rgb(13 133 122); /* 深一档青：浅色主题的**文字类 accent**（在播行曲名）与 P0 填充底（--accent 对浅底 3.5:1 不达 AA）；深/纸主题同 --accent */
   --ink-faint: rgba(23, 48, 44, 0.45); /* 印刷装饰件：引导点 / 目录号 / 序号灰 / 分隔点。禁作信息性文字（实测 2.6:1） */
   --brass: #4a7a96; /* 石板蓝：状态徽章（已登录/缺失/提示） */
   --danger: #c2620f; /* 警示橙棕（红色退场） */
@@ -72,7 +75,6 @@
   --lg-film: rgba(246, 250, 249, 0.62);
   --lg-base: transparent;
   --lg-tint: rgba(14, 143, 130, 0.05);
-  --lg-thick: rgba(23, 48, 44, 0.05);
   --lg-rim-dim: rgba(255, 255, 255, 0.95);
   --lg-lift: rgba(255, 255, 255, 0.85);
   --lg-bevel: rgba(23, 48, 44, 0.16);
@@ -80,9 +82,7 @@
   --lg-edge-ink: rgba(23, 48, 44, 0.09);
   --lg-edge-ink-hi: rgba(23, 48, 44, 0.05);
   --lg-edge-ink-lo: rgba(23, 48, 44, 0.14);
-  --lg-seam: rgba(255, 255, 255, 0.9);
   --lg-hatch: rgba(255, 255, 255, 0.72);
-  --lg-art-drop: rgba(12, 21, 20, 0.3);
   --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
   --lg-lamp-2: color-mix(in srgb, var(--live-signal) 9%, transparent);
   --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);
@@ -225,7 +225,6 @@ html {
   --lg-film: rgba(246, 250, 249, 0.62);
   --lg-base: transparent;
   --lg-tint: rgba(14, 143, 130, 0.05);
-  --lg-thick: rgba(23, 48, 44, 0.05);
   --lg-rim-dim: rgba(255, 255, 255, 0.95);
   --lg-lift: rgba(255, 255, 255, 0.85);
   --lg-bevel: rgba(23, 48, 44, 0.16);
@@ -233,9 +232,7 @@ html {
   --lg-edge-ink: rgba(23, 48, 44, 0.09);
   --lg-edge-ink-hi: rgba(23, 48, 44, 0.05);
   --lg-edge-ink-lo: rgba(23, 48, 44, 0.14);
-  --lg-seam: rgba(255, 255, 255, 0.9);
   --lg-hatch: rgba(255, 255, 255, 0.72);
-  --lg-art-drop: rgba(12, 21, 20, 0.3);
   --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
   --lg-lamp-2: color-mix(in srgb, var(--live-signal) 9%, transparent);
   --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);
@@ -303,7 +300,6 @@ html {
   --lg-film: rgba(232, 240, 245, 0.075);
   --lg-base: rgba(9, 16, 15, 0.44);
   --lg-tint: rgba(46, 201, 167, 0.035);
-  --lg-thick: rgba(0, 0, 0, 0.14);
   --lg-rim-dim: rgba(226, 240, 236, 0.34);
   --lg-lift: rgba(226, 240, 236, 0.16);
   --lg-bevel: rgba(0, 0, 0, 0.5);
@@ -311,9 +307,7 @@ html {
   --lg-edge-ink: rgba(0, 0, 0, 0.55);
   --lg-edge-ink-hi: rgba(0, 0, 0, 0.34);
   --lg-edge-ink-lo: rgba(0, 0, 0, 0.7);
-  --lg-seam: rgba(226, 240, 236, 0.24);
   --lg-hatch: rgba(220, 235, 230, 0.16);
-  --lg-art-drop: rgba(0, 0, 0, 0.46);
   --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
   --lg-lamp-2: color-mix(in srgb, var(--live-signal) 11%, transparent);
   --lg-ink-2: color-mix(in srgb, var(--live-fg) 74%, transparent);
@@ -377,7 +371,6 @@ html {
   --lg-film: rgba(240, 233, 214, 0.62);
   --lg-base: transparent;
   --lg-tint: rgba(125, 74, 18, 0.05);
-  --lg-thick: rgba(43, 33, 24, 0.055);
   --lg-rim-dim: rgba(255, 253, 246, 0.92);
   --lg-lift: rgba(255, 253, 246, 0.8);
   --lg-bevel: rgba(43, 33, 24, 0.18);
@@ -385,9 +378,7 @@ html {
   --lg-edge-ink: rgba(43, 33, 24, 0.11);
   --lg-edge-ink-hi: rgba(43, 33, 24, 0.06);
   --lg-edge-ink-lo: rgba(43, 33, 24, 0.17);
-  --lg-seam: rgba(255, 253, 246, 0.88);
   --lg-hatch: rgba(255, 252, 242, 0.2);
-  --lg-art-drop: rgba(43, 33, 24, 0.34);
   --lg-lamp: color-mix(in srgb, var(--live-phosphor) 36%, transparent);
   --lg-lamp-2: color-mix(in srgb, var(--live-accent) 7%, transparent);
   --lg-ink-2: color-mix(in srgb, var(--live-fg) 70%, transparent);

@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { AppState } from "../../contracts/index.js";
 import { dispatch, getState } from "../kernel/index.js";
@@ -10,6 +10,7 @@ import type { PlayMode } from "../../contracts/index.js";
 import { NavIcon, type IconName } from "./icons.js";
 import { toast } from "./toast.js";
 import type { PageId } from "./pages.js";
+import { pushPanel } from "./input/panels.js";
 import type { PlayerRemote } from "./hooks/use-media-session.js";
 
 /** 睡眠定时档位（A-23）。30 分钟是主档，验收就按它。 */
@@ -28,11 +29,13 @@ const RATE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 /**
  * 底栏控制台，按调音台分区语法排布：监听区（曲目 + 红心）→ 走带区（transport + seek）
- * → 播出区（模式/音量/睡眠/倍速）→ 面板区（队列/音效/词/迷你）。组间用分隔线，
+ * → 播出区（模式/音量）→ 面板区（队列/迷你/更多）。组间用分隔线，
  * 带弹层的按钮统一加 pop 角标，让"点了会弹东西"看得出来。
  *
- * 三个弹层开关（音量 / 睡眠 / 倍速）是本组件的私有 UI 态，互斥关系只在按钮间成立；
+ * 两个弹层开关（音量 / 更多）是本组件的私有 UI 态，互斥关系只在按钮间成立；
  * `queueOpen` / `fxOpen` 的面板渲染在 footer 之外（队列面板、音效面板），开关留在 App 传入。
+ * 「更多」弹层收拢低频入口（睡眠定时 / 播放速度 / 音效 / 桌面歌词）：
+ * 睡眠与倍速**内联**在弹层里（不套第二层弹层），音效只收入口（面板还是侧板）。
  *
  * `timeEl/totalEl/barEl/tipEl` 这四个 ref 由 App 的 `syncPosition` 每帧写 DOM
  * （进度条不触发 React 渲染），ref 所有权在 App，这里只负责挂到节点上。
@@ -60,6 +63,8 @@ export function Console(props: {
   sleepEndsAt: number | null;
   sleepWaitEnd: boolean;
   sleepPending: boolean;
+  /** 当前页（2026-11-12「同屏让位」）：首页/播放页已渲染当前曲大封面，底栏封面位让位只留文字 */
+  page: PageId;
   /* 跨 footer 边界的开关与动作 */
   queueOpen: boolean;
   fxOpen: boolean;
@@ -98,6 +103,7 @@ export function Console(props: {
     sleepEndsAt,
     sleepWaitEnd,
     sleepPending,
+    page,
     queueOpen,
     fxOpen,
     setQueueOpen,
@@ -114,23 +120,54 @@ export function Console(props: {
     services,
   } = props;
   const [volOpen, setVolOpen] = useState(false);
-  const [sleepOpen, setSleepOpen] = useState(false);
-  const [rateOpen, setRateOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   /* 封面加载失败的地址：失败过一次就退到盘纹占位，别留一块白框。
      用「地址」而不是布尔值，换歌后新地址自然重试，不用手动清。 */
   const [coverFailed, setCoverFailed] = useState<string | null>(null);
   const showCover = npCover !== null && npCover !== coverFailed;
+  /* 「同屏让位」（2026-11-12 评审，泛化不枚举业务页）：当前屏已有当前曲大封面
+     （首页 / 播放页）时，底栏封面位折叠只留文字；其余列表页保留封面。
+     空态也按页面规则藏（确定性），不做"有图才藏"。 */
+  const artShown = page !== "home" && page !== "stage";
+  const footerRef = useRef<HTMLElement | null>(null);
+
+  /* 「更多」弹层：Esc 走面板栈（最上层语义统一交给 keyboard.ts），
+     点外关用 pointerdown —— pointerdown 先于 click，忽略 footer 内部的点，
+     否则按「更多」按钮本身会"关了又开"，弹层永远合不上。 */
+  useEffect(() => {
+    if (!moreOpen) return;
+    const off = pushPanel("console-more", "panel", () => setMoreOpen(false));
+    const onDoc = (e: PointerEvent): void => {
+      if (!footerRef.current?.contains(e.target as Node)) setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => {
+      off();
+      document.removeEventListener("pointerdown", onDoc);
+    };
+  }, [moreOpen]);
+
+  /* 「更多」按钮的 hover title 全保留被收拢入口的状态说明（睡眠三种态 + 倍速现值） */
+  const moreTitle = sleepPending
+    ? "更多 · 睡眠定时：这首播完就停"
+    : sleepEndsAt
+      ? sleepWaitEnd
+        ? "更多 · 睡眠定时：播完当前曲再停"
+        : "更多 · 睡眠定时：到点暂停，不退出"
+      : `更多 · 播放速度 ${playbackRate.toFixed(2)}x`;
 
   return (
-    <footer className="console" data-playing={playing}>
+    <footer className="console" data-playing={playing} ref={footerRef}>
       {/* 监听区：正在播放 + 红心。整块可点跳播放页；红心是对"这一首"的表态，跟曲目走 */}
       <div className="np-zone">
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
           {/* 封面必须是 <img referrerPolicy="no-referrer">：原来的 CSS background-image
               拿不到 referrer 策略，网易云图床一律 403，底色又是近白 —— 白底上等于没有封面
               （2026-11-12 用户截图实锤：底栏左侧一片空白只剩两行字）。
-              onError 退到 .blank 的黑胶盘纹，任何情况下都不留白框。 */}
-          <span className="np-art-wrap">
+              onError 退到 .blank 的黑胶盘纹，任何情况下都不留白框。
+              首页/播放页大封面同屏（2026-11-12「同屏让位」）：封面位折叠（np-fold），
+              DOM 保留 —— img 一直是同一个节点，折进去只是几何让位。 */}
+          <span className={`np-art-wrap${artShown ? "" : " np-fold"}`}>
             {showCover ? (
               <img
                 className="np-art"
@@ -331,11 +368,6 @@ export function Console(props: {
         >
           <NavIcon name={PLAY_MODE_ICON[queueMode]} />
         </button>
-        {/* 组间发丝线（2026-11-12）：8 个图标原来只被一条线分成 4|4，
-            但语义是三组——「怎么播」（模式）/「参数」（音量、定时、速率）/
-            「打开什么」（队列、音效、歌词、迷你）。少一条线，前四和后四中间
-            就只剩等距，读不出"这一组管听感、那一组管窗口"。 */}
-        <span className="sep" aria-hidden="true" />
         <button
           type="button"
           className={`pop${volOpen || muted ? " on" : ""}`}
@@ -343,48 +375,17 @@ export function Console(props: {
           aria-label={muted ? "已静音" : "音量"}
           onClick={() => {
             setVolOpen(!volOpen);
-            setSleepOpen(false);
+            setMoreOpen(false);
           }}
           title={muted ? "已静音" : "音量"}
         >
           <NavIcon name={muted ? "mute" : "volume"} />
         </button>
-        <button
-          type="button"
-          className={`pop${sleepOpen || sleepEndsAt || sleepPending ? " on" : ""}`}
-          aria-expanded={sleepOpen}
-          aria-label="睡眠定时"
-          onClick={() => {
-            setSleepOpen(!sleepOpen);
-            setVolOpen(false);
-          }}
-          title={
-            sleepPending
-              ? "到点了：这首播完就停"
-              : sleepWaitEnd
-                ? "睡眠定时：播完当前曲再停"
-                : "睡眠定时：到点暂停，不退出"
-          }
-        >
-          <NavIcon name="sleep" />
-          {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
-          {sleepPending ? <span className="sleep-left">等这首完</span> : null}
-        </button>
-        <button
-          type="button"
-          className="pop"
-          aria-label={`播放速度：${playbackRate.toFixed(2)}x`}
-          onClick={() => {
-            setRateOpen(!rateOpen);
-            setVolOpen(false);
-            setSleepOpen(false);
-          }}
-          title={`播放速度：${playbackRate.toFixed(2)}x`}
-        >
-          <NavIcon name="rate" />
-        </button>
-        {/* 面板区：控制"打开什么"——队列/音效开侧面板（有 on 态），词/迷你开新窗口 */}
+        {/* 组间发丝线：5 键按语义分两组——「怎么播」（模式、音量）/「打开什么」（队列、迷你、更多）。
+            8→5（2026-11-12 评审）：睡眠/倍速/音效/歌词都是低频操作，收进「更多」弹层，
+            常驻位只留每天都会点的东西。 */}
         <span className="sep" aria-hidden="true" />
+        {/* 面板区：控制"打开什么"——队列开侧面板（有 on 态），迷你开新窗口 */}
         <button
           type="button"
           className={queueOpen ? "on" : ""}
@@ -397,29 +398,29 @@ export function Console(props: {
         </button>
         <button
           type="button"
-          className={fxOpen ? "on" : ""}
-          aria-expanded={fxOpen}
-          aria-label="音效"
-          onClick={() => setFxOpen(!fxOpen)}
-          title="音效"
-        >
-          <NavIcon name="eq" />
-        </button>
-        <button
-          type="button"
-          aria-label="桌面歌词"
-          onClick={() => void services.current?.openLyric()}
-          title="桌面歌词"
-        >
-          <NavIcon name="lyrics" />
-        </button>
-        <button
-          type="button"
           aria-label="迷你窗"
           onClick={() => void services.current?.openMini()}
           title="迷你窗"
         >
           <NavIcon name="mini" />
+        </button>
+        {/* 更多⋯：睡眠定时 / 播放速度 / 音效 / 桌面歌词的收拢入口。
+            睡眠激活时挂 sleep-left 倒计时小签（syncPosition 每帧直写，不进 React）——
+            入口收进弹层后，激活态不能再靠按钮 .on 表达，小签就是唯一的状态可见性。 */}
+        <button
+          type="button"
+          className={`pop${moreOpen ? " on" : ""}`}
+          aria-expanded={moreOpen}
+          aria-label="更多"
+          onClick={() => {
+            setMoreOpen(!moreOpen);
+            setVolOpen(false);
+          }}
+          title={moreTitle}
+        >
+          <NavIcon name="more" />
+          {sleepEndsAt ? <span ref={sleepEl} className="sleep-left" /> : null}
+          {sleepPending ? <span className="sleep-left">等这首完</span> : null}
         </button>
       </div>
       {/* 音量条常驻 DOM、只切 visibility：滑杆语义与键盘可达性不因开合而丢 */}
@@ -444,8 +445,61 @@ export function Console(props: {
         />
         <span className="vol-val">{Math.round(volume * 100)}</span>
       </div>
-      <div className="vol-pop rate-pop" role="dialog" aria-label="播放速度" hidden={!rateOpen}>
-        <p className="rate-title">播放速度</p>
+      {/* 「更多」弹层：两组（播放 / 窗口）。睡眠与倍速内联成段（弹层不套弹层）；
+          音效只收入口（侧板面板照旧）；歌词开独立窗。Esc / 点外关见上方 effect。 */}
+      <div
+        className={`vol-pop more-pop${sleepEndsAt || sleepPending ? " armed" : ""}`}
+        role="dialog"
+        aria-label="更多"
+        hidden={!moreOpen}
+      >
+        <p className="more-cap">播放</p>
+        {/* 睡眠定时（原独立弹层内联）：状态行带呼吸点，档位签同原语言 */}
+        <p className="sleep-now">
+          {sleepPending
+            ? "已到点 · 这首播完就停"
+            : sleepEndsAt
+              ? sleepWaitEnd
+                ? "定时中 · 播完当前曲停"
+                : "定时中 · 到点自动暂停"
+              : "到点只暂停，不退出"}
+        </p>
+        <label className="sleep-wait">
+          <input
+            type="checkbox"
+            checked={sleepWaitEnd}
+            onChange={(e) => dispatch({ type: "sleep/setWaitEnd", waitEnd: e.target.checked })}
+          />
+          <span>播完当前曲再停</span>
+        </label>
+        <div className="sleep-opts">
+          {SLEEP_OPTIONS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => {
+                dispatch({ type: "sleep/set", endsAt: Date.now() + m * 60000 });
+                setMoreOpen(false);
+              }}
+            >
+              {m} 分钟
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={!sleepEndsAt}
+            onClick={() => {
+              dispatch({ type: "sleep/clear" });
+              setMoreOpen(false);
+            }}
+          >
+            取消
+          </button>
+        </div>
+        {/* 播放速度（原独立弹层内联）：≠1.00 时组标行尾标现值，收着的弹层也看得见 */}
+        <p className="more-cap more-cap-rate">
+          播放速度{playbackRate !== 1 ? ` · ${playbackRate.toFixed(2)}x` : ""}
+        </p>
         <div className="rate-opts">
           {RATE_OPTIONS.map((r) => (
             <button
@@ -466,53 +520,34 @@ export function Console(props: {
           />
           音调补偿（变速不变调）
         </label>
+        {/* 音效：侧板面板照旧，这里只挪入口。开着时行文案给退出路径（按钮撤了总得有地方关）。 */}
+        <button
+          type="button"
+          className="more-row"
+          aria-label={fxOpen ? "收起音效面板" : "打开音效面板"}
+          onClick={() => {
+            setFxOpen(!fxOpen);
+            setMoreOpen(false);
+          }}
+          title="音效（EQ / 前置 / 交叉淡化）"
+        >
+          {fxOpen ? "收起音效面板" : "打开音效面板 →"}
+        </button>
+        <p className="more-cap">窗口</p>
+        {/* 桌面歌词：歌词窗由主进程持有（渲染层看不到别的窗），无"已开"信号可读——只做打开 */}
+        <button
+          type="button"
+          className="more-row"
+          aria-label="桌面歌词"
+          onClick={() => {
+            void services.current?.openLyric();
+            setMoreOpen(false);
+          }}
+          title="桌面歌词"
+        >
+          桌面歌词
+        </button>
       </div>
-
-      {sleepOpen && (
-        <div className={`sleep-pop vol-pop${sleepEndsAt || sleepPending ? " armed" : ""}`} role="dialog" aria-label="睡眠定时">
-          <p className="sleep-now">
-            {sleepPending
-              ? "已到点 · 这首播完就停"
-              : sleepEndsAt
-                ? sleepWaitEnd
-                  ? "定时中 · 播完当前曲停"
-                  : "定时中 · 到点自动暂停"
-                : "到点只暂停，不退出"}
-          </p>
-          <label className="sleep-wait">
-            <input
-              type="checkbox"
-              checked={sleepWaitEnd}
-              onChange={(e) => dispatch({ type: "sleep/setWaitEnd", waitEnd: e.target.checked })}
-            />
-            <span>播完当前曲再停</span>
-          </label>
-          <div className="sleep-opts">
-            {SLEEP_OPTIONS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  dispatch({ type: "sleep/set", endsAt: Date.now() + m * 60000 });
-                  setSleepOpen(false);
-                }}
-              >
-                {m} 分钟
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={!sleepEndsAt}
-              onClick={() => {
-                dispatch({ type: "sleep/clear" });
-                setSleepOpen(false);
-              }}
-            >
-              取消
-            </button>
-          </div>
-        </div>
-      )}
       <span className="stamp">入场券 · ADMIT ONE</span>
     </footer>
   );

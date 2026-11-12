@@ -1635,7 +1635,7 @@ app.whenReady().then(async () => {
        fixture 现场改「正在播那一档」的曲名 + 点刷新，hero 必须跟着换：
        ① >24 视觉单位 → .cs-title-clip：单行省略实测（nowrap + ellipsis + 真溢出）；
        ② >14 ≤24 → .cs-title-long：44px 实测（窄窗降到 38px 实测），且不串 clip；
-       ③ AA：浅色态控制台主键底色 == --accent-press（#0c7d72 = rgb(12,125,114)）；
+       ③ AA：浅色态控制台主键底色 == --accent-press（#0d857a = rgb(13,133,122)，2026-11-13 拉近）；
        ④ 脚注：cs-sig-foot 是真实信息（循环列表 + 共 N 首），STEREO / L·R 不许回来。
        全部落当前正在播的档位（hero 跟播），改完全部名字保 hero 必中；走完还原。 */
     const LONG_TITLE = "Chaikovsky（战个痛快）Reimagined Deluxe Edition（现场录音版）";
@@ -1702,11 +1702,12 @@ app.whenReady().then(async () => {
     win.setContentSize(1440, 900);
     await sleep(500);
 
-    /* ③ AA 主键：浅色态 --accent-press */
+    /* ③ AA 主键：浅色态 --accent-press（2026-11-13 评审拉近：#0c7d72 → #0d857a，
+       对白底实测 4.51:1 ≥ AA 4.5；判据跟着 token 走） */
     const aaMain = await evalJs(`getComputedStyle(document.querySelector(".console .tb.main")).backgroundColor`);
     console.log(`长标题③（AA 主键）：${aaMain}`);
-    if (aaMain !== "rgb(12, 125, 114)") {
-      throw new Error(`浅色态控制台主键底色 ${aaMain}（应 --accent-press #0c7d72 = rgb(12,125,114)）`);
+    if (aaMain !== "rgb(13, 133, 122)") {
+      throw new Error(`浅色态控制台主键底色 ${aaMain}（应 --accent-press #0d857a = rgb(13,133,122)）`);
     }
 
     /* ④ 脚注真实信息 + 状态词去重（2026-11-12：脚注改「实时频谱 / 共 N 首」，
@@ -2426,13 +2427,19 @@ app.whenReady().then(async () => {
   // 播放页探针：.stage 根元素在、整页不横向溢出（右缘被裁 = 排版坏了，不是风格）
   const stageProbe = await evalJs(`(() => {
     const de = document.documentElement;
+    /* 「同屏让位」（2026-11-13）：播放页已有当前曲大封面，底栏封面位必须折叠
+       （np-fold → max-width 0 + opacity 0）。DOM 保留，量的是包裹层的实际几何。 */
+    const wrap = document.querySelector(".console .np-art-wrap");
+    const wr = wrap?.getBoundingClientRect();
     return {
       hasStage: document.querySelector(".stage") !== null,
+      npFold: wrap ? getComputedStyle(wrap).opacity === "0" && wr.width < 1 : null,
       scrollW: de.scrollWidth, clientW: de.clientWidth,
     };
   })()`);
   console.log(`播放页探针：${JSON.stringify(stageProbe)}`);
   if (!stageProbe.hasStage) throw new Error("播放页没有 .stage 根元素");
+  if (stageProbe.npFold !== true) throw new Error(`播放页底栏封面没让位（np-fold 生效应为折叠，探针 ${JSON.stringify(stageProbe.npFold)}）`);
   if (stageProbe.scrollW > stageProbe.clientW + 1) {
     throw new Error(`播放页横向溢出：scrollWidth ${stageProbe.scrollW} > clientWidth ${stageProbe.clientW}`);
   }
@@ -2856,9 +2863,19 @@ app.whenReady().then(async () => {
   console.log(`toast 4.8s 后剩余：${toastGone}`);
   if (toastGone !== 0) throw new Error("提示不会自己消失（4.8s 后还挂着）");
 
-  /* 控制台三弹层（音量 / 睡眠定时 / 完整队列）：纸面板皮肤 + 队列 top 不盖窗控 */
+  /* 控制台弹层（音量 / 更多 / 完整队列）：纸面板皮肤 + 队列 top 不盖窗控。
+     2026-11-13 工具排 8→5：睡眠定时/播放速度/音效/桌面歌词收进「更多」弹层，
+     判据跟着改——数按钮、验更多弹层开合（含 Esc）、验互斥。 */
   const toolBtn = (label) =>
     `(() => { const b = [...document.querySelectorAll(".console .tools button")].find((x) => x.getAttribute("aria-label") === "${label}"); b?.click(); return Boolean(b); })()`;
+  const toolCount = await evalJs(`document.querySelectorAll(".console .tools button").length`);
+  console.log(`工具排按钮数：${toolCount}`);
+  if (toolCount !== 5) throw new Error(`工具排应为 5 键（模式/音量 | 队列/迷你/更多），实际 ${toolCount}`);
+  const removed = await evalJs(
+    `["睡眠定时", "音效", "桌面歌词"].map((l) => [...document.querySelectorAll(".console .tools button")].some((b) => b.getAttribute("aria-label") === l))`,
+  );
+  if (removed.some(Boolean)) throw new Error(`独立低频入口还在工具排上（应收进更多弹层）：${JSON.stringify(removed)}`);
+
   await click(toolBtn("音量"), "音量按钮");
   await sleep(500);
   const volProbe = await evalJs(`(() => {
@@ -2869,19 +2886,68 @@ app.whenReady().then(async () => {
   console.log(`音量弹层：${JSON.stringify(volProbe)}`);
   if (!volProbe.open) throw new Error("音量弹层没打开");
   await shoot("live-vol-pop.png");
-  await click(toolBtn("音量"), "音量按钮（收起）");
-  await sleep(300);
-
-  await click(toolBtn("睡眠定时"), "睡眠定时按钮");
+  await click(toolBtn("更多"), "更多按钮（互斥：开更多收音量）");
   await sleep(500);
-  const sleepProbe = await evalJs(`(() => {
-    const pop = document.querySelector(".sleep-pop");
-    return { open: pop !== null, armedDot: getComputedStyle(pop, "::before") ? true : false };
+  const moreProbe = await evalJs(`(() => {
+    const pop = document.querySelector(".more-pop");
+    const vol = document.querySelector(".vol-pop.volume");
+    return {
+      open: Boolean(pop) && !pop.hidden,
+      volClosed: Boolean(vol) && vol.hidden,
+      sleepSeg: !!pop?.querySelector(".sleep-opts"),
+      sleepWait: !!pop?.querySelector(".sleep-wait"),
+      rateSeg: !!pop?.querySelector(".rate-opts"),
+      pitch: !!pop?.querySelector(".rate-pitch"),
+      fxRow: !!pop?.querySelector('button[aria-label="打开音效面板"]'),
+      lyricRow: !!pop?.querySelector('button[aria-label="桌面歌词"]'),
+      groups: [...(pop?.querySelectorAll(".more-cap") ?? [])].map((c) => c.textContent?.replace(/\\s+/g, " ").trim()),
+    };
   })()`);
-  console.log(`睡眠定时弹层：${JSON.stringify(sleepProbe)}`);
-  if (!sleepProbe.open) throw new Error("睡眠定时弹层没打开");
-  await shoot("live-sleep-pop.png");
-  await click(toolBtn("睡眠定时"), "睡眠定时按钮（收起）");
+  console.log(`更多弹层：${JSON.stringify(moreProbe)}`);
+  if (!moreProbe.open) throw new Error("更多弹层没打开");
+  if (!moreProbe.volClosed) throw new Error("更多与音量弹层没互斥：开更多时音量条还开着");
+  if (!moreProbe.sleepSeg || !moreProbe.sleepWait) throw new Error("睡眠定时没有内联进更多弹层");
+  if (!moreProbe.rateSeg || !moreProbe.pitch) throw new Error("播放速度没有内联进更多弹层");
+  if (!moreProbe.fxRow) throw new Error("音效入口没进更多弹层");
+  if (!moreProbe.lyricRow) throw new Error("桌面歌词入口没进更多弹层");
+  /* 分组判据：组标是「播放 / 窗口」两枚；中间那枚是播放速度段标（≠1.00 时行尾带现值） */
+  if (moreProbe.groups[0] !== "播放" || moreProbe.groups[moreProbe.groups.length - 1] !== "窗口") {
+    throw new Error(`更多弹层分组不对：${JSON.stringify(moreProbe.groups)}`);
+  }
+  const rateCap = await evalJs(
+    `[...(document.querySelector(".more-pop")?.querySelectorAll(".more-cap-rate") ?? [])].map((c) => c.textContent?.trim())`,
+  );
+  console.log(`更多弹层 · 播放速度段标：${JSON.stringify(rateCap)}`);
+  if (!rateCap.some((t) => t?.startsWith("播放速度"))) {
+    throw new Error(`播放速度段标丢了：${JSON.stringify(rateCap)}`);
+  }
+  await shoot("live-more-pop.png");
+  /* Esc 关（面板栈最上层语义）：keyboard.ts 的 resolveEsc → closeTop */
+  await evalJs(`window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  await sleep(400);
+  const moreClosed = await evalJs(`(() => {
+    const pop = document.querySelector(".more-pop");
+    const btn = [...document.querySelectorAll(".console .tools button")].find((b) => b.getAttribute("aria-label") === "更多");
+    return { closed: Boolean(pop) && pop.hidden, expanded: btn?.getAttribute("aria-expanded") };
+  })()`);
+  console.log(`更多弹层 · Esc 关：${JSON.stringify(moreClosed)}`);
+  if (!moreClosed.closed) throw new Error("更多弹层 Esc 没关上");
+  if (moreClosed.expanded !== "false") throw new Error(`Esc 关了弹层但按钮 aria-expanded 没回落（${moreClosed.expanded}）`);
+  /* 存量行为（非本轮回归）：StageView 自带一份 window keydown（views/stage/index.tsx 28-49），
+     注册序先于全局 keyboard.ts —— 播放页上带面板的 Esc 会**同时**触发 onBack 回首页。
+     这条判据只关心「更多弹层有没有被面板栈关掉」，回首页的副作用在这里补回现场，
+     别让后面的队列/矮窗判据拍到首页。 */
+  const escSideEffect = await evalJs(`(() => {
+    if (document.querySelector(".stage")) return "still";
+    const b = document.querySelector(".console .np");
+    b?.click();
+    return b ? "reentered" : "lost";
+  })()`);
+  if (escSideEffect === "lost") throw new Error("Esc 测试后既不在播放页也回不去（.np 入口丢了）");
+  if (escSideEffect === "reentered") {
+    console.log("Esc 副作用：播放页被 onBack 带回首页（存量行为），已重进播放页");
+    await sleep(900);
+  }
   await sleep(300);
 
   await click(toolBtn("播放队列"), "播放队列按钮");
@@ -2910,7 +2976,7 @@ app.whenReady().then(async () => {
   ]) {
     win.setContentSize(w, h);
     await sleep(500);
-    /* 控制台在窄窗下不许溢出也不许折行：工具排 8 钮 + 分隔线必须在一条基线上
+    /* 控制台在窄窗下不许溢出也不许折行：工具排 5 键 + 分隔线必须在一条基线上
        （nowrap 溢出 scrollWidth 测不出，offsetTop 分布才抓得住） */
     const consoleFit = await evalJs(`(() => {
       const fit = (sel) => {
@@ -3103,12 +3169,22 @@ app.whenReady().then(async () => {
   const themeProbe = () => evalJs(`(() => {
     const shell = document.querySelector(".shell.live");
     const hero = document.querySelector(".cs-stage");
+    /* 「同屏让位」C2 两段式（2026-11-13）：首页封面位必须折叠（np-fold）；
+       列表页保留封面在下面「站尺 · 本地」那一步量。 */
+    const wrap = document.querySelector(".console .np-art-wrap");
+    const wr = wrap?.getBoundingClientRect();
+    /* 主题图标随 tone 翻转（2026-11-13）：图标表示「当前所处模式」——
+       浅色显太阳、深色显月亮，二选一在场；title 说「切到哪」。 */
+    const toggle = document.querySelector(".theme-toggle");
     return {
       theme: document.documentElement.dataset.theme ?? "light",
       shellBg: shell ? getComputedStyle(shell).getPropertyValue("--live-bg").trim() : null,
       heroBg: hero ? getComputedStyle(hero).getPropertyValue("--live-bg").trim() : null,
       /* tint 实际值：取色链路（crossOrigin/worker/采样）任何一环断了它就是 transparent —— 直接读数不猜 */
       heroTint: hero ? getComputedStyle(hero).getPropertyValue("--cs-tint").trim() : null,
+      npFold: wrap ? getComputedStyle(wrap).opacity === "0" && wr.width < 1 : null,
+      themeIcon: toggle ? (toggle.querySelector(".sun") ? "sun" : toggle.querySelector(".moon") ? "moon" : "none") : "none",
+      themeTitle: toggle?.getAttribute("title") ?? "",
     };
   })()`);
 
@@ -3135,6 +3211,25 @@ app.whenReady().then(async () => {
     );
     await sleep(600);
     await shoot(`live-theme-room-${id}.png`);
+    /* C2 第二段：列表页（本地）底栏封面位必须保留（同屏没有大封面，让位规则不适用）。
+       探针只在本页有效——首页/播放页已各自断言折叠。 */
+    if (id === "light") {
+      const listArt = await evalJs(`(() => {
+        const wrap = document.querySelector(".console .np-art-wrap");
+        const r = wrap?.getBoundingClientRect();
+        return {
+          fold: wrap ? getComputedStyle(wrap).opacity === "0" && r.width < 1 : null,
+          img: document.querySelector(".console .np-art")?.tagName ?? "",
+          ref: document.querySelector(".console .np-art")?.referrerPolicy ?? "",
+        };
+      })()`);
+      console.log(`列表页封面：${JSON.stringify(listArt)}`);
+      if (listArt.fold !== false) throw new Error(`列表页底栏封面不该折叠（探针 ${JSON.stringify(listArt.fold)}）`);
+      if (listArt.img !== "IMG" && listArt.img !== "SPAN") throw new Error(`列表页封面元素异常：${listArt.img}`);
+      if (listArt.img === "IMG" && listArt.ref !== "no-referrer") {
+        throw new Error(`列表页封面 <img> 丢了 referrerPolicy=no-referrer（拿到 ${listArt.ref}）`);
+      }
+    }
     await click(
       `(() => { const b = document.querySelector('.ruler-tick[data-page="home"]'); b?.click(); return Boolean(b); })()`,
       "站尺 · 首页",
@@ -3144,6 +3239,13 @@ app.whenReady().then(async () => {
     console.log(`配色 ${id}：${JSON.stringify(got)}`);
     if (got.theme !== id) throw new Error(`配色 ${id} 没切生效：${JSON.stringify(got)}`);
     if (got.heroBg !== got.shellBg) throw new Error(`首页封面台应跟主题（tint 场景层）却读到 ${got.heroBg} ≠ ${got.shellBg}`);
+    /* 「同屏让位」C2 第一段：首页有大封面，底栏封面位必须折叠 */
+    if (got.npFold !== true) throw new Error(`首页底栏封面没让位（np-fold 生效应为折叠，探针 ${JSON.stringify(got.npFold)}）`);
+    /* 主题图标随 tone 翻转：深色显月亮、浅色（青瓷/旧档）显太阳，title 说「切到哪」 */
+    const wantIcon = id === "dark" ? "moon" : "sun";
+    const wantTitle = id === "dark" ? "切换到日间" : "切换到夜间";
+    if (got.themeIcon !== wantIcon) throw new Error(`主题图标没随主题翻（${id} 期望 ${wantIcon}，实际 ${got.themeIcon}）`);
+    if (got.themeTitle !== wantTitle) throw new Error(`主题切换 title 没跟着换（${id} 期望「${wantTitle}」，实际「${got.themeTitle}」）`);
     /* fixture 封面是 data URL（同源必可采样）→ tint 必须有实值。
        读到 transparent = 取色链路断了（crossOrigin/worker/CORS 任一环），直接红。 */
     if (!got.heroTint || got.heroTint === "transparent") {

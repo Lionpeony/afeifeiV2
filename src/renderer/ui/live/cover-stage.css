@@ -541,11 +541,11 @@
   text-align: left;
   color: inherit;
   cursor: pointer;
-  /* 玻璃板 = 板厚 / 青瓷底偏 / 主膜 / 深色不透底（浅色为 transparent，不占层）。
-     顺序有讲究：厚度在最上、主膜是被灯穿过的那层、不透底在最下。
-     --lg-thick 必须**压暗**而不是提亮：提亮会和倒角暗线打架，压暗才出体积。 */
+  /* 玻璃板 = 青瓷底偏 / 主膜 / 不透底（浅色为 transparent，不占层）。
+     2026-11-12「纸面信息条」：原最上层的 --lg-thick 底部加厚带撤掉——
+     它把下半信息区染出一块色差，读作"第二个块"；封面与文字要读成同一张纸，
+     层次只留间距与字重（评审否决黑渐变遮罩，这里同样不做底色差）。 */
   background:
-    linear-gradient(to top, var(--lg-thick) 0 0, transparent 30px),
     linear-gradient(var(--lg-tint), var(--lg-tint)),
     linear-gradient(var(--lg-film), var(--lg-film)),
     linear-gradient(var(--lg-base), var(--lg-base));
@@ -620,11 +620,12 @@
 /* 标题：单行省略 + 固定一行高度（2026-11-11 拍板统一长文案策略）。
    旧版两行钳折对长歌名（如《西厢寻他(饮下我一千…》式截断）观感差——
    卡面一律单行省略，完整歌名走按钮的 title 属性（见 LiveHome.tsx）。
-   单行天然等高，一行/两行标题的卡高差随折行一起消失。 */
+   单行天然等高，一行/两行标题的卡高差随折行一起消失。
+   2026-11-12「纸面信息条」：留白收到 8px —— 封面与文字是同一张纸上的两级字重，
+   12px 的"段前距"会重新把下半读成一个块。 */
 .cs-tape-title {
   min-width: 0;
-  /* 编号搬去封面角标后，文字区顶部留白改由标题自己承担（原来靠 .cs-tape-no 的 10px margin） */
-  margin-top: 12px;
+  margin-top: 8px;
   padding: 0 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -654,7 +655,9 @@
 
 /* 卡顶 = 专辑封面：方形整幅（aspect-ratio 定高，不再被格子拉成竖条），
    img 直接做 flex item；无封面或加载失败换 .cs-tape-vinyl 垫底（显式元素）。
-   height auto 显式：图片按宽度走正方形高，任何机制都不许它另立高度。 */
+   height auto 显式：图片按宽度走正方形高，任何机制都不许它另立高度。
+   2026-11-12「纸面信息条」：撤掉封面下缘的亮缝（--lg-seam）与紧影（--lg-art-drop）——
+   那"一条缝 + 一圈影"正是上下两截硬切的来源；封面内侧 hairline outline 保留（照片自己的边）。 */
 .cs-tape-art {
   flex: none;
   width: 100%;
@@ -663,13 +666,8 @@
   aspect-ratio: 1 / 1;
   min-height: 0;
   border-radius: 0;
-  /* 「缝」= 封面压进玻璃的接缝：贴内侧 1px 亮边（画在照片自己身上）+ 照片下缘 1px 亮缝 + 一圈紧影。
-     影必须**紧**（blur 11 / spread −4）：松了就变成"卡内又有一层渐变"，读者把照片下缘读成脏。 */
   outline: 1px solid var(--lg-hatch);
   outline-offset: -1px;
-  box-shadow:
-    0 1px 0 var(--lg-seam),
-    0 5px 11px -4px var(--lg-art-drop);
   /* 加载中/无图的底：凹槽色（永远比卡片深一档，四档 token），图一到位就被盖住 */
   background: var(--live-slot);
   overflow: hidden;
@@ -873,7 +871,7 @@ img.cs-tape-art {
     color-mix(in srgb, var(--live-signal) 92%, transparent),
     color-mix(in srgb, var(--live-signal) 38%, transparent)
   );
-  opacity: 0.85;
+  opacity: 0.65;
 }
 
 /* 频谱统一单色（2026-11-12）：原来第 32 条之后硬编码转青绿 —— 纯粹按序号分色，

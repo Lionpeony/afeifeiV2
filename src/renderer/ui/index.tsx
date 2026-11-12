@@ -1106,6 +1106,7 @@ function App() {
         page={page}
         onGo={setPage}
         onToggleTheme={toggleTheme}
+        theme={theme}
         account={{
           nick: accountProfiles[getActiveSource()]?.nick ?? null,
           avatarUrl: accountProfiles[getActiveSource()]?.avatarUrl ?? null,
@@ -1254,6 +1255,7 @@ function App() {
         sleepEndsAt={sleepEndsAt}
         sleepWaitEnd={sleepWaitEnd}
         sleepPending={sleepPending}
+        page={page}
         queueOpen={queueOpen}
         fxOpen={fxOpen}
         setQueueOpen={setQueueOpen}

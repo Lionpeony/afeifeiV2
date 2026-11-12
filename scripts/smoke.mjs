@@ -311,14 +311,14 @@ async function main() {
   assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
   console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
 
-  /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在弹层里，且真的落到状态 ---- */
-  // 睡眠钮是图标钮（NavIcon），名字只在 aria-label —— 走 btnBy，textContent 找不到它
-  await app.evaluate(`${btnBy(["睡眠定时"])}.click()`);
-  assert.ok(await app.waitFor(`!!document.querySelector(".sleep-wait input")`, 3000), "睡眠弹层应有「播完当前曲再停」勾选");
+  /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在「更多」弹层内联段里，且真的落到状态 ---- */
+  // 2026-11-13 工具排 8→5：睡眠入口收进「更多」弹层（先开弹层，段类不变）
+  await app.evaluate(`${btnBy(["更多"])}.click()`);
+  assert.ok(await app.waitFor(`!!document.querySelector(".sleep-wait input")`, 3000), "更多弹层应有「播完当前曲再停」勾选");
   await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`);
   assert.equal(await app.evaluate(`document.querySelector(".sleep-wait input")?.checked`), true, "勾上后应保持选中");
   await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`); // 复原，别把偏好写进存档
-  await app.evaluate(`${btnBy(["睡眠定时"])}.click()`);
+  await app.evaluate(`${btnBy(["更多"])}.click()`);
   console.log("  睡眠定时 OK：播完当前曲再停可选");
 
   /* ---- 设置页：输出设备下拉（P0-09）---- */

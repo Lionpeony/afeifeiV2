@@ -67,6 +67,34 @@ html::after {
   border-radius: 50%;
   background: var(--bg);
 }
+/* 太阳：与 .moon 同规格（12px 圆 + currentColor），光晕用 8 颗 ray 点围一圈。
+   浅色主题显示太阳 = 「当前是日间」（2026-11-12 评审：图标随主题翻）。 */
+.theme-toggle .sun {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.theme-toggle .sun::after {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 4.5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow:
+    0 -8px currentColor,
+    0 8px currentColor,
+    -8px 0 currentColor,
+    8px 0 currentColor,
+    -5.6px -5.6px currentColor,
+    5.6px -5.6px currentColor,
+    -5.6px 5.6px currentColor,
+    5.6px 5.6px currentColor;
+}
 :root[data-theme="dark"] .theme-toggle {
   color: var(--accent);
 }

@@ -1,0 +1,200 @@
+/* fx/：移植自 React Bits + Magic UI 的七个组件，全部改吃 tokens.css。
+   纪律：本文件不写 hex（50 §9.3），只允许 var() 与 color-mix()。
+   这些是氛围件——prefers-reduced-motion 下整组退化，不承载任何语义。 */
+
+/* ── StarBorder 流光描边 ─────────────────────────────── */
+.fx-star {
+  position: relative;
+  display: inline-flex;
+  padding: 1px;
+  overflow: hidden;
+  border-radius: inherit;
+  isolation: isolate;
+}
+
+.fx-star::before,
+.fx-star::after {
+  content: "";
+  position: absolute;
+  left: -25%;
+  width: 150%;
+  height: 70%;
+  background: radial-gradient(
+    ellipse at center,
+    var(--fx-star-color, var(--accent)) 0%,
+    transparent 60%
+  );
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.fx-star::before {
+  top: -35%;
+  animation: fx-star-slide var(--fx-star-speed, 6s) linear infinite;
+}
+
+.fx-star::after {
+  bottom: -35%;
+  animation: fx-star-slide var(--fx-star-speed, 6s) linear infinite reverse;
+}
+
+.fx-star-inner {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--fx-star-bg, var(--bg-raised));
+}
+
+@keyframes fx-star-slide {
+  from {
+    transform: translate3d(-40%, 0, 0);
+  }
+  to {
+    transform: translate3d(40%, 0, 0);
+  }
+}
+
+/* ── SpotlightCard 跟随光斑 ──────────────────────────── */
+.fx-spot {
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+  isolation: isolate;
+}
+
+.fx-spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    var(--fx-spot-radius, 320px) circle at var(--fx-mx, 50%) var(--fx-my, 50%),
+    color-mix(in srgb, var(--fx-spot-color, var(--accent)) 18%, transparent),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+  pointer-events: none;
+}
+
+.fx-spot:hover::before {
+  opacity: 1;
+}
+
+/* ── AnimatedGradientText 渐变文字 ───────────────────── */
+.fx-gradient-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--fx-grad-from, var(--accent)),
+    var(--fx-grad-to, var(--brass)),
+    var(--fx-grad-from, var(--accent))
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fx-gradient-shift var(--fx-grad-speed, 8s) linear infinite;
+}
+
+@keyframes fx-gradient-shift {
+  to {
+    background-position: 300% 0;
+  }
+}
+
+/* 不支持文字裁剪就别把字弄没了：退回普通前景色 */
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .fx-gradient-text {
+    background-image: none;
+    color: var(--fg);
+  }
+}
+
+/* ── Marquee 跑马灯 ──────────────────────────────────── */
+.fx-marquee {
+  display: flex;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, rgb(0 0 0) 8%, rgb(0 0 0) 92%, transparent);
+}
+
+.fx-marquee-track {
+  display: flex;
+  flex-shrink: 0;
+  min-width: 100%;
+  animation: fx-marquee-scroll var(--fx-marquee-dur, 24s) linear infinite;
+}
+
+.fx-marquee-reverse .fx-marquee-track {
+  animation-direction: reverse;
+}
+
+.fx-marquee-pause:hover .fx-marquee-track {
+  animation-play-state: paused;
+}
+
+.fx-marquee-item {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+@keyframes fx-marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* ── ClickSpark 点击粒子 ─────────────────────────────── */
+.fx-spark {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── NumberTicker 数字滚动 ───────────────────────────── */
+.fx-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── ScrollStack 堆叠滚动 ────────────────────────────── */
+.fx-stack-item {
+  position: sticky;
+  top: calc(var(--fx-stack-top, 24px) + var(--fx-i, 0) * var(--fx-stack-step, 14px));
+}
+
+@supports (animation-timeline: view()) {
+  .fx-stack-item {
+    animation: fx-stack-recede linear both;
+    animation-timeline: view();
+    animation-range: exit-crossing 0% exit-crossing 70%;
+  }
+}
+
+@keyframes fx-stack-recede {
+  to {
+    transform: scale(0.96);
+  }
+}
+
+/* ── 统一退化 ────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .fx-star::before,
+  .fx-star::after {
+    animation: none;
+    opacity: 0.35;
+  }
+
+  .fx-gradient-text,
+  .fx-marquee-track,
+  .fx-stack-item {
+    animation: none;
+  }
+}

@@ -218,6 +218,7 @@ const css = [
   "src/renderer/ui/live/night-signal.css",
   "src/renderer/ui/live/cover-stage.css",
   "src/renderer/ui/views/redesign.css",
+  "src/renderer/ui/fx/fx.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");
