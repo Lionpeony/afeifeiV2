@@ -643,6 +643,448 @@ app.whenReady().then(async () => {
     }
     console.log(`播出带网格：${tapeGrid.n} 档 宽 ${tapeGrid.wMin}-${tapeGrid.wMax} 高 ${tapeGrid.hMin}-${tapeGrid.hMax}`);
 
+    /* ================= 液态玻璃六条判据（spec-v1.md §8.1）=================
+       J1 透镜没白挂 / J2 祖先链干净 / J7 长标题可读 / J8 播放键贴边 /
+       J9 玻璃活着 / J10 四列不裁剪（外加 J3 灯带对位、J4 少卡不漏光两条纯 CSS 读数）。
+       每条都先证明能红（改一处 → 报红 → 还原），红法写在各自注释里。
+
+       报红走 red() 累积、不立刻 throw：一条断了不影响其余五条给结论，
+       一次坏构建就能看到「哪几条红、哪几条还绿」——立刻 throw 只能看到第一条。
+       注入类失败（判据自身失效）仍然直接 throw：那种状态下测出来的数没有意义。 */
+    const glassFails = [];
+    const red = (msg) => {
+      glassFails.push(msg);
+      console.log(`  ✗ ${msg}`);
+    };
+
+    /* —— J1 透镜没白挂：backdropFilter 必须真的含 url(#lg-lens) ——
+       红法：把 LiveHome 里 filter 的 id 改成 lg-lens2（或 LENS_MAP 里的 %23 拼错）——
+       url() 失效会让**整条** backdrop-filter 声明被判无效，连 blur 一起丢。 */
+    const j1 = await evalJs(`(() => {
+      const c = document.querySelector(".cs-tapes .cs-tape");
+      if (!c) return null;
+      const cs = getComputedStyle(c);
+      return {
+        back: cs.backdropFilter || cs.webkitBackdropFilter || "",
+        hasFilterEl: Boolean(document.getElementById("lg-lens")),
+        prelude: (() => {
+          const f = document.getElementById("lg-lens");
+          return f ? [...f.children].map((n) => n.nodeName).join(",") : "";
+        })(),
+      };
+    })()`);
+    if (!j1) throw new Error("J1：待播卡不在（读不到 .cs-tape），玻璃判据无从谈起");
+    console.log(`J1 透镜：backdropFilter = "${j1.back}" · filter#lg-lens = ${j1.hasFilterEl}（${j1.prelude}）`);
+    if (!j1.back.includes("lg-lens")) {
+      red(`J1 红：backdrop-filter 里没有 url(#lg-lens)（实测 "${j1.back}"）——透镜白挂了`);
+    }
+    if (!j1.hasFilterEl) throw new Error("J1 红：文档里没有 filter#lg-lens（LiveHome 没渲染或 id 拼错）");
+    if (!j1.prelude.includes("feImage") || !j1.prelude.includes("feDisplacementMap")) {
+      red(`J1 红：filter 内容不全（${j1.prelude}）——位移图/位移算子缺一个`);
+    }
+
+    /* —— J2 祖先链干净（v5 重写）——
+       从 .cs-tape 向上遍历到 documentElement：每个祖先 filter 必须 none、opacity 必须 1；
+       **不断言 transform === "none"**（静态 transform 实测无害，断言它会给 hover 抬升报假红）。
+       再断言自身与祖先都没有 fillMode 为 both/forwards 的动画（播完仍留合成层 = 永久没玻璃）。
+       红法：把 cover-stage.css 的 `.cs-enter .cs-tape{…backwards}` 改回 both，
+       或把 live.css 的 `.live-bleed` 改回 both（后者正是本轮实测抓到的真红：首页容器是卡的祖先）。 */
+    const j2 = await evalJs(`(() => {
+      const card = document.querySelector(".cs-tapes .cs-tape");
+      const name = (el) => el.tagName.toLowerCase() + (el.className && typeof el.className === "string"
+        ? "." + el.className.trim().split(/\\s+/).join(".") : "");
+      const dirty = [];
+      const filled = [];
+      let depth = 0;
+      for (let el = card; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.filter !== "none") dirty.push({ el: name(el), why: "filter=" + cs.filter });
+        if (cs.opacity !== "1") dirty.push({ el: name(el), why: "opacity=" + cs.opacity });
+        for (const a of el.getAnimations()) {
+          const t = a.effect && a.effect.getTiming ? a.effect.getTiming() : {};
+          const fill = t.fill || "auto";
+          if (fill === "both" || fill === "forwards") {
+            filled.push({ el: name(el), anim: String(a.animationName || a.transitionProperty || "?"), fill, state: a.playState });
+          }
+        }
+        depth += 1;
+        if (el === document.documentElement) break;
+      }
+      return { depth, dirty, filled };
+    })()`);
+    console.log(`J2 祖先链：${j2.depth} 层，脏 ${JSON.stringify(j2.dirty)}，fill both/forwards ${JSON.stringify(j2.filled)}`);
+    if (j2.dirty.length) {
+      red(`J2 红：祖先链有 ${JSON.stringify(j2.dirty)} —— filter / opacity<1 会让 backdrop-filter 失效`);
+    }
+    if (j2.filled.length) {
+      red(`J2 红：${JSON.stringify(j2.filled)} 带 fill:both/forwards —— 播完仍留合成层，玻璃会永久失效`);
+    }
+
+    /* —— J3 灯带没漂：::before 的 top + height − 出血 必须落在卡底线上（误差 ≤1px）——
+       支持 anchor 时实测 0.00。红法：删掉 @supports 里的 `top: anchor(top)` ——
+       灯带会掉到容器底部（看得见的丑），这条立刻报红。 */
+    const lamp = await evalJs(`(() => {
+      const ol = document.querySelector(".cs-tapes");
+      const card = ol && ol.querySelector(".cs-tape");
+      if (!ol || !card) return null;
+      const cs = getComputedStyle(ol, "::before");
+      const olBox = ol.getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const bleed = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--lg-bleed")) || 84;
+      const top = parseFloat(cs.top);
+      const h = parseFloat(cs.height);
+      return {
+        top, height: h, bleed,
+        /* 卡底线相对 ol 的坐标（ol 的 border-box 顶 = 0） */
+        cardBottom: +(cardBox.bottom - olBox.top).toFixed(2),
+        lampBottom: +(top + h - bleed).toFixed(2),
+        delta: +(top + h - bleed - (cardBox.bottom - olBox.top)).toFixed(2),
+        anchored: cs.getPropertyValue("position-anchor").trim() || cs.getPropertyValue("anchor-name").trim(),
+      };
+    })()`);
+    if (!lamp) throw new Error("J3：.cs-tapes 或卡不在");
+    console.log(`J3 灯带：top ${lamp.top} + height ${lamp.height} − 出血 ${lamp.bleed} = ${lamp.lampBottom} vs 卡底 ${lamp.cardBottom} · delta ${lamp.delta}px · anchor「${lamp.anchored}」`);
+    if (!Number.isFinite(lamp.delta) || Math.abs(lamp.delta) > 1) {
+      red(`J3 红：灯带没对准卡底（delta ${lamp.delta}px）——anchor() 没解析到？`);
+    }
+
+    /* —— J4 少卡不漏光：--lg-n 收口。n=3 时 ::before.right 必须收掉 2 列；
+       n=9 时 min() 夹到列数，不得比 n=5 更宽（否则光池被推到画面外）。 —— */
+    const j4 = await evalJs(`(() => {
+      const ol = document.querySelector(".cs-tapes");
+      const read = (n) => {
+        ol.style.setProperty("--lg-n", String(n));
+        const cs = getComputedStyle(ol, "::before");
+        const olW = ol.getBoundingClientRect().width;
+        const rightIns = parseFloat(cs.right);
+        return { n, right: +rightIns.toFixed(3), poolW: +(olW + 18 - rightIns).toFixed(3) };
+      };
+      const cols = getComputedStyle(ol).gridTemplateColumns.split(" ").length;
+      const out = { cols, cases: [read(3), read(5), read(9)] };
+      ol.style.removeProperty("--lg-n");
+      return out;
+    })()`);
+    console.log(`J4 光池收口（cols ${j4.cols}）：${JSON.stringify(j4.cases)}`);
+    const [n3, n5, n9] = j4.cases;
+    if (!(n3.poolW < n5.poolW && n5.poolW < n9.poolW + 0.01)) {
+      red(`J4 红：--lg-n 没有收口（n3 ${n3.poolW} / n5 ${n5.poolW} / n9 ${n9.poolW}）——少卡会多出一截空光池`);
+    }
+    if (Math.abs(n9.poolW - n5.poolW) > 0.5) {
+      red(`J4 红：--lg-n=9 越界（池宽 ${n9.poolW} vs 5 档 ${n5.poolW}）——min() 没夹到列数`);
+    }
+
+    /* —— J7 长标题可读：卡面标题必须**真出现省略号** ——
+       红法：删掉 .cs-tape 的 align-items:stretch（button 的 UA 值是 flex-start）：
+       标题变成 fit-content，text-overflow 永不触发，clientWidth == scrollWidth，
+       长歌名被 overflow:hidden 横切在字中间。注入一段长曲名实测，测完还原。 */
+    const j7 = await evalJs(`(() => {
+      const t = document.querySelector(".cs-tapes .cs-tape-title");
+      const card = document.querySelector(".cs-tapes .cs-tape");
+      if (!t || !card) return null;
+      const before = t.textContent;
+      t.textContent = "Chaikovsky（战个痛快）Reimagined Deluxe Edition（现场录音版）";
+      const cs = getComputedStyle(t);
+      const out = {
+        textOverflow: cs.textOverflow,
+        whiteSpace: cs.whiteSpace,
+        clientWidth: t.clientWidth,
+        scrollWidth: t.scrollWidth,
+        cardInner: card.clientWidth - 24,
+      };
+      t.textContent = before;
+      return out;
+    })()`);
+    if (!j7) throw new Error("J7：卡面标题不在");
+    console.log(`J7 长标题：clientWidth ${j7.clientWidth} < scrollWidth ${j7.scrollWidth} · text-overflow=${j7.textOverflow}`);
+    if (j7.textOverflow !== "ellipsis") red(`J7 红：text-overflow = ${j7.textOverflow}（应 ellipsis）`);
+    if (!(j7.scrollWidth > j7.clientWidth)) {
+      red(`J7 红：长标题没溢出（${j7.scrollWidth} ≤ ${j7.clientWidth}）——省略号是空的，判据落空（stretch 掉了？）`);
+    }
+
+    /* —— J8 播放键贴边：卡右缘 − 圆片右缘 = 13（12 padding + 1 border）；
+       foot 宽 = 卡宽 − 2（左右各 1px 边框）。
+       红法：同 J7（去掉 align-items:stretch），foot 会缩成 85.75px、圆片飘到卡中腰。 */
+    const j8 = await evalJs(`(() => {
+      const card = document.querySelector(".cs-tapes .cs-tape");
+      const play = card && card.querySelector(".cs-tape-play");
+      const foot = card && card.querySelector(".cs-tape-foot");
+      if (!card || !play || !foot) return null;
+      const cb = card.getBoundingClientRect();
+      const pb = play.getBoundingClientRect();
+      return {
+        rightGap: +(cb.right - pb.right).toFixed(2),
+        cardW: +cb.width.toFixed(2),
+        footW: +foot.getBoundingClientRect().width.toFixed(2),
+      };
+    })()`);
+    if (!j8) throw new Error("J8：播放圆片或 foot 不在");
+    console.log(`J8 播放键：卡右 − 圆片右 = ${j8.rightGap}px · foot ${j8.footW} = 卡 ${j8.cardW} − 2`);
+    if (Math.abs(j8.rightGap - 13) > 0.6) {
+      red(`J8 红：播放键离右缘 ${j8.rightGap}px（应 13 = 12 padding + 1 border）——foot 没有自由空间`);
+    }
+    if (Math.abs(j8.footW - (j8.cardW - 2)) > 0.6) {
+      red(`J8 红：foot ${j8.footW}px ≠ 卡宽 − 2（${j8.cardW - 2}px）——卡内子项还停在 fit-content`);
+    }
+
+    /* —— J5a 焦点环：色必须是墨色 --live-fg、偏移必须 +2px（环移到卡外）——
+       规范 P0-3：环移到卡外后落在**卡底灯池**上，旧色 --live-accent 对灯池只有 2.27:1
+       （对干净页面才有 3.84:1），环会沉进光池；换 --live-fg 后 10.3:1。
+       红法：把 outline-color 改回 var(--live-accent) / offset 改回 -2px。
+       （只断言样式取值；灯池上的实测对比度是规范侧取样，J5 全量核算未脚本化，见 docs/15 §3.2。） */
+    const j5a = await evalJs(`(() => {
+      const c = document.querySelectorAll(".cs-tapes .cs-tape")[2];
+      if (!c) return null;
+      c.focus();
+      const cs = getComputedStyle(c);
+      const out = {
+        fv: c.matches(":focus-visible"),
+        color: cs.outlineColor,
+        offset: cs.outlineOffset,
+        width: cs.outlineWidth,
+        fg: getComputedStyle(document.documentElement).getPropertyValue("--live-fg").trim(),
+      };
+      c.blur();
+      return out;
+    })()`);
+    if (!j5a) throw new Error("J5a：第 3 张卡不在");
+    console.log(`J5a 焦点环：:focus-visible=${j5a.fv} · outline ${j5a.width} ${j5a.color} / offset ${j5a.offset}`);
+    if (j5a.fv) {
+      if (j5a.color !== "rgb(23, 48, 44)") {
+        red(`J5a 红：焦点环色 ${j5a.color}（应 --live-fg rgb(23,48,44)，旧值 accent 对灯池只有 2.27:1）`);
+      }
+      if (j5a.offset !== "2px") red(`J5a 红：焦点环 offset ${j5a.offset}（应 2px，-2px 会压在封面照片上）`);
+    } else {
+      console.log("J5a：程序化 focus 没命中 :focus-visible（不算键盘交互），跳过着色断言——不是绿，是没测");
+    }
+
+    /* —— J9 玻璃活着（唯一需要读像素的一条）——
+       在 .cs-tapes 的 z-index:0 层塞一块 4px 黑白竖条纹板（插在 li 之前，DOM 序在卡下面），
+       并把信息带整行 visibility:hidden（否则扫到的是字，不是条纹——第一版判据就栽在这）。
+       backdrop-filter 生效 → 条纹被 blur(4px) 糊平（残留 7–13）；失效 → 只剩 .62 白膜（残留 93–95）。
+       判据：残留 ≤20 为绿；同时现场关掉 backdrop-filter 作为对照，必须 ≥90（证明这条真的在测玻璃）。
+       红法：任选 J2 的红法（祖先 animation 改 both / 祖先 opacity<1）。
+       注意：必须在入场结束后测（≤800ms 时卡还在 opacity 里，玻璃本来就不该在）。
+
+       ⚠ 注入方式必须走 CSSOM：本页 CSP 是 `style-src 'self'`（无 unsafe-inline），
+       `<style>` 元素与 style 属性标记都会被**静默拒绝**——第一版就是这么假绿的：
+       文字没藏住，扫到的 123 全是"04:12"的字，而"关掉 backdrop"的对照也没真关。
+       所以下面每一步都回读一次确认注入生效，注入失败直接报红，不许测到别的东西。 */
+    await sleep(900);
+    const injected = await evalJs(`(() => {
+      const ol = document.querySelector(".cs-tapes");
+      if (!ol) return { ok: false, why: ".cs-tapes 不在" };
+      const board = document.createElement("div");
+      board.id = "probeStripes";
+      board.style.cssText = "position:absolute;z-index:0;inset:0;pointer-events:none;" +
+        "background:repeating-linear-gradient(to right,rgb(0 0 0) 0 4px,rgb(255 255 255) 4px 8px)";
+      ol.insertBefore(board, ol.firstElementChild);
+      /* 藏整条信息带（含播放圆片）：圆片是不透明的实体钮，不是玻璃，留在扫描行里会污染残留 */
+      const texts = [...document.querySelectorAll(".cs-tape-no,.cs-tape-title,.cs-tape-artist,.cs-tape-foot")];
+      for (const el of texts) el.style.visibility = "hidden";
+      /* 回读：两件事都真的发生了才算注入成功 */
+      const bg = getComputedStyle(board).backgroundImage;
+      const vis = texts.length ? getComputedStyle(texts[0]).visibility : "missing";
+      return { ok: true, n: texts.length, striped: /repeating-linear-gradient/.test(bg), vis, boardPos: getComputedStyle(board).position };
+    })()`);
+    if (!injected.ok) throw new Error(`J9：${injected.why}`);
+    console.log(`J9 注入：条纹板 ${injected.boardPos} 条纹=${injected.striped} · 藏字 ${injected.n} 处 visibility=${injected.vis}`);
+    if (!injected.striped) throw new Error("J9 红（判据自身失效）：条纹板背景没注入——CSP 拒了内联样式，扫到的不是条纹");
+    if (injected.vis !== "hidden") throw new Error("J9 红（判据自身失效）：信息带没藏住——扫到的会是字");
+
+    /* 卡底向上 40/60/90/110 各扫一行，取行内亮度峰峰值的最坏值（与 glass-probe 同一套取样）。 */
+    const stripeResidual = async () => {
+      const box = await evalJs(`(() => {
+        const ol = document.querySelector(".cs-tapes");
+        const cards = [...ol.querySelectorAll(".cs-tape")].map((c) => {
+          const r = c.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height };
+        });
+        const r = ol.getBoundingClientRect();
+        return { ol: { x: r.x, y: r.y, w: r.width, h: r.height }, cards };
+      })()`);
+      const img = await win.webContents.capturePage({
+        x: Math.round(box.ol.x),
+        y: Math.round(box.ol.y),
+        width: Math.round(box.ol.w),
+        height: Math.round(box.ol.h),
+      });
+      const bmp = img.toBitmap();
+      const scs = img.getScaleFactors();
+      const sc = scs && scs.length ? scs[0] : 1;
+      const size = img.getSize(sc);
+      if (bmp.length !== size.width * size.height * 4) {
+        throw new Error(`J9：位图尺寸对不上（${bmp.length} vs ${size.width}×${size.height}×4）`);
+      }
+      const px = (cx, cy) => {
+        const gx = Math.round((cx - box.ol.x) * sc);
+        const gy = Math.round((cy - box.ol.y) * sc);
+        if (gx < 0 || gy < 0 || gx >= size.width || gy >= size.height) return 255;
+        return bmp[(gy * size.width + gx) * 4 + 2]; // BGRA
+      };
+      return box.cards.map((c) => {
+        let worst = 0;
+        for (const dy of [40, 60, 90, 110]) {
+          const y = c.y + c.h - dy;
+          let mn = 255;
+          let mx = 0;
+          for (let x = c.x + 8; x < c.x + c.w - 8; x += 1) {
+            const v = px(x, y);
+            if (v < mn) mn = v;
+            if (v > mx) mx = v;
+          }
+          if (mx - mn > worst) worst = mx - mn;
+        }
+        return Math.round(worst * 10) / 10;
+      });
+    };
+
+    /* 快照失效的坑（实测抓到）：把条纹板插到 backdrop **后面**之后，Chromium 不会自动重拍
+       卡片的 backdrop 快照 —— 插完立刻抓帧，量出来是 81–150（比"没有玻璃"的 95 还高，
+       因为拿到的是板子与旧快照的混合帧）。必须显式推一次 style 失效再抓。
+       所以：读两遍（中间各推一次），两遍一致才认；不一致就是取样本身不可信 → 判据自身报红。 */
+    const nudgeBackdrop = () =>
+      evalJs(`(() => {
+        for (const c of document.querySelectorAll(".cs-tapes .cs-tape")) {
+          const v = getComputedStyle(c).backdropFilter;
+          c.style.backdropFilter = v;
+          c.style.webkitBackdropFilter = v;
+        }
+      })()`);
+    await nudgeBackdrop();
+    await sleep(300);
+    const stripesA = await stripeResidual();
+    await nudgeBackdrop();
+    await sleep(300);
+    const stripes = await stripeResidual();
+    console.log(`J9 取样两遍（第一遍/第二遍）：${JSON.stringify(stripesA)} / ${JSON.stringify(stripes)}`);
+    if (stripesA.some((v, i) => Math.abs(v - stripes[i]) > 8)) {
+      throw new Error(`J9 红（判据自身失效）：两遍取样不一致 ${JSON.stringify(stripesA)} vs ${JSON.stringify(stripes)}——帧没稳定，测不得`);
+    }
+
+    /* 诊断开关（LIVE_GLASS_DEBUG=1）：把各档 backdrop 的残留并列打出来，并 dump 一行的原始亮度。
+       它回答"这条判据到底在测什么"——纯 blur 档若也高，问题在判据/取样；
+       只有 lens 档高，问题才在位移图。 */
+    if (process.env.LIVE_GLASS_DEBUG === "1") {
+      const variants = [
+        ["as-is（lens+blur4+saturate）", null],
+        ["只 blur(4px)", "blur(4px)"],
+        ["blur(8px)", "blur(8px)"],
+        ["blur(16px)", "blur(16px)"],
+        ["none", "none"],
+      ];
+      for (const [label, val] of variants) {
+        await evalJs(`(() => {
+          for (const c of document.querySelectorAll(".cs-tapes .cs-tape")) {
+            if (${JSON.stringify(val)} === null) c.style.removeProperty("--lg-backdrop");
+            else c.style.setProperty("--lg-backdrop", ${JSON.stringify(val)});
+          }
+        })()`);
+        await sleep(300);
+        const r = await stripeResidual();
+        const row = await evalJs(`(() => {
+          const c = document.querySelector(".cs-tapes .cs-tape");
+          const b = c.getBoundingClientRect();
+          return { x: b.x, y: b.y, w: b.width, h: b.height };
+        })()`);
+        const img = await win.webContents.capturePage({
+          x: Math.round(row.x), y: Math.round(row.y + row.h - 60),
+          width: Math.round(row.w), height: 1,
+        });
+        const bmp = img.toBitmap();
+        const sc = (img.getScaleFactors() || [1])[0];
+        const size = img.getSize(sc);
+        const vals = [];
+        for (let i = 0; i < 40 && i < size.width; i += 1) vals.push(bmp[(0 * size.width + i) * 4 + 2]);
+        console.log(`J9 诊断[${label}]：残留 ${JSON.stringify(r)} · 行采样 ${vals.join(",")}`);
+      }
+      await evalJs(`(() => {
+        for (const c of document.querySelectorAll(".cs-tapes .cs-tape")) c.style.removeProperty("--lg-backdrop");
+      })()`);
+      await sleep(300);
+    }
+    /* 对照：内联关掉 backdrop-filter（CSSOM 必然赢过样式表），同一条扫描必须炸开 */
+    const offApplied = await evalJs(`(() => {
+      const cards = [...document.querySelectorAll(".cs-tapes .cs-tape")];
+      for (const c of cards) {
+        c.style.backdropFilter = "none";
+        c.style.webkitBackdropFilter = "none";
+      }
+      return cards.map((c) => getComputedStyle(c).backdropFilter);
+    })()`);
+    if (offApplied.some((v) => v !== "none")) {
+      throw new Error(`J9 红（判据自身失效）：对照组的 backdrop-filter 没关掉（${JSON.stringify(offApplied)}）`);
+    }
+    await sleep(350);
+    const stripesOff = await stripeResidual();
+    await evalJs(`(() => {
+      for (const c of document.querySelectorAll(".cs-tapes .cs-tape")) {
+        c.style.removeProperty("backdrop-filter");
+        c.style.removeProperty("-webkit-backdrop-filter");
+      }
+      for (const el of document.querySelectorAll(".cs-tape-no,.cs-tape-title,.cs-tape-artist,.cs-tape-foot")) {
+        el.style.removeProperty("visibility");
+      }
+      document.getElementById("probeStripes")?.remove();
+    })()`);
+    await sleep(250);
+    console.log(`J9 玻璃存活（条纹残留，≤20 绿 / 无 backdrop ≥90 红）：活 ${JSON.stringify(stripes)} · 关掉 ${JSON.stringify(stripesOff)}`);
+    const worstAlive = Math.max(...stripes);
+    const bestDead = Math.min(...stripesOff);
+    if (worstAlive > 20) {
+      red(`J9 红：入场结束后条纹残留 ${worstAlive}（>20）——玻璃没活（祖先 animation/opacity 中了一条）`);
+    }
+    if (bestDead < 90) {
+      red(`J9 红：关掉 backdrop-filter 后残留只有 ${bestDead}（<90）——对照没炸开，这条判据在测别的东西`);
+    }
+
+    /* —— J10 四列不裁剪（1024×700 最小视口）——
+       1024 五列时卡宽只剩 96.7px / 5 字，信息带占卡高 54.4%，且两行 481.7 > 网格可用 ≈383 会被裁。
+       判据：gridTemplateColumns 4 段、可见卡 = 4、卡底 + 84（出血）不越 .cs-feed 底线。
+       红法：把 LiveHome 的 slice(0, vp.cols) 改回 slice(0, 5)。 */
+    win.setContentSize(1024, 700);
+    let j10 = null;
+    for (let i = 0; i < 15; i++) {
+      await sleep(200);
+      j10 = await evalJs(`(() => {
+        const ol = document.querySelector(".cs-tapes");
+        const feed = document.querySelector(".cs-feed");
+        if (!ol || !feed) return null;
+        const cards = [...ol.querySelectorAll(".cs-tape")];
+        const tracks = getComputedStyle(ol).gridTemplateColumns.split(" ").filter(Boolean);
+        const olBox = ol.getBoundingClientRect();
+        const feedBox = feed.getBoundingClientRect();
+        return {
+          w: innerWidth, h: innerHeight,
+          tracks: tracks.length,
+          cardW: +(cards[0]?.getBoundingClientRect().width ?? 0).toFixed(2),
+          n: cards.length,
+          /* 可见 = 卡底仍在网格容器内（掉到第二行会被 .cs-feed{overflow:hidden} 切掉） */
+          visible: cards.filter((c) => c.getBoundingClientRect().bottom <= olBox.bottom + 1).length,
+          cardBottomRel: +(cards[0].getBoundingClientRect().bottom - feedBox.top).toFixed(2),
+          roomBelow: +(feedBox.height - (cards[0].getBoundingClientRect().bottom - feedBox.top)).toFixed(2),
+          bleed: 84,
+        };
+      })()`);
+      if (j10 && j10.w === 1024) break;
+    }
+    console.log(`J10 四列（1024×700）：${JSON.stringify(j10)}`);
+    if (j10.tracks !== 4) red(`J10 红：gridTemplateColumns ${j10.tracks} 段（应 4）——--lg-cols 断点没生效`);
+    if (j10.n !== 4) red(`J10 红：渲染了 ${j10.n} 张卡（应 4）——slice(0, cols) 没跟着 matchMedia 走`);
+    if (j10.visible !== 4) red(`J10 红：可见卡 ${j10.visible} 张（应 4）——有卡掉到第二行被裁`);
+    if (j10.roomBelow < j10.bleed) {
+      red(`J10 红：卡底距 .cs-feed 底线只剩 ${j10.roomBelow}px（< 出血 ${j10.bleed}）——光池被切`);
+    }
+    /* 最小视口帧留档（规范 §10 的 frame-final-1024 就是 1024×700，不是 1024×768） */
+    await shoot("live-home-1024x700.png");
+    win.setContentSize(1440, 900);
+    await sleep(400);
+
+    /* 五条绿 → 一次收工；有任何一条红 → 整段报红，把全部红点一次列清 */
+    if (glassFails.length) {
+      throw new Error(`液态玻璃判据报红 ${glassFails.length} 条：\n  - ${glassFails.join("\n  - ")}`);
+    }
+    console.log("液态玻璃判据：J1 J2 J3 J4 J5a J7 J8 J9 J10 全绿");
+
     /* 左栏跟着播放走：点播出带第 2 格 → 大字换成那一首，且换上来那一下封套与文案各播一次。
        旧实现把左栏锁死在 songs[0]，这条必红。 */
     const heroBefore = await evalJs(`document.querySelector(".cs-title")?.textContent ?? ""`);
