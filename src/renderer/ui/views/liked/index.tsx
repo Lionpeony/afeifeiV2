@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary } from "../../../domain/library/state.js";
@@ -22,6 +22,8 @@ export interface LikedViewProps {
   onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
   /** 取消账号红心；失败必须 reject，行才回得去 */
   onUnlike(sourceId: string, songId: string): Promise<void>;
+  /** 页头右侧的视角切换（「我的」并页后由宿主提供） */
+  tabs?: ReactNode;
 }
 
 const fmtTotal = (ms: number): string => {
@@ -35,7 +37,7 @@ const fmtTotal = (ms: number): string => {
  * 稿子上有「收讫来源 / 收讫日」两列——那要记录每颗红心是哪天从哪个页面按下的，
  * 现在的 likes 只存 id 集合，没有这段历史，所以不编：换成真实的专辑列 + 艺人分布。
  */
-export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: LikedViewProps) {
+export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike, tabs }: LikedViewProps) {
   const [, setRev] = useState(0);
   const [byAlbum, setByAlbum] = useState(false);
   const bump = (): void => setRev((r) => r + 1);
@@ -88,6 +90,7 @@ export function LikedView({ onPlayGroup, account, onPlayRemote, onUnlike }: Like
         title="喜欢的音乐"
         desc="上栏是当前账号的红心（与平台 App 同一份），下栏是本机曲库的红心——两套 id 不混在一起。"
         meta={`KEEPINGS · ${acct.songs.length + kept.length}`}
+        extra={tabs}
       />
 
       <AccountBlock

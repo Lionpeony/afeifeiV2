@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { getSessions, subscribe as subscribeLog } from "../../../domain/listening/log.js";
 import { fmtListening, summarize, type ListeningStats } from "../../../projection/stats.js";
 import { PageHead } from "../../PageHead.js";
@@ -12,7 +12,7 @@ import { PageHead } from "../../PageHead.js";
  *
  * 没有图表库：7 天柱 / 24 小时柱 / 排行条都是纯 CSS，颜色只取 tokens.css 的变量。
  */
-export function StatsView() {
+export function StatsView({ tabs }: { tabs?: ReactNode }) {
   const [stats, setStats] = useState<ListeningStats>(() => summarize(getSessions()));
   useEffect(() => subscribeLog(() => setStats(summarize(getSessions()))), []);
 
@@ -29,7 +29,7 @@ export function StatsView() {
 
   return (
     <section className="library stats-page">
-      <PageHead title="听歌报告" meta="LISTENING" />
+      <PageHead title="听歌报告" meta="LISTENING" extra={tabs} />
 
       {stats.plays === 0 ? (
         <div className="stats-empty" role="status">

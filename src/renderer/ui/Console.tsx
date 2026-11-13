@@ -63,7 +63,7 @@ export function Console(props: {
   sleepEndsAt: number | null;
   sleepWaitEnd: boolean;
   sleepPending: boolean;
-  /** 当前页（2026-11-12「同屏让位」）：首页/播放页已渲染当前曲大封面，底栏封面位让位只留文字 */
+  /** 当前页（2026-11-12「同屏让位」）：播放页已渲染当前曲大封面，底栏封面位让位只留文字 */
   page: PageId;
   /* 跨 footer 边界的开关与动作 */
   queueOpen: boolean;
@@ -126,9 +126,9 @@ export function Console(props: {
   const [coverFailed, setCoverFailed] = useState<string | null>(null);
   const showCover = npCover !== null && npCover !== coverFailed;
   /* 「同屏让位」（2026-11-12 评审，泛化不枚举业务页）：当前屏已有当前曲大封面
-     （首页 / 播放页）时，底栏封面位折叠只留文字；其余列表页保留封面。
+     （播放页）时，底栏封面位折叠只留文字；其余列表页保留封面。
      空态也按页面规则藏（确定性），不做"有图才藏"。 */
-  const artShown = page !== "home" && page !== "stage";
+  const artShown = page !== "stage";
   const footerRef = useRef<HTMLElement | null>(null);
 
   /* 「更多」弹层：Esc 走面板栈（最上层语义统一交给 keyboard.ts），
@@ -157,7 +157,7 @@ export function Console(props: {
       : `更多 · 播放速度 ${playbackRate.toFixed(2)}x`;
 
   return (
-    <footer className="console" data-playing={playing} ref={footerRef}>
+    <footer className="console" data-playing={playing} data-page={page} ref={footerRef}>
       {/* 监听区：正在播放 + 红心。整块可点跳播放页；红心是对"这一首"的表态，跟曲目走 */}
       <div className="np-zone">
         <button type="button" className="np" onClick={() => setPage("stage")} title="打开播放页">
@@ -165,7 +165,7 @@ export function Console(props: {
               拿不到 referrer 策略，网易云图床一律 403，底色又是近白 —— 白底上等于没有封面
               （2026-11-12 用户截图实锤：底栏左侧一片空白只剩两行字）。
               onError 退到 .blank 的黑胶盘纹，任何情况下都不留白框。
-              首页/播放页大封面同屏（2026-11-12「同屏让位」）：封面位折叠（np-fold），
+              播放页大封面同屏（2026-11-12「同屏让位」）：封面位折叠（np-fold），
               DOM 保留 —— img 一直是同一个节点，折进去只是几何让位。 */}
           <span className={`np-art-wrap${artShown ? "" : " np-fold"}`}>
             {showCover ? (
@@ -548,7 +548,6 @@ export function Console(props: {
           桌面歌词
         </button>
       </div>
-      <span className="stamp">入场券 · ADMIT ONE</span>
     </footer>
   );
 }

@@ -32,9 +32,9 @@ let tokenLoad: Promise<string> | null = null;
 
 /**
  * KV 是异步的（fs/promises），这里必须 await。
- * **并发安全**：启动时首页与站尺会同时问登录态，共享同一个 Promise；
+ * **并发安全**：启动时边栏账号区与发现页会同时问登录态，共享同一个 Promise；
  * 首个调用置 tokenLoaded 前先 await，后来者若直接返回按旧实现会拿到空串，
- * 于是以匿名身份请求 /login/status —— 首页就显示成「未登录」。
+ * 于是以匿名身份请求 /login/status —— 界面就显示成「未登录」。
  */
 function loadToken(): Promise<string> {
   if (tokenLoaded) return Promise.resolve(qqToken);

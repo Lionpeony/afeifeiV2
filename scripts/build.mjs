@@ -56,7 +56,6 @@ if (TEST) {
       "listening-log": "src/renderer/domain/listening/log.ts",
       "listening-stats": "src/renderer/projection/stats.ts",
       "ui-theme": "src/renderer/ui/theme.ts",
-      "on-air": "src/renderer/ui/live/on-air.ts",
       "global-theme": "src/renderer/ui/global-theme.ts",
       "active-source": "src/renderer/ui/active-source.ts",
       recommend: "src/renderer/domain/recommend/index.ts",
@@ -216,7 +215,6 @@ const css = [
   "src/renderer/ui/views/stage/stage-panels.css",
   "src/renderer/ui/live/live.css",
   "src/renderer/ui/live/night-signal.css",
-  "src/renderer/ui/live/cover-stage.css",
   "src/renderer/ui/views/redesign.css",
   "src/renderer/ui/fx/fx.css",
 ]

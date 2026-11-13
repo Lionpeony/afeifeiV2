@@ -73,7 +73,7 @@ export function RadioView({ onPlayGroup, now, embedded = false }: RadioViewProps
       key: "daily",
       tag: "02",
       name: "今日推荐",
-      note: "和首页同一份 30 首",
+      note: "红心、常听、新入库混排的 30 首",
       tracks: dailyPicks({ tracks, liked, recent, seed }),
     },
     {

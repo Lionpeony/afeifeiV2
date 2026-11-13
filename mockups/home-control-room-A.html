@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>Afeifei · 控制室深化稿 A · 1440×900</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0b0f0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    min-height:100vh;padding:24px 0;
+    font-family:"Microsoft YaHei UI","微软雅黑","Segoe UI",sans-serif;color:#17302c}
+  .win{width:1440px;height:900px;flex:none;background:#fafbfb;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:0 60px 120px -30px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08)}
+  /* 站尺 */
+  .ruler{height:56px;flex:none;display:flex;align-items:center;gap:26px;padding:0 22px 0 18px;
+    border-bottom:1px solid rgba(23,48,44,.34);background:#fafbfb}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
+    font-size:13px;font-weight:700;letter-spacing:.18em}
+  .dot{width:6px;height:6px;border-radius:50%;background:#0e8f82;box-shadow:0 0 8px #0e8f82}
+  .ticks{flex:1;display:flex;justify-content:space-between;color:#5d7c75;font-size:11.5px;letter-spacing:.1em}
+  .ticks b{color:#0e8f82;font-weight:600}
+  .clock{font-family:"Cascadia Mono",Consolas,monospace;font-size:11px;color:#5d7c75;letter-spacing:.08em}
+  /* 主区 */
+  .body{flex:1;display:grid;grid-template-columns:40% minmax(0,1fr);min-height:0}
+  /* 左：暗房舞台 */
+  .stage{background:radial-gradient(115% 88% at 34% 8%,rgba(46,201,167,.28),transparent 72%),#0c1514;
+    color:#dcebe6;padding:26px 28px 22px;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .kicker{display:flex;align-items:center;gap:8px;font-size:12px;color:#7fa39a;letter-spacing:.02em;margin-bottom:12px}
+  .kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:#2ec9a7;box-shadow:0 0 8px #2ec9a7}
+  /* 封面：本地渐变（零网络请求），暗房里的一张"夜航"抽象封面 */
+  .cover{width:100%;aspect-ratio:1/1;max-height:400px;border-radius:18px;flex:none;
+    outline:1px solid rgba(220,235,230,.26);outline-offset:-1px;
+    background:
+      radial-gradient(90% 70% at 70% 20%,rgba(46,201,167,.55),transparent 60%),
+      radial-gradient(45% 45% at 30% 75%,rgba(127,201,216,.35),transparent 65%),
+      radial-gradient(circle at 68% 62%,rgba(220,235,230,.9) 0 3px,transparent 4px),
+      radial-gradient(circle at 68% 62%,transparent 0 26px,rgba(220,235,230,.22) 26px 27px,transparent 28px),
+      radial-gradient(circle at 68% 62%,transparent 0 44px,rgba(220,235,230,.14) 44px 45px,transparent 46px),
+      linear-gradient(135deg,#16423c,#0c1514 65%);
+    box-shadow:0 26px 60px -24px rgba(0,0,0,.7),0 8px 20px -10px rgba(0,0,0,.5)}
+  .title{font-size:40px;line-height:1.06;font-weight:700;margin-top:18px;letter-spacing:.005em}
+  .artist{margin-top:8px;display:flex;gap:10px;align-items:baseline}
+  .artist b{color:#2ec9a7;font-size:15px}
+  .artist span{color:#7fa39a;font-size:13px;font-family:"Cascadia Mono",monospace}
+  .note{margin-top:10px;font-size:13.5px;line-height:1.7;color:rgba(220,235,230,.76);max-width:34em}
+  .note2{display:block;font-size:12px;color:#54706a;margin-top:2px}
+  .cta-row{display:flex;gap:10px;margin-top:auto;padding-top:18px}
+  .btn-play{background:#2ec9a7;color:#0c1514;border:none;border-radius:16px;padding:10px 26px;font-weight:700;font-size:13px;cursor:pointer}
+  .btn-ghost{background:none;border:1px solid rgba(220,235,230,.26);color:#dcebe6;border-radius:16px;padding:10px 20px;font-size:13px;cursor:pointer}
+  /* 右：瓷白待播 */
+  .feed{padding:22px 26px 16px;display:flex;flex-direction:column;min-width:0;min-height:0;background:
+    radial-gradient(130% 120% at 14% 0%,rgba(46,201,167,.10),transparent 62%),#fafbfb}
+  .feed-head{display:flex;align-items:baseline;gap:8px}
+  .feed-head .k{font-size:12px;font-weight:600;color:#0d857a}
+  .feed-head .m{font-size:13px;color:#4c6a64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .feed-head .m b{color:#17302c}
+  .refresh{margin-left:auto;flex:none;border:1px solid rgba(23,48,44,.08);background:linear-gradient(to bottom,#fff,#f3f7f6);
+    border-radius:15px;padding:6px 14px;font-size:12px;color:#4c6a64}
+  .strip{display:flex;align-items:baseline;gap:10px;margin:14px 0 10px}
+  .strip h2{font-size:19px}
+  .strip span{font-size:12px;color:#5d7c75}
+  .strip a{margin-left:auto;font-size:12px;color:#4c6a64;text-decoration:none}
+  /* 待播带占满剩余高度，把频谱压到底（与真实 LiveHome 一致） */
+  .tapes{flex:1 1 auto;align-content:start;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-height:0}
+  .tape{position:relative;align-self:start;border:1px solid rgba(255,255,255,.7);border-radius:14px;overflow:hidden;background:
+    linear-gradient(rgba(14,143,130,.05),rgba(14,143,130,.05)),linear-gradient(rgba(246,250,249,.62),rgba(246,250,249,.62));
+    box-shadow:0 10px 24px -12px rgba(23,48,44,.26);padding-bottom:10px}
+  .art{width:100%;aspect-ratio:1/1;display:block}
+  .a1{background:radial-gradient(80% 60% at 70% 25%,rgba(46,201,167,.6),transparent 60%),linear-gradient(135deg,#1d5a52,#0e2a27 70%)}
+  .a2{background:radial-gradient(80% 60% at 30% 20%,rgba(127,201,216,.55),transparent 60%),linear-gradient(135deg,#274b5e,#101d24 70%)}
+  .a3{background:radial-gradient(80% 60% at 65% 70%,rgba(46,201,167,.45),transparent 60%),linear-gradient(135deg,#3f5a34,#141b10 70%)}
+  .a4{background:radial-gradient(80% 60% at 35% 30%,rgba(224,112,58,.5),transparent 60%),linear-gradient(135deg,#5e2b3a,#1d1015 70%)}
+  .no{position:absolute;left:8px;top:8px;font-size:11px;border:1px solid rgba(23,48,44,.14);border-radius:7px;
+    padding:0 6px;color:#5d7c75;background:rgba(255,255,255,.6)}
+  .tt{margin:8px 12px 0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ta{margin:2px 12px 0;font-size:12px;color:#4c6a64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tf{margin:7px 12px 0;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#4c6a64}
+  .play{width:26px;height:26px;border-radius:50%;background:#fff;display:grid;place-items:center;
+    box-shadow:0 1px 2px rgba(23,48,44,.1);font-size:11px}
+  .tape.on{outline:2px solid #17302c;outline-offset:2px}
+  .vu{display:flex;gap:3px;align-items:flex-end;height:36px;margin-top:14px}
+  .vu i{flex:1;background:linear-gradient(180deg,rgba(63,122,150,.92),rgba(63,122,150,.38));border-radius:2px 2px 0 0;opacity:.65}
+  .sig{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#5d7c75;letter-spacing:.04em}
+  /* 控制台 */
+  .console{height:104px;flex:none;border-top:1px solid rgba(23,48,44,.34);background:#fff;
+    display:grid;grid-template-columns:280px 1fr 280px;align-items:center;gap:20px;padding:0 22px}
+  .np{display:flex;gap:12px;align-items:center;min-width:0}
+  .np-art{width:56px;height:56px;flex:none;border-radius:10px;
+    background:radial-gradient(80% 60% at 70% 25%,rgba(46,201,167,.6),transparent 60%),linear-gradient(135deg,#16423c,#0c1514 70%)}
+  .np b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .np span{font-size:11px;color:#5d7c75}
+  .prog{display:flex;flex-direction:column;gap:8px}
+  .bar{height:4px;border-radius:2px;background:rgba(23,48,44,.12);position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:38%;background:#0e8f82;border-radius:2px}
+  .times{display:flex;justify-content:space-between;font-family:"Cascadia Mono",monospace;font-size:11px;color:#5d7c75}
+  .keys{display:flex;gap:10px;align-items:center;justify-content:flex-end}
+  .key{width:40px;height:40px;border-radius:50%;border:1px solid rgba(23,48,44,.14);background:#fff;display:grid;place-items:center;cursor:pointer}
+  .key.main{width:52px;height:52px;background:#0e8f82;color:#f4faf8;border:none;font-size:18px}
+  .cap{font-size:10px;color:#8aa19b;text-align:center;letter-spacing:.06em;max-width:1440px;padding:0 20px}
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="ruler"><div class="brand"><span class="dot"></span><span>AFEIFEI</span></div>
+    <div class="ticks"><b>首页 · HOME</b><span>直播</span><span>本地</span><span>榜单</span><span>歌单</span><span>下载</span><span>统计</span><span>设置</span></div>
+    <div class="clock">◐ 日间 · 1440 × 900 · 控制室 A</div></div>
+  <div class="body">
+    <div class="stage">
+      <div class="kicker">正在播放 <span style="color:#54706a">· 第 04 / 20 首</span></div>
+      <div class="cover" role="img" aria-label="夜航西飞封面"></div>
+      <div class="title">夜航西飞 · Red-Eye Romance</div>
+      <div class="artist"><b>陈婧霏</b><span>04:12 · 今日推荐</span></div>
+      <p class="note">队列还剩 16 首 · 约 58 分钟<span class="note2">来自 每日推荐 · 每天 06:00 换新</span></p>
+      <div class="cta-row"><button class="btn-play">▶ 播放 / 暂停</button><button class="btn-ghost">下一首 →</button></div>
+    </div>
+    <div class="feed">
+      <div class="feed-head"><span class="k">每日推荐</span><span class="m">陈婧霏 · 每天 <b>06:00</b> 换新 · 共 <b>20</b> 首</span><span class="refresh">⟳ 刷新</span></div>
+      <div class="strip"><h2>接下来播放</h2><span>剩 16 首 · 顺序播放</span><a href="#">完整列表 ›</a></div>
+      <div class="tapes">
+        <div class="tape on"><span class="art a1"></span><span class="no">05</span><div class="tt">霓屿 Neon Isle</div><div class="ta">棱镜旅人</div><div class="tf"><span>03:48</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a2"></span><span class="no">06</span><div class="tt">雾港说明书</div><div class="ta">白昼信箱</div><div class="tf"><span>04:02</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a3"></span><span class="no">07</span><div class="tt">Slow Satellite</div><div class="ta">Night Parrot</div><div class="tf"><span>03:33</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a4"></span><span class="no">08</span><div class="tt">珊瑚热线 24H</div><div class="ta">海底电台</div><div class="tf"><span>03:33</span><span class="play">▶</span></div></div>
+      </div>
+      <div class="vu" id="vu"></div>
+      <div class="sig"><span>● 实时频谱 · 40 柱真采样</span><span>04 / 20 · LOOP ALL</span></div>
+    </div>
+  </div>
+  <div class="console">
+    <div class="np"><span class="np-art"></span><div><b>夜航西飞 · Red-Eye Romance</b><span>陈婧霏 — 每日推荐</span></div></div>
+    <div class="prog"><div class="bar"><i></i></div><div class="times"><span>01:37</span><span>04:12 · -02:35</span></div></div>
+    <div class="keys"><div class="key">⏮</div><div class="key main">⏸</div><div class="key">⏭</div></div>
+  </div>
+</div>
+<div class="cap">Afeifei 控制室深化稿 A · 左暗房舞台 / 右瓷白待播 · 青瓷唯一强调 · 1440×900 全屏看</div>
+<script>
+  const vu=document.getElementById('vu');
+  const N=48, bars=[];
+  for(let i=0;i<N;i++){const b=document.createElement('i');vu.appendChild(b);bars.push(b);}
+  const h=[22,34,52,40,64,78,55,88,70,48,90,62,74,38,58,82,66,44,72,50,84,60,46,76,68,54,80,42,70,58,88,64,48,74,56,84,62,40,68,52,78,60,44,72,56,66,48,36];
+  bars.forEach((b,i)=>{const v=h[i%h.length]/100*36;b.style.height=v.toFixed(1)+'px';});
+  setInterval(()=>{bars.forEach((b,i)=>{const j=(i+Date.now()/280|0)%h.length;const v=(h[j]*0.72+Math.random()*10)/100*36;b.style.height=v.toFixed(1)+'px';});},280);
+</script>
+</body>
+</html>

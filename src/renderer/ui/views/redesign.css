@@ -844,3 +844,462 @@
   letter-spacing: 0.12em;
   padding: 3px 10px;
 }
+
+/* ============================================================================
+   发现页（2026-11-13 重设计）：每日推荐 hero + 榜单卡带 + 搜索结果
+   一页三段，没有页内 tab。主次：hero 独占第一屏，榜单是第二个记忆点，
+   搜索是顶栏驱动的任务态（有关键词时整页只留结果）。
+   沿用「电台的印刷品」语言：朱砂渐染、描边巨号、mono 刊注、发丝线。
+   ============================================================================ */
+
+.shell.live .live-room .discover .page-head {
+  position: relative;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 4px 0 16px;
+  border-bottom: none;
+  margin-bottom: 4px;
+}
+
+.shell.live .live-room .discover .page-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  background: repeating-linear-gradient(90deg, var(--live-line-strong) 0 1px, transparent 1px 22px);
+  -webkit-mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.9), rgb(0 0 0 / 0.25) 60%, transparent);
+  mask-image: linear-gradient(90deg, rgb(0 0 0 / 0.9), rgb(0 0 0 / 0.25) 60%, transparent);
+  pointer-events: none;
+}
+
+.shell.live .live-room .discover .page-head::before {
+  width: 3px;
+  height: 30px;
+  align-self: flex-start;
+  margin-top: 3px;
+  background: linear-gradient(180deg, var(--live-accent), color-mix(in srgb, var(--live-accent) 30%, transparent));
+}
+
+.shell.live .live-room .discover .page-head h1 {
+  font-family: var(--font-disp);
+  font-size: 34px;
+  font-weight: 250;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .discover .page-head h1 em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+.shell.live .live-room .discover .page-head .page-meta {
+  align-self: flex-end;
+  padding-bottom: 5px;
+  letter-spacing: 0.24em;
+  color: var(--live-fg-dim);
+}
+
+/* 整页滚动：hero 与榜单加起来高于一屏，滚动交给这一层，
+   页头与音源行保持钉在上方（它们是常驻工具，不跟着滚走） */
+.shell.live .live-room .disc-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 2px 6px 20px 0;
+}
+
+/* ---------- 每日推荐：整页主视觉 ---------- */
+
+.shell.live .live-room .disc-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr);
+  gap: 30px;
+  padding: 22px 30px 22px 24px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--live-line));
+  border-left: 4px solid var(--accent);
+  background:
+    linear-gradient(118deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--live-fg) 4%, transparent), transparent 72%);
+}
+
+/* 每日推荐封面：外实框 + 内退 10px 的朱砂细框（画中画），
+   套印的层次感，不用投影也不用负层级 */
+.shell.live .live-room .disc-hero-cover {
+  position: relative;
+  z-index: 1;
+  width: 228px;
+  height: 228px;
+  overflow: hidden;
+  border: 1px solid var(--live-line);
+  background: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
+}
+
+.shell.live .live-room .disc-hero-cover::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  z-index: 1;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  pointer-events: none;
+}
+
+.shell.live .live-room .disc-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: saturate(0.94) contrast(1.04);
+}
+
+/* 没有封面（未登录 / 加载中）时不装假图：斜纹纸面 + 中心一枚朱砂方印 */
+.shell.live .live-room .disc-hero-cover i {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--live-fg) 6%, transparent) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+.shell.live .live-room .disc-hero-cover i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  translate: -50% -50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+.shell.live .live-room .disc-hero-tx {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-right: 168px;
+}
+
+.shell.live .live-room .disc-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.34em;
+  color: var(--accent);
+}
+
+.shell.live .live-room .disc-kicker::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 10px;
+  background: var(--accent);
+}
+
+/* 今日日期：右上的描边巨号。不是水印——它是「每日」这件事的实体，
+   和榜单冠军位的描边名次是同一种语法 */
+.shell.live .live-room .disc-stamp {
+  position: absolute;
+  right: 0;
+  top: -18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.shell.live .live-room .disc-stamp b {
+  font-family: var(--font-mono);
+  font-size: clamp(84px, 9vh, 128px);
+  font-weight: 700;
+  line-height: 0.86;
+  letter-spacing: -0.06em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.shell.live .live-room .disc-stamp span {
+  padding-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.2em;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .live-room .disc-hero-tx h2 {
+  margin: 0;
+  font-family: var(--font-disp);
+  font-size: clamp(30px, 4.4vh, 44px);
+  font-weight: 250;
+  letter-spacing: 0.06em;
+  line-height: 1.05;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .disc-sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--live-fg-dim);
+}
+
+.shell.live .live-room .disc-sub.err {
+  color: var(--danger);
+}
+
+.shell.live .live-room .disc-sub.err .link {
+  margin-left: 10px;
+  color: var(--danger);
+}
+
+.shell.live .live-room .disc-acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.shell.live .live-room .disc-acts button {
+  height: 34px;
+  padding: 0 18px;
+  border: 1px solid var(--live-line);
+  border-radius: 0;
+  background: none;
+  color: var(--live-fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.shell.live .live-room .disc-acts button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.shell.live .live-room .disc-acts button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: rgb(255 255 255 / 0.96);
+  letter-spacing: 0.24em;
+}
+
+.shell.live .live-room .disc-acts button.primary:hover {
+  filter: brightness(1.07);
+  color: rgb(255 255 255 / 0.96);
+}
+
+.shell.live .live-room .disc-acts button:disabled {
+  color: var(--live-fg-faint);
+  border-color: var(--live-line-soft);
+  cursor: default;
+}
+
+/* 预览：前 5 首。行高压到 28px——它是 hero 的注脚，不是列表页 */
+.shell.live .live-room .disc-preview {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-width: 640px;
+}
+
+.shell.live .live-room .disc-preview li {
+  border-bottom: 1px solid var(--live-line-soft);
+}
+
+.shell.live .live-room .disc-preview button {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto 42px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 28px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--live-fg);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.shell.live .live-room .disc-preview button:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.shell.live .live-room .disc-preview .no {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .live-room .disc-preview b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.shell.live .live-room .disc-preview .ar {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  font-size: 11.5px;
+  color: var(--live-fg-dim);
+}
+
+.shell.live .live-room .disc-preview .du {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--live-fg-faint);
+  text-align: right;
+}
+
+/* 未登录 / 无账号：hero 降为「订阅位」，朱砂让位给灰，不与真数据抢主次 */
+.shell.live .live-room .disc-daily.locked .disc-hero {
+  border-left-color: var(--live-line-strong);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--live-fg) 3%, transparent), transparent 72%);
+}
+
+.shell.live .live-room .disc-daily.locked .disc-kicker {
+  color: var(--live-fg-dim);
+}
+
+.shell.live .live-room .disc-daily.locked .disc-kicker::before {
+  background: var(--live-fg-faint);
+}
+
+.shell.live .live-room .disc-daily.locked .disc-stamp b {
+  -webkit-text-stroke-color: color-mix(in srgb, var(--live-fg) 14%, transparent);
+}
+
+/* ---------- 榜单：区标题 + 封面卡带 ---------- */
+
+.shell.live .live-room .disc-sect {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--live-line-strong);
+  margin-bottom: 12px;
+}
+
+.shell.live .live-room .disc-sect b {
+  font-family: var(--font-disp);
+  font-size: 21px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .disc-sect .mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  color: var(--live-fg-faint);
+}
+
+.shell.live .live-room .disc-sect i {
+  flex: 1;
+  height: 1px;
+  background: var(--live-line-soft);
+}
+
+.shell.live .live-room .disc-strip {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 13px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.shell.live .live-room .disc-card {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 132px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.shell.live .live-room .disc-card-cover {
+  width: 132px;
+  height: 132px;
+  border: 1px solid var(--live-line);
+  background-color: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1), border-color 0.2s ease, filter 0.2s ease;
+  filter: saturate(0.9);
+}
+
+.shell.live .live-room .disc-card:hover .disc-card-cover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--live-line));
+  filter: saturate(1.05);
+}
+
+.shell.live .live-room .disc-card.on .disc-card-cover {
+  border-color: var(--accent);
+  box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--accent) 55%, transparent);
+  filter: saturate(1.1);
+}
+
+.shell.live .live-room .disc-card-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--live-fg);
+}
+
+.shell.live .live-room .disc-card.on .disc-card-name {
+  color: var(--accent);
+}
+
+.shell.live .live-room .disc-card-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--live-fg-faint);
+}
+
+/* 下钻区：与卡带之间留一道呼吸，冠军位自己带左轨 */
+.shell.live .live-room .disc-board {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* 搜索结果：任务态，与发现态之间不共享留白 */
+.shell.live .live-room .disc-found {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}

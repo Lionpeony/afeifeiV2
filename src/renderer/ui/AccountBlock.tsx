@@ -5,7 +5,7 @@ import type { AccountState } from "./account-data.js";
 import { RefreshButton } from "./RefreshButton.js";
 
 /**
- * 账号数据区块（喜欢的音乐 / 最近播放 / 首页之外的复用块）。
+ * 账号数据区块（喜欢的音乐 / 最近播放 / 各页复用块）。
  *
  * 只做显示，不自己拉数据：数据由 `useAccountBundle` 给，这样三个页面共用同一种
  * 加载中 / 未登录 / 出错 / 空 四种状态的表现，不会各写一套文案。

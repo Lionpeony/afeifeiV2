@@ -6,7 +6,7 @@
  * stage.tone（外壳经 :has 跟着翻纸），再把全局主题同步成同一个值。
  *
  * 本脚本复刻 page-shots 的最小 IPC 桩，走真 UI：
- * 首页 → 点 .np 进播放页 → 点 .theme-toggle → 断言 .stage data-tone 与
+ * 在线页 → 点 .np 进播放页 → 点 .theme-toggle → 断言 .stage data-tone 与
  * html[data-theme] 一起翻 → 截前后两张图。
  *
  * 跑法：先 node scripts/build.mjs，再 npx electron scripts/tone-toggle-check.mjs
@@ -127,7 +127,7 @@ app.whenReady().then(async () => {
     );
   const clickMoon = () =>
     win.webContents.executeJavaScript(
-      `(() => { const b = document.querySelector(".ruler .theme-toggle"); if (!b) return false; b.click(); return true; })()`,
+      `(() => { const b = document.querySelector(".side .theme-toggle"); if (!b) return false; b.click(); return true; })()`,
       true,
     );
 

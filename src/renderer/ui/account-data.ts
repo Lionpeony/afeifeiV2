@@ -49,7 +49,7 @@ const invalidationListeners = new Set<InvalidationListener>();
  * 账号数据失效（登录成功 / 登出）：清缓存层 **并** 通知挂载中的 hook 立即重拉。
  * 只调 invalidatePrefix 不够——它只动缓存，组件 state 还握着旧数据，
  * 而 key（sourceId+kind）没变、effect 早退在缓存命中上：这就是
- * 「同源登录后首页歌单不换」的根因（2026-11-09 用户实测）。
+ * 「同源登录后歌单不换」的根因（2026-11-09 用户实测）。
  */
 export function invalidateAccountData(prefix: string): void {
   invalidatePrefix(prefix);

@@ -46,7 +46,7 @@ test("0–9 只在播放页 = 跳到 0%–90%", () => {
 });
 
 test("0–9 在别的页面不接（数字要留给搜索框和列表）", () => {
-  for (const page of ["local", "online", "home", "settings"]) {
+  for (const page of ["local", "online", "mine", "settings"]) {
     assert.equal(resolveKey(key("5"), page), null);
   }
 });

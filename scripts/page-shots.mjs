@@ -43,15 +43,11 @@ const TRACKS = [
 }));
 
 const PAGES = [
-  ["本地", "local"],
-  ["在线", "online"],
-  ["首页", "home"],
-  // 「电台」tick 已于站尺重构移除（StationRuler.TICKS 无 radio）——保留会在这里崩断整条截图链
+  ["发现", "online"],
   ["漫游", "roam"],
-  ["喜欢的音乐", "liked"],
-  ["最近播放", "recent"],
-  ["听歌报告", "stats"],
-  // 「下载」tick 同样已移除（2026-11-10 实测 click:false）——保留会让整条链 throw 后挂死
+  ["本地", "local"],
+  // 并页（2026-11-13）：喜欢/最近/统计 收进「我的」，页内再切视角（截图见下方 stats 段）
+  ["我的", "mine"],
   ["设置", "settings"],
 ];
 
@@ -221,7 +217,7 @@ app.whenReady().then(async () => {
   for (const [label, id] of PAGES) {
     const ok = await win.webContents.executeJavaScript(
       `(() => {
-        const b = document.querySelector('.ruler-tick[data-page="${id}"]');
+        const b = document.querySelector('.side-item[data-page="${id}"]');
         if (!b) return false;
         b.click();
         return true;
@@ -310,9 +306,21 @@ app.whenReady().then(async () => {
   );
   await sleep(200);
 
-  // 听歌报告（B-12）：账本在启动前注入，四个数字卡 + 7 根柱要有内容
+  // 听歌报告（B-12）：账本在启动前注入，四个数字卡 + 7 根柱要有内容。
+  // 并页后它不是一级入口：进「我的」再点页头「统计」。
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="stats"]')?.click()`,
+    `document.querySelector('.side-item[data-page="mine"]')?.click()`,
+    true,
+  );
+  await sleep(300);
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".lib-tabs button")].find((b) => b.textContent === "最近")?.click()`,
+    true,
+  );
+  await sleep(300);
+  await shoot(`page-mine-recent${suffix}.png`);
+  await win.webContents.executeJavaScript(
+    `[...document.querySelectorAll(".lib-tabs button")].find((b) => b.textContent === "统计")?.click()`,
     true,
   );
   await sleep(300);
@@ -329,10 +337,11 @@ app.whenReady().then(async () => {
   if (stats.cards !== 4 || stats.bars !== 7 || stats.hours !== 24 || stats.ranks === 0) {
     throw new Error(`听歌报告没渲染：${JSON.stringify(stats)}`);
   }
+  await shoot(`page-mine-stats${suffix}.png`);
 
   // 不喜欢（B-11）：漫游抽一张 → 点少推 → 名单落盘 → 设置页清单出现
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="roam"]')?.click()`,
+    `document.querySelector('.side-item[data-page="roam"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -364,7 +373,7 @@ app.whenReady().then(async () => {
   }
   await shoot(`page-roam-dislike${suffix}.png`);
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="settings"]')?.click()`,
+    `document.querySelector('.side-item[data-page="settings"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -378,7 +387,7 @@ app.whenReady().then(async () => {
   // 齐装满员的样子 = 左栏 8 个榜 + 冠军位 1 张 + 2/3 名双卡 + 跑马灯在滚。
   // 注意别插在 PAGES 循环后面：设置页的专项步骤依赖循环最后停在「设置」。
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="online"]')?.click()`,
+    `document.querySelector('.side-item[data-page="online"]')?.click()`,
     true,
   );
   await sleep(900);
@@ -419,7 +428,7 @@ app.whenReady().then(async () => {
 
   // 歌单页（M11）：账号歌单 → 一键收藏 → 粘链接导入 → 点开取曲目
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="playlists"]')?.click()`,
+    `document.querySelector('.side-item[data-page="playlists"]')?.click()`,
     true,
   );
   await sleep(500);
@@ -498,7 +507,7 @@ app.whenReady().then(async () => {
 
   // 下载增强（B-10）：在线搜索 3 首 → 全选 → 批量下载 → 下载页出现 3 个任务
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="online"]')?.click()`,
+    `document.querySelector('.side-item[data-page="online"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -511,7 +520,7 @@ app.whenReady().then(async () => {
   // 搜索入口已上移到站尺右端的 form（页内搜索按钮已删）：填词 + 提交
   await win.webContents.executeJavaScript(
     `(() => {
-      const input = document.querySelector(".ruler-search input");
+      const input = document.querySelector(".side-search input");
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(input, "晴天");
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -549,7 +558,7 @@ app.whenReady().then(async () => {
 
   // 「下载」tick 已从站尺移除：下载视图挂在本地页的 tab 上（曲库 / 下载 / 电台）
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
+    `document.querySelector('.side-item[data-page="local"]')?.click()`,
     true,
   );
   await sleep(400);
@@ -593,7 +602,7 @@ app.whenReady().then(async () => {
 
   // 歌手详情（M11）：本地页「艺人」→ 第一个歌手。验专辑条 + 行内歌手链接没把行点崩
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
+    `document.querySelector('.side-item[data-page="local"]')?.click()`,
     true,
   );
   await sleep(200);
@@ -693,7 +702,7 @@ app.whenReady().then(async () => {
 
   // 夜间一版（docs/09 B4 证据）：同一进程切主题，不重启、不重排
   await win.webContents.executeJavaScript(
-    `document.querySelector('.ruler-tick[data-page="local"]')?.click()`,
+    `document.querySelector('.side-item[data-page="local"]')?.click()`,
     true,
   );
   await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);

@@ -1,4 +1,4 @@
-/* 外壳：站尺 + 直播间 + 控制台。
+/* 外壳：边栏 + 内容 + 控制台。
    只准用 var(--*) 与 color-mix/rgba —— 裸 hex 归 tokens.css。 */
 
 /* ---------- 壳：夜间控制室，单列三行 ---------- */
@@ -19,19 +19,37 @@
   --glass-bg: var(--live-panel);
   --glass-border: var(--live-line-strong);
 
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: var(--live-ruler-h) minmax(0, 1fr) var(--console-h);
+  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--console-h);
   background: var(--live-bg);
   color: var(--live-fg);
   /* 原生控件（select 弹层 / checkbox / 滚条默认皮）也跟着控制室的灯走 */
   color-scheme: light;
   /* 保险丝：壳高恒等于窗口。height:100% 链上任何一环失效（祖先高度 auto）
-     时内容会把壳撑开，行内 minmax(0,1fr) 全部失灵 —— 首页信息区被窗口裁掉就是它 */
+     时内容会把壳撑开，行内 minmax(0,1fr) 全部失灵 —— 内容区被窗口裁掉就是它 */
   height: 100vh;
 }
 
+/* 两列两行：边栏独占左列（上下贯通），右列上内容下控制台。
+   net-banner / tune-flash / 账号弹层全是 fixed，不参与 grid 摆位。 */
+.shell.live > .side {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+
+.shell.live > .body {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.shell.live > .console {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+}
+
 /* 暗区：播放页恒暗（tokens.css ⑤ / A-10：播放页与主题独立）。
-   首页封面台 2026-11-08 起退出暗房：hero 跟主题走，封面取色（--cs-tint）做场景层供色。
    注意顺序：这条必须在 `.shell.live` 之后，靠更具体的选择器而不是源码顺序生效。 */
 :root[data-theme] .stage.is-live {
   --live-bg: var(--night-bg);
@@ -88,43 +106,42 @@
   }
 }
 
-/* ---------- 站尺：13 个房间的刻度 ---------- */
+/* ---------- 边栏：导航 + 搜索 + 账号/主题 ---------- */
 
-.ruler {
-  grid-column: 1 / -1;
-  position: relative;
-  z-index: 2;
+.side {
+  grid-row: 1 / -1;
   display: flex;
-  align-items: stretch;
-  gap: 26px;
-  padding: 0 146px 0 18px;
-  border-bottom: 1px solid var(--live-line-strong);
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 14px;
+  border-right: 1px solid var(--live-line-strong);
   background: var(--live-bg);
+  /* 无边框窗口的拖拽区挂品牌区 */
   -webkit-app-region: drag;
 }
 
-.ruler button {
+.side button,
+.side input {
   -webkit-app-region: no-drag;
 }
 
-.ruler-brand {
+.side-brand {
   display: flex;
   align-items: center;
   gap: 9px;
-  flex: none;
 }
 
-.ruler-dot {
+.side-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  /* 品牌句号：跟主强调色（青瓷），警示橙只留给真正的警示位 */
+  /* 品牌句号：跟主强调色（青瓷），沿用站尺的灯 */
   background: var(--live-accent);
   box-shadow: 0 0 8px var(--live-accent);
   animation: live-pulse 2.6s ease-in-out infinite;
 }
 
-.ruler-brand h1 {
+.side-brand h1 {
   margin: 0;
   font-family: var(--font-disp);
   font-size: 13px;
@@ -134,57 +151,95 @@
   color: var(--live-fg);
 }
 
-.ruler-ticks {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
+.side-search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--live-line-strong);
+  background: var(--live-panel-2);
+  color: var(--live-fg);
+  font-family: var(--font-sans);
+  font-size: 12px;
 }
 
-.ruler-tick {
-  position: relative;
+.side-search input::placeholder {
+  color: var(--live-fg-faint);
+}
+
+.side-nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
-  align-items: center;
-  padding: 0 2px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.side-item {
   border: none;
   background: none;
-  color: var(--live-fg-faint);
+  color: var(--live-fg-dim);
   font-family: var(--font-sans);
-  font-size: 11.5px;
-  letter-spacing: 0.1em;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
   cursor: pointer;
 }
 
-.ruler-tick:hover {
+.side-item:hover {
+  background: color-mix(in srgb, var(--live-fg) 5%, transparent);
   color: var(--live-fg);
 }
 
-.ruler-tick.on {
+.side-item.on {
+  background: color-mix(in srgb, var(--live-accent) 10%, transparent);
   color: var(--live-accent);
+  font-weight: 600;
 }
 
-.ruler-clock {
+.side-foot {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: none;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.ruler-clock time {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
+.side-acct {
+  border: 1px solid var(--live-line-strong);
+  background: none;
   color: var(--live-fg-dim);
-  font-variant-numeric: tabular-nums;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
 }
 
-/* 主题切换搬进站尺：旧顶栏拆掉后，日间 / 夜间仍要有入口 */
-.ruler .theme-toggle {
+.side-acct:hover {
+  color: var(--live-fg);
+}
+
+.side-acct img,
+.side-acct-dot {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.side-acct-dot {
+  background: color-mix(in srgb, var(--live-fg) 14%, transparent);
+  box-shadow: 0 0 0 1px var(--live-line-strong);
+}
+
+.side-foot .theme-toggle {
   color: var(--live-fg-faint);
 }
 
-.ruler .theme-toggle:hover {
+.side-foot .theme-toggle:hover {
   background: color-mix(in srgb, var(--live-fg) 6%, transparent);
   color: var(--live-fg);
 }
@@ -232,7 +287,6 @@
   color: var(--live-fg-dim);
 }
 
-.live-bleed,
 .live-room,
 .live-plate {
   height: 100%;
@@ -254,8 +308,7 @@
 
 /* —— 切页进场：换房间 = 换页，内容轻浮起来 ——
    容器带 key={page}（index.tsx），每次切页重挂即重播。
-   房间页轻浮起；首页满幅面只做纯淡入（它内部已有 cs-enter/cs-swap 的层级，
-   外层不再叠加位移）。直播间 .live-plate 不参与：舞台有自己的入场仪式。 */
+   直播间 .live-plate 不参与：舞台有自己的入场仪式。 */
 @keyframes room-tune {
   from {
     opacity: 0;
@@ -267,30 +320,12 @@
   }
 }
 
-@keyframes bleed-tune {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 .live-room {
   animation: room-tune 300ms cubic-bezier(0.3, 0.7, 0.3, 1) both;
 }
 
-.live-bleed {
-  /* fill 用 backwards 不用 both（2026-11-11 玻璃落地）：.live-bleed 是首页待播卡的**祖先**，
-     `both` 播完仍留合成层 → 祖先带已结束的 animation 会让子元素的 backdrop-filter
-     永久失效（实测条纹残留 97，与"没有玻璃"等价）。两条 keyframes 的终态就是自然样式
-     （opacity 1），backwards 视觉零差异。 */
-  animation: bleed-tune 260ms ease-out backwards;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .live-room,
-  .live-bleed {
+  .live-room {
     animation: none;
   }
 }
@@ -425,7 +460,7 @@
   border-bottom-color: color-mix(in srgb, var(--live-phosphor) 9%, transparent);
 }
 
-/* 区块标题：和首页"接下来 / 本档曲目"同一套 mono 小字，前面一根琥珀刻度。
+/* 区块标题：mono 小字 + 前面一根琥珀刻度，和列表区块标题同一套语言。
    只收窄设置页与报告的区块题——电台的卡片标题本来就有自己的层级。 */
 .shell.live .stats-block > h3,
 .shell.live .set-block h3 {
@@ -536,664 +571,6 @@
   opacity: 0.75;
 }
 
-/* ---------- 首页直播面 ---------- */
-
-.live-home {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  height: 100%;
-  padding: 26px 40px 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.live-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-  gap: 44px;
-  align-items: start;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--live-line);
-}
-
-.live-hero-main {
-  min-width: 0;
-}
-
-.live-hero-list {
-  min-width: 0;
-  padding-left: 24px;
-  border-left: 1px solid var(--live-line);
-}
-
-.live-hero-list .live-setlist {
-  max-height: 220px;
-  overflow: auto;
-  scrollbar-width: none;
-  /* 底部留出渐隐带的高度：内容放得下时最后一行不会被误当成"还有更多" */
-  padding-bottom: 16px;
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) calc(100% - 16px), transparent);
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) calc(100% - 16px), transparent);
-}
-
-.live-hero-list .live-setlist::-webkit-scrollbar {
-  display: none;
-}
-
-.live-hero-list .live-setlist li {
-  padding: 3px 0;
-}
-
-.live-set-foot {
-  margin: 8px 0 0;
-  font-size: 9.5px;
-  letter-spacing: 0.16em;
-  color: var(--live-fg-faint);
-}
-
-.live-onair {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.2em;
-  color: var(--live-fg-dim);
-}
-
-.live-onair i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--live-onair);
-  box-shadow: 0 0 10px var(--live-onair);
-  animation: live-pulse 2.4s ease-in-out infinite;
-}
-
-.live-onair b {
-  color: var(--live-onair);
-}
-
-.live-onair .live-slot {
-  margin-left: auto;
-  letter-spacing: 0.16em;
-  color: var(--live-fg-faint);
-}
-
-.live-program-title {
-  margin: 10px 0 4px;
-  font-family: var(--font-disp);
-  font-size: 40px;
-  line-height: 1.04;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: var(--live-fg);
-}
-
-.live-program-sub {
-  margin: 0;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-  color: var(--live-fg-dim);
-}
-
-.live-k {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-  color: var(--live-fg-faint);
-}
-
-.live-now {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  margin-top: 16px;
-  padding: 9px 0;
-  border-top: 1px solid color-mix(in srgb, var(--live-phosphor) 9%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--live-phosphor) 9%, transparent);
-}
-
-.live-now-t {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--live-fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-now-a {
-  font-size: 12.5px;
-  color: var(--live-accent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-times {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 40px;
-  margin-top: 14px;
-}
-
-.live-times > div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.live-times b {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--live-fg);
-  font-variant-numeric: tabular-nums;
-}
-
-.tabnum {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.live-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.live-btn {
-  border: 1px solid var(--live-line-strong);
-  background: none;
-  color: var(--live-fg);
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  letter-spacing: 0.12em;
-  padding: 9px 20px;
-  cursor: pointer;
-}
-
-.live-btn:hover {
-  border-color: var(--live-phosphor);
-  color: var(--live-phosphor);
-}
-
-.live-btn.primary {
-  background: var(--live-accent);
-  border-color: var(--live-accent);
-  color: var(--live-accent-ink);
-  font-weight: 600;
-}
-
-.live-btn.primary:hover {
-  filter: brightness(1.12);
-  color: var(--live-accent-ink);
-}
-
-/* 空台 */
-
-.live-home.is-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.live-empty {
-  max-width: 380px;
-  text-align: center;
-}
-
-.live-empty-k {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.4em;
-  color: var(--live-onair);
-}
-
-.live-empty h1 {
-  margin: 12px 0 8px;
-  font-family: var(--font-disp);
-  font-size: 34px;
-  letter-spacing: 0.02em;
-}
-
-.live-empty p {
-  margin: 0 0 20px;
-  font-size: 12.5px;
-  color: var(--live-fg-dim);
-}
-
-/* ---------- 节目带 ---------- */
-
-.tape {
-  margin-top: 18px;
-}
-
-.tape-hours {
-  position: relative;
-  height: 16px;
-}
-
-.tape-hours .hh {
-  position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  color: var(--live-fg-faint);
-}
-
-.tape-hours .hh.major {
-  color: var(--live-fg-dim);
-}
-
-.tape-track {
-  position: relative;
-  height: 132px;
-  border-top: 1px solid var(--live-line);
-  border-bottom: 1px solid var(--live-line);
-  background-image: repeating-linear-gradient(
-    to right,
-    color-mix(in srgb, var(--live-phosphor) 9%, transparent) 0 1px,
-    transparent 1px 16.6667%
-  );
-}
-
-/* 视口外的档被切在边缘：用底色渐隐收口，别让半张卡片看起来像排版坏了 */
-.tape-track::before,
-.tape-track::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 26px;
-  z-index: 3;
-  pointer-events: none;
-}
-
-.tape-track::before {
-  left: 0;
-  background: linear-gradient(to right, var(--live-bg), transparent);
-}
-
-.tape-track::after {
-  right: 0;
-  background: linear-gradient(to left, var(--live-bg), transparent);
-}
-
-.tape .slot {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 9px 10px 8px;
-  border: none;
-  border-left: 1px solid var(--live-line);
-  background: transparent;
-  color: var(--live-fg-dim);
-  text-align: left;
-  overflow: hidden;
-  cursor: pointer;
-  font-family: var(--font-sans);
-}
-
-.tape .slot:hover {
-  background: color-mix(in srgb, var(--live-fg) 4%, transparent);
-  color: var(--live-fg);
-}
-
-.tape .slot.is-aired {
-  opacity: 0.46;
-}
-
-.tape .slot.is-aired:hover {
-  opacity: 0.7;
-}
-
-.tape .slot.is-current {
-  background: color-mix(in srgb, var(--live-accent) 8%, transparent);
-  color: var(--live-fg);
-}
-
-.tape .slot.is-current::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 2px;
-  background: var(--live-accent);
-}
-
-.tape .slot.is-next {
-  border-left-style: dashed;
-}
-
-.slot-no {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.16em;
-  color: var(--live-fg-faint);
-}
-
-.slot-title {
-  max-width: 100%;
-  font-family: var(--font-disp);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.slot-sub {
-  max-width: 100%;
-  font-size: 10.5px;
-  color: var(--live-fg-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 太窄的档：文字塞不下就只留档号，当作带上的刻度 */
-.tape .slot.is-tight {
-  align-items: center;
-  padding: 7px 0 0;
-}
-
-.tape .slot.is-tight .slot-title,
-.tape .slot.is-tight .slot-sub {
-  display: none;
-}
-
-.tape .slot.is-tight .slot-no {
-  font-size: 8.5px;
-  letter-spacing: 0.06em;
-}
-
-.slot-badge {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 4px;
-  /* 播放头整条贯穿带面，会从 ON AIR 文字中间穿过去：
-     给徽标一块与该档底色相同的实心背板，让针在这几像素上让位。 */
-  background: color-mix(in srgb, var(--live-accent) 8%, var(--live-bg));
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  letter-spacing: 0.18em;
-  color: var(--live-onair);
-}
-
-.slot-badge i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--live-onair);
-}
-
-/* 接缝：当前档收档的地方。整条带里只有这一根。 */
-
-.seam {
-  position: absolute;
-  top: -8px;
-  bottom: -8px;
-  width: 0;
-  z-index: 3;
-  border-left: 1px dashed color-mix(in srgb, var(--live-accent) 55%, transparent);
-  pointer-events: none;
-}
-
-.seam b {
-  position: absolute;
-  top: -1px;
-  left: 4px;
-  font-family: var(--font-mono);
-  font-size: 8px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  color: var(--live-accent);
-}
-
-/* 播放头：钉在 38%，带在针下走。 */
-
-.playhead {
-  position: absolute;
-  top: 0;
-  bottom: -14px;
-  width: 0;
-  z-index: 3;
-  border-left: 1px solid var(--live-accent);
-  pointer-events: none;
-}
-
-.playhead i {
-  position: absolute;
-  top: -3px;
-  left: -5px;
-  width: 10px;
-  height: 6px;
-  background: var(--live-accent);
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-}
-
-.playhead em {
-  position: absolute;
-  bottom: -2px;
-  left: 4px;
-  font-family: var(--font-mono);
-  font-style: normal;
-  font-size: 8.5px;
-  letter-spacing: 0.16em;
-  color: var(--live-accent);
-}
-
-/* ---------- 带下方两栏 ---------- */
-
-.live-below {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
-  gap: 36px;
-  min-height: 0;
-  padding: 14px 0 10px;
-  border-top: 1px solid var(--live-line);
-  overflow: hidden;
-}
-
-.live-below.is-single {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.live-below.is-single .live-next li {
-  grid-template-columns: 70px minmax(0, 1fr) minmax(0, 320px);
-  padding: 4px 0;
-}
-
-.live-below.is-single .live-next-s {
-  max-width: none;
-  text-align: right;
-}
-
-/* 768/800 高时一列只放得下三行，剩下三档藏在滚动里且没有提示。
-   改成两列三行，按列从上到下读，时间仍然连续。 */
-@media (max-height: 880px) {
-  .live-below.is-single .live-col {
-    -webkit-mask-image: none;
-    mask-image: none;
-    padding-bottom: 0;
-  }
-
-  .live-below.is-single .live-next {
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-rows: repeat(3, auto);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 36px;
-  }
-
-  .live-below.is-single .live-next li {
-    grid-template-columns: 52px minmax(0, 1fr) auto;
-    padding: 3px 0;
-  }
-
-  .live-below.is-single .live-next-s {
-    max-width: 150px;
-  }
-}
-
-.live-col {
-  min-width: 0;
-  overflow: auto;
-  scrollbar-width: none;
-  padding-bottom: 20px;
-  /* 行数随高度变化，最后一行常常只露半截：底部渐隐当成"还有更多"的提示，别让半行像被裁断。
-     底部留 20px 内边距，内容放得下时最后一行会落在渐隐带之上。 */
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) calc(100% - 20px), transparent);
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) calc(100% - 20px), transparent);
-}
-
-.live-col::-webkit-scrollbar {
-  display: none;
-}
-
-.live-col h2,
-.live-hero-list h2 {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 0 0 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.24em;
-  color: var(--live-fg-faint);
-}
-
-.live-col h2 em,
-.live-hero-list h2 em {
-  margin-left: auto;
-  font-style: normal;
-  letter-spacing: 0.08em;
-  color: var(--live-accent);
-}
-
-.live-next {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.live-next li {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--live-phosphor) 8%, transparent);
-}
-
-.live-next time {
-  font-size: 11px;
-  color: var(--live-accent);
-}
-
-.live-next-t {
-  font-size: 13.5px;
-  color: var(--live-fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-next-s {
-  max-width: 170px;
-  font-size: 11px;
-  color: var(--live-fg-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-muted {
-  margin: 0;
-  font-size: 12px;
-  color: var(--live-fg-faint);
-}
-
-.live-setlist {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.live-setlist li {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 110px 40px;
-  align-items: baseline;
-  gap: 10px;
-  padding: 5px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--live-phosphor) 6%, transparent);
-  font-size: 12px;
-  color: var(--live-fg-dim);
-}
-
-.live-setlist li.is-past {
-  opacity: 0.55;
-}
-
-.live-setlist li.is-now {
-  color: var(--live-accent);
-}
-
-.live-setlist li.is-now .live-set-t {
-  color: var(--live-accent);
-  font-weight: 600;
-}
-
-.live-set-t {
-  color: var(--live-fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-set-a {
-  font-size: 11px;
-  color: var(--live-fg-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.live-set-d {
-  font-size: 11px;
-  text-align: right;
-  color: var(--live-fg-faint);
-}
-
-.live-foot {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 6px 0 8px;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: var(--live-fg-faint);
-}
-
-.live-foot i {
-  font-style: normal;
-}
-
 /* ---------- 直播间：r4 引擎换壳，不换引擎 ---------- */
 
 /* 节目信号直接占满窗口：不留深色留白、不加内描边、不挂浏览器式标签条。
@@ -1230,10 +607,6 @@
   background: var(--live-panel);
 }
 
-.shell.live .stamp {
-  display: none;
-}
-
 .shell.live .np {
   padding-left: 0;
 }
@@ -1241,84 +614,12 @@
 /* ---------- 两档窄屏 ---------- */
 
 @media (max-width: 1180px) {
-  .ruler {
-    gap: 16px;
-    padding-right: 146px;
-  }
-
-  .live-foot i {
-    display: none;
-  }
-
-  .ruler-tick {
-    font-size: 10.5px;
-  }
-
-  .live-home {
-    padding: 20px 24px 0;
-  }
-
-  .live-hero {
-    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-    gap: 24px;
-    padding-bottom: 12px;
-  }
-
-  /* 768 高只够 3 行"接下来"：把带收 8px、间距收 4px，第三行才不会被渐隐吃掉 */
-  .tape {
-    margin-top: 14px;
-  }
-
-  .tape-track {
-    height: 124px;
-  }
-
-  .live-hero-list {
-    padding-left: 18px;
-  }
-
-  .live-hero-list .live-setlist li {
-    grid-template-columns: 24px minmax(0, 1fr) 84px 34px;
-    gap: 8px;
-  }
-
-  .live-program-title {
-    font-size: 34px;
-  }
-
-  /* 1024 宽一档只剩 70px：标题缩一号、内边距收窄，够放四个汉字 */
-  .tape .slot {
-    padding: 8px 6px 7px;
-  }
-
-  .slot-title {
-    font-size: 13px;
-  }
-
-  .slot-sub {
-    font-size: 9.5px;
-  }
-
-  .slot-no {
-    font-size: 9px;
-  }
-
-  /* 当前档的 ON AIR 只留红点，别和档号挤成一行 */
-  .slot-badge-t {
-    display: none;
-  }
-
-  .live-below {
-    gap: 24px;
-  }
-
   .live-room {
     padding: 14px 22px 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ruler-dot,
   .live-onair i {
     animation: none;
   }
@@ -2400,168 +1701,6 @@
   .qr-sweep {
     animation: none;
   }
-}
-
-/* 首页：每日推荐（不再展示本地排播） */
-.shell.live .daily-home {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  height: 100%;
-  padding: 20px 30px 16px;
-  overflow: hidden;
-}
-
-.shell.live .daily-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--live-line-strong);
-}
-
-.shell.live .daily-k {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
-  color: var(--live-accent);
-}
-
-.shell.live .daily-head h1 {
-  margin: 4px 0 2px;
-  font-family: var(--font-disp);
-  font-size: 40px;
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-
-.shell.live .daily-head p {
-  margin: 0;
-  font-size: 11.5px;
-  color: var(--live-fg-dim);
-}
-
-.shell.live .daily-head p em {
-  font-style: normal;
-  color: var(--live-fg-faint);
-}
-
-.shell.live .daily-account {
-  padding: 6px 12px;
-  border: 1px solid var(--live-line-strong);
-  background: none;
-  color: var(--live-fg-dim);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.shell.live .daily-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.shell.live .daily-actions .refresh-btn {
-  border-color: var(--live-line-strong);
-  color: var(--live-fg-dim);
-  font-size: 10px;
-}
-
-.shell.live .daily-account:hover {
-  color: var(--live-fg);
-}
-
-.shell.live .daily-state {
-  margin: 0;
-  font-size: 12px;
-  color: var(--live-fg-faint);
-}
-
-.shell.live .daily-gate {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 18px 20px;
-  border: 1px solid var(--live-line-strong);
-  background: color-mix(in srgb, var(--live-panel) 55%, transparent);
-}
-
-.shell.live .daily-gate p {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--live-fg-dim);
-}
-
-.shell.live .daily-grid {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
-  gap: 14px;
-  align-content: start;
-}
-
-.shell.live .daily-card {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 0 0 8px;
-  border: 1px solid var(--live-line);
-  background: none;
-  color: var(--live-fg);
-  text-align: left;
-  cursor: pointer;
-}
-
-.shell.live .daily-card:hover {
-  border-color: var(--live-line-strong);
-}
-
-.shell.live .daily-cover {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  background: var(--live-panel-2);
-}
-
-.shell.live .daily-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.shell.live .daily-cover b {
-  position: absolute;
-  left: 6px;
-  top: 5px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--live-fg);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
-}
-
-.shell.live .daily-title {
-  padding: 0 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.shell.live .daily-sub {
-  padding: 0 8px;
-  font-size: 10.5px;
-  color: var(--live-fg-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 

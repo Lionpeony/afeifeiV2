@@ -13,7 +13,7 @@ import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
 import { toast } from "./toast.js";
 import { StageView } from "./views/stage/index.js";
-import { ChartsView } from "./views/charts/index.js";
+import { DiscoverView, type SourceOption } from "./views/discover/index.js";
 import { PlaylistsView } from "./views/playlists/index.js";
 import { StatsView } from "./views/stats/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
@@ -32,12 +32,9 @@ import { AccountMenu, type AccountProfile } from "./live/AccountMenu.js";
 import { LoginDialog } from "./views/online/LoginDialog.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
-import type { DailyBundle } from "./views/home/index.js";
-import { StationRuler } from "./live/StationRuler.js";
-import { LiveHome } from "./live/LiveHome.js";
-import { onAirProgram } from "./live/on-air.js";
+import { Sidebar } from "./Sidebar.js";
 import { BootSplash } from "./BootSplash.js";
-import { invalidateAccountData } from "./account-data.js";
+import { invalidateAccountData, type AccountBundle } from "./account-data.js";
 import { loadNet } from "../domain/net-cache/index.js";
 import { accountKey } from "./account-data.js";
 
@@ -46,7 +43,7 @@ import { accountKey } from "./account-data.js";
 const accountHint = (kind: AccountKind, sourceName: string): string => {
   switch (kind) {
     case "daily":
-      return `登录${sourceName}后，这里换成你账号的每日推荐`;
+      return `登录${sourceName}后，这里显示账号的每日推荐（每天 06:00 换新）`;
     case "liked":
       return `登录${sourceName}后，这里显示账号的红心（与 App 同步）`;
     case "week":
@@ -66,7 +63,6 @@ import { RoamView } from "./views/roam/index.js";
 import { SettingsView } from "./views/settings/index.js";
 import { getTracks, trackById } from "../domain/library/state.js";
 import { LibraryView } from "./views/library/index.js";
-import { OnlineView, type SourceOption } from "./views/online/index.js";
 import { DownloadsView } from "./views/downloads/index.js";
 import { PAGE_LABEL, type PageId } from "./pages.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
@@ -91,17 +87,16 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
-  // 外壳只有一种：顶部站尺 + 内容 + 控制台
-  const [page, setPage] = useState<PageId>("home");
-  // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的首页亮给用户
+  // 外壳只有一种：边栏 + 内容 + 控制台
+  const [page, setPage] = useState<PageId>("online");
+  // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的内容页亮给用户
   const [bootReady, setBootReady] = useState(false);
-  /* 在线页内的两个模式：结果 / 榜单。
-     默认落榜单：搜索由顶栏负责，进页时没有关键词，落「结果」只会看到一块空地。
-     从顶栏提交搜索时 onSearch 会强制切回 search，所以不会「搜了却停在榜单」。 */
-  const [onlineTab, setOnlineTab] = useState<"search" | "charts">("charts");
-  /** 顶栏搜索提交的一次性请求：at 变化即重新执行 */
+  /* 顶栏搜索提交的一次性请求：at 变化即重新执行。
+     搜索结果不是独立页面：有关键词时发现页整页切成结果态，清空即回推荐与榜单。 */
   const [searchSeek, setSearchSeek] = useState<{ text: string; at: number } | null>(null);
-  const lastRoom = useRef<PageId>("home");
+  /* 我的页内的三个视角：喜欢（默认）/ 最近 / 统计 */
+  const [mineTab, setMineTab] = useState<"liked" | "recent" | "stats">("liked");
+  const lastRoom = useRef<PageId>("online");
   const [notice, setNotice] = useState<{ text: string; url?: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountProfiles, setAccountProfiles] = useState<Record<string, AccountProfile | undefined>>({});
@@ -155,7 +150,7 @@ function App() {
   const [globalTokenCount, setGlobalTokenCount] = useState(0);
   const services = useRef<Services | null>(null);
   /*
-   * 装配完成的信号。首页在首帧就挂载，早于 bootstrap 完成；
+   * 装配完成的信号。内容页在首帧就挂载，早于 bootstrap 完成；
    * 账号请求不能在 services 还没就绪时发出去（拿回空列表后就再也不会重试）。
    */
   const servicesReady = useRef<Promise<Services> | null>(null);
@@ -301,7 +296,7 @@ function App() {
           .catch(() => undefined);
 
         // 首屏联网预取：账号一确定就并发拉每日推荐 / 账号红心 / 个人 FM。
-        // 结果落进 domain/net-cache，首页首帧与之后每次切页都直接命中；
+        // 结果落进 domain/net-cache，之后每次切页都直接命中；
         // 单个源失败不影响其它数据，也不挡放行（外层还有 12 秒总超时）。
         const { id } = await resolveAccountSource().catch(() => ({ id: null as string | null }));
         if (alive && id) {
@@ -312,7 +307,7 @@ function App() {
             loadNet(accountKey(id, "fm"), () => accountBundle("fm")),
           ]);
           // 榜单 / 歌单清单：这两页一进去就要整张清单，等点进去才拉会先闪一次骨架。
-          // 不 await、缓 2 秒再发：启动的带宽先给首页那三份，抢不到也不影响放行。
+          // 不 await、缓 2 秒再发：启动的带宽先给上面这两份，抢不到也不影响放行。
           setTimeout(() => {
             void loadNet(`charts:toplists:${id}`, () => s.listToplists(id)).catch(() => undefined);
             void loadNet(`playlists:list:${id}`, () => s.listPlaylists(id)).catch(() => undefined);
@@ -390,7 +385,7 @@ function App() {
     trackTitle,
     status,
     /* 在线曲目的封面地址在队列元数据里（player.remote 只存 sourceId/songId，
-       常常没有 coverUrl）。不补这一手，底栏就只剩盘纹占位，而首页大图明明有图
+       常常没有 coverUrl）。不补这一手，底栏就只剩盘纹占位，而播放页大图明明有图
        （2026-11-12 用户截图："只有看到歌名"）。 */
     remote: remote && npMeta?.coverUrl && !remote.coverUrl ? { ...remote, coverUrl: npMeta.coverUrl } : remote,
   });
@@ -513,28 +508,37 @@ function App() {
           dispatch({ type: "queue/mode", mode: nextPlayMode(stateRef.current.queue.mode) }),
       }),
       registerCommand({
-        id: "tab-home",
-        label: "转到：首页",
-        run: () => setPage("home"),
-      }),
-      registerCommand({
         id: "tab-local",
         label: "转到：本地曲库",
         hint: "Ctrl+F 聚焦搜索",
         run: () => setPage("local"),
       }),
-      registerCommand({ id: "tab-online", label: "转到：在线搜索", run: () => setPage("online") }),
+      registerCommand({ id: "tab-online", label: "转到：发现", run: () => setPage("online") }),
+      registerCommand({ id: "tab-roam", label: "转到：漫游", run: () => setPage("roam") }),
       registerCommand({
-        id: "tab-charts",
-        label: "转到：榜单",
+        id: "tab-liked",
+        label: "转到：喜欢的音乐",
         run: () => {
-          setOnlineTab("charts");
-          setPage("online");
+          setMineTab("liked");
+          setPage("mine");
         },
       }),
-      registerCommand({ id: "tab-roam", label: "转到：漫游", run: () => setPage("roam") }),
-      registerCommand({ id: "tab-liked", label: "转到：喜欢的音乐", run: () => setPage("liked") }),
-      registerCommand({ id: "tab-recent", label: "转到：最近播放", run: () => setPage("recent") }),
+      registerCommand({
+        id: "tab-recent",
+        label: "转到：最近播放",
+        run: () => {
+          setMineTab("recent");
+          setPage("mine");
+        },
+      }),
+      registerCommand({
+        id: "tab-stats",
+        label: "转到：听歌报告",
+        run: () => {
+          setMineTab("stats");
+          setPage("mine");
+        },
+      }),
       registerCommand({ id: "tab-settings", label: "转到：设置", run: () => setPage("settings") }),
       registerCommand({ id: "tab-stage", label: "转到：播放页", run: () => setPage("stage") }),
       registerCommand({
@@ -662,7 +666,7 @@ function App() {
     track: RemoteTrack,
     list?: RemoteTrack[],
     stream = false,
-    /** 节目来源标签（「内地榜」「搜索 · xx」），queue/set 落进队列给首页 ON AIR 显示 */
+    /** 节目来源标签（「内地榜」「搜索 · xx」），queue/set 落进队列给播放页 ON AIR 显示 */
     origin?: string,
   ): Promise<void> => {
     const svc = services.current;
@@ -728,20 +732,20 @@ function App() {
     return { id: src.id, hint: () => null };
   };
 
-  const accountBundle = async (kind: AccountKind): Promise<DailyBundle> => {
+  const accountBundle = async (kind: AccountKind): Promise<AccountBundle> => {
     const svc = services.current ?? (await servicesReady.current);
     if (!svc) return { sourceId: "", songs: [], hint: null };
     const resolved = await resolveAccountSource();
     if (!resolved.id) return { sourceId: "", songs: [], hint: resolved.hint(kind) };
     const id = resolved.id;
-    const songs =
-      kind === "daily"
-        ? await svc.accountDailySongs(id)
-        : kind === "liked"
-          ? await svc.accountLikedSongs(id)
-          : kind === "week"
-            ? await svc.accountHistory(id, "week")
-            : await svc.accountPersonalFm(id);
+    // Record 强制四类账号数据都给出加载器：以后再加一类，编译器直接点名
+    const loaders: Record<AccountKind, () => Promise<RemoteTrack[]>> = {
+      daily: () => svc.accountDailySongs(id),
+      liked: () => svc.accountLikedSongs(id),
+      week: () => svc.accountHistory(id, "week"),
+      fm: () => svc.accountPersonalFm(id),
+    };
+    const songs = await loaders[kind]();
     // 任何一次成功的账号调用都顺手确认一下域绑的是这个账号（幂等）
     ensureAccount(id);
     return { sourceId: id, songs, hint: null };
@@ -773,45 +777,30 @@ function App() {
     if (page !== "stage") lastRoom.current = page;
   }, [page]);
 
-  /* 在线页只有「结果」这一个主视图，榜单是分支。所以页头不放两个 tab ——
-     写一个「搜索」在那儿等于又给搜索开了一个入口（顶栏才是唯一入口）。
-     一颗按钮，标签写目的地：榜单 ⇄ 搜索结果。 */
-  const onlineTabs = (
+  /* 「我的」：喜欢 / 最近 / 统计三个视角收进一页，页头右侧切。 */
+  const mineTabs = (
     <div className="lib-tabs">
-      {onlineTab === "search" ? (
-        <button type="button" title="看榜单" onClick={() => setOnlineTab("charts")}>
-          榜单
+      {(
+        [
+          ["liked", "喜欢"],
+          ["recent", "最近"],
+          ["stats", "统计"],
+        ] as const
+      ).map(([id, label]) => (
+        <button
+          type="button"
+          key={id}
+          className={mineTab === id ? "on" : ""}
+          onClick={() => setMineTab(id)}
+        >
+          {label}
         </button>
-      ) : searchSeek?.text ? (
-        /* 没搜过就没有「结果」可回，别给一颗点了只会看到空地的按钮 */
-        <button type="button" title="回到搜索结果" onClick={() => setOnlineTab("search")}>
-          搜索结果
-        </button>
-      ) : null}
+      ))}
     </div>
   );
 
   /* ---- 页面挂载：加页只改这里 + pages.ts，不再有涨到十个分支的三元链 ---- */
   const renderPage = (): ReactNode => {
-    if (page === "home") {
-      return (
-        <LiveHome
-          account={() => accountBundle("daily")}
-          accountName={sources.find((s) => s.id === getActiveSource())?.name ?? ""}
-          onPlayRemote={(sourceId, track, list, origin) => playRemoteSafe(sourceId, track, list, false, origin)}
-          onAccount={() => {
-            setAccountOpen(true);
-            refreshAccountProfiles();
-          }}
-          nowPlaying={state.player.remote ?? null}
-          playing={playing}
-          spectrum={(bins) => services.current?.spectrum(bins) ?? null}
-          replaySeq={state.player.replaySeq}
-          queue={state.queue}
-          onAir={onAirProgram(state.player.trackId, state.queue, (id) => sources.find((s) => s.id === id)?.name ?? id)}
-        />
-      );
-    }
     switch (page) {
       case "stage":
         return (
@@ -829,22 +818,24 @@ function App() {
             live
           />
         );
-      case "liked":
-        return (
+      case "mine":
+        return mineTab === "liked" ? (
           <LikedView
+            tabs={mineTabs}
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("liked")}
             onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "喜欢的音乐")}
             onUnlike={unlikeAccount}
           />
-        );
-      case "recent":
-        return (
+        ) : mineTab === "recent" ? (
           <RecentView
+            tabs={mineTabs}
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("week")}
             onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "最近播放")}
           />
+        ) : (
+          <StatsView tabs={mineTabs} />
         );
       case "roam":
         return (
@@ -860,8 +851,6 @@ function App() {
             }
           />
         );
-      case "stats":
-        return <StatsView />;
       case "settings":
         return (
           <SettingsView
@@ -1013,10 +1002,11 @@ function App() {
           />
         );
       case "online":
-        return onlineTab === "charts" ? (
-          <ChartsView
-            tabs={onlineTabs}
-            sources={sources.filter((s) => s.canToplists)}
+        return (
+          <DiscoverView
+            sources={sources}
+            daily={() => accountBundle("daily")}
+            seekQuery={searchSeek}
             listToplists={(sourceId) => {
               const svc = services.current;
               return svc ? svc.listToplists(sourceId) : Promise.reject(new Error("还没准备好，请稍后再试"));
@@ -1028,18 +1018,11 @@ function App() {
                 : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
             onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
-          />
-        ) : (
-          <OnlineView
-            tabs={onlineTabs}
-            seekQuery={searchSeek}
-            sources={sources}
             onSearch={(sourceId, keyword) => {
               const svc = services.current;
               if (!svc) return Promise.resolve({ items: [] });
               return svc.searchOnline(sourceId, keyword);
             }}
-            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
             loginStatus={(sourceId) =>
               services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
             }
@@ -1102,7 +1085,7 @@ function App() {
           离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
         </div>
       ) : null}
-      <StationRuler
+      <Sidebar
         page={page}
         onGo={setPage}
         onToggleTheme={toggleTheme}
@@ -1118,7 +1101,6 @@ function App() {
           refreshAccountProfiles();
         }}
         onSearch={(query) => {
-          setOnlineTab("search");
           if (query) setSearchSeek({ text: query, at: Date.now() });
           setPage("online");
         }}
@@ -1223,9 +1205,7 @@ function App() {
             </div>
           ) : null}
           {/* key=page：切页即重挂容器，进场动画（live.css room-tune/bleed-tune）每次都重播 */}
-          {page === "home" ? (
-            <div className="live-bleed" key={page}>{renderPage()}</div>
-          ) : page === "stage" ? (
+          {page === "stage" ? (
             <div className="live-plate" key={page}>
               <div className="live-plate-body">{renderPage()}</div>
             </div>

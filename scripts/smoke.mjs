@@ -232,9 +232,9 @@ async function main() {
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
-  // 外壳（C-17）：开机落在首页直播面；站尺替代顶栏/侧栏
-  assert.ok(await app.waitFor(`!!document.querySelector(".ruler")`, 5000), "直播壳站尺没出来");
-  assert.ok(await app.waitFor(`!!document.querySelector(".live-home")`, 5000), "首页直播面没出来");
+  // 外壳：开机落在在线页；边栏替代站尺
+  assert.ok(await app.waitFor(`!!document.querySelector(".side")`, 5000), "直播壳边栏没出来");
+  assert.ok(await app.waitFor(`!!document.querySelector(".live-room")`, 5000), "在线页没出来");
 
   // 旧外壳（顶栏 / 侧栏）已拆除：只剩站尺 + 内容 + 控制台
   assert.ok(
@@ -242,7 +242,7 @@ async function main() {
     "旧外壳（顶栏 / 侧栏）不该再出现",
   );
 
-  // 后续断的是本地页控件：从首页直播面切过去
+  // 后续断的是本地页控件：从在线页切过去
   await app.evaluate(
     `[...document.querySelectorAll("button")].find((b) => b.textContent === "本地")?.click()`,
   );
@@ -293,20 +293,20 @@ async function main() {
   assert.equal(found, 1, `用户源 search 应可用：${found}`);
 
   /* ---- 在线页：注册表 → 搜索 → 能力缺失 → 人话提示 ---- */
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
+  await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   assert.ok(await app.waitFor(`document.querySelector(".seg") !== null`, 5000), "在线页没出来");
 
   const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".seg button")].map((b) => b.textContent)`);
   assert.ok(sourceOptions.length > 0, "音源分段是空的（注册表没接上）");
 
   /* ---- 明暗主题（docs/09 B4）：切一次再切回，data-theme 是唯一开关 ---- */
-  // 开关在站尺右端；直播壳本身用固定夜间 token，明暗作用于各房间页
-  assert.ok(await app.waitFor(`!!document.querySelector(".ruler .theme-toggle")`, 3000), "站尺缺明暗按钮");
+  // 开关在边栏底部；直播壳本身用固定夜间 token，明暗作用于各房间页
+  assert.ok(await app.waitFor(`!!document.querySelector(".side .theme-toggle")`, 3000), "边栏缺明暗按钮");
   const beforeTheme = await app.evaluate(`document.documentElement.dataset.theme ?? "(未设)"`);
-  await app.evaluate(`document.querySelector(".ruler .theme-toggle")?.click()`);
+  await app.evaluate(`document.querySelector(".side .theme-toggle")?.click()`);
   const flippedTheme = await app.evaluate(`document.documentElement.dataset.theme`);
   assert.notEqual(flippedTheme, beforeTheme, "点明暗按钮后 data-theme 没变");
-  await app.evaluate(`document.querySelector(".ruler .theme-toggle")?.click()`);
+  await app.evaluate(`document.querySelector(".side .theme-toggle")?.click()`);
   const backTheme = await app.evaluate(`document.documentElement.dataset.theme`);
   assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
   console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
@@ -353,7 +353,7 @@ async function main() {
   console.log("  全局快捷键 OK：9 项含 seek，键位不撞车");
 
   // 回到在线页：确认产品音源列表（示例音源已于 2026-11-05 移除）
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "在线")?.click()`);
+  await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   await sleep(200);
   console.log(`  输出设备 OK：下拉 ${outputOpts.length} 项，setSinkId 可用`);
 
@@ -406,7 +406,7 @@ async function main() {
     current = app2;
 
     // 重启后外壳仍是同一套：旧壳（直白模式）已删除，没有别的落点
-    assert.ok(await app2.waitFor(`!!document.querySelector(".ruler")`, 5000), "重启后没回到直播外壳");
+    assert.ok(await app2.waitFor(`!!document.querySelector(".side")`, 5000), "重启后没回到直播外壳（边栏不在）");
     if (!(await app2.waitFor(`document.querySelector(".np-tx b")?.textContent === ${JSON.stringify(first)}`, 10000))) {
       const shown = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);
@@ -503,18 +503,21 @@ async function main() {
     );
     console.log("  底栏红心 OK：本地曲目点一下就亮，再点回去");
 
-    /* 账号区块（R1）：喜欢 / 最近两页各挂一块账号区（未登录给提示，不是空白） */
-    for (const [page, want] of [
-      ["liked", "账号红心"],
-      ["recent", "账号听歌排行"],
+    /* 账号区块（R1）：我的页的喜欢 / 最近两个视角各挂一块账号区（未登录给提示，不是空白） */
+    await app2.evaluate(`document.querySelector('[data-page="mine"]')?.click()`);
+    for (const [tab, want] of [
+      ["喜欢", "账号红心"],
+      ["最近", "账号听歌排行"],
     ]) {
-      await app2.evaluate(`document.querySelector('[data-page="${page}"]')?.click()`);
+      await app2.evaluate(
+        `[...document.querySelectorAll(".lib-tabs button")].find((b) => b.textContent === "${tab}")?.click()`,
+      );
       const mounted = await app2.waitFor(`!!document.querySelector(".acct")`, 3000);
       const txt = await app2.evaluate(`document.querySelector(".acct")?.textContent ?? ""`);
-      assert.ok(mounted && txt.includes(want), `${page} 页应有「${want}」区块，实际：${txt.slice(0, 40)}`);
+      assert.ok(mounted && txt.includes(want), `我的·${tab} 应有「${want}」区块，实际：${txt.slice(0, 40)}`);
     }
-    await app2.evaluate(`document.querySelector('[data-page="library"]')?.click()`);
-    console.log("  账号区块 OK：喜欢的音乐 / 最近播放 各挂一块账号区");
+    await app2.evaluate(`document.querySelector('[data-page="local"]')?.click()`);
+    console.log("  账号区块 OK：我的页的喜欢 / 最近各挂一块账号区");
 
     /* 离线态（P0-25）：事件 → 横幅出现；恢复 → 消失 */
     await app2.evaluate(`window.dispatchEvent(new Event("offline"))`);

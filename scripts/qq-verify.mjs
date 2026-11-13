@@ -98,19 +98,6 @@ const probeHttp = async (tag) => {
   return { loggedIn: true, daily: dailySongs?.length ?? -1, liked: likedSongs?.length ?? -1, guess: guessSongs?.length ?? -1 };
 };
 
-const waitHome = async (app) => {
-  await app.waitFor(
-    `document.querySelectorAll(".daily-card").length > 0 || !!document.querySelector(".daily-gate, .daily-state")`,
-    30000,
-  );
-  const cards = await app.evaluate(`document.querySelectorAll(".daily-card").length`);
-  const gate = await app.evaluate(`document.querySelector(".daily-gate p, .daily-state")?.textContent ?? ""`);
-  const titles = await app.evaluate(
-    `[...document.querySelectorAll(".daily-title")].slice(0, 3).map((x) => x.textContent)`,
-  );
-  return { cards, gate, titles };
-};
-
 const pickQq = async (app) => {
   await app.evaluate(`document.querySelector('[data-page="online"]')?.click()`);
   await sleep(600);
@@ -123,7 +110,7 @@ const pickQq = async (app) => {
 
 const rulerState = async (app) =>
   app.evaluate(`(() => {
-    const b = document.querySelector(".ruler-acct");
+    const b = document.querySelector(".side-acct");
     if (!b) return null;
     return { on: b.classList.contains("on"), text: b.querySelector("b")?.textContent ?? "" };
   })()`);
@@ -132,22 +119,17 @@ async function main() {
   console.log("== 第一次启动：验证接口与 UI ==");
   let app = await launch({ port: PORT, profile: null });
   try {
-    if (!(await app.waitFor(`!!document.querySelector(".ruler")`, 20000))) {
-      throw new Error("应用没起来（站尺不在）。若主窗口已开着，先退出 afeifei 再跑。");
+    if (!(await app.waitFor(`!!document.querySelector(".side")`, 20000))) {
+      throw new Error("应用没起来（边栏不在）。若主窗口已开着，先退出 afeifei 再跑。");
     }
 
     const picked = await pickQq(app);
     console.log(`\n切到 QQ：${picked ? "已点" : "找不到源按钮"}`);
     await sleep(1500);
     const ruler = await rulerState(app);
-    console.log(`站尺账号区：${ruler ? `登录标记=${ruler.on} · 文案=${ruler.text === "未登录" ? "未登录" : "已登录（昵称已隐去）"}` : "不在"}`);
+    console.log(`边栏账号区：${ruler ? `登录标记=${ruler.on} · 文案=${ruler.text === "未登录" ? "未登录" : "已登录（昵称已隐去）"}` : "不在"}`);
 
-    await app.evaluate(`document.querySelector('[data-page="home"]')?.click()`);
-    const home = await waitHome(app);
-    console.log(`首页：${home.cards} 张每日推荐卡${home.gate ? ` · 提示「${home.gate}」` : ""}`);
-    if (home.titles.length) console.log(`  前三首：${home.titles.join(" / ")}`);
-
-    await app.evaluate(`document.querySelector('[data-page="liked"]')?.click()`);
+    await app.evaluate(`document.querySelector('[data-page="mine"]')?.click()`);
     await sleep(2500);
     const likedRows = await app.evaluate(`document.querySelectorAll(".lib-row").length`);
     const likedHint = await app.evaluate(`document.querySelector(".lib-empty, .room-hint, .page-hint")?.textContent ?? ""`);
@@ -170,7 +152,7 @@ async function main() {
     await sleep(1200);
     app = await launch({ port: PORT, profile: null });
     try {
-      await app.waitFor(`!!document.querySelector(".ruler")`, 20000);
+      await app.waitFor(`!!document.querySelector(".side")`, 20000);
       await sleep(2500);
       await probeHttp(`第 ${i} 次重启`);
     } finally {

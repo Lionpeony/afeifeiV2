@@ -191,7 +191,7 @@ export interface Services {
   removePlaylist(sourceId: string, id: string): Promise<SavedPlaylistView[]>;
 
   /* ---- 账号级数据（R1 第一批）：源没有 account 就抛 capability-missing ---- */
-  /** 这个源有没有账号数据能力。首页/漫游读它决定要不要出入口，不去 try 方法。 */
+  /** 这个源有没有账号数据能力。发现/漫游读它决定要不要出入口，不去 try 方法。 */
   canAccount(sourceId: string): boolean;
   /** 每日推荐（账号）。未登录抛 auth-required 的人话。 */
   accountDailySongs(sourceId: string): Promise<RemoteTrack[]>;

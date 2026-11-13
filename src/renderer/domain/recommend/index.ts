@@ -59,7 +59,7 @@ export function dailySeed(at = new Date()): number {
   return hashOf(`${at.getFullYear()}-${at.getMonth() + 1}-${at.getDate()}`);
 }
 
-/** 距下一次 06:00 换新的毫秒数（首页倒计时用） */
+/** 距下一次 06:00 换新的毫秒数（已无 UI 消费方，单测钉住口径） */
 export function nextRefreshMs(at = new Date()): number {
   const next = new Date(at);
   next.setHours(6, 0, 0, 0);

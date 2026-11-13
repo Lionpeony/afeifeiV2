@@ -133,8 +133,8 @@ app.whenReady().then(async () => {
 
   // 有内容：先切到「本地」页（加入队列的按钮在曲目行上），造 8 首（不点播，无失败态干扰）
   await js(`(() => {
-    const b = document.querySelector('.ruler-tick[data-page="local"]')
-      ?? [...document.querySelectorAll(".ruler-tick")].find((x) => x.textContent?.includes("本地"));
+    const b = document.querySelector('.side-item[data-page="local"]')
+      ?? [...document.querySelectorAll(".side-item")].find((x) => x.textContent?.includes("本地"));
     if (!b) return false;
     b.click();
     return true;
@@ -150,7 +150,7 @@ app.whenReady().then(async () => {
   );
   if (added < 1) {
     const diag = await js(`(() => ({
-      onTick: document.querySelector(".ruler-tick.on")?.getAttribute("data-page") ?? "",
+      onTick: document.querySelector(".side-item.on")?.getAttribute("data-page") ?? "",
       head: document.querySelector(".page-head h1, h1")?.textContent ?? "",
       classes: [...document.querySelectorAll("[class]")].map((n) => (n.getAttribute("class") ?? "").split(" ")[0]).filter((c) => c.startsWith("lib") || c.startsWith("local")).slice(0, 20),
       bodyCls: document.body.className,
@@ -159,9 +159,9 @@ app.whenReady().then(async () => {
   }
   await js(`[...document.querySelectorAll('[aria-label^="加入队列"]')].slice(0, 8).forEach((b) => b.click())`);
   await sleep(300);
-  // 拍用户实际看到的场景：首页（live 壳层，右边全是「接下来播放」的封面卡——面板最难的背景）
+  // 拍用户实际看到的场景：在线页（live 壳层，右侧榜单 + 控制台——面板最难的背景）
   await js(
-    `[...document.querySelectorAll(".ruler-tick")].find((x) => x.textContent?.includes("首页"))?.click()`,
+    `document.querySelector('.side-item[data-page="online"]')?.click()`,
   );
   await sleep(500);
   if (!(await js(`(() => {

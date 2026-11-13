@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { RemoteTrack } from "../../../../contracts/capability.js";
 import type { Track } from "../../../domain/library/schema.js";
 import { getTracks, subscribe as subscribeLibrary, trackById } from "../../../domain/library/state.js";
@@ -16,6 +16,8 @@ export interface RecentViewProps {
   /** 账号听歌排行（A 方案：账号在上、本机记录在下） */
   account(): Promise<AccountBundle>;
   onPlayRemote(sourceId: string, track: RemoteTrack, list?: RemoteTrack[]): void;
+  /** 页头右侧的视角切换（「我的」并页后由宿主提供） */
+  tabs?: ReactNode;
 }
 
 interface Line {
@@ -42,7 +44,7 @@ const dayOf = (at: number): string => {
  * 历史（domain/history）是「每首只留最后一次」的去重表，所以这里是"最近听过的 N 首"，
  * 不是逐次流水——文案照实说，不假装有完整播放流水账。
  */
-export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewProps) {
+export function RecentView({ onPlayGroup, account, onPlayRemote, tabs }: RecentViewProps) {
   const [, setRev] = useState(0);
   const bump = (): void => setRev((r) => r + 1);
   const acct = useAccountBundle(account, "week");
@@ -89,6 +91,7 @@ export function RecentView({ onPlayGroup, account, onPlayRemote }: RecentViewPro
         title="最近播放"
         desc="上栏是当前账号的听歌排行（跨设备）；下栏是本机记录，每首只留最后一次。"
         meta={`RECENT · ${acct.songs.length + lines.length}`}
+        extra={tabs}
       />
 
       <AccountBlock

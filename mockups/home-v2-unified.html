@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>Afeifei · 统一瓷白深化稿 B · 1440×900</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0b0f0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+    min-height:100vh;padding:24px 0;
+    font-family:"Microsoft YaHei UI","微软雅黑","Segoe UI",sans-serif;color:#17302c}
+  .win{width:1440px;height:900px;flex:none;background:#fbfcfc;border-radius:14px;overflow:hidden;
+    display:flex;flex-direction:column;
+    box-shadow:0 60px 120px -30px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08)}
+  .top{height:56px;flex:none;display:flex;align-items:center;gap:26px;padding:0 22px 0 18px;
+    border-bottom:1px solid rgba(23,48,44,.18);background:#fbfcfc}
+  .brand{display:flex;align-items:center;gap:9px;font-family:"Bahnschrift SemiCondensed","Arial Narrow",sans-serif;
+    font-size:13px;font-weight:700;letter-spacing:.18em}
+  .dot{width:6px;height:6px;border-radius:50%;background:#0e8f82;box-shadow:0 0 8px #0e8f82}
+  .nav{flex:1;display:flex;gap:26px;color:#54706b;font-size:13px}
+  .nav b{color:#0e8f82;font-weight:700;border-bottom:2px solid #0e8f82;padding-bottom:4px}
+  .search{width:300px;height:34px;border-radius:17px;border:1px solid rgba(23,48,44,.14);
+    background:#f3f7f6;display:flex;align-items:center;padding:0 14px;color:#5d7c75;font-size:12px;gap:8px}
+  .body{flex:1;display:grid;grid-template-columns:38% minmax(0,1fr);min-height:0;
+    background:radial-gradient(90% 60% at 12% 0%,rgba(14,143,130,.10),transparent 60%),#fbfcfc}
+  .stage{padding:22px 26px 20px;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+  .kicker{display:flex;align-items:center;gap:8px;font-size:12px;color:#4c6a64;margin-bottom:12px}
+  .kicker::before{content:"";width:7px;height:7px;border-radius:50%;background:#0e8f82;box-shadow:0 0 8px rgba(14,143,130,.7)}
+  .kicker .idx{color:#5d7c75}
+  .cover-wrap{position:relative;flex:none}
+  .cover-wrap::before{content:"";position:absolute;inset:-30px -40px;background:
+      radial-gradient(60% 55% at 45% 40%,rgba(14,143,130,.22),transparent 70%);pointer-events:none}
+  .cover{position:relative;width:100%;aspect-ratio:16/10;max-height:340px;border-radius:18px;
+    outline:1px solid rgba(23,48,44,.16);outline-offset:-1px;
+    background:
+      radial-gradient(70% 90% at 78% 20%,rgba(220,235,230,.16),transparent 55%),
+      radial-gradient(40% 55% at 30% 75%,rgba(46,201,167,.5),transparent 65%),
+      radial-gradient(circle at 70% 40%,rgba(220,235,230,.85) 0 4px,transparent 5px),
+      linear-gradient(115deg,#243b38 0%,#0f1e1c 45%,#050b0a 100%);
+    box-shadow:0 26px 60px -24px rgba(23,48,44,.38),0 8px 20px -10px rgba(23,48,44,.2)}
+  .cover-title{position:absolute;right:22px;top:16px;color:rgba(220,235,230,.5);
+    font-family:"SimSun","宋体",serif;font-size:30px;letter-spacing:.3em;writing-mode:vertical-rl}
+  .title{font-size:44px;line-height:1.05;font-weight:800;margin-top:16px;letter-spacing:.005em}
+  .artist{margin-top:8px;display:flex;gap:10px;align-items:baseline;font-size:15px}
+  .artist b{color:#0d857a}
+  .artist span{color:#5d7c75;font-family:"Cascadia Mono",monospace;font-size:13px}
+  .note{margin-top:10px;font-size:13.5px;line-height:1.7;color:rgba(23,48,44,.76)}
+  .note2{display:block;font-size:12px;color:#5d7c75;margin-top:2px}
+  .feed{padding:20px 26px 14px;display:flex;flex-direction:column;min-width:0;min-height:0}
+  .feed-head{display:flex;align-items:baseline;gap:8px}
+  .feed-head .k{font-size:12px;font-weight:700;color:#0d857a}
+  .feed-head .m{font-size:13px;color:#4c6a64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .feed-head .m b{color:#17302c}
+  .strip{display:flex;align-items:baseline;gap:10px;margin:12px 0 10px}
+  .strip h2{font-size:20px;font-weight:800}
+  .strip span{font-size:12px;color:#5d7c75}
+  .strip a{margin-left:auto;font-size:12px;color:#4c6a64;text-decoration:none}
+  .tapes{flex:1 1 auto;align-content:start;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:14px;min-height:0;position:relative}
+  .tapes::before{content:"";position:absolute;left:-18px;right:-18px;top:0;height:340px;pointer-events:none;
+    background:
+      radial-gradient(46% 82px at 50% 236px,rgba(14,143,130,.14),transparent 78%),
+      radial-gradient(30% 78px at 14% 236px,rgba(63,122,150,.08),transparent 80%),
+      radial-gradient(30% 78px at 86% 236px,rgba(63,122,150,.08),transparent 80%)}
+  .tape{position:relative;align-self:start;border:1px solid rgba(255,255,255,.7);border-radius:14px;overflow:hidden;
+    background:linear-gradient(rgba(14,143,130,.05),rgba(14,143,130,.05)),
+      linear-gradient(rgba(246,250,249,.72),rgba(246,250,249,.72));
+    box-shadow:0 10px 24px -12px rgba(23,48,44,.26),0 26px 52px -26px rgba(23,48,44,.20);
+    padding-bottom:10px}
+  .art{width:100%;aspect-ratio:1/1;display:block}
+  .a1{background:radial-gradient(90% 70% at 60% 25%,rgba(180,160,255,.7),transparent 60%),linear-gradient(135deg,#2b3358,#12141f 70%)}
+  .a2{background:radial-gradient(80% 60% at 40% 20%,rgba(255,230,180,.6),transparent 60%),linear-gradient(135deg,#4a4438,#1b1812 70%)}
+  .a3{background:radial-gradient(80% 60% at 60% 30%,rgba(255,255,255,.85),transparent 55%),linear-gradient(135deg,#e8b10a,#7a4a00 70%)}
+  .a4{background:radial-gradient(80% 60% at 50% 80%,rgba(224,112,58,.55),transparent 60%),linear-gradient(135deg,#2b3242,#0d0f16 70%)}
+  .no{position:absolute;left:8px;top:8px;font-size:11px;border:1px solid rgba(23,48,44,.14);border-radius:7px;
+    padding:0 6px;color:#5d7c75;background:rgba(255,255,255,.72)}
+  .tt{margin:8px 12px 0;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ta{margin:2px 12px 0;font-size:12px;color:#4c6a64;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tf{margin:7px 12px 0;display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:#4c6a64}
+  .play{width:28px;height:28px;border-radius:50%;background:#fff;display:grid;place-items:center;
+    box-shadow:0 1px 2px rgba(23,48,44,.1),0 3px 8px -4px rgba(23,48,44,.16);font-size:11px}
+  .vu{display:flex;gap:3px;align-items:flex-end;height:36px;margin-top:12px}
+  .vu i{flex:1;background:linear-gradient(180deg,rgba(63,122,150,.92),rgba(63,122,150,.38));border-radius:2px 2px 0 0;opacity:.65}
+  .sig{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:#5d7c75;letter-spacing:.04em}
+  .console{height:104px;flex:none;border-top:1px solid rgba(23,48,44,.18);background:#fff;
+    display:grid;grid-template-columns:300px 1fr 340px;align-items:center;gap:20px;padding:0 22px}
+  .np{display:flex;gap:12px;align-items:center;min-width:0}
+  .np-art{width:52px;height:52px;flex:none;border-radius:10px;background:linear-gradient(115deg,#243b38,#050b0a)}
+  .np b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+  .np span{font-size:11px;color:#5d7c75}
+  .heart{color:#c2620f;font-size:14px;margin-left:4px}
+  .prog{display:flex;align-items:center;gap:12px}
+  .t{font-family:"Cascadia Mono",monospace;font-size:11px;color:#5d7c75;min-width:34px}
+  .t.r{text-align:right;min-width:76px}
+  .bar{flex:1;height:4px;border-radius:2px;background:rgba(23,48,44,.12);position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:35%;background:#0e8f82;border-radius:2px}
+  .bar em{position:absolute;left:35%;top:50%;width:12px;height:12px;border-radius:50%;background:#0e8f82;
+    border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transform:translate(-50%,-50%)}
+  .keys{display:flex;gap:12px;align-items:center;justify-content:flex-end}
+  .key{width:38px;height:38px;border-radius:50%;background:none;border:none;display:grid;place-items:center;
+    cursor:pointer;color:#17302c;font-size:15px}
+  .key.main{width:52px;height:52px;background:#0e8f82;color:#f4faf8;font-size:17px;
+    box-shadow:0 8px 18px -8px rgba(14,143,130,.55),inset 0 1px 0 rgba(255,255,255,.25)}
+  .tools{display:flex;gap:14px;align-items:center;justify-content:flex-end;color:#5d7c75;font-size:13px}
+  .cap{font-size:10px;color:#8aa19b;text-align:center;letter-spacing:.06em;max-width:1440px;padding:0 20px}
+</style>
+</head>
+<body>
+<div class="win">
+  <div class="top"><div class="brand"><span class="dot"></span><span>AFEIFEI</span></div>
+    <div class="nav"><b>首页</b><span>在线</span><span>漫游</span><span>本地</span><span>歌单</span><span>喜欢</span><span>最近</span><span>统计</span><span>设置</span><span>直播</span></div>
+    <div class="search">⌕&nbsp; 搜索音乐</div></div>
+  <div class="body">
+    <div class="stage">
+      <div class="kicker">● 正在播放 <span class="idx">· 第 28 / 30 首</span></div>
+      <div class="cover-wrap"><div class="cover"><span class="cover-title">光泽</span></div></div>
+      <div class="title">空心</div>
+      <div class="artist"><b>光泽</b><span>04:39 · QQ 音乐</span></div>
+      <p class="note">队列还剩 2 首 · 约 7 分钟<span class="note2">来自 每日推荐 · 每天 06:00 换新</span></p>
+    </div>
+    <div class="feed">
+      <div class="feed-head"><span class="k">播放队列</span><span class="m">来自 <b>每日推荐</b> · 顺序播放 · 共 <b>30</b> 首</span></div>
+      <div class="strip"><h2>接下来播放</h2><span>剩 2 首 · 顺序播放</span><a href="#">完整列表 ›</a></div>
+      <div class="tapes">
+        <div class="tape"><span class="art a1"></span><span class="no">29</span><div class="tt">故事的最开篇</div><div class="ta">被遗忘者的哀伤 / …</div><div class="tf"><span>3:18</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a2"></span><span class="no">30</span><div class="tt">七秒钟的记忆</div><div class="ta">徐良 / 孙羽幽</div><div class="tf"><span>3:23</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a3"></span><span class="no">01</span><div class="tt">わたしが野嚆</div><div class="ta">生物股长</div><div class="tf"><span>5:18</span><span class="play">▶</span></div></div>
+        <div class="tape"><span class="art a4"></span><span class="no">02</span><div class="tt">孤独颂歌</div><div class="ta">陈文非</div><div class="tf"><span>3:08</span><span class="play">▶</span></div></div>
+      </div>
+      <div class="vu" id="vu"></div>
+      <div class="sig"><span>● 实时频谱</span><span>28 / 30 · LOOP ALL</span></div>
+    </div>
+  </div>
+  <div class="console">
+    <div class="np"><span class="np-art"></span><div><b>空心 · 光泽</b><span>● 光泽 · QQ 音乐</span></div><span class="heart">♡</span></div>
+    <div class="prog"><span class="t">1:35</span><div class="bar"><i></i><em></em></div><span class="t r">4:39</span></div>
+    <div style="display:flex;align-items:center;gap:18px;justify-content:flex-end">
+      <div class="keys"><span class="key">⏮</span><span class="key main">⏸</span><span class="key">⏭</span></div>
+      <div class="tools"><span>⇄</span><span>🔈 ▾</span><span>☰</span><span>▭</span><span>⋯ ▾</span></div>
+    </div>
+  </div>
+</div>
+<div class="cap">Afeifei 统一瓷白深化稿 B · 与现版同结构 · 左封面光晕缝合 / 右架下灯托底 · 1440×900 全屏看</div>
+<script>
+  const vu=document.getElementById('vu');
+  const N=56, bars=[];
+  for(let i=0;i<N;i++){const b=document.createElement('i');vu.appendChild(b);bars.push(b);}
+  const h=[30,44,58,46,66,80,60,86,70,52,88,64,72,42,60,80,66,48,74,54,82,62,50,78,68,56,76,44,66,58,84,62,48,70,56,80,60,42,64,54,72,58,46,66,52,60,44,34,26,20,16,12,10,8,6,5];
+  bars.forEach((b,i)=>{const v=(h[i]||8)/100*36;b.style.height=Math.max(2,v).toFixed(1)+'px';});
+  setInterval(()=>{bars.forEach((b,i)=>{const j=(i+Date.now()/300|0)%h.length;const v=((h[j]||8)*0.72+Math.random()*10)/100*36;b.style.height=Math.max(2,v).toFixed(1)+'px';});},300);
+</script>
+</body>
+</html>

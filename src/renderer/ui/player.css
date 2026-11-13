@@ -327,22 +327,6 @@ input.bar.playing::-webkit-slider-thumb {
   color: var(--accent);
 }
 
-/* 票根戳：竖排 mono，压在控制台左下角 */
-.stamp {
-  position: absolute;
-  left: 8px;
-  bottom: 6px;
-  writing-mode: vertical-rl;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.3em;
-  color: var(--fg-dim);
-  opacity: 0.7;
-  pointer-events: none;
-}
-
 /* 其余滑杆（音量/EQ/前置）统一墨色 accent */
 input[type="range"] {
   accent-color: var(--fg);

@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 
 export type IconName =
-  | "home"
   | "online"
   | "charts"
   | "radio"
@@ -32,12 +31,6 @@ export type IconName =
   | "more";
 
 const PATHS: Record<IconName, ReactNode> = {
-  home: (
-    <>
-      <path d="M2.6 7.6 8 2.8l5.4 4.8" />
-      <path d="M4.2 7.2V13h7.6V7.2" />
-    </>
-  ),
   online: (
     <>
       <circle cx="8" cy="8" r="5.4" />

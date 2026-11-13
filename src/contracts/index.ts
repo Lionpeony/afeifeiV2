@@ -66,7 +66,7 @@ export interface PlayerState {
    * 「重头播当前曲」的脉冲计数（⏮ 命中 3 秒规则）。
    * 重播时 trackId 不变、positionMs 本来就是 0（见 store 文件头：它只记"最后一次
    * seek / 切歌"的位置，不是实时位置），所以**没有任何字段会变** ——
-   * bootstrap 靠这个计数把引擎绕回开头，首页靠它给一次压制反馈。不持久化。
+   * bootstrap 靠这个计数把引擎绕回开头，界面靠它给一次压制反馈。不持久化。
    */
   replaySeq: number;
 }
@@ -111,7 +111,7 @@ export interface QueueState {
   stream: { sourceId: string } | null;
   /**
    * 队列来自哪个节目（「内地榜」「歌单 X」「搜索 · xx」「每日推荐」）。
-   * 首页 ON AIR 投影显示用；null = 调用方没说（老快照 / 唤起播放）。
+   * 播放页 ON AIR 标来源用；null = 调用方没说（老快照 / 唤起播放）。
    */
   origin: string | null;
 }

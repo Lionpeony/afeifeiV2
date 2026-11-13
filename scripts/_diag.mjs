@@ -14,7 +14,7 @@ try {
       `[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === ${JSON.stringify(text)})?.click()`,
     );
 
-  await click("在线");
+  await click("发现");
   await sleep(800);
 
   const login = await app.evaluate(`[...document.querySelectorAll("button")].map((b) => b.textContent).join(" | ")`);
