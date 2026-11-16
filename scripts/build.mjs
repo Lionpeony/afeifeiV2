@@ -205,6 +205,7 @@ await build({
 });
 
 const css = [
+  "src/renderer/ui/fonts.css",
   "src/renderer/ui/tokens.css",
   "src/renderer/ui/app.css",
   "src/renderer/ui/player.css",
@@ -216,6 +217,7 @@ const css = [
   "src/renderer/ui/live/live.css",
   "src/renderer/ui/live/night-signal.css",
   "src/renderer/ui/views/redesign.css",
+  "src/renderer/ui/views/2026.css",
   "src/renderer/ui/fx/fx.css",
 ]
   .map((f) => fs.readFileSync(f, "utf8"))

@@ -226,7 +226,7 @@ async function main() {
   const app = await launch(["--autoplay-policy=no-user-gesture-required"]);
   current = app;
 
-  if (!(await app.waitFor(`document.querySelector("h1")?.textContent === "afeifei"`))) {
+  if (!(await app.waitFor(`document.querySelector(".topbar .brand-name")?.textContent === "AFEIFEI"`))) {
     throw new Error(`界面没渲染出来。页面事件：\n${app.events().join("\n") || "(无)"}`);
   }
 
@@ -294,22 +294,24 @@ async function main() {
 
   /* ---- 在线页：注册表 → 搜索 → 能力缺失 → 人话提示 ---- */
   await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
-  assert.ok(await app.waitFor(`document.querySelector(".seg") !== null`, 5000), "在线页没出来");
+  assert.ok(await app.waitFor(`document.querySelector(".disc-hero") !== null`, 5000), "发现页没出来");
 
-  const sourceOptions = await app.evaluate(`[...document.querySelectorAll(".seg button")].map((b) => b.textContent)`);
-  assert.ok(sourceOptions.length > 0, "音源分段是空的（注册表没接上）");
+  // 音源切换已收进左下角账号菜单：注册表接没接上，从那里看
+  await app.evaluate(`document.querySelector(".side-acct")?.click()`);
+  assert.ok(await app.waitFor(`document.querySelector(".acct-menu") !== null`, 3000), "左下角账号菜单打不开");
+  const sourceOptions = await app.evaluate(
+    `[...document.querySelectorAll(".acct-row b")].map((b) => (b.textContent || "").trim())`,
+  );
+  await app.evaluate(`document.querySelector(".acct-scrim")?.click()`);
+  await sleep(250);
+  assert.ok(sourceOptions.length > 0, "音源列表是空的（注册表没接上）");
 
-  /* ---- 明暗主题（docs/09 B4）：切一次再切回，data-theme 是唯一开关 ---- */
-  // 开关在边栏底部；直播壳本身用固定夜间 token，明暗作用于各房间页
-  assert.ok(await app.waitFor(`!!document.querySelector(".side .theme-toggle")`, 3000), "边栏缺明暗按钮");
-  const beforeTheme = await app.evaluate(`document.documentElement.dataset.theme ?? "(未设)"`);
-  await app.evaluate(`document.querySelector(".side .theme-toggle")?.click()`);
-  const flippedTheme = await app.evaluate(`document.documentElement.dataset.theme`);
-  assert.notEqual(flippedTheme, beforeTheme, "点明暗按钮后 data-theme 没变");
-  await app.evaluate(`document.querySelector(".side .theme-toggle")?.click()`);
-  const backTheme = await app.evaluate(`document.documentElement.dataset.theme`);
-  assert.equal(backTheme, beforeTheme, "再点一次应切回原主题");
-  console.log(`  theme OK：${beforeTheme} → ${flippedTheme} → ${backTheme}`);
+  /* ---- 顶栏（2026-11-16 整站换装）：品牌 / 搜索 / 账号；明暗切换已随「只留深色」移除 ---- */
+  assert.ok(await app.waitFor(`!!document.querySelector(".topbar .search input")`, 3000), "顶栏缺搜索框");
+  assert.equal(await app.evaluate(`!!document.querySelector(".theme-toggle")`), false, "明暗切换应已移除");
+  const shellBg = await app.evaluate(`getComputedStyle(document.querySelector(".shell.live")).backgroundColor`);
+  assert.equal(shellBg, "rgb(11, 12, 13)", `壳底应为 OLED 深色，实际 ${shellBg}`);
+  console.log(`  顶栏 OK：搜索入口在顶栏，壳底 ${shellBg}`);
 
   /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在「更多」弹层内联段里，且真的落到状态 ---- */
   // 2026-11-13 工具排 8→5：睡眠入口收进「更多」弹层（先开弹层，段类不变）
@@ -352,20 +354,24 @@ async function main() {
   );
   console.log("  全局快捷键 OK：9 项含 seek，键位不撞车");
 
-  // 回到在线页：确认产品音源列表（示例音源已于 2026-11-05 移除）
+  // 回到发现页：音源列表只剩左下角账号菜单一个入口（示例音源已于 2026-11-05 移除）
   await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   await sleep(200);
   console.log(`  输出设备 OK：下拉 ${outputOpts.length} 项，setSinkId 可用`);
 
+  await app.evaluate(`document.querySelector(".side-acct")?.click()`);
+  assert.ok(await app.waitFor(`document.querySelector(".acct-menu") !== null`, 3000), "账号菜单打不开");
   const segs = await app.evaluate(
-    `[...document.querySelectorAll(".seg button")].map((b) => (b.textContent || "").trim())`,
+    `[...document.querySelectorAll(".acct-row b")].map((b) => (b.textContent || "").trim())`,
   );
+  await app.evaluate(`document.querySelector(".acct-scrim")?.click()`);
+  await sleep(250);
   assert.ok(
     segs.includes("网易云音乐") && segs.includes("QQ 音乐"),
-    `在线音源列表不对，实际：${segs.join("/")}`,
+    `音源列表不对，实际：${segs.join("/")}`,
   );
   assert.ok(!segs.includes("示例音源"), "示例音源不该再出现在产品里");
-  console.log("  在线音源 OK：网易云 / QQ，示例音源已移除");
+  console.log("  音源列表 OK：网易云 / QQ，示例音源已移除");
 
   if (hasAudio) {
     const token = await app.evaluate(`window.api.grant(${JSON.stringify(samples[0])})`);

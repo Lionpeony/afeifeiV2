@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { PageHead } from "../../PageHead.js";
-import type { Theme } from "../../theme.js";
-import { THEME_PRESETS } from "../../theme/presets.js";
 import { ShortcutsSection } from "./shortcuts-section.js";
 import type { ShortcutAction, ShortcutBinding } from "../../../domain/shortcuts/index.js";
 import type { ShortcutStatus } from "../../shortcuts.js";
@@ -14,8 +12,6 @@ import {
 } from "../../../domain/dislikes/index.js";
 
 export interface SettingsViewProps {
-  theme: Theme;
-  onTheme(theme: Theme): void;
   trackCount: number;
   scanning: boolean;
   notice: string;
@@ -65,7 +61,7 @@ function dirName(p: string): string {
  * 只摆真实存在的开关：不写死快捷键、不摆未接线的选项。
  */
 export function SettingsView(props: SettingsViewProps) {
-  const { theme, onTheme, trackCount, scanning, notice } = props;
+  const { trackCount, scanning, notice } = props;
 
   // 输出设备列表（P0-09）。浏览器 API 直接拿，不走 IPC —— sinkId 本来就只在渲染进程有意义。
   // 拿不到（浏览器拒绝/无权限）就只剩"跟随系统默认"一项，不摆空下拉。
@@ -112,29 +108,10 @@ export function SettingsView(props: SettingsViewProps) {
           </h3>
           <div className="set-row">
             <span className="k">
-              <b>配色</b>
-              <span>三档全局配色，控制台和页面一起换；播放页配色独立不受影响</span>
-            </span>
-            <div className="seg">
-              {THEME_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  title={preset.hint}
-                  className={theme === preset.id ? "on" : ""}
-                  onClick={() => onTheme(preset.id)}
-                >
-                  {preset.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="set-row">
-            <span className="k">
               <b>全局配色包</b>
               <span>
                 {props.globalTokenCount > 0
-                  ? `已加载 ${props.globalTokenCount} 项覆盖，优先于上面的预设`
+                  ? `已加载 ${props.globalTokenCount} 项覆盖`
                   : "导入一份 JSON，只覆盖结构层颜色；播放页主题包请到播放页导入"}
               </span>
             </span>

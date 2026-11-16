@@ -624,11 +624,7 @@ html::after {
 .playlists-page .lib-row.online-row:hover {
   background: var(--row-hover);
 }
-/* 榜单页：左目录 240px（榜名普遍比歌单名长，如「网易云音乐电音榜」），右侧曲目占满。
-   定义写在基类这边：布局属于页面骨架，不该由 live 壳去改。 */
-.charts-page .pl-wrap {
-  grid-template-columns: 240px minmax(0, 1fr);
-}
+/* 歌单目录：榜名/歌单名普遍比 220px 长，用 240px 起步，右侧曲目占满。 */
 .pl-list {
   overflow-y: auto;
   display: flex;

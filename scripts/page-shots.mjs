@@ -126,6 +126,8 @@ function registerMinimalIpc() {
       { id: 12, name: "红玫瑰", ar: [{ name: "陈奕迅" }], al: { name: "认了吧" }, dt: 262000 },
     ];
     if (method === "playlist_track_all") return { total: SONGS.length, songs: SONGS };
+    // 发现页主视觉（2026-11-13 重设计）：每日推荐有真实形状，hero 才不是空壳
+    if (method === "recommend_songs") return { data: { dailySongs: SONGS } };
     // 榜单目录（2026-11-10 重设计验收）：8 个榜，右栏下钻走 playlist_track_all
     if (method === "toplist") {
       return {
@@ -211,6 +213,34 @@ app.whenReady().then(async () => {
     return true;
   };
 
+  // 音源只有一个入口：左下角账号菜单。切源即切账号，发现页的榜单/搜索跟着走。
+  const switchSource = async (name) => {
+    await win.webContents.executeJavaScript(`document.querySelector(".side-acct")?.click()`, true);
+    await sleep(250);
+    const opened = await win.webContents.executeJavaScript(
+      `Boolean(document.querySelector(".acct-menu"))`,
+      true,
+    );
+    if (!opened) throw new Error("账号菜单打不开");
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll(".acct-row")].find((r) => (r.textContent || "").includes(${JSON.stringify(name)}))?.click()`,
+      true,
+    );
+    await sleep(200);
+    const switched = await win.webContents.executeJavaScript(
+      `(() => {
+        const b = [...document.querySelectorAll(".acct-act")].find((x) => (x.textContent || "").trim().startsWith("切换到此"));
+        if (!b) return false;
+        b.click();
+        return true;
+      })()`,
+      true,
+    );
+    if (!switched) await win.webContents.executeJavaScript(`document.querySelector(".acct-scrim")?.click()`, true);
+    await sleep(450);
+    return switched;
+  };
+
   // 首次使用引导（C-16）已下线（2026-11-05 用户要求去掉启动弹窗）：
   // 原三步引导的截图与 KV 判据一并移除，page-onboarding*.png 不再产出。
 
@@ -275,36 +305,7 @@ app.whenReady().then(async () => {
   );
   if (!cleanHint.includes("已保存 1 条")) throw new Error(`改回合法规则后没生效：${cleanHint}`);
 
-  // 全局配色（B-9）：四档里切到「旧档」，DOM 属性与结构层颜色都要变
-  // 先滚回设置页顶部，截图才拍得到「配色」那一行（上一步滚到歌词块了）
-  await win.webContents.executeJavaScript(`document.querySelector(".set-body")?.scrollTo(0, 0)`, true);
-  await sleep(200);
-  const bgBefore = await win.webContents.executeJavaScript(
-    `getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()`,
-    true,
-  );
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".seg button")].find((b) => b.textContent === "旧档")?.click()`,
-    true,
-  );
-  await sleep(250);
-  const themed = await win.webContents.executeJavaScript(
-    `(() => ({
-      id: document.documentElement.dataset.theme,
-      bg: getComputedStyle(document.documentElement).getPropertyValue("--bg").trim(),
-      buttons: [...document.querySelectorAll(".seg button")].length,
-    }))()`,
-    true,
-  );
-  if (themed.id !== "sepia" || themed.bg === bgBefore) {
-    throw new Error(`配色没生效：${JSON.stringify(themed)} / 之前是 ${bgBefore}`);
-  }
-  await shoot(`page-settings-sepia${suffix}.png`);
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".seg button")].find((b) => b.textContent === "纸色")?.click()`,
-    true,
-  );
-  await sleep(200);
+  // 全局配色切换已随「只留深色」移除（2026-11-16）：设置页不再有配色行，sepia 截图下线。
 
   // 听歌报告（B-12）：账本在启动前注入，四个数字卡 + 7 根柱要有内容。
   // 并页后它不是一级入口：进「我的」再点页头「统计」。
@@ -383,13 +384,18 @@ app.whenReady().then(async () => {
   );
   if (dislikeRows < 1) throw new Error("设置页没列出不喜欢名单");
 
-  // 榜单页（2026-11-10 重设计验收）：在线页默认就是榜单分支。
-  // 齐装满员的样子 = 左栏 8 个榜 + 冠军位 1 张 + 2/3 名双卡 + 跑马灯在滚。
+  // 发现页（2026-11-13 重设计验收）：一页三段，没有页内 tab。
+  // 齐装满员的样子 = 每日推荐 hero（巨号日期）+ 8 张榜单卡 + 冠军位 1 张 + 2/3 名双卡。
   // 注意别插在 PAGES 循环后面：设置页的专项步骤依赖循环最后停在「设置」。
   await win.webContents.executeJavaScript(
     `document.querySelector('.side-item[data-page="online"]')?.click()`,
     true,
   );
+  await sleep(300);
+  // 左下角是唯一音源入口：先确认未登录的 QQ 也能切过去（榜单/搜索不需要账号），
+  // 再切回网易云——榜单跟着全局音源，stub 才会给出这 8 个榜。
+  if (!(await switchSource("QQ 音乐"))) throw new Error("未登录音源无法在左下角切换");
+  if (!(await switchSource("网易云音乐"))) throw new Error("切回网易云失败");
   await sleep(900);
   const chartProbe = await win.webContents.executeJavaScript(
     `(() => {
@@ -397,12 +403,16 @@ app.whenReady().then(async () => {
       const after = (el) => parseFloat(getComputedStyle(el, "::after").width) || 0;
       const cover = document.querySelector(".champ-cover");
       return {
-        dirs: document.querySelectorAll(".pl-item.chart-item").length,
+        hero: Boolean(document.querySelector(".disc-hero")),
+        stamp: Boolean(document.querySelector(".disc-stamp b")),
+        dailyCover: Math.round(document.querySelector(".disc-hero-cover")?.getBoundingClientRect().width ?? 0),
+        cards: document.querySelectorAll(".disc-card").length,
+        cardH: Math.round(document.querySelector(".disc-card")?.getBoundingClientRect().height ?? 0),
+        cardName: document.querySelector(".disc-card-name")?.textContent ?? "",
         champ: document.querySelectorAll(".chart-champ").length,
-        hero: document.querySelectorAll(".chart-hero-cell").length,
+        podium: document.querySelectorAll(".chart-hero-cell").length,
         rows: rows.length,
         top10: document.querySelectorAll(".online-row.top10").length,
-        ticker: Boolean(document.querySelector(".chart-ticker")),
         // 热度墨条坡：第 4 名的墨线必须比第 10 名长（判据可红可绿）
         w4: rows[0] ? Math.round(after(rows[0])) : 0,
         w10: rows[6] ? Math.round(after(rows[6])) : 0,
@@ -413,17 +423,28 @@ app.whenReady().then(async () => {
     true,
   );
   if (
-    chartProbe.dirs < 5 ||
+    !chartProbe.hero ||
+    !chartProbe.stamp ||
+    chartProbe.dailyCover < 180 ||
+    chartProbe.cards < 5 ||
+    chartProbe.cardH < 140 ||
+    !chartProbe.cardName ||
     chartProbe.champ !== 1 ||
-    chartProbe.hero !== 2 ||
+    chartProbe.podium !== 2 ||
     chartProbe.rows < 5 ||
     chartProbe.top10 < 3 ||
-    !chartProbe.ticker ||
     chartProbe.w4 <= chartProbe.w10 ||
     chartProbe.champCover < 140
   ) {
-    throw new Error(`榜单页没长齐：${JSON.stringify(chartProbe)}`);
+    throw new Error(`发现页没长齐：${JSON.stringify(chartProbe)}`);
   }
+  // page-online 记首屏（每日推荐），page-charts 记榜单段（卡带 + 下钻）：
+  // 两张图各记录一个卖点，不再重复截同一个视口。
+  await win.webContents.executeJavaScript(
+    `document.querySelector(".disc-board")?.scrollIntoView({ block: "start" })`,
+    true,
+  );
+  await sleep(300);
   await shoot(`page-charts${suffix}.png`);
 
   // 歌单页（M11）：账号歌单 → 一键收藏 → 粘链接导入 → 点开取曲目
@@ -511,16 +532,13 @@ app.whenReady().then(async () => {
     true,
   );
   await sleep(300);
-  // 默认音源是「示例音源」，要显式切到网易云才走我们 stub 的 cloudsearch
-  await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".seg button")].find((b) => b.textContent === "网易云音乐")?.click()`,
-    true,
-  );
+  // 默认音源是「示例音源」，要从左下角账号菜单切到网易云才走我们 stub 的 cloudsearch
+  await switchSource("网易云音乐");
   await sleep(300);
   // 搜索入口已上移到站尺右端的 form（页内搜索按钮已删）：填词 + 提交
   await win.webContents.executeJavaScript(
     `(() => {
-      const input = document.querySelector(".side-search input");
+      const input = document.querySelector(".topbar .search input");
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(input, "晴天");
       input.dispatchEvent(new Event("input", { bubbles: true }));
@@ -540,13 +558,13 @@ app.whenReady().then(async () => {
   );
   if (searchState.rows !== 3) throw new Error(`在线搜索没出 3 条：${JSON.stringify(searchState)}`);
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".lib-head button")].find((b) => b.textContent === "全选")?.click()`,
+    `[...document.querySelectorAll(".list-now button")].find((b) => (b.textContent || "").trim() === "全选")?.click()`,
     true,
   );
   await sleep(200);
   const manyBtn = await win.webContents.executeJavaScript(
     `(() => {
-      const b = [...document.querySelectorAll(".lib-head button")].find((x) => x.textContent.startsWith("下载选中"));
+      const b = [...document.querySelectorAll(".list-now button")].find((x) => (x.textContent || "").startsWith("下载选中"));
       if (!b) return false;
       b.click();
       return true;
@@ -705,14 +723,11 @@ app.whenReady().then(async () => {
     `document.querySelector('.side-item[data-page="local"]')?.click()`,
     true,
   );
-  await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
   await sleep(300);
   await shoot(`page-local-dark${suffix}.png`);
 
   // 音效面板（A-06 证据）：10 段竖排滑杆 + 预设。点了「人声」才拍，曲线要跟着变
   // 2026-11-13 工具排 8→5：音效入口收进「更多」弹层（先开弹层再点行）
-  await win.webContents.executeJavaScript(`document.querySelector(".theme-toggle")?.click()`, true);
-  await sleep(200);
   const fxOk = await win.webContents.executeJavaScript(
     `(() => {
       const more = [...document.querySelectorAll(".tools button")].find(

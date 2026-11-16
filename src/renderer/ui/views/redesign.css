@@ -1,14 +1,9 @@
 /* ============================================================================
-   内容页重设计（2026-11-10）
-   覆盖：榜单页（charts）/ 歌单页（playlists）/ 喜欢页（liked）。
-   设计语言 = 「电台的印刷品」：
-   - 巨号刊头（34px 细宋 + 朱砂句号）+ 刊头下的"频率刻度尺"
-   - 表格仍是骨架，但行有呼吸、封面有尺寸、序号有墨色层级
-   - 每页一个记忆点：榜单 = 放榜跑马灯 + 描边巨号名次；歌单 = 封套抬头；
-     喜欢 = 红心印鉴 + 艺人墨条（真实占比）
-   纪律：颜色只走 rgb()/color-mix()/token；z-index 白名单；无 !important。
-   作用域带 .shell.live .live-room（与 live.css 同特异性，本文件后加载即赢）。
-   ============================================================================ */
+   内容页结构层（2026-11-10，2026-11-16 视觉被 2026.css 接管）
+   覆盖：榜单下钻 / 歌单页 / 喜欢页的版式骨架。
+   历史设计语言 = 「电台的印刷品」（巨号刊头、刻度尺、描边巨号名次）。
+   2026-11-16 起颜色、字体、圆角统一由 views/2026.css 覆盖成 OLED 深色 +
+   橙红 + 衬线，本文件只保留布局与结构，不再承担配色。 */
 
 /* ---------------- 刊头：大字 + 刻度尺 ---------------- */
 
@@ -218,113 +213,6 @@
     color-mix(in srgb, var(--live-fg) 6%, transparent) 0 1px,
     transparent 1px 5px
   );
-}
-
-/* 榜单目录的 mono 序号：选中行点亮 */
-.shell.live .live-room .chart-index {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--live-fg-faint);
-}
-.shell.live .live-room .pl-item.on .chart-index {
-  color: var(--accent);
-}
-
-.shell.live .live-room .chart-thumb {
-  width: 34px;
-  height: 34px;
-  border-radius: 2px;
-  border: 1px solid var(--live-line-soft);
-  background-size: cover;
-  background-position: center;
-  background-color: color-mix(in srgb, var(--live-fg) 4%, var(--live-panel));
-}
-
-/* ---------------- 榜单页记忆点 1：「正在放榜」跑马灯 ---------------- */
-
-.chart-ticker {
-  flex: none;
-  display: flex;
-  align-items: stretch;
-  height: 30px;
-  border-top: 1px solid var(--live-line-strong);
-  border-bottom: 1px solid var(--live-line-soft);
-  overflow: hidden;
-}
-
-.tk-live {
-  flex: none;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  background: var(--accent);
-  color: rgb(255 255 255 / 0.96);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.26em;
-}
-
-.tk-viewport {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, rgb(0 0 0) 4%, rgb(0 0 0) 96%, transparent);
-  mask-image: linear-gradient(90deg, transparent, rgb(0 0 0) 4%, rgb(0 0 0) 96%, transparent);
-}
-
-.tk-track {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: chart-ticker-roll 26s linear infinite;
-  will-change: transform;
-}
-.chart-ticker:hover .tk-track { animation-play-state: paused; }
-
-/* 两份同样的内容首尾相接，位移 -50% 即无缝循环 */
-.tk-run {
-  display: inline-flex;
-  align-items: center;
-  gap: 30px;
-  padding-right: 30px;
-}
-.tk-run b {
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--live-fg-dim);
-}
-.tk-run b i {
-  font-family: var(--font-mono);
-  font-style: normal;
-  font-size: 10.5px;
-  color: var(--accent);
-  margin-right: 7px;
-}
-
-.tk-src {
-  flex: none;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  border-left: 1px solid var(--live-line-soft);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--live-fg-faint);
-  max-width: 220px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-@keyframes chart-ticker-roll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tk-track { animation: none; }
 }
 
 /* ---------------- 榜单页记忆点 2：冠军位 + 台柱 + 描边巨号名次 ---------------- */
@@ -909,10 +797,18 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* 只纵向滚：横向溢出（卡带右侧露头）不该给整页再挂一条滚动条 */
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  padding: 2px 6px 20px 0;
+  gap: 22px;
+  padding: 12px 6px 20px 0;
+}
+
+/* flex 列容器里子项默认 flex-shrink:1：内容高过一屏时会被压扁而不是滚动。
+   hero 与榜单都要保持自然高度，滚动交给 disc-scroll。 */
+.shell.live .live-room .disc-scroll > * {
+  flex: none;
 }
 
 /* ---------- 每日推荐：整页主视觉 ---------- */
@@ -920,26 +816,26 @@
 .shell.live .live-room .disc-hero {
   position: relative;
   display: grid;
-  grid-template-columns: 228px minmax(0, 1fr);
-  gap: 30px;
-  padding: 22px 30px 22px 24px;
+  grid-template-columns: 210px minmax(0, 1fr);
+  padding: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--live-line));
   border-left: 4px solid var(--accent);
   background:
-    linear-gradient(118deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 44%),
+    linear-gradient(118deg, color-mix(in srgb, var(--accent) 15%, transparent), transparent 52%),
     linear-gradient(180deg, color-mix(in srgb, var(--live-fg) 4%, transparent), transparent 72%);
 }
 
-/* 每日推荐封面：外实框 + 内退 10px 的朱砂细框（画中画），
-   套印的层次感，不用投影也不用负层级 */
+/* 每日推荐封面：满高海报条，贴住 hero 左缘——它撑起整块主视觉，
+   不是一张缩在角落的缩略图。无封面时是斜纹纸 + 朱砂方印。 */
 .shell.live .live-room .disc-hero-cover {
   position: relative;
   z-index: 1;
-  width: 228px;
-  height: 228px;
+  width: 210px;
+  height: 100%;
+  min-height: 210px;
   overflow: hidden;
-  border: 1px solid var(--live-line);
+  border-right: 1px solid var(--live-line);
   background: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
 }
 
@@ -960,7 +856,7 @@
   filter: saturate(0.94) contrast(1.04);
 }
 
-/* 没有封面（未登录 / 加载中）时不装假图：斜纹纸面 + 中心一枚朱砂方印 */
+/* 没有封面（未登录 / 加载中）时不装假图：斜纹纸面 + 内缩虚线（校样裁切框） + 中心朱砂方印 */
 .shell.live .live-room .disc-hero-cover i {
   position: absolute;
   inset: 0;
@@ -969,6 +865,13 @@
     color-mix(in srgb, var(--live-fg) 6%, transparent) 0 1px,
     transparent 1px 7px
   );
+}
+
+.shell.live .live-room .disc-hero-cover i::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border: 1px dashed color-mix(in srgb, var(--live-fg) 16%, transparent);
 }
 
 .shell.live .live-room .disc-hero-cover i::after {
@@ -986,9 +889,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  padding-right: 168px;
+  padding: 18px 26px 18px 24px;
 }
 
 .shell.live .live-room .disc-kicker {
@@ -1012,7 +915,7 @@
 .shell.live .live-room .disc-stamp {
   position: absolute;
   right: 0;
-  top: -18px;
+  top: 0;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -1022,7 +925,7 @@
 
 .shell.live .live-room .disc-stamp b {
   font-family: var(--font-mono);
-  font-size: clamp(84px, 9vh, 128px);
+  font-size: clamp(76px, 8vh, 108px);
   font-weight: 700;
   line-height: 0.86;
   letter-spacing: -0.06em;
@@ -1042,7 +945,7 @@
 .shell.live .live-room .disc-hero-tx h2 {
   margin: 0;
   font-family: var(--font-disp);
-  font-size: clamp(30px, 4.4vh, 44px);
+  font-size: clamp(28px, 4vh, 38px);
   font-weight: 250;
   letter-spacing: 0.06em;
   line-height: 1.05;
@@ -1109,12 +1012,12 @@
   cursor: default;
 }
 
-/* 预览：前 5 首。行高压到 28px——它是 hero 的注脚，不是列表页 */
+/* 预览：前 4 首。行高压到 26px——它是 hero 的注脚，不是列表页。
+   宽度铺满文字列：右侧那片空白只会让 hero 显得没做完 */
 .shell.live .live-room .disc-preview {
   list-style: none;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   padding: 0;
-  max-width: 640px;
 }
 
 .shell.live .live-room .disc-preview li {
@@ -1127,7 +1030,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  height: 28px;
+  height: 26px;
   padding: 0 4px;
   border: 0;
   background: none;
@@ -1198,7 +1101,7 @@
   gap: 12px;
   padding-bottom: 9px;
   border-bottom: 1px solid var(--live-line-strong);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .shell.live .live-room .disc-sect b {
@@ -1227,17 +1130,26 @@
   gap: 14px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 13px;
+  /* 底部让出横向滚动条的高度，卡片的榜名/曲数不压在条子上 */
+  padding: 2px 2px 22px;
   scroll-snap-type: x proximity;
-  scrollbar-width: thin;
+}
+
+/* 卡带自己的横向条压细、去掉轨道底色：10px 的全局条在卡带下方是一道割裂的灰带 */
+.shell.live .live-room .disc-strip::-webkit-scrollbar {
+  height: 6px;
+}
+
+.shell.live .live-room .disc-strip::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .shell.live .live-room .disc-card {
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  width: 132px;
+  gap: 5px;
+  width: 108px;
   padding: 0;
   border: 0;
   background: none;
@@ -1247,10 +1159,16 @@
 }
 
 .shell.live .live-room .disc-card-cover {
-  width: 132px;
-  height: 132px;
+  width: 108px;
+  height: 108px;
   border: 1px solid var(--live-line);
   background-color: color-mix(in srgb, var(--live-fg) 5%, var(--live-panel));
+  /* 没有榜单封面时是斜纹纸，不是一个死灰块；有图时内联 background-image 覆盖它 */
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--live-fg) 7%, transparent) 0 1px,
+    transparent 1px 6px
+  );
   background-size: cover;
   background-position: center;
   transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1), border-color 0.2s ease, filter 0.2s ease;
@@ -1302,4 +1220,16 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+/* 批量动作贴在结果抬头右端：不再单独占一条工具行（音源切换已归左下角账号菜单） */
+.shell.live .live-room .now-many {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.shell.live .live-room .now-many .now-act {
+  margin-left: 0;
 }

@@ -26,13 +26,13 @@ import { beginAccount, isAccountLiked } from "../domain/account-likes/index.js";
 import { fmt, phaseLabel, phaseOf } from "./playback-phase.js";
 import { FindLyric } from "./FindLyric.js";
 import { registerCommand } from "./input/commands.js";
-import { currentTheme, type Theme } from "./theme.js";
 import { getActiveSource, setActiveSource, subscribeActiveSource } from "./active-source.js";
 import { AccountMenu, type AccountProfile } from "./live/AccountMenu.js";
-import { LoginDialog } from "./views/online/LoginDialog.js";
+import { LoginDialog } from "./views/discover/LoginDialog.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
 import { Sidebar } from "./Sidebar.js";
+import { Topbar } from "./Topbar.js";
 import { BootSplash } from "./BootSplash.js";
 import { invalidateAccountData, type AccountBundle } from "./account-data.js";
 import { loadNet } from "../domain/net-cache/index.js";
@@ -143,7 +143,6 @@ function App() {
   const [findOpen, setFindOpen] = useState(false);
   const [offline, setOffline] = useState(false);
   const [sources, setSources] = useState<SourceOption[]>([]);
-  const [theme, setThemeState] = useState<Theme>("light");
   const [libraryRoots, setLibraryRoots] = useState<string[]>([]);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [lyricFiltersText, setLyricFiltersText] = useState("");
@@ -205,27 +204,6 @@ function App() {
     }
   };
 
-  /* 顶栏是「快捷开关」：只在明暗之间来回切。三档配色在设置页里选——
-     顶栏点一下就换一档会让用户找不到「回到刚才那档」的路径。 */
-  const toggleTheme = (): void => {
-    const svc = services.current;
-    if (!svc) return;
-    // 舞台明暗默认（toneAuto）跟随全局主题；用户在样式库点过明暗（锁手动）才独立。
-    // 舞台不吃 data-theme，外壳配色又跟着舞台走（:has）——不同步舞台的话，
-    // 播放页上点月亮「看起来没反应」（用户实测 BUG，两条路都要翻）。
-    const stageAuto = getState().stage.toneAuto;
-    if (page === "stage" && !stageAuto) {
-      // 手动档 + 在舞台上：让舞台领先（先翻 stage.tone），全局同步成同一个值
-      const nextTone = getState().stage.tone === "dark" ? "light" : "dark";
-      dispatch({ type: "stage/setTone", tone: nextTone });
-      setThemeState(svc.setTheme(nextTone));
-      return;
-    }
-    const next = currentTheme() === "light" ? "dark" : "light";
-    setThemeState(svc.setTheme(next));
-    if (stageAuto) dispatch({ type: "stage/setTone", tone: next === "dark" ? "dark" : "light" });
-  };
-
   useEffect(() => {
     const offFrame = onFrame(syncPosition);
     const offStore = subscribe(() => {
@@ -263,7 +241,6 @@ function App() {
         resolveServices.current?.(s);
         setSources(s.sources());
         refreshAccountProfiles();
-        setThemeState(s.theme);
         syncPosition();
         startMiniBridge(s);
         startLyricBridge(s);
@@ -551,7 +528,6 @@ function App() {
         },
       }),
       registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
-      registerCommand({ id: "theme-toggle", label: "切换日间 / 夜间", run: toggleTheme }),
       registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
       registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
       registerCommand({ id: "open-lyric", label: "打开桌面歌词", run: () => void services.current?.openLyric() }),
@@ -854,15 +830,6 @@ function App() {
       case "settings":
         return (
           <SettingsView
-            theme={theme}
-            onTheme={(next) => {
-              const svc = services.current;
-              if (svc) setThemeState(svc.setTheme(next));
-              // 舞台明暗默认跟随全局主题（toneAuto）；手动档不跟随（用户自己选的）
-              if (getState().stage.toneAuto) {
-                dispatch({ type: "stage/setTone", tone: next === "dark" ? "dark" : "light" });
-              }
-            }}
             trackCount={getTracks().length}
             scanning={scanning}
             notice={scanNote}
@@ -1023,9 +990,6 @@ function App() {
               if (!svc) return Promise.resolve({ items: [] });
               return svc.searchOnline(sourceId, keyword);
             }}
-            loginStatus={(sourceId) =>
-              services.current?.loginStatus(sourceId) ?? Promise.resolve({ loggedIn: false, nick: null })
-            }
             startLogin={(sourceId, channel) => {
               const svc = services.current;
               if (!svc) return Promise.reject(new Error("还没准备好，请稍后再试"));
@@ -1045,11 +1009,6 @@ function App() {
               const svc = services.current;
               if (!svc) return Promise.resolve({ ok: false, message: "还没准备好" });
               return svc.loginByCaptcha(phone, captcha);
-            }}
-            logout={(sourceId) => {
-              const svc = services.current;
-              invalidateAccountData(`account:${sourceId}:`);
-              return svc ? svc.logout(sourceId) : Promise.resolve();
             }}
             onDownload={(sourceId, track) => {
               const svc = services.current;
@@ -1075,6 +1034,14 @@ function App() {
     }
   };
 
+  /** 顶栏与左栏共用的一份账号摘要 */
+  const accountSummary = {
+    nick: accountProfiles[getActiveSource()]?.nick ?? null,
+    avatarUrl: accountProfiles[getActiveSource()]?.avatarUrl ?? null,
+    sourceName: sources.find((s) => s.id === getActiveSource())?.name ?? getActiveSource(),
+    loggedIn: accountProfiles[getActiveSource()]?.loggedIn ?? false,
+  };
+
   return (
     <main className={`shell live${offline ? " offline" : ""}`}>
       {/* 加载页是覆盖层不是替换：主壳先挂好，脚本/快捷键在预取期间也能正常工作 */}
@@ -1085,17 +1052,8 @@ function App() {
           离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
         </div>
       ) : null}
-      <Sidebar
-        page={page}
-        onGo={setPage}
-        onToggleTheme={toggleTheme}
-        theme={theme}
-        account={{
-          nick: accountProfiles[getActiveSource()]?.nick ?? null,
-          avatarUrl: accountProfiles[getActiveSource()]?.avatarUrl ?? null,
-          sourceName: sources.find((s) => s.id === getActiveSource())?.name ?? getActiveSource(),
-          loggedIn: accountProfiles[getActiveSource()]?.loggedIn ?? false,
-        }}
+      <Topbar
+        account={accountSummary}
         onAccount={() => {
           setAccountOpen((open) => !open);
           refreshAccountProfiles();
@@ -1103,6 +1061,16 @@ function App() {
         onSearch={(query) => {
           if (query) setSearchSeek({ text: query, at: Date.now() });
           setPage("online");
+        }}
+      />
+
+      <Sidebar
+        page={page}
+        onGo={setPage}
+        account={accountSummary}
+        onAccount={() => {
+          setAccountOpen((open) => !open);
+          refreshAccountProfiles();
         }}
       />
 

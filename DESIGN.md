@@ -2,32 +2,38 @@
 name: Afeifei 阿飞飞
 description: 把听歌当成一场有节目单的演出的 Windows 桌面播放器
 colors:
-  primary: "#233ff2"
-  neutral-bg: "#f2f3ef"
-  ink: "#16181f"
-  ink-dim: "#5d6470"
-  raised: "#e9eae4"
-  accent-night: "#e8b64c"
-  accent-violet: "#ff654f"
+  bg: "#0b0c0d"
+  surface: "#151819"
+  surface-2: "#1a1e1f"
+  text: "#f4f1ea"
+  muted: "#a2a5a2"
+  muted-2: "#8a8f8b"
+  accent: "#ff5a36"
+  accent-ink: "#170b07"
 typography:
   display:
-    fontFamily: "Bahnschrift SemiCondensed, Bahnschrift, Arial Narrow, Segoe UI, sans-serif"
+    fontFamily: "Instrument Serif, Noto Serif SC, Songti SC, Georgia, serif"
   body:
-    fontFamily: "Microsoft YaHei UI, Segoe UI, sans-serif"
+    fontFamily: "Manrope, Microsoft YaHei UI, Segoe UI, sans-serif"
     fontSize: "14px"
   mono:
-    fontFamily: "Cascadia Mono, Cascadia Code, Consolas, Courier New, monospace"
-    fontSize: "10.5px"
-    letterSpacing: "0.16em"
+    fontFamily: "Cascadia Mono, Consolas, ui-monospace, monospace"
+    fontSize: "10px"
+    letterSpacing: "0.14em"
 rounded:
-  ui: "0px"
-  cover: "6px"
+  sm: "6px"
+  md: "10px"
+  lg: "14px"
+  pill: "999px"
 spacing:
-  gutter: "52px"
-  sidebar: "316px"
+  gutter: "24px"
+  sidebar: "232px"
+  topbar: "68px"
+  console: "104px"
 ---
 
-<!-- 从已实现 token 落录（2026-11-05 换装）。实现源：renderer/ui/tokens.css + views/stage/stage*.css + presets.ts；权威设计仍以 docs/00 §9.2 为准。 -->
+<!-- 2026-11-16 整站换装：设计源 = `这是我的音乐播放器在线页的样子/index.html`。
+     色值唯一来源是 renderer/ui/tokens.css；本文件是同一套体系的说明稿。 -->
 
 # Design System: Afeifei 阿飞飞
 
@@ -35,92 +41,72 @@ spacing:
 
 **Creative North Star: "TYPE IS TIME / 歌词即时间"**
 
-播放页不是「封面 + 进度条」，是正在唱的那一句歌词本身：当前真实歌词是这首歌此刻的指针，已唱的墨色可读、正在唱的词成为全屏最大字号与唯一强调色、未唱的退成浅墨但完整保留。所有词与时间全部来自真实的 `LyricDoc.words` 与唯一合成器时钟——没有假打字动画，没有预写死的光效。
-
-系统的性格是「纸面 + 字级」：冷调纸白承托墨黑大字，字号的突变（离散，不做过渡）就是节拍；深度由字重与亮度差承担，颜色里唯一的强调色只标「正在发生」。
+播放页的核心不变：正在唱的那一句就是指针。但整站的视觉语言在 2026-11-16 换代——
+从「冷调纸面」换成**OLED 深底上的一处橙红**：深色承载内容，衬线承担情绪，
+等宽承担数字与标签，圆角与胶囊让它像一件消费级产品而不是印刷品。
 
 **Key Characteristics:**
-- 当前词 = 播放指针：`font-size 1.72em / weight 800 / --stage-accent`，其余词墨色与浅墨分级。
-- 全站每屏只有一个强调色（预设各异：纸蓝 / 夜金 / 雾青 / 余光珊瑚红），只标正在唱、正在播、主操作。
-- 等宽只用于数字、编号、英文小标（LINE 02 / 86 · WORD 04 / 11）；印刷感靠字距不靠字号。
-- 诚实状态：无逐字数据 → 行级一次落墨；无歌词 → 「纯音乐 · 这首歌没有歌词」；无 analyser 信号 → 频谱留空。
+- 全站只有一套深色配色；不再有明暗/旧档切换（配色包仍可导入覆盖结构层）。
+- 每屏只有一个强调色 `#ff5a36`：主操作、正在播放、选中态。
+- 三层字体：Instrument Serif / Noto Serif SC 做标题与日期；Manrope 做正文；
+  等宽只用于数字、编号、英文小标。
+- 圆角是默认：卡片 6–14px，按钮与分段是胶囊。
+- 诚实状态：无数据就写无数据；未登录就说未登录；不编榜单元信息。
 
 ## Colors
 
-冷调纸白上的一处蓝。夜间/彩纸等四套预设只换场景层 token，语法不变。
+深色是底，橙红是唯一声音。
 
 ### Primary
-- **纸蓝 / 电子蓝** (`#233ff2`): 正在唱的词、主操作、当前句注锚、封面取色前的 tint 兜底之外的唯一彩色。
-- **夜金** (`#e8b64c`) / **雾青** (`#147a6f`) / **余光珊瑚红** (`#ff654f`): 分别属于深靛唱机 / 极简留白 / 演后余光三套预设，同一时刻在屏上只存在一套。
+- **橙红** (`#ff5a36`): 主操作、正在播放、选中、进度头。
+- **橙红上的字** (`#170b07`): 填充按钮与高亮块上的文字（对比 6.3:1）。
+- **hover 档** (`#ff7050`): 主按钮悬停。
 
 ### Neutral
-- **纸白** (`#f2f3ef`): 页面底、正文之外的读者视线归位点。
-- **墨黑** (`#16181f`): 标题与已唱正字。
-- **浅墨** (`#5d6470` / 34% 墨): 次级信息与未唱词。
+- **OLED 底** (`#0b0c0d`): 窗口与页面底。
+- **面板** (`#151819`) / **次级面板** (`#1a1e1f`): 卡片、弹层、选中行。
+- **暖白** (`#f4f1ea`): 标题与正文主色（不是纯白，避免刺眼）。
+- **次级灰** (`#a2a5a2`) / **小标灰** (`#8a8f8b`): 说明文字、等宽小标。
 
 ### Named Rules
-**The One Voice Rule.** 强调色只标「正在发生」。答不出「它在发生什么」的位置，改回墨与纸。
+**The One Voice Rule.** 强调色只标「正在发生 / 可点的主操作」。答不出它在发生什么，改回暖白与灰。
 
-**The Tint Rule.** 封面取色产物 `--stage-tint` 只进 Wallpaper/频谱层，未取到色时回落 `transparent`，不许回落成强调色。
+**The Surface Ladder Rule.** 底 < 面板 < 次级面板，三层以内；层次靠亮度和 1px 发丝线，不靠投影堆叠。
 
 ## Typography
 
-**Display:** Bahnschrift SemiCondensed（窄体大写做票根感） / **Body:** Microsoft YaHei UI / **Mono:** Cascadia Mono。
+**Display:** Instrument Serif（拉丁）+ Noto Serif SC（中文），本地打包；**Body:** Manrope；
+**Mono:** Cascadia Mono / Consolas。
 
 ### Hierarchy
-- **当前词** (1.72em × 英雄字号 `clamp(30px–44px)`，weight 800): L-d 主视觉，也是唯一的字号突跳点。
-- **整句（行级 press）** (`clamp(34px–56px)`, weight 600): 无词时间时的 hero 层级。
-- **极简单行** (`46px`, weight 700): minimal 渲染器当前句。
-- **剧场三行** (27/19/20px): theatrical 渲染器 当前句 + 前后句字幕。
-- **行内注锚** (14px): `.st-trans` 翻译行，2px × 12px accent 短竖锚。
-- **标签 / 编号** (10.5px mono 0.14–0.18em): 时间码、词号 LINE/WORD、队列位次。
+- **页标题** (`clamp(36px–56px)`, weight 500, 衬线): 每页一个，配合上方 mono 小标。
+- **区块标题** (30px 衬线 / 21px): 榜单、最近播放等段落。
+- **正文/列表** (13.5px, 500): 曲名；艺人 11.5px、次级灰。
+- **小标 / 数字** (10px mono, 0.14–0.2em): eyebrow、计数、时长、编号。
 
 ### Named Rules
-**The Mono-For-Numbers Rule.** 等宽只用于数字、编号、英文小标；中文正文用等宽即违规。
-
-**The Jump Rule.** 词号切换是离散事件，字号/字重切变不经过 CSS transition（§9.4 只允许 transform/opacity/clip-path/filter 动效）；只有颜色允许 0.18s 缓动。
+**The Mono-For-Numbers Rule.** 等宽只用于数字、编号、英文小标；中文正文不用等宽。
 
 ## Layout
 
-- 版心三段：页头（曲目与源身份 + QUEUE 位次 + 视图/沉浸入口）→ 中文本地歌词区 + 右栏真实队列（滚动、真实播放序、可播可移、无封面占位盘）→ 底部台词本 3×4（点行跳句）。播放/进度/EQ 由底部全局 console 承担，播放页不复制控制。
-- 词法行横向流动排布（不锁格）；中文均分单字英文逐词；标点收小一档不裁字。
-- 窄窗 (≤1180px)：侧栏收到 250px，台词本降 2 列，字号同步收。
-- immersive（Esc 进入）：不动路由与 store，z=60；三栏 封套相纸 / 大盘 / 词+队列；≥900px 才给正文，窄窗只留提示行。
+```
+┌────────────────────────────── topbar 68px ─────────────────────────────┐
+│ 品牌           顶栏搜索（全站唯一入口）                        账号      │
+├─ sidebar 232px ─┬──────────────────────────── content ─────────────────┤
+│ Browse          │  page-head：eyebrow + 衬线大标题 + 右侧计数          │
+│ Library         │  内容区（页面自行滚动）                              │
+│ System          │                                                      │
+│ 账号摘要        │                                                      │
+├─────────────────┴──────────────── console 104px ───────────────────────┤
+│ 正在播放 · 心 │ 上一首 / 播放 / 下一首 + 进度 │ 模式 / 音量 / 队列 / 更多 │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
-## Elevation & Depth
+- 窄窗（<1180px）：侧栏收成 76px 图标条，品牌文字与分组标签隐藏。
+- 页面切换动画 300ms，`prefers-reduced-motion` 下关闭。
 
-**日常无阴影。** 深度由字号阶梯与字重差承担；只有浮层（视图设置 .st-menu）与 immersive 封面允许双层投影。浮层底色为场景 97% 排墨（不从全局 glass token 读），夜间不串味。
+## Playback Stage
 
-## Shapes
-
-UI 零圆角（按钮、面板、标签都是直角）；圆仅属于封面/轮播盘（cover radius 6px，histogram worst-case 仍直角）。分隔统一 1px；量级`=0` 处不加多余装饰线。
-
-## Components
-
-### Buttons (st-kb)
-- **Shape:** 文字流排；`.dot` 标点 0.72em；词宽随内容不裁字。
-- **Current (`.now`):** accent 色 + 1.72em + weight 800。
-- **Sung (`.lit`):** 墨色 100%。
-- **Future:** 34% 墨；hover 提到 58%。
-
-### Queue Rows (st-nx)
-- 高 42px，靠底部 mono 位次 + 相纸小图 + 标题省略 + 操作浮起（hover/focus-within 才显形）。
-
-### 点行跳句 (st-srow)
-- 3×4 网格；当前句 accent 加粗；点击 seek 到该行 startMs。
-
-### 台词本 / 相纸封面 (st-script / st-photo)
-- 相纸带 `SIDE A · NN` 黑章 + 说明行（标题 / 时长）；无封面回退"刻纹占位 + 虚线框"，不编图。
-
-## Do's and Don'ts
-
-### Do:
-- **Do** 让当前真实词占据全屏最大字号、全部识别信息与「正在发生」的强调色一起出现在 hero 层。
-- **Do** 让 station/immersive 的权限边界清晰：沉浸态是覆盖层，Esc 退出；normal 全部走全局 console 控制。
-- **Do** 在中性底上保持 ≥4.5:1 正文对比（34% 浅墨只用于非关键信息）。
-
-### Don't:
-- **Don't** 画预计算或伪造的逐字高亮；没有 `LyricDoc.words` 和逐字时间就回落行级，不假装。
-- **Don't** 用第二个强调色，或让强调色出现在「没有在发生任何事」的位置。
-- **Don't** 给正文加过渡字号动画——词号切换是离散状态，不是动效。
-- **Don't** 用粒子、shader 歌词、彩色热力图盖住 hero 层。
+播放页恒暗且与结构层解耦（A-10）：4 套预设（深墨剧场 / 深靛唱机 / 极简暗夜 / 演后余光）
+只改 20 个 `--stage-*` 场景 token；4 套版式皮肤（Sleeve / Turntable / Proof / Prism）只改结构。
+默认深色档，橙红只标正在唱。

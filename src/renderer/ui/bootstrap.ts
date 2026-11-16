@@ -111,7 +111,7 @@ import {
   type LyricBindings,
 } from "../domain/lyrics/bindings.js";
 import { searchLrclib } from "../domain/lyrics/fetch-lrclib.js";
-import { applyTheme, isTheme, rgbToHex, THEME_KEY, type Theme } from "./theme.js";
+import { applyTheme, rgbToHex, THEME_KEY, type Theme } from "./theme.js";
 import {
   GLOBAL_THEME_KEY,
   getGlobalTokens,
@@ -617,14 +617,9 @@ export async function bootstrap(): Promise<Services> {
     });
   }
 
-  // 明暗主题（docs/09 B4）：恢复比首屏晚一点点，但只改一个属性，不会重排。
-  // 没存过档时跟系统走（prefers-color-scheme）——「默认根据电脑来显示」是用户预期。
-  const storedTheme = await kv.read(THEME_KEY);
-  const theme: Theme = isTheme(storedTheme)
-    ? storedTheme
-    : window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+  // 2026-11 整站只保留深色：不再跟随系统明暗，也不再恢复旧主题档。
+  // data-theme 仍写入——窗口三键取色链（syncWindowOverlay）依赖它。
+  const theme: Theme = "dark";
   applyTheme(theme);
 
   // 全局配色包（B-9）：覆盖挂在 html 的 inline style 上，优先级高于预设块

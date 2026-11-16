@@ -216,6 +216,12 @@ export function AccountMenu({
                   >
                     {selected.canAuth ? "扫码登录" : "此源不可登录"}
                   </button>
+                  {/* 未登录也能切过去：榜单 / 搜索不需要账号，切源即切那份榜单 */}
+                  {selected.id !== active ? (
+                    <button type="button" className="acct-act ghost" onClick={() => handleSwitch(selected.id)}>
+                      切换到此源
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>

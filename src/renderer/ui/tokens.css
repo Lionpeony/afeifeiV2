@@ -3,244 +3,118 @@
    ① 结构层 —— UI 骨架，永不跟封面/场景/预设变；
    ② 场景层 —— 只被播放页（stage）读取，预设只准写这一层 + 布局参数；
    ③ 材质层 —— 只给浮层（面板/弹窗），正文区不消费。
-   2026-11-03 换装：结构层采用旧仓「唱片节目单」视觉（ref/20）——
-   纸 #f3f1ea / 墨 #17150f / 朱砂印 #d8341c / 发丝线；直角是默认。 */
+   2026-11-16 整站换装（design: 这是我的音乐播放器在线页的样子）：
+   OLED 深底 #0b0c0d / 面板 #151819 / 墨字 #f4f1ea / 橙红强调 #ff5a36；
+   圆角 6/10/14 + 胶囊；标题衬线 Instrument Serif，正文 Manrope。
+   只保留这一套配色——不再有明暗/旧档切换；配色包导入仍可覆盖结构层。 */
 :root {
-  /* ① 结构层（2026-11-11 三次换装：默认色改白——用户拍板「播放器默认颜色是白色」。
-     底从雾青白 #eef2f1 提到瓷白，面板比底更亮一档的层次纪律保持；青瓷印不跟） */
-  --bg: #fbfcfc; /* 瓷白 */
-  --fg: #17302c; /* 深青灰 */
-  --fg-dim: #54706b; /* 青-2：正文/说明默认色（对底 ≥4.8:1，实测浅 4.8 / 深 6.7 / 纸 5.4） */
-  --line: rgba(23, 48, 44, 0.18); /* 发丝 hair：分区/表格线 */
-  --line-soft: rgba(23, 48, 44, 0.08); /* 发丝-2：行分隔、弱线 */
-  --row-hover: rgba(23, 48, 44, 0.05);
-  --accent: #0e8f82; /* 青瓷印：主操作 / 正在播放 / 进度头 / 品牌句号，其余禁止 */
-  --accent-ink: #f4faf8; /* 青瓷上的字 */
-  /* 2026-11-12 评审：press 档往 --accent 拉近（#0c7d72 → #0d857a）。
-     实测对白底对比度 4.51:1（≥ AA 4.5，WCAG 相对亮度公式），
-     与旧值 5.01:1 同为达标档，视觉上不再与 --accent 断成两色。 */
-  --accent-press: rgb(13 133 122); /* 深一档青：浅色主题的**文字类 accent**（在播行曲名）与 P0 填充底（--accent 对浅底 3.5:1 不达 AA）；深/纸主题同 --accent */
-  --ink-faint: rgba(23, 48, 44, 0.45); /* 印刷装饰件：引导点 / 目录号 / 序号灰 / 分隔点。禁作信息性文字（实测 2.6:1） */
-  --brass: #4a7a96; /* 石板蓝：状态徽章（已登录/缺失/提示） */
-  --danger: #c2620f; /* 警示橙棕（红色退场） */
-  --bg-raised: #ffffff; /* 面板/表头：纯白，比瓷白底亮半档 */
-  --mask: rgba(12, 21, 20, 0.5);
+  /* ① 结构层 */
+  --bg: #0b0c0d; /* OLED 底 */
+  --surface: #151819; /* 卡片/面板 */
+  --surface-2: #1a1e1f; /* 悬浮/次级面板 */
+  --fg: #f4f1ea; /* 墨字（暖白，不是纯白） */
+  --fg-dim: #a2a5a2; /* 次级文字（对底 ≥ 6:1） */
+  --muted: #a2a5a2;
+  --muted-2: #8a8f8b; /* 小标/等宽注（对面板 ≥ 4.5:1） */
+  --line: rgba(244 241 234 / 0.1); /* 发丝 hair */
+  --line-strong: rgba(244 241 234 / 0.2);
+  --line-soft: rgba(244 241 234 / 0.06);
+  --row-hover: rgba(244 241 234 / 0.05);
+  --accent: #ff5a36; /* 唯一强调色：主操作 / 正在播放 / 选中 */
+  --accent-ink: #170b07; /* 橙红上的字（设计稿实测 6.3:1） */
+  --accent-press: #ff7050; /* hover / press 档 */
+  --accent-soft: rgba(255 90 54 / 0.12); /* 选中底 / 标签底 */
+  --ink-faint: rgba(244 241 234 / 0.45); /* 装饰件，禁作信息性文字 */
+  --brass: #c9a227; /* 状态徽章 */
+  --danger: #ff7a52; /* 警示 */
+  --bg-raised: #1a1e1f;
+  --mask: rgba(0 0 0 / 0.55);
 
-  /* ② 场景层（四套预设只改这里 + 布局参数）。
-     **不许 var(--结构层)**：A-10 判据是"播放页样式与主题独立"，
-     写成 var(--bg) 就等于把播放页拴在明暗主题上——切夜间播放页整块翻黑。
-     这里的值是自足的纸面配色，[data-theme="dark"] 一个字都不改。 */
-  --stage-bg: #f3f1ea;
-  --stage-fg: #17150f;
-  --stage-fg-dim: #5f5a4e;
-  --stage-line: rgba(23, 21, 15, 0.28);
-  --stage-line-soft: rgba(23, 21, 15, 0.12);
-  --stage-raised: #ece9df;
-  --stage-disc: #191619;
-  --stage-disc-groove: #221e22;
-  --stage-accent: #d8341c;
-  --stage-tint: #d8341c;
+  /* ② 场景层（20 个，与 STAGE_TOKEN_KEYS 一一对账）。
+     播放页恒暗；预设只改这里 + 布局参数，绝不引用结构层。 */
+  --stage-bg: #0b0c0d;
+  --stage-fg: #f4f1ea;
+  --stage-fg-dim: #a2a5a2;
+  --stage-line: rgba(244 241 234 / 0.24);
+  --stage-line-soft: rgba(244 241 234 / 0.1);
+  --stage-raised: #151819;
+  --stage-disc: #151819;
+  --stage-disc-groove: #1c2021;
+  --stage-accent: #ff5a36;
+  --stage-tint: #ff5a36;
   --stage-wallpaper: none;
   --stage-cover-size: 320px;
-  --stage-cover-radius: 0px;
+  --stage-cover-radius: 10px;
   --stage-cover-frame: none;
-  --stage-cover-shadow: none;
+  --stage-cover-shadow: 0 24px 56px rgba(0 0 0 / 0.55);
   --stage-cover-spin: 0s;
   --stage-lyric-size: 22px;
   --stage-lyric-weight: 600;
   --stage-dur: 200ms;
-  --stage-ease: ease-out;
+  --stage-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 
-  /* ③ 材质层（只给浮层）：瓷白卡 + 双层影（外投影 + 1px 发丝），无毛玻璃 */
-  --glass-bg: rgba(255, 255, 255, 0.97);
-  --glass-border: rgba(23, 48, 44, 0.28);
+  /* ③ 材质层（只给浮层）：深色卡 + 大投影 + 发丝描边 */
+  --glass-bg: rgba(21 24 25 / 0.97);
+  --glass-border: rgba(244 241 234 / 0.17);
   --glass-shadow:
-    0 12px 32px rgba(12, 21, 20, 0.16),
-    0 1px 0 rgba(12, 21, 20, 0.1);
+    0 24px 56px rgba(0 0 0 / 0.55),
+    0 1px 0 rgba(244 241 234 / 0.06);
 
-  /* 纸纹（app.css html::after 消费）：日间 .05 multiply */
-  --grain-opacity: 0.05;
-  --grain-blend: multiply;
-
-  /* 字体族（ref pages-v11/tokens.css，与旧仓 press.css 同源）：
-     标题用窄体大写做票根感，正文用系统黑体，数字/标签用等宽 */
-  --font-disp: "Bahnschrift SemiCondensed", "Bahnschrift", "Arial Narrow", "Segoe UI", sans-serif;
-  --font-sans: "Microsoft YaHei UI", "微软雅黑", "Segoe UI", sans-serif;
-  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace;
-
-  /* 外壳尺寸（ref pages-v11/shell.css）：标题栏 / 左导航 / 票根控制台 */
-  --tbar-h: 38px;
-  --nav-w: 96px;
-  --console-h: 104px;
-
-  /* ④ 直播带：只给 .shell.live 消费。
-     控制室是**随灯**的一层——日间青白控制室（这里），夜间深青控制室（见 [data-theme="dark"]）。
-     换主题只换这一层的值，版式、刻度、节目带结构一律不动。
-     舞台（播放页）是暗区，不吃这一层，用下面的 ⑤ 钉死。 */
-  --live-bg: #fafbfb; /* 瓷白-2：壳底（比 --bg 深半档，衬白卡） */
-  --live-panel: #ffffff; /* 面板比底浅一档：日间的层次靠"更亮"而不是"更黑" */
-  --live-panel-2: #f3f7f6;
-  --live-fg: #17302c;
-  --live-fg-dim: #4c6a64;
-  /* 11px mono 标签/读数：对 --live-panel 5.5:1+，小字号读着不吃力 */
-  --live-fg-faint: #5d7c75;
-  --live-line: rgba(23, 48, 44, 0.14);
-  --live-line-strong: rgba(23, 48, 44, 0.34);
-  --live-onair: #c2620f; /* 警示橙棕：暂停/错误等警示语义（红色退场） */
-  --live-accent: #0e8f82; /* 青瓷强调：选中/在用/进度（原 --live-accent 琥珀退场，token 改名） */
-  --live-phosphor: #23a391; /* 设备灯薄荷青 */
-  --live-signal: #3f7a96; /* 频谱石板蓝 */
-  --live-slot: #e3eae8; /* 凹槽/轴孔：永远比 --live-panel-2 更深一档 */
-  --live-accent-ink: #f4faf8; /* 强调**填充**上的字；强调当字用 --live-accent 本身 */
-  --live-serif: "SimSun", "宋体", "Songti SC", "Noto Serif CJK SC", serif;
-  --live-paper: #fcfdfd; /* 锁定页冷纸 */
-  --live-ink: #17302c;
-
-  /* ⑤ 舞台暗区：播放页恒暗（A-10 播放页与主题独立 / 2026-11-05「播出面进暗房」）。
-     live.css 在暗区作用域（.stage.is-live）里把 --live-* 钉回这一套。 */
-  --night-bg: #0c1514;
-  --night-panel: #142020;
-  --night-panel-2: #0f1918;
-  --night-fg: #dcebe6;
-  --night-fg-dim: #7fa39a;
-  --night-fg-faint: #54706a;
-  --night-line: rgba(46, 201, 167, 0.16);
-  --night-line-strong: rgba(220, 235, 230, 0.26);
-  --night-onair: #e0703a;
-  --night-accent: #2ec9a7;
-  --night-phosphor: #34d8b4;
-  --night-signal: #7fc9d8;
-  --night-slot: #080f0e;
-  --night-accent-ink: #0c1514;
-
-  color-scheme: light;
-}
-
-/* 夜间（docs/09 B4）：同一套 token 名换值，一份 CSS 通吃，不新增选择器。
-   暗纸上砂色不是纸色的反相——墨底要留一点暖，正文对底 ≥4.5:1 才不改排版观感。
-   **只覆盖 ①结构层 + ③材质层**：②场景层（--stage-*）刻意不在这里出现，
-   否则播放页会跟着外壳一起翻黑，A-10「与主题独立」就破了（由 test/stage-theme 钉住）。 */
-/* 播放页新皮肤（2026-11-10）：舞台接管了明暗，外壳（站尺 / 控制台）跟着走。
-   浅色皮肤在暗色主题下也要把外壳拉回纸色，否则会是一圈深框套一张白纸。 */
-.shell.live:has(.stage[data-tone="light"]) {
-  --bg: #fbfcfc;
-  --fg: #17302c;
-  --fg-dim: #54706b;
-  --line: rgba(23, 48, 44, 0.18);
-  --line-soft: rgba(23, 48, 44, 0.08);
-  --row-hover: rgba(23, 48, 44, 0.05);
-  --accent: #0e8f82;
-  --accent-ink: #f4faf8;
-  --brass: #4a7a96;
-  --danger: #c2620f;
-  --bg-raised: #ffffff;
-  --grain-opacity: 0.05;
-  --grain-blend: multiply;
-
-  --live-bg: #fafbfb;
-  --live-panel: #ffffff;
-  --live-panel-2: #f3f7f6;
-  --live-fg: #17302c;
-  --live-fg-dim: #4c6a64;
-  --live-fg-faint: #5d7c75;
-  --live-line: rgba(23, 48, 44, 0.14);
-  --live-line-strong: rgba(23, 48, 44, 0.34);
-  --live-onair: #c2620f;
-  --live-accent: #0e8f82;
-  --live-phosphor: #23a391;
-  --live-signal: #3f7a96;
-  --live-slot: #e3eae8;
-  --live-accent-ink: #f4faf8;
-
-  color-scheme: light;
-}
-
-:root[data-theme="dark"],
-.shell.live:has(.stage[data-tone="dark"]) {
-  --bg: #0c1514;
-  --fg: #dcebe6;
-  --fg-dim: #7fa39a;
-  --line: rgba(220, 235, 230, 0.28);
-  --line-soft: rgba(220, 235, 230, 0.12);
-  --row-hover: rgba(220, 235, 230, 0.06);
-  --accent: #2ec9a7; /* 青碧在暗底上提亮一档，否则发乌 */
-  --accent-ink: #0c1514;
-  --accent-press: var(--accent); /* 深底上 --accent 已达标，press 不另设档 */
-  --ink-faint: rgba(220, 235, 230, 0.45);
-  --brass: #5e9bb8;
-  --danger: #e0703a;
-  --bg-raised: #16211f;
-  --mask: rgba(0, 0, 0, 0.6);
-
-  --glass-bg: rgba(22, 33, 31, 0.97);
-  --glass-border: rgba(220, 235, 230, 0.26);
-  --glass-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.55),
-    0 1px 0 rgba(220, 235, 230, 0.08);
-
-  /* 暗底上 multiply 会把颗粒乘成纯黑，换 soft-light 才看得见；浓度减半（50 §16 亮度纪律） */
+  /* 纸纹：暗底用 soft-light，浓度减半 */
   --grain-opacity: 0.025;
   --grain-blend: soft-light;
 
-  /* 夜间控制室 = 舞台暗区同一套：只有一种夜，控制室和台上是同一盏灯 */
-  --live-bg: var(--night-bg);
-  --live-panel: var(--night-panel);
-  --live-panel-2: var(--night-panel-2);
-  --live-fg: var(--night-fg);
-  --live-fg-dim: var(--night-fg-dim);
-  --live-fg-faint: var(--night-fg-faint);
-  --live-line: var(--night-line);
-  --live-line-strong: var(--night-line-strong);
-  --live-onair: var(--night-onair);
-  --live-accent: var(--night-accent);
-  --live-phosphor: var(--night-phosphor);
-  --live-signal: var(--night-signal);
-  --live-slot: var(--night-slot);
-  --live-accent-ink: var(--night-accent-ink);
+  /* 字体族：标题衬线（本地 Instrument Serif + Noto Serif SC），正文 Manrope，数字等宽 */
+  --font-disp: "Instrument Serif", "Noto Serif SC", "Songti SC", Georgia, serif;
+  --font-sans: "Manrope", "Microsoft YaHei UI", "微软雅黑", "Segoe UI", sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  /* 圆角与缓动（设计稿） */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* 外壳尺寸：顶栏 / 侧栏 / 底栏 */
+  --tbar-h: 68px;
+  --nav-w: 232px;
+  --console-h: 104px;
+
+  /* ④ 控制室层：与结构层同一套深色（旧名保留，消费方不用改） */
+  --live-bg: #0b0c0d;
+  --live-panel: #151819;
+  --live-panel-2: #1a1e1f;
+  --live-fg: #f4f1ea;
+  --live-fg-dim: #a2a5a2;
+  --live-fg-faint: #8a8f8b;
+  --live-line: rgba(244 241 234 / 0.08);
+  --live-line-strong: rgba(244 241 234 / 0.2);
+  --live-onair: #ff7a52;
+  --live-accent: #ff5a36;
+  --live-phosphor: #6fe3c4; /* 设备灯：薄荷青保留，作为状态色 */
+  --live-signal: #7fb2c9;
+  --live-slot: #101314;
+  --live-accent-ink: #170b07;
+  --live-serif: "Noto Serif SC", "SimSun", "宋体", "Songti SC", serif;
+  --live-paper: #151819;
+  --live-ink: #f4f1ea;
+
+  /* ⑤ 舞台/直播暗区：同一盏灯 */
+  --night-bg: #0b0c0d;
+  --night-panel: #151819;
+  --night-panel-2: #101314;
+  --night-fg: #f4f1ea;
+  --night-fg-dim: #a2a5a2;
+  --night-fg-faint: #8a8f8b;
+  --night-line: rgba(255 90 54 / 0.14);
+  --night-line-strong: rgba(244 241 234 / 0.2);
+  --night-onair: #ff7a52;
+  --night-accent: #ff5a36;
+  --night-phosphor: #6fe3c4;
+  --night-signal: #7fb2c9;
+  --night-slot: #080a0b;
+  --night-accent-ink: #170b07;
 
   color-scheme: dark;
-}
-
-/* B-9 另外两档全局配色。和夜间块同一条纪律：
-   **只覆盖 ①结构层 + ③材质层，一个 --stage-* 都不碰**（A-10：播放页配色独立）。 */
-:root[data-theme="sepia"] {
-  --bg: #efe6d3;
-  --fg: #2b2118;
-  --fg-dim: #6b5946;
-  --line: rgba(43, 33, 24, 0.3);
-  --line-soft: rgba(43, 33, 24, 0.14);
-  --row-hover: rgba(43, 33, 24, 0.07);
-  --accent: #a34a1f;
-  --accent-ink: #f6efe0;
-  --accent-press: var(--accent); /* 纸底上 --accent 已达标（4.8:1），press 不另设档 */
-  --ink-faint: rgba(107, 89, 70, 0.45);
-  --brass: #7d6027;
-  --danger: #9b3a21;
-  --bg-raised: #e5d8bd;
-  --mask: rgba(43, 33, 24, 0.5);
-  --glass-bg: rgba(229, 216, 189, 0.97);
-  --glass-border: rgba(43, 33, 24, 0.28);
-  --glass-shadow:
-    0 12px 32px rgba(43, 33, 24, 0.22),
-    0 1px 0 rgba(43, 33, 24, 0.12);
-  --grain-opacity: 0.06;
-  --grain-blend: multiply;
-
-  /* 牛皮纸控制室：纸与墨跟着换，琥珀压成暖赭石（同一 hue 家族，暖纸上不发灰） */
-  --live-bg: #efe6d3;
-  --live-panel: #f8f1e0;
-  --live-panel-2: #e6dac1;
-  --live-fg: #2b2118;
-  --live-fg-dim: #5c4b39;
-  --live-fg-faint: #6f5c45;
-  --live-line: rgba(43, 33, 24, 0.16);
-  --live-line-strong: rgba(43, 33, 24, 0.36);
-  --live-onair: #a8352a;
-  --live-accent: #7d4a12;
-  --live-phosphor: #2a6b55;
-  --live-signal: #2a6478;
-  --live-accent-ink: #fdf8ec;
-  --live-slot: #dccfb3;
-
-  color-scheme: light;
 }

@@ -4,10 +4,9 @@ import { getNet, invalidatePrefix, loadNet, refreshNet } from "../../../domain/n
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { PageHead } from "../../PageHead.js";
 import { RefreshButton } from "../../RefreshButton.js";
-import { Segmented } from "../../Segmented.js";
 import { toast } from "../../toast.js";
 import { useActiveSource } from "../../use-active-source.js";
-import { LoginDialog } from "../online/LoginDialog.js";
+import { LoginDialog } from "./LoginDialog.js";
 
 export interface SourceOption {
   id: string;
@@ -36,12 +35,10 @@ export interface DiscoverViewProps {
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   onDownload(sourceId: string, track: RemoteTrack): Promise<string>;
   onDownloadMany(sourceId: string, tracks: RemoteTrack[]): Promise<string>;
-  loginStatus(sourceId: string): Promise<{ loggedIn: boolean; nick: string | null }>;
   startLogin(sourceId: string, channel?: string): Promise<{ key?: string; qrImage?: string; loggedIn?: boolean }>;
   pollLogin(key: string): Promise<{ code: number; loggedIn: boolean; message: string }>;
   sendCaptcha(phone: string): Promise<{ ok: boolean; message: string }>;
   loginByCaptcha(phone: string, captcha: string): Promise<{ ok: boolean; message: string }>;
-  logout(sourceId: string): Promise<void>;
   /** 顶栏搜索提交：at 变化即用 text 发起一次搜索 */
   seekQuery?: { text: string; at: number } | null;
   tabs?: ReactNode;
@@ -76,71 +73,26 @@ export function DiscoverView({
   onSearch,
   onDownload,
   onDownloadMany,
-  loginStatus,
   startLogin,
   pollLogin,
   sendCaptcha,
   loginByCaptcha,
-  logout,
   seekQuery,
   tabs,
 }: DiscoverViewProps) {
-  const [sourceId, setSourceId] = useActiveSource(sources);
+  // 音源只有一个来源：左下角账号菜单的「切换到此源」。本页只读取，不提供切换入口。
+  const [sourceId] = useActiveSource(sources);
   const currentSource = sources.find((s) => s.id === sourceId);
   const sourceName = currentSource?.name ?? sourceId;
   const canLogin = currentSource?.canAuth === true;
 
   const acct = useAccountBundle(daily, "daily");
 
-  /* ---- 登录：随源切换重查，账号状态是每日推荐的前置条件 ---- */
-  const [nick, setNick] = useState<string | null>(null);
-  const [loggedIn, setLoggedIn] = useState(false);
+  /* 登录入口在左下角账号菜单；页内只保留「每日推荐」这一处语境化引导 */
   const [loginOpen, setLoginOpen] = useState(false);
   const [note, setNote] = useState("");
-
-  const refreshLogin = (): void => {
-    if (!sourceId) return;
-    void loginStatus(sourceId)
-      .then((s) => {
-        setLoggedIn(s.loggedIn);
-        setNick(s.loggedIn ? (s.nick ?? "") : null);
-      })
-      .catch(() => {
-        setLoggedIn(false);
-        setNick(null);
-      });
-  };
-  useEffect(() => {
-    refreshLogin();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceId]);
-
-  const openLogin = async (): Promise<void> => {
-    if (loggedIn) return;
-    try {
-      const status = await loginStatus(sourceId);
-      if (status.loggedIn) {
-        setLoggedIn(true);
-        setNick(status.nick ?? "");
-        return;
-      }
-    } catch {
-      /* 查不到状态就当未登录，继续弹二维码 */
-    }
-    setLoginOpen(true);
-  };
-
-  const doLogout = async (): Promise<void> => {
-    setNote("");
-    try {
-      await logout(sourceId);
-      setLoggedIn(false);
-      setNick(null);
-      acct.reload();
-    } catch (err) {
-      setNote(err instanceof Error ? err.message : String(err));
-    }
-  };
+  /** 未登录时 hero 那颗按钮：本页只负责把该源的扫码面板打开 */
+  const openLogin = (): void => setLoginOpen(true);
 
   /* ---- 榜单：卡带 + 下钻 ---- */
   const [lists, setLists] = useState<Toplist[]>([]);
@@ -328,52 +280,7 @@ export function DiscoverView({
 
   return (
     <section className="library discover">
-      <PageHead title="发现" meta={`DISCOVER · ${sources.length} SOURCES`} extra={tabs} />
-
-      <div className="lib-head">
-        {sources.length > 0 ? (
-          <Segmented
-            label="音源"
-            items={sources.map((s) => ({ id: s.id, name: s.name }))}
-            value={sourceId}
-            onChange={setSourceId}
-          />
-        ) : null}
-        {currentSource && !canLogin ? <span className="badge">免登录</span> : null}
-        {canLogin && !loggedIn ? (
-          <button type="button" onClick={() => void openLogin()}>
-            登录{sourceName}
-          </button>
-        ) : null}
-        {canLogin && loggedIn ? (
-          <>
-            <span className="badge badge--on" title={nick ? `已登录：${nick}` : "已登录"}>
-              {nick ? nick : "已登录"}
-            </span>
-            <button type="button" onClick={() => void doLogout()}>
-              退出
-            </button>
-          </>
-        ) : null}
-        {/* 右端只放「这一批结果的批量操作」：跟音源/账号不是一类东西，靠右顶开 */}
-        <div className="lib-head-end">
-          {currentSource?.canDownload && rows.length > 0 ? (
-            <>
-              <button type="button" onClick={() => setSelected(new Set(rows.map((t) => t.sourceId)))}>
-                全选
-              </button>
-              <button
-                type="button"
-                className="primary"
-                disabled={selected.size === 0}
-                onClick={() => void downloadMany()}
-              >
-                下载选中{selected.size > 0 ? `（${selected.size}）` : ""}
-              </button>
-            </>
-          ) : null}
-        </div>
-      </div>
+      <PageHead title="发现" eyebrow={`DISCOVER · ${sourceName}`} extra={tabs} />
 
       {loginOpen ? (
         <LoginDialog
@@ -393,7 +300,6 @@ export function DiscoverView({
           loginByCaptcha={sourceId === "netease" ? loginByCaptcha : undefined}
           onSuccess={() => {
             setLoginOpen(false);
-            refreshLogin();
             acct.reload();
           }}
           onClose={() => setLoginOpen(false)}
@@ -419,6 +325,26 @@ export function DiscoverView({
             <p className="list-now">
               <b>{keyword}</b>
               <span>{busy ? "搜索中…" : rows.length > 0 ? `${rows.length} 条` : "没有结果"}</span>
+              {/* 批量动作贴着「这一批结果」走：不再占一条独立的工具行 */}
+              {currentSource?.canDownload && rows.length > 0 ? (
+                <span className="now-many">
+                  <button
+                    type="button"
+                    className="now-act"
+                    onClick={() => setSelected(new Set(rows.map((t) => t.sourceId)))}
+                  >
+                    全选
+                  </button>
+                  <button
+                    type="button"
+                    className="now-act on"
+                    disabled={selected.size === 0}
+                    onClick={() => void downloadMany()}
+                  >
+                    下载选中{selected.size > 0 ? `（${selected.size}）` : ""}
+                  </button>
+                </span>
+              ) : null}
               <button type="button" className="list-now-x" onClick={clearQuery}>
                 清空
               </button>
@@ -553,7 +479,7 @@ export function DiscoverView({
                       </button>
                     ) : null}
                     {acct.hint && canLogin ? (
-                      <button type="button" onClick={() => void openLogin()}>
+                      <button type="button" onClick={openLogin}>
                         登录{sourceName}
                       </button>
                     ) : null}
@@ -563,7 +489,7 @@ export function DiscoverView({
                   </div>
                   {acct.songs.length > 0 ? (
                     <ol className="disc-preview">
-                      {acct.songs.slice(0, 5).map((track, i) => (
+                      {acct.songs.slice(0, 4).map((track, i) => (
                         <li key={`${track.sourceId}-${i}`}>
                           <button
                             type="button"

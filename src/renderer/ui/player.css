@@ -440,8 +440,6 @@ button.primary:hover:not(:disabled) {
   color: var(--bg);
   background: var(--brass);
 }
-.shell.offline .it[data-page="online"],
-.shell.offline .it[data-page="charts"],
 .shell.offline .search {
   opacity: 0.4;
   pointer-events: none;

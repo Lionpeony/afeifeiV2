@@ -1,0 +1,1915 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AFEIFEI — 发现</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@500;600&display=swap" rel="stylesheet">
+<style>
+@layer od-layout {
+  [hidden]:not([hidden="until-found" i]) { display: none !important; }
+  dialog:not([open]) { display: none !important; }
+  :where(.od-stack,.od-row,.od-row-top,.od-cluster,.od-grid,.od-field,.od-stat,.od-cell,.od-tile) > :where(*) { min-width: 0; }
+  .od-stack   { display: flex; flex-direction: column; gap: var(--od-gap, 8px); }
+  .od-row     { display: flex; align-items: center; gap: var(--od-gap, 8px); }
+  .od-row-top { display: flex; align-items: flex-start; gap: var(--od-gap, 8px); }
+  .od-cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--od-gap, 8px); }
+  .od-fill    { flex: 1 1 0; min-width: 0; }
+  .od-fixed   { flex: none; }
+  .od-grid    { display: grid; gap: var(--od-gap, 12px); grid-template-columns: repeat(var(--od-cols, 3), minmax(0, 1fr)); }
+  .od-stat, .od-field, .od-cell { display: grid; gap: var(--od-gap, 2px); }
+  :where(.od-stat,.od-field,.od-cell) > :where(*) { display: block; }
+  .od-tile { display: grid; grid-template-rows: auto 1fr; }
+  :where(.od-tile) > :where(*) { display: block; }
+  .od-media { display: block; width: 100%; height: auto; aspect-ratio: var(--od-ratio, auto); }
+  .od-media-cover { object-fit: cover; }
+  .od-icon { display: inline-block; inline-size: var(--od-icon-size, 1em); block-size: var(--od-icon-size, 1em); flex: none; }
+  .od-truncate { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .od-clamp-2, .od-clamp-3 { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .od-clamp-2 { -webkit-line-clamp: 2; }
+  .od-clamp-3 { -webkit-line-clamp: 3; }
+  .od-lines-2 { min-height: calc(2 * 1.4em); }
+  .od-nowrap  { white-space: nowrap; }
+  .od-keep    { word-break: keep-all; overflow-wrap: anywhere; }
+  .od-screen { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
+  .od-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .od-rail { display: flex; gap: var(--od-gap, 8px); overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+             padding-inline: var(--od-rail-pad, 16px); scroll-padding-inline: var(--od-rail-pad, 16px); }
+  .od-rail::-webkit-scrollbar { display: none; }
+  :where(.od-rail) > :where(*) { flex: none; scroll-snap-align: start; }
+  :where(.od-rail) > :where(:last-child) { margin-inline-end: var(--od-rail-pad, 16px); }
+  .od-spacer { flex: none; visibility: hidden; pointer-events: none; }
+  .od-touch  { min-width: 44px; min-height: 44px; }
+}
+:root [hidden]:where(:not([hidden="until-found" i])) { display: none; }
+
+:root {
+  --bg: #0b0c0d;
+  --bg-2: #101213;
+  --surface: #151819;
+  --surface-2: #1a1e1f;
+  --line: rgba(244, 241, 234, .08);
+  --line-strong: rgba(244, 241, 234, .17);
+  --text: #f4f1ea;
+  --muted: #a2a5a2;
+  --muted-2: #838683;
+  --accent: #ff5a36;
+  --accent-ink: #170b07;
+  --accent-soft: rgba(255, 90, 54, .12);
+  --font-display: "Instrument Serif", "Noto Serif SC", "Songti SC", Georgia, serif;
+  --font-ui: "Manrope", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --ease: cubic-bezier(.22, .61, .36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+img { display: block; max-width: 100%; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+p, h1, h2, h3 { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+.grow { flex: 1 1 auto; }
+.muted { color: var(--muted); }
+
+.app {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-rows: 68px minmax(0, 1fr) auto;
+  background: var(--bg);
+}
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  position: relative;
+  z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 10px; flex: none; width: 204px; }
+.brand-mark { position: relative; width: 26px; height: 26px; border-radius: 5px; background: var(--text); flex: none; }
+.brand-mark::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--accent); }
+.brand-name { font-size: 12px; font-weight: 700; letter-spacing: .22em; }
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  max-width: 460px;
+  height: 40px;
+  padding: 0 12px 0 14px;
+  background: rgba(244, 241, 234, .04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: border-color .18s ease, background .18s ease;
+}
+.search:focus-within { border-color: var(--line-strong); background: rgba(244, 241, 234, .06); }
+.search-icon { color: var(--muted-2); }
+.search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  background: none;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  color: var(--text);
+}
+.search input::placeholder { color: var(--muted-2); }
+.search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.search kbd {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex: none;
+}
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 16px; flex: none; }
+.lib-tag { font-size: 11px; color: var(--muted); letter-spacing: .04em; }
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  transition: border-color .18s ease, background .18s ease;
+}
+.avatar:hover { border-color: var(--accent); background: var(--surface-2); }
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: 24px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+.nav-group { display: grid; gap: 2px; }
+.nav-label { padding: 0 12px; margin-bottom: 8px; }
+.nav-label + .nav-item { margin-top: 0; }
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  transition: background .16s ease, color .16s ease;
+}
+.nav-item:hover { background: rgba(244, 241, 234, .05); color: var(--text); }
+.nav-item[aria-current="page"] { background: var(--accent-soft); color: var(--text); }
+.nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.nav-item .od-icon { color: currentColor; }
+.sidebar-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  min-width: 0;
+}
+.mini-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+.foot-text { display: grid; gap: 1px; min-width: 0; }
+.foot-text strong { font-size: 11.5px; font-weight: 600; letter-spacing: .04em; }
+.foot-text span { font-size: 10.5px; color: var(--muted-2); }
+
+.main { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; }
+.page { max-width: 1240px; margin: 0 auto; padding: 36px 48px 56px; }
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+.page-head .hero-actions { margin-top: 0; }
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.eyebrow .dot { width: 5px; height: 5px; background: var(--accent); flex: none; }
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 64px;
+  line-height: 1;
+  letter-spacing: -.01em;
+  outline: none;
+}
+.page-title-sm { font-size: 44px; }
+.date-stamp { display: flex; align-items: flex-start; gap: 10px; padding-bottom: 2px; flex: none; }
+.date-num { font-family: var(--font-display); font-size: 46px; line-height: 1; font-style: italic; }
+.date-meta { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .12em; color: var(--muted); line-height: 1.7; margin-top: 3px; }
+
+.hero {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: 396px minmax(0, 1fr);
+  gap: 44px;
+  align-items: start;
+}
+.hero-art { position: relative; min-width: 0; }
+.hero-art img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, .48);
+}
+.hero-art-cap {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.hero-art-cap span { overflow: hidden; text-overflow: ellipsis; }
+.hero-body { display: flex; flex-direction: column; min-width: 0; }
+.hero-body .track-list { margin-top: 24px; }
+.hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.hero-eyebrow .sq { width: 6px; height: 6px; background: var(--accent); flex: none; }
+.hero-title {
+  margin-top: 12px;
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+.hero-sub {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.hero-sub .sep { color: var(--line-strong); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-primary:hover { background: #ff7050; }
+.btn-ghost { border: 1px solid var(--line-strong); color: var(--text); }
+.btn-ghost:hover { background: rgba(244, 241, 234, .06); border-color: rgba(244, 241, 234, .3); }
+
+.track-list { border-top: 1px solid var(--line); }
+.track { border-bottom: 1px solid var(--line); }
+.track:last-child { border-bottom: 0; }
+.track-main {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: var(--r-sm);
+  text-align: left;
+  transition: background .15s ease;
+}
+.track-main:hover { background: rgba(244, 241, 234, .04); }
+.track-main.has-cover { grid-template-columns: 26px 44px minmax(0, 1fr) auto; }
+.track-cover { width: 44px; height: 44px; border-radius: 4px; object-fit: cover; background: var(--surface); }
+.track-idx {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 22px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted-2);
+}
+.track-text { display: grid; gap: 2px; min-width: 0; }
+.track-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-artist { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-dur { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.track.is-playing .track-title { color: var(--accent); }
+.eq { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
+.eq i { width: 2px; height: 12px; background: var(--accent); transform-origin: bottom; animation: eq .9s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: .16s; }
+.eq i:nth-child(3) { animation-delay: .32s; }
+@keyframes eq { 0%, 100% { transform: scaleY(.32); } 50% { transform: scaleY(1); } }
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--muted);
+  transition: background .16s ease, color .16s ease;
+}
+.icon-btn:hover { background: rgba(244, 241, 234, .06); color: var(--text); }
+.icon-btn.is-on { color: var(--accent); }
+
+.section { margin-top: 56px; }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+}
+.section-head h2 { font-family: var(--font-display); font-size: 34px; font-weight: 500; line-height: 1; }
+.section-head .tag { transform: translateY(-2px); }
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  transition: color .16s ease, background .16s ease;
+}
+.text-btn:hover { color: var(--text); background: rgba(244, 241, 234, .05); }
+
+.charts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: transform .2s var(--ease), border-color .2s ease, background .2s ease;
+}
+.chart-card:hover { transform: translateY(-3px); border-color: rgba(255, 90, 54, .45); background: var(--surface-2); }
+.chart-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.chart-no { font-family: var(--font-display); font-size: 22px; font-style: italic; color: var(--muted-2); line-height: 1; }
+.chart-name { display: block; margin-top: 10px; font-family: var(--font-display); font-size: 25px; font-weight: 500; line-height: 1.1; }
+.chart-desc { display: block; margin-top: 5px; font-size: 11.5px; color: var(--muted); }
+.chart-preview { display: block; margin-top: 16px; border-top: 1px solid var(--line); }
+.chart-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+  font-size: 12px;
+}
+.chart-line:last-child { border-bottom: 0; }
+.chart-line .mono { width: 16px; flex: none; font-size: 9px; }
+.chart-line-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-line-artist {
+  flex: none;
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--muted-2);
+}
+.chart-foot {
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  transition: color .18s ease;
+}
+.chart-card:hover .chart-foot { color: var(--accent); }
+
+.rail { display: flex; gap: 16px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.rail::-webkit-scrollbar { display: none; }
+.rail-card { flex: 0 0 172px; display: grid; gap: 10px; text-align: left; min-width: 0; }
+.rail-art { position: relative; display: block; border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
+.rail-art img { width: 100%; aspect-ratio: 1; object-fit: cover; transition: transform .45s var(--ease); }
+.rail-card:hover .rail-art img { transform: scale(1.045); }
+.rail-play {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.rail-card:hover .rail-play, .rail-card:focus-visible .rail-play { opacity: 1; transform: none; }
+.rail-title { display: block; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-artist { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 8px 6px 4px;
+  border-radius: var(--r-sm);
+  margin-bottom: 22px;
+  transition: color .16s ease, background .16s ease;
+}
+.back-btn:hover { color: var(--text); background: rgba(244, 241, 234, .05); }
+.chart-hero { display: flex; align-items: flex-end; gap: 28px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.chart-hero-art { width: 160px; height: 160px; object-fit: cover; border-radius: var(--r-sm); background: var(--surface); flex: none; }
+.chart-hero-body { min-width: 0; }
+.chart-hero .page-title { font-size: 52px; }
+.chart-hero .hero-sub { margin-top: 8px; }
+.chart-hero .hero-actions { margin-top: 18px; }
+.chart-hero + .track-list { border-top: 0; margin-top: 4px; }
+
+.cards-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.station {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  text-align: left;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: border-color .2s ease, background .2s ease, transform .2s var(--ease);
+}
+.station:hover { border-color: rgba(255, 90, 54, .4); background: var(--surface-2); transform: translateY(-2px); }
+.station-art { position: relative; border-radius: var(--r-sm); overflow: hidden; background: var(--bg-2); }
+.station-art img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.station-badge {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: .16em;
+  background: rgba(11, 12, 13, .78);
+  color: var(--text);
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.station-body { display: grid; gap: 4px; min-width: 0; }
+.station-name { font-size: 14px; font-weight: 600; }
+.station-desc { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.station-meta { margin-top: 2px; font-family: var(--font-mono); font-size: 9px; letter-spacing: .12em; color: var(--muted-2); text-transform: uppercase; }
+
+.playlists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 16px; }
+.playlist { display: grid; gap: 12px; text-align: left; min-width: 0; }
+.playlist-art { display: block; border-radius: var(--r-sm); overflow: hidden; background: var(--surface); position: relative; }
+.playlist-art img { width: 100%; aspect-ratio: 1; object-fit: cover; transition: transform .45s var(--ease); }
+.playlist:hover .playlist-art img { transform: scale(1.04); }
+.playlist-body { display: grid; gap: 3px; min-width: 0; }
+.playlist-name { font-size: 14px; font-weight: 600; }
+.playlist-meta { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.profile { display: flex; align-items: center; gap: 22px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+.profile-avatar {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 32px;
+  flex: none;
+}
+.profile-name { font-family: var(--font-display); font-size: 46px; font-weight: 500; line-height: 1; }
+.profile-sub { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 48px; margin: 26px 0 0; }
+.stat b { display: block; font-family: var(--font-display); font-size: 36px; font-weight: 500; line-height: 1; }
+.stat span { display: block; margin-top: 6px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-2); }
+
+.settings { max-width: 760px; margin-top: 6px; }
+.setting { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.setting-label { display: grid; gap: 3px; }
+.setting-label strong { font-size: 13.5px; font-weight: 600; }
+.setting-label span { font-size: 12px; color: var(--muted); }
+.setting select {
+  height: 36px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text);
+}
+.switch { position: relative; display: inline-flex; cursor: pointer; }
+.switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.switch-track {
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(244, 241, 234, .14);
+  border: 1px solid var(--line-strong);
+  position: relative;
+  transition: background .18s ease, border-color .18s ease;
+}
+.switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform .18s var(--ease), background .18s ease;
+}
+.switch input:checked + .switch-track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .switch-track::after { transform: translateX(18px); background: var(--accent-ink); }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.live-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.live-card { text-align: left; display: grid; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; transition: border-color .2s ease, transform .2s var(--ease); }
+.live-card:hover { border-color: rgba(255, 90, 54, .45); transform: translateY(-2px); }
+.live-art { position: relative; display: block; }
+.live-art img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+.live-badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+.live-badge::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.live-listeners {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text);
+  background: rgba(11, 12, 13, .8);
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+.live-body { display: grid; gap: 4px; padding: 16px; }
+.live-title { font-size: 15px; font-weight: 600; }
+.live-host { font-size: 11.5px; color: var(--muted); }
+.live-now { margin-top: 6px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.live-cta { margin-top: 10px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+
+.search-query { margin-top: 12px; font-size: 12.5px; color: var(--muted); }
+.empty {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+  padding: 64px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-top: 24px;
+}
+.empty p { font-size: 13px; color: var(--muted); }
+
+.dock {
+  grid-column: 1 / -1;
+  height: 104px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 560px) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 0 28px;
+  border-top: 1px solid var(--line);
+  background: #0d0f10;
+  position: relative;
+  z-index: 8;
+}
+.dock-track { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dock-cover { width: 56px; height: 56px; border-radius: var(--r-sm); object-fit: cover; background: var(--surface); flex: none; }
+.dock-meta { display: grid; gap: 2px; min-width: 0; }
+.dock-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-artist { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-center { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dock-controls { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.play-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+  transition: background .18s ease, transform .15s ease;
+}
+.play-btn:hover { background: #ff7050; transform: scale(1.045); }
+.play-btn:active { transform: scale(.97); }
+.dock-progress { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 10px; }
+.time { font-family: var(--font-mono); font-size: 10px; color: var(--muted-2); text-align: center; font-variant-numeric: tabular-nums; }
+.dock-right { display: flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+.vol { width: 84px; flex: none; }
+.dock-right input.vol { width: 84px; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) 0 var(--fill, 0%), rgba(244, 241, 234, .16) var(--fill, 0%) 100%);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: .95;
+  transition: opacity .15s ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb,
+input[type="range"]:focus-visible::-webkit-slider-thumb { opacity: 1; }
+input[type="range"]::-moz-range-track { height: 3px; border-radius: 2px; background: rgba(244, 241, 234, .16); }
+input[type="range"]::-moz-range-progress { height: 3px; border-radius: 2px; background: var(--accent); }
+input[type="range"]::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: var(--text); }
+
+.scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); z-index: 18; }
+.queue {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 104px;
+  width: min(380px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: #0f1213;
+  border-left: 1px solid var(--line);
+  z-index: 20;
+  transform: translateX(100%);
+  transition: transform .28s var(--ease);
+}
+.queue.is-open { transform: none; }
+.queue:focus { outline: none; }
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.queue-head h2 { margin-top: 8px; font-family: var(--font-display); font-size: 26px; font-weight: 500; line-height: 1; }
+.queue-list { flex: 1 1 auto; overflow-y: auto; padding: 10px; border-top: 0; }
+.queue-item button {
+  display: grid;
+  grid-template-columns: 24px 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  text-align: left;
+}
+.queue-item button:hover { background: rgba(244, 241, 234, .05); }
+.queue-item img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; }
+.q-idx { font-family: var(--font-mono); font-size: 10px; color: var(--muted-2); }
+.queue-item.is-playing .q-idx, .queue-item.is-playing .q-title { color: var(--accent); }
+.q-text { display: grid; gap: 1px; min-width: 0; }
+.q-title { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-artist { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-dur { font-family: var(--font-mono); font-size: 10px; color: var(--muted-2); }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 126px;
+  z-index: 30;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--text);
+  color: #121414;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: var(--r-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s var(--ease);
+  max-width: min(420px, calc(100vw - 32px));
+  text-align: center;
+}
+.toast.is-visible { opacity: 1; transform: translateX(-50%); }
+
+@media (max-width: 1180px) {
+  .app { grid-template-columns: 76px minmax(0, 1fr); }
+  .brand { width: auto; }
+  .brand-name, .nav-label, .nav-text, .foot-text { display: none; }
+  .sidebar { padding: 20px 10px; align-items: center; }
+  .nav-item { justify-content: center; padding: 0; width: 44px; }
+  .nav-item[aria-current="page"]::before { display: none; }
+  .sidebar-foot { width: 100%; justify-content: center; }
+  .page { padding: 32px 32px 48px; }
+  .hero { grid-template-columns: 330px minmax(0, 1fr); gap: 32px; }
+  .hero-title { font-size: 48px; }
+  .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards-3, .live-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .playlists { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .topbar { gap: 20px; }
+}
+
+@media (max-width: 820px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 64px auto minmax(0, 1fr) auto; }
+  .topbar { grid-row: 1; padding: 0 16px; gap: 12px; }
+  .brand-name { display: inline; }
+  .brand { width: auto; }
+  .lib-tag { display: none; }
+  .search { max-width: none; }
+  .search kbd { display: none; }
+  .main { grid-row: 3; }
+  .sidebar {
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .nav-group { display: flex; flex-direction: row; gap: 2px; }
+  .nav-label { display: none; }
+  .nav-item { width: 44px; height: 44px; flex: none; }
+  .sidebar-foot { display: none; }
+  .page { padding: 24px 20px 40px; }
+  .page-title { font-size: 44px; }
+  .date-stamp { display: none; }
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .hero-art { max-width: 320px; }
+  .hero-title { font-size: 40px; }
+  .hero-sub { font-size: 12px; }
+  .charts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart-hero { gap: 18px; }
+  .chart-hero-art { width: 110px; height: 110px; }
+  .chart-hero .page-title { font-size: 38px; }
+  .dock {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    height: auto;
+    padding: 10px 16px 12px;
+    gap: 2px 12px;
+  }
+  .dock-track { grid-column: 1; grid-row: 1; }
+  .dock-cover { width: 44px; height: 44px; }
+  .dock-center { grid-column: 1 / -1; grid-row: 2; flex-direction: row; align-items: center; gap: 12px; }
+  .dock-controls { order: 2; gap: 6px; flex: none; }
+  .dock-controls #btn-shuffle, .dock-controls #btn-repeat { display: none; }
+  .dock-progress { order: 1; flex: 1 1 auto; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 6px; }
+  .play-btn { width: 40px; height: 40px; }
+  .dock-right { grid-column: 2; grid-row: 1; gap: 2px; }
+  #btn-mute, #range-volume, #btn-devices { display: none; }
+  .queue { bottom: 0; height: min(560px, 78vh); top: auto; }
+  .toast { bottom: 112px; }
+  .rails, .rail { gap: 12px; }
+  .rail-card { flex-basis: 140px; }
+  .playlists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cards-3, .live-grid { grid-template-columns: minmax(0, 1fr); }
+  .stats { gap: 28px; }
+  .profile-name { font-size: 36px; }
+  .profile-avatar { width: 60px; height: 60px; font-size: 24px; }
+  .setting { gap: 14px; }
+}
+
+@media (max-width: 600px) {
+  .charts { grid-template-columns: minmax(0, 1fr); }
+  .hero-art { max-width: 220px; }
+  .page-title { font-size: 38px; }
+  .chart-hero { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .chart-hero .page-title { font-size: 34px; }
+  .brand-name { display: none; }
+  .top-actions { gap: 10px; }
+  .avatar { width: 30px; height: 30px; }
+  .track-main { gap: 10px; }
+  .track-main.has-cover { grid-template-columns: 22px 38px minmax(0, 1fr) auto; }
+  .track-cover { width: 38px; height: 38px; }
+  .chart-line-artist { display: none; }
+  .profile { gap: 14px; }
+  .profile-name { font-size: 30px; }
+  .profile-sub { font-size: 11px; }
+  .search { padding: 0 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+}
+html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
+}
+</style>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M15.2 8.8l-2 4.4-4.4 2 2-4.4z"/></symbol>
+    <symbol id="i-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7"/><path d="M5.8 5.8a9 9 0 0 0 0 12.4M18.2 5.8a9 9 0 0 1 0 12.4"/></symbol>
+    <symbol id="i-live" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10M10 20V4M15 20v-7M20 20V7"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.8A1.8 1.8 0 0 1 5.3 5h4l2 2.2h7.4a1.8 1.8 0 0 1 1.8 1.8v8.2a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h10"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M5.5 19.5a6.5 6.5 0 0 1 13 0"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 6.2 18.5 12l-10 5.8z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 6.5v11M14.5 6.5v11"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 6.5v11L9.5 12z"/><path d="M6 6.5v11"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 6.5v11L14.5 12z"/><path d="M18 6.5v11"/></symbol>
+    <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3.2l9.6 10H20"/><path d="M17 4.5 20 7l-3 2.5"/><path d="M4 17h3.2l3.4-3.5"/><path d="M13.4 9.5 16.8 7H20"/><path d="M17 14.5 20 17l-3 2.5"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11V9.5A3.5 3.5 0 0 1 8 6h12"/><path d="M17 3.5 20 6l-3 2.5"/><path d="M19.5 13v1.5A3.5 3.5 0 0 1 16 18H4"/><path d="M7 15.5 4 18l3 2.5"/></symbol>
+    <symbol id="i-repeat-one" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 11V9.5A3.5 3.5 0 0 1 8 6h12"/><path d="M17 3.5 20 6l-3 2.5"/><path d="M19.5 13v1.5A3.5 3.5 0 0 1 16 18H4"/><path d="M7 15.5 4 18l3 2.5"/><path d="M11.5 11.2l1.2-.7v3.9"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19.5s-7.5-4.4-7.5-9.2A4.3 4.3 0 0 1 12 7.4a4.3 4.3 0 0 1 7.5 2.9c0 4.8-7.5 9.2-7.5 9.2z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h3l4-3.5v12l-4-3.5h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18 6.5a7.5 7.5 0 0 1 0 11"/></symbol>
+    <symbol id="i-volume-low" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h3l4-3.5v12l-4-3.5h-3z"/><path d="M15.5 9.5a3.4 3.4 0 0 1 0 5"/></symbol>
+    <symbol id="i-volume-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5h3l4-3.5v12l-4-3.5h-3z"/><path d="M16 10l4 4M20 10l-4 4"/></symbol>
+    <symbol id="i-queue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h16M4 12h16M4 17.5h9"/><path d="M17 14.5v5"/><circle cx="15.8" cy="19.8" r="1.2"/></symbol>
+    <symbol id="i-devices" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="12" height="9" rx="1.2"/><path d="M3.5 17h9"/><rect x="16.5" y="9.5" width="4" height="10" rx="1.2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.8 4.5v4h-4"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h14"/><path d="M14 7.5 18.5 12 14 16.5"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 9.5 17 19 7"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6.5l10-2v11"/><circle cx="6.8" cy="18" r="2.2"/><circle cx="16.8" cy="15.5" r="2.2"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">AFEIFEI</span>
+    </div>
+    <form class="search" id="search-form" role="search">
+      <svg class="od-icon search-icon" aria-hidden="true" style="--od-icon-size:17px"><use href="#i-search"></use></svg>
+      <input id="search-input" type="search" placeholder="搜索曲目、艺人或专辑" aria-label="搜索曲目、艺人或专辑" autocomplete="off" spellcheck="false">
+      <kbd>/</kbd>
+    </form>
+    <div class="top-actions">
+      <span class="lib-tag" id="lib-tag">本地库 · 9 首</span>
+      <button class="avatar" type="button" data-view="mine" aria-label="打开我的主页">A</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="nav-group" aria-label="主导航">
+      <p class="nav-label mono">Browse</p>
+      <button class="nav-item" type="button" data-view="discover" aria-current="page" aria-label="发现">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-compass"></use></svg>
+        <span class="nav-text">发现</span>
+      </button>
+      <button class="nav-item" type="button" data-view="roam" aria-label="漫游">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-radio"></use></svg>
+        <span class="nav-text">漫游</span>
+      </button>
+      <button class="nav-item" type="button" data-view="live" aria-label="直播">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-live"></use></svg>
+        <span class="nav-text">直播</span>
+      </button>
+      <p class="nav-label mono">Library</p>
+      <button class="nav-item" type="button" data-view="local" aria-label="本地">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-folder"></use></svg>
+        <span class="nav-text">本地</span>
+      </button>
+      <button class="nav-item" type="button" data-view="playlists" aria-label="歌单">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-list"></use></svg>
+        <span class="nav-text">歌单</span>
+      </button>
+      <button class="nav-item" type="button" data-view="mine" aria-label="我的">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-user"></use></svg>
+        <span class="nav-text">我的</span>
+      </button>
+      <p class="nav-label mono">System</p>
+      <button class="nav-item" type="button" data-view="settings" aria-label="设置">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-sliders"></use></svg>
+        <span class="nav-text">设置</span>
+      </button>
+    </nav>
+    <div class="sidebar-foot">
+      <span class="mini-avatar" aria-hidden="true">A</span>
+      <span class="foot-text"><strong>本地账户</strong><span>收藏与歌单在本机</span></span>
+    </div>
+  </aside>
+
+  <main class="main" id="main"></main>
+
+  <footer class="dock" aria-label="播放器">
+    <div class="dock-track">
+      <img class="dock-cover" id="dock-cover" src="assets/covers/cassanova.jpg" width="56" height="56" alt="">
+      <div class="dock-meta">
+        <span class="dock-title" id="dock-title">My Jinji</span>
+        <span class="dock-artist" id="dock-artist">落日飞车 · CASSA NOVA</span>
+      </div>
+      <button class="icon-btn" id="btn-fav" type="button" aria-label="收藏当前曲目" aria-pressed="false">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:17px"><use href="#i-heart"></use></svg>
+      </button>
+    </div>
+
+    <div class="dock-center">
+      <div class="dock-controls">
+        <button class="icon-btn" id="btn-shuffle" type="button" aria-label="随机播放" aria-pressed="false">
+          <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-shuffle"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-prev" type="button" aria-label="上一首">
+          <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-prev"></use></svg>
+        </button>
+        <button class="play-btn" id="btn-play" type="button" aria-label="播放">
+          <svg class="od-icon" aria-hidden="true" style="--od-icon-size:20px"><use href="#i-play"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-next" type="button" aria-label="下一首">
+          <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-next"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-repeat" type="button" aria-label="循环方式：全部循环">
+          <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-repeat"></use></svg>
+        </button>
+      </div>
+      <div class="dock-progress">
+        <span class="time" id="time-now">0:00</span>
+        <input type="range" id="range-progress" min="0" max="100" step="1" value="0" aria-label="播放进度">
+        <span class="time" id="time-total">0:00</span>
+      </div>
+    </div>
+
+    <div class="dock-right">
+      <button class="icon-btn" id="btn-mute" type="button" aria-label="静音">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-volume"></use></svg>
+      </button>
+      <input type="range" class="vol" id="range-volume" min="0" max="100" step="1" value="72" aria-label="音量">
+      <button class="icon-btn" id="btn-queue" type="button" aria-label="播放队列" aria-expanded="false" aria-controls="queue">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-queue"></use></svg>
+      </button>
+      <button class="icon-btn" id="btn-devices" type="button" aria-label="投放设备">
+        <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-devices"></use></svg>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="queue" id="queue" aria-label="播放队列" hidden>
+  <header class="queue-head">
+    <div>
+      <p class="eyebrow"><span class="dot"></span>UP NEXT</p>
+      <h2>播放队列</h2>
+    </div>
+    <button class="icon-btn" id="queue-close" type="button" aria-label="关闭播放队列">
+      <svg class="od-icon" aria-hidden="true" style="--od-icon-size:18px"><use href="#i-close"></use></svg>
+    </button>
+  </header>
+  <ul class="queue-list" id="queue-list"></ul>
+</aside>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const COVERS = {
+    cassanova: 'assets/covers/cassanova.jpg',
+    firstlove: 'assets/covers/firstlove.jpg',
+    model: 'assets/covers/model.jpg',
+    inrainbows: 'assets/covers/inrainbows.jpg',
+    ram: 'assets/covers/ram.jpg',
+    am: 'assets/covers/am.jpg',
+    afterhours: 'assets/covers/afterhours.jpg',
+    bloom: 'assets/covers/bloom.jpg',
+    goldenhour: 'assets/covers/goldenhour.jpg'
+  };
+
+  const TRACKS = [
+    { id: 't1', title: 'My Jinji', artist: '落日飞车', album: 'CASSA NOVA', cover: 'cassanova', dur: 398 },
+    { id: 't2', title: 'First Love', artist: '宇多田ヒカル', album: 'First Love', cover: 'firstlove', dur: 257 },
+    { id: 't3', title: '模特', artist: '李荣浩', album: 'Model', cover: 'model', dur: 316 },
+    { id: 't4', title: 'Weird Fishes / Arpeggi', artist: 'Radiohead', album: 'In Rainbows', cover: 'inrainbows', dur: 318 },
+    { id: 't5', title: 'Instant Crush', artist: 'Daft Punk', album: 'Random Access Memories', cover: 'ram', dur: 337 },
+    { id: 't6', title: 'Do I Wanna Know?', artist: 'Arctic Monkeys', album: 'AM', cover: 'am', dur: 272 },
+    { id: 't7', title: 'Blinding Lights', artist: 'The Weeknd', album: 'After Hours', cover: 'afterhours', dur: 200 },
+    { id: 't8', title: 'Space Song', artist: 'Beach House', album: 'Bloom', cover: 'bloom', dur: 320 },
+    { id: 't9', title: 'Slow Burn', artist: 'Kacey Musgraves', album: 'Golden Hour', cover: 'goldenhour', dur: 246 }
+  ];
+  const INDEX = new Map(TRACKS.map(t => [t.id, t]));
+
+  const CHARTS = [
+    { id: 'rising', no: '01', name: '飙升榜', desc: '本周热度上升最快', meta: '06:00 更新', ids: ['t6', 't7', 't2'] },
+    { id: 'new', no: '02', name: '新歌榜', desc: '近期值得一听的新作', meta: '每日更新', ids: ['t9', 't3', 't1'] },
+    { id: 'origin', no: '03', name: '原创榜', desc: '独立与原创的声音', meta: '周一更新', ids: ['t1', 't8', 't4'] },
+    { id: 'hot', no: '04', name: '热歌榜', desc: '全站播放最高', meta: '06:00 更新', ids: ['t7', 't3', 't6'] },
+    { id: 'electro', no: '05', name: '电音榜', desc: '合成器与低频推进', meta: '周五更新', ids: ['t5', 't7', 't8'] },
+    { id: 'indie', no: '06', name: '独立榜', desc: '吉他与卧室制作', meta: '周日更新', ids: ['t4', 't8', 't6'] }
+  ];
+
+  const STATIONS = [
+    { id: 'night-drive', name: '深夜驾驶', desc: '合成器、路灯，一段没有终点的路', cover: 'afterhours', ids: ['t7', 't5', 't6'] },
+    { id: 'rainy-desk', name: '雨天书桌', desc: '适合写字的低频与雨声', cover: 'bloom', ids: ['t8', 't4', 't9'] },
+    { id: 'morning-commute', name: '清晨通勤', desc: '让第一杯咖啡有点节奏', cover: 'cassanova', ids: ['t1', 't2', 't9'] },
+    { id: 'retro-groove', name: '复古律动', desc: '七十年代的鼓点与和声', cover: 'ram', ids: ['t5', 't6', 't7'] },
+    { id: 'city-folk', name: '城市民谣', desc: '木吉他和一个普通的下午', cover: 'model', ids: ['t3', 't2', 't9'] },
+    { id: 'focus', name: '无歌词专注', desc: '没有人声，只有推进感', cover: 'inrainbows', ids: ['t4', 't8', 't5'] }
+  ];
+
+  const LIVE_ROOMS = [
+    { id: 'live-1', host: '主播 · 阿岚', title: '深夜点歌台', now: 'My Jinji', cover: 'cassanova', track: 't1', listeners: '1,204' },
+    { id: 'live-2', host: '主播 · 南屿', title: '黑胶星期五', now: 'Instant Crush', cover: 'ram', track: 't5', listeners: '806' },
+    { id: 'live-3', host: '主播 · 一只鱼', title: '海边写歌', now: 'Space Song', cover: 'bloom', track: 't8', listeners: '2,318' }
+  ];
+
+  const state = {
+    view: 'discover',
+    chartId: null,
+    chartFrom: 'discover',
+    query: '',
+    daily: ['t1', 't2', 't3', 't4', 't5'],
+    queue: TRACKS.map(t => t.id),
+    currentId: 't1',
+    playing: false,
+    progress: 0,
+    volume: 72,
+    lastVolume: 72,
+    shuffle: false,
+    repeat: 'all',
+    favorites: new Set(['t1', 't8']),
+    settings: { quality: 'lossless', normalize: true, lyrics: false, fade: true, reduceMotion: false },
+    timer: null
+  };
+
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const esc = (v) => String(v).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const icon = (name, size = 18) => `<svg class="od-icon" aria-hidden="true" style="--od-icon-size:${size}px"><use href="#i-${name}"></use></svg>`;
+  const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const coverOf = (t) => COVERS[t.cover];
+  const current = () => INDEX.get(state.currentId);
+
+  function trackItem(t, i, opts = {}) {
+    const on = state.currentId === t.id;
+    return `<li class="track${on ? ' is-playing' : ''}">
+      <button class="track-main${opts.cover ? ' has-cover' : ''}" type="button" data-play="${t.id}" aria-label="播放 ${esc(t.title)}，${esc(t.artist)}">
+        <span class="track-idx"><span class="idx-num"${on ? ' hidden' : ''}>${String(i + 1).padStart(2, '0')}</span><span class="eq" aria-hidden="true"${on ? '' : ' hidden'}><i></i><i></i><i></i></span></span>
+        ${opts.cover ? `<img class="track-cover" src="${coverOf(t)}" width="44" height="44" alt="">` : ''}
+        <span class="track-text"><span class="track-title">${esc(t.title)}</span><span class="track-artist">${esc(t.artist)}</span></span>
+        <span class="track-dur">${fmt(t.dur)}</span>
+      </button>
+    </li>`;
+  }
+
+  function trackList(ids, opts = {}) {
+    const rows = ids.map((id, i) => trackItem(INDEX.get(id), i, opts)).join('');
+    return `<ol class="track-list" data-queue="${ids.join(',')}">${rows}</ol>`;
+  }
+
+  function chartCard(c) {
+    const lines = c.ids.slice(0, 3).map((id, i) => {
+      const t = INDEX.get(id);
+      return `<span class="chart-line"><span class="mono">${String(i + 1).padStart(2, '0')}</span><span class="chart-line-title">${esc(t.title)}</span><span class="chart-line-artist">${esc(t.artist)}</span></span>`;
+    }).join('');
+    return `<button class="chart-card" type="button" data-chart="${c.id}" aria-label="查看${c.name}，${esc(c.desc)}">
+      <span class="chart-top"><span class="chart-no">${c.no}</span><span class="mono">${esc(c.meta)}</span></span>
+      <span class="chart-name">${c.name}</span>
+      <span class="chart-desc">${esc(c.desc)}</span>
+      <span class="chart-preview">${lines}</span>
+      <span class="chart-foot">查看榜单 ${icon('arrow-right', 14)}</span>
+    </button>`;
+  }
+
+  function railCard(id) {
+    const t = INDEX.get(id);
+    return `<button class="rail-card" type="button" data-play="${t.id}" aria-label="播放 ${esc(t.title)}，${esc(t.artist)}">
+      <span class="rail-art"><img src="${coverOf(t)}" width="400" height="400" alt="${esc(t.album)} 专辑封面"><span class="rail-play" aria-hidden="true">${icon('play', 16)}</span></span>
+      <span class="rail-title">${esc(t.title)}</span>
+      <span class="rail-artist">${esc(t.artist)} · ${esc(t.album)}</span>
+    </button>`;
+  }
+
+  function viewDiscover() {
+    const hero = INDEX.get(state.daily[0]);
+    const recent = ['t6', 't7', 't8', 't9', 't5'];
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>DISCOVER · AFEIFEI MUSIC</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">发现</h1>
+        </div>
+        <div class="date-stamp" aria-hidden="true"><span class="date-num">16</span><span class="date-meta">NOV<br>周一</span></div>
+      </header>
+
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-art">
+          <img src="${coverOf(hero)}" width="600" height="600" alt="${esc(hero.album)} 专辑封面">
+          <p class="hero-art-cap"><span>${esc(hero.album)}</span><span>${esc(hero.artist)}</span></p>
+        </div>
+        <div class="hero-body">
+          <p class="hero-eyebrow"><span class="sq"></span>Daily Mix · 今日发行</p>
+          <h2 class="hero-title" id="hero-title">每日推荐</h2>
+          <p class="hero-sub"><span>来自你的聆听口味</span><span class="sep">/</span><span>${state.daily.length} 首 · 每天 06:00 换新</span></p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" data-action="play-daily">${icon('play', 15)}播放全部</button>
+            <button class="btn btn-ghost" type="button" data-action="shuffle-daily">${icon('refresh', 14)}换一批</button>
+          </div>
+          ${trackList(state.daily)}
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="section-charts">
+        <div class="section-head">
+          <h2 id="section-charts">榜单</h2><span class="mono tag">Top Lists</span>
+          <span class="grow"></span>
+          <button class="text-btn" type="button" data-action="refresh-charts">${icon('refresh', 14)}刷新榜单</button>
+        </div>
+        <div class="charts">${CHARTS.map(chartCard).join('')}</div>
+      </section>
+
+      <section class="section" aria-labelledby="section-recent">
+        <div class="section-head">
+          <h2 id="section-recent">最近播放</h2><span class="mono tag">Recently Played</span>
+          <span class="grow"></span>
+          <button class="text-btn" type="button" data-view="local">查看全部${icon('arrow-right', 14)}</button>
+        </div>
+        <div class="rail">${recent.map(railCard).join('')}</div>
+      </section>
+    </div>`;
+  }
+
+  function viewChart(id) {
+    const c = CHARTS.find(x => x.id === id);
+    if (!c) return viewDiscover();
+    const first = INDEX.get(c.ids[0]);
+    const backLabel = state.chartFrom === 'playlists' ? '歌单' : '发现';
+    return `<div class="page">
+      <button class="back-btn" type="button" data-view="${state.chartFrom}">${icon('chevron-left', 15)}返回${backLabel}</button>
+      <header class="chart-hero">
+        <img class="chart-hero-art" src="${coverOf(first)}" width="160" height="160" alt="${esc(first.album)} 专辑封面">
+        <div class="chart-hero-body">
+          <p class="eyebrow"><span class="dot"></span>TOP LIST · ${esc(c.meta)}</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">${c.name}</h1>
+          <p class="hero-sub"><span>${esc(c.desc)}</span><span class="sep">/</span><span>${c.ids.length} 首</span></p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" data-action="play-chart" data-id="${c.id}">${icon('play', 15)}播放全部</button>
+            <button class="btn btn-ghost" type="button" data-action="shuffle-chart" data-id="${c.id}">${icon('shuffle', 14)}随机播放</button>
+          </div>
+        </div>
+      </header>
+      ${trackList(c.ids, { cover: true })}
+    </div>`;
+  }
+
+  function viewRoam() {
+    const cards = STATIONS.map(s => {
+      const t = INDEX.get(s.ids[0]);
+      return `<button class="station" type="button" data-station="${s.id}" aria-label="播放${s.name}电台">
+        <span class="station-art"><img src="${COVERS[s.cover]}" width="216" height="216" alt="${esc(t.album)} 专辑封面"><span class="station-badge">RADIO</span></span>
+        <span class="station-body">
+          <span class="station-name">${s.name}</span>
+          <span class="station-desc">${esc(s.desc)}</span>
+          <span class="station-meta">${s.ids.length} 首 · 连续播放</span>
+        </span>
+      </button>`;
+    }).join('');
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>ROAM · 连续播放</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">漫游</h1>
+          <p class="search-query">选一个场景，让音乐一直播下去。</p>
+        </div>
+        <span class="mono">${STATIONS.length} 个电台</span>
+      </header>
+      <section class="section"><div class="cards-3">${cards}</div></section>
+    </div>`;
+  }
+
+  function viewLocal() {
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>LIBRARY · 本地文件</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">本地</h1>
+          <p class="search-query">${TRACKS.length} 首曲目 · 扫描完成</p>
+        </div>
+        <div class="hero-actions">
+          <button class="btn btn-primary" type="button" data-action="play-local">${icon('play', 15)}播放全部</button>
+          <button class="btn btn-ghost" type="button" data-action="shuffle-local">${icon('shuffle', 14)}随机</button>
+        </div>
+      </header>
+      <section class="section">${trackList(TRACKS.map(t => t.id), { cover: true })}</section>
+    </div>`;
+  }
+
+  function viewPlaylists() {
+    const cards = CHARTS.map(c => {
+      const t = INDEX.get(c.ids[0]);
+      return `<button class="playlist" type="button" data-chart="${c.id}" aria-label="打开歌单${c.name}">
+        <span class="playlist-art"><img src="${coverOf(t)}" width="600" height="600" alt="${esc(t.album)} 专辑封面"></span>
+        <span class="playlist-body">
+          <span class="playlist-name">${c.name}</span>
+          <span class="playlist-meta">${esc(c.desc)} · ${c.ids.length} 首</span>
+        </span>
+      </button>`;
+    }).join('');
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>COLLECTIONS · 本机歌单</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">歌单</h1>
+          <p class="search-query">${CHARTS.length} 个歌单 · 随心情挑一个。</p>
+        </div>
+      </header>
+      <section class="section"><div class="playlists">${cards}</div></section>
+    </div>`;
+  }
+
+  function viewMine() {
+    const recent = ['t6', 't7', 't8', 't9'];
+    return `<div class="page">
+      <div class="profile">
+        <div class="profile-avatar" aria-hidden="true">A</div>
+        <div>
+          <p class="eyebrow"><span class="dot"></span>LOCAL ACCOUNT</p>
+          <h1 class="profile-name" id="view-title" tabindex="-1">AFEIFEI</h1>
+          <p class="profile-sub">本地账户 · 收藏与歌单保存在这台设备</p>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>${state.favorites.size}</b><span>收藏曲目</span></div>
+        <div class="stat"><b>${CHARTS.length}</b><span>歌单</span></div>
+        <div class="stat"><b>${TRACKS.length}</b><span>本地曲目</span></div>
+      </div>
+      <section class="section" aria-labelledby="section-mine-recent">
+        <div class="section-head">
+          <h2 id="section-mine-recent">最近播放</h2><span class="mono tag">Recently Played</span>
+          <span class="grow"></span>
+          <button class="text-btn" type="button" data-view="local">查看全部${icon('arrow-right', 14)}</button>
+        </div>
+        ${trackList(recent, { cover: true })}
+      </section>
+    </div>`;
+  }
+
+  function viewSettings() {
+    const s = state.settings;
+    const sw = (key, label) => `<input type="checkbox" id="set-${key}" data-setting="${key}" aria-label="${label}"${s[key] ? ' checked' : ''}>`;
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>PREFERENCES · 播放器</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">设置</h1>
+          <p class="search-query">调整播放与显示方式，改动即时生效。</p>
+        </div>
+      </header>
+      <section class="settings">
+        <div class="setting">
+          <div class="setting-label"><strong>音质偏好</strong><span>无损会占用更多本机存储空间</span></div>
+          <select data-setting="quality" aria-label="音质偏好">
+            <option value="standard"${s.quality === 'standard' ? ' selected' : ''}>标准</option>
+            <option value="high"${s.quality === 'high' ? ' selected' : ''}>高品质</option>
+            <option value="lossless"${s.quality === 'lossless' ? ' selected' : ''}>无损</option>
+          </select>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>音量均衡</strong><span>拉平不同曲目之间的响度差</span></div>
+          <label class="switch">${sw('normalize', '音量均衡')}<span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>桌面歌词</strong><span>在播放器外侧悬浮显示歌词</span></div>
+          <label class="switch">${sw('lyrics', '桌面歌词')}<span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>淡入淡出</strong><span>切歌时做短促的音量过渡</span></div>
+          <label class="switch">${sw('fade', '淡入淡出')}<span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+        <div class="setting">
+          <div class="setting-label"><strong>减少动效</strong><span>关闭列表与悬浮的过渡动画</span></div>
+          <label class="switch">${sw('reduceMotion', '减少动效')}<span class="switch-track" aria-hidden="true"></span></label>
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function viewLive() {
+    const cards = LIVE_ROOMS.map(r => `<button class="live-card" type="button" data-live="${r.id}" aria-label="进入${r.title}直播间">
+      <span class="live-art">
+        <img src="${COVERS[r.cover]}" width="600" height="600" alt="${esc(INDEX.get(r.track).album)} 专辑封面">
+        <span class="live-badge">LIVE</span>
+        <span class="live-listeners">${r.listeners} 人在听</span>
+      </span>
+      <span class="live-body">
+        <span class="live-title">${r.title}</span>
+        <span class="live-host">${r.host}</span>
+        <span class="live-now">正在播放 ${esc(INDEX.get(r.track).title)}</span>
+        <span class="live-cta">进入直播间 →</span>
+      </span>
+    </button>`).join('');
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>ON AIR · 正在直播</p>
+          <h1 class="page-title" id="view-title" tabindex="-1">直播</h1>
+          <p class="search-query">${LIVE_ROOMS.length} 个房间正在播放。</p>
+        </div>
+      </header>
+      <section class="section"><div class="live-grid">${cards}</div></section>
+    </div>`;
+  }
+
+  function viewSearch(q) {
+    const needle = q.toLowerCase();
+    const hits = TRACKS.filter(t => [t.title, t.artist, t.album].some(v => v.toLowerCase().includes(needle)));
+    const body = hits.length
+      ? trackList(hits.map(t => t.id), { cover: true })
+      : `<div class="empty"><p>没有找到与「${esc(q)}」相关的曲目。</p><button class="btn btn-ghost" type="button" data-action="clear-search">清除搜索</button></div>`;
+    return `<div class="page">
+      <header class="page-head">
+        <div>
+          <p class="eyebrow"><span class="dot"></span>SEARCH · 本机曲库</p>
+          <h1 class="page-title page-title-sm" id="view-title" tabindex="-1">搜索</h1>
+          <p class="search-query">「${esc(q)}」· ${hits.length} 个结果</p>
+        </div>
+      </header>
+      <section class="section">${body}</section>
+    </div>`;
+  }
+
+  const views = {
+    discover: viewDiscover,
+    roam: viewRoam,
+    local: viewLocal,
+    playlists: viewPlaylists,
+    mine: viewMine,
+    settings: viewSettings,
+    live: viewLive
+  };
+
+  function syncNav() {
+    const active = state.view === 'chart' ? state.chartFrom : state.view;
+    $$('.nav-item').forEach(btn => {
+      if (btn.dataset.view === active) btn.setAttribute('aria-current', 'page');
+      else btn.removeAttribute('aria-current');
+    });
+  }
+
+  function syncTrackStates() {
+    $$('.track').forEach(li => {
+      const btn = $('.track-main', li);
+      if (!btn) return;
+      const on = btn.dataset.play === state.currentId;
+      li.classList.toggle('is-playing', on);
+      const num = $('.idx-num', li);
+      if (num) num.hidden = on;
+      const eq = $('.eq', li);
+      if (eq) eq.hidden = !on;
+    });
+    $$('.queue-item').forEach(li => {
+      const btn = $('button[data-play]', li);
+      if (!btn) return;
+      li.classList.toggle('is-playing', btn.dataset.play === state.currentId);
+    });
+  }
+
+  function render() {
+    const main = $('#main');
+    let html;
+    if (state.query) html = viewSearch(state.query);
+    else if (state.view === 'chart') html = viewChart(state.chartId);
+    else html = (views[state.view] || viewDiscover)();
+    main.innerHTML = html;
+    syncTrackStates();
+    syncNav();
+    main.scrollTop = 0;
+  }
+
+  function focusTitle() {
+    const el = $('#view-title');
+    if (el) el.focus({ preventScroll: true });
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    const el = $('#toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('is-visible'));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      el.classList.remove('is-visible');
+      toastTimer = setTimeout(() => { el.hidden = true; }, 220);
+    }, 1800);
+  }
+
+  const repeatLabel = () => state.repeat === 'all' ? '全部循环' : state.repeat === 'one' ? '单曲循环' : '不循环';
+  const queueIds = () => state.queue.length ? state.queue : TRACKS.map(t => t.id);
+
+  function syncProgress() {
+    const t = current();
+    const r = $('#range-progress');
+    if (!r) return;
+    const shown = Math.min(state.progress, t.dur);
+    r.max = String(t.dur);
+    r.value = String(shown);
+    r.style.setProperty('--fill', `${(shown / t.dur) * 100}%`);
+    $('#time-now').textContent = fmt(shown);
+    $('#time-total').textContent = fmt(t.dur);
+  }
+
+  function syncPlay() {
+    const btn = $('#btn-play');
+    if (!btn) return;
+    btn.innerHTML = icon(state.playing ? 'pause' : 'play', 20);
+    btn.setAttribute('aria-label', state.playing ? '暂停' : '播放');
+  }
+
+  function syncFav() {
+    const btn = $('#btn-fav');
+    if (!btn) return;
+    const on = state.favorites.has(state.currentId);
+    btn.classList.toggle('is-on', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.setAttribute('aria-label', on ? '取消收藏当前曲目' : '收藏当前曲目');
+  }
+
+  function syncVolume() {
+    const r = $('#range-volume');
+    if (!r) return;
+    r.value = String(state.volume);
+    r.style.setProperty('--fill', `${state.volume}%`);
+    const name = state.volume === 0 ? 'volume-mute' : state.volume < 40 ? 'volume-low' : 'volume';
+    const btn = $('#btn-mute');
+    btn.innerHTML = icon(name, 18);
+    btn.classList.toggle('is-on', state.volume === 0);
+    btn.setAttribute('aria-label', state.volume === 0 ? '取消静音' : '静音');
+  }
+
+  function syncModes() {
+    const shuffleBtn = $('#btn-shuffle');
+    shuffleBtn.classList.toggle('is-on', state.shuffle);
+    shuffleBtn.setAttribute('aria-pressed', String(state.shuffle));
+    const repeatBtn = $('#btn-repeat');
+    repeatBtn.classList.toggle('is-on', state.repeat !== 'off');
+    repeatBtn.innerHTML = icon(state.repeat === 'one' ? 'repeat-one' : 'repeat', 18);
+    repeatBtn.setAttribute('aria-label', `循环方式：${repeatLabel()}`);
+  }
+
+  function renderDock() {
+    const t = current();
+    const img = $('#dock-cover');
+    img.src = coverOf(t);
+    img.alt = `${t.album} 专辑封面`;
+    $('#dock-title').textContent = t.title;
+    $('#dock-artist').textContent = `${t.artist} · ${t.album}`;
+    syncProgress();
+    syncPlay();
+    syncFav();
+  }
+
+  function renderQueue() {
+    const list = $('#queue-list');
+    if (!list) return;
+    list.innerHTML = queueIds().map((id, i) => {
+      const t = INDEX.get(id);
+      const on = id === state.currentId;
+      return `<li class="queue-item${on ? ' is-playing' : ''}">
+        <button type="button" data-play="${t.id}" aria-label="播放 ${esc(t.title)}，${esc(t.artist)}">
+          <span class="q-idx">${String(i + 1).padStart(2, '0')}</span>
+          <img src="${coverOf(t)}" width="40" height="40" alt="">
+          <span class="q-text"><span class="q-title">${esc(t.title)}</span><span class="q-artist">${esc(t.artist)}</span></span>
+          <span class="q-dur">${fmt(t.dur)}</span>
+        </button>
+      </li>`;
+    }).join('');
+  }
+
+  function playById(id, queue) {
+    if (!INDEX.has(id)) return;
+    if (Array.isArray(queue) && queue.length) state.queue = queue.slice();
+    state.currentId = id;
+    state.progress = 0;
+    state.playing = true;
+    renderDock();
+    syncTrackStates();
+    if (!$('#queue').hidden) renderQueue();
+    startClock();
+  }
+
+  function step(dir, auto = false) {
+    const q = queueIds();
+    if (!q.length) return;
+    if (state.shuffle && q.length > 1) {
+      let nextId = state.currentId;
+      while (nextId === state.currentId) nextId = q[Math.floor(Math.random() * q.length)];
+      playById(nextId);
+      return;
+    }
+    const i = q.indexOf(state.currentId);
+    const target = i + dir;
+    if (target < 0) {
+      if (auto) return;
+      playById(q[q.length - 1]);
+      return;
+    }
+    if (target >= q.length) {
+      if (state.repeat === 'off' && auto) {
+        state.playing = false;
+        state.progress = current().dur;
+        syncPlay();
+        syncProgress();
+        return;
+      }
+      playById(q[0]);
+      return;
+    }
+    playById(q[target]);
+  }
+
+  function tick() {
+    if (!state.playing) return;
+    const t = current();
+    if (state.progress + 1 >= t.dur) {
+      if (state.repeat === 'one') {
+        state.progress = 0;
+        syncProgress();
+      } else {
+        step(1, true);
+      }
+      return;
+    }
+    state.progress += 1;
+    syncProgress();
+  }
+
+  function startClock() {
+    if (state.timer) return;
+    state.timer = setInterval(tick, 1000);
+  }
+
+  function togglePlay() {
+    if (!state.playing && state.progress >= current().dur - 1) state.progress = 0;
+    state.playing = !state.playing;
+    syncPlay();
+    if (state.playing) startClock();
+  }
+
+  function seek(delta) {
+    const t = current();
+    state.progress = Math.max(0, Math.min(t.dur, state.progress + delta));
+    syncProgress();
+  }
+
+  let closeTimer = null;
+  function openQueue() {
+    const q = $('#queue');
+    clearTimeout(closeTimer);
+    renderQueue();
+    q.hidden = false;
+    void q.offsetWidth;
+    requestAnimationFrame(() => q.classList.add('is-open'));
+    $('#scrim').hidden = false;
+    $('#btn-queue').setAttribute('aria-expanded', 'true');
+    $('#queue-close').focus();
+  }
+
+  function closeQueue(returnFocus) {
+    const q = $('#queue');
+    if (q.hidden) return;
+    q.classList.remove('is-open');
+    $('#scrim').hidden = true;
+    $('#btn-queue').setAttribute('aria-expanded', 'false');
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { q.hidden = true; }, 300);
+    if (returnFocus) $('#btn-queue').focus();
+  }
+
+  function go(view) {
+    if (!views[view]) return;
+    state.view = view;
+    state.query = '';
+    const input = $('#search-input');
+    if (input) input.value = '';
+    closeQueue(false);
+    render();
+    focusTitle();
+  }
+
+  function openChart(id) {
+    const c = CHARTS.find(x => x.id === id);
+    if (!c) return;
+    state.chartFrom = state.view === 'playlists' ? 'playlists' : state.view === 'chart' ? state.chartFrom : 'discover';
+    state.chartId = id;
+    state.view = 'chart';
+    closeQueue(false);
+    render();
+    focusTitle();
+  }
+
+  function startStation(id) {
+    const s = STATIONS.find(x => x.id === id);
+    if (!s) return;
+    playById(s.ids[0], s.ids);
+    toast(`正在播放「${s.name}」`);
+  }
+
+  function enterLive(id) {
+    const r = LIVE_ROOMS.find(x => x.id === id);
+    if (!r) return;
+    playById(r.track, [r.track]);
+    toast(`已进入「${r.title}」直播间`);
+  }
+
+  function handleAction(action, el) {
+    const chart = () => CHARTS.find(x => x.id === (el ? el.dataset.id : ''));
+    switch (action) {
+      case 'play-daily':
+        playById(state.daily[0], state.daily);
+        break;
+      case 'shuffle-daily':
+        state.daily = TRACKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, 5);
+        render();
+        toast('已换一批推荐');
+        break;
+      case 'refresh-charts':
+        toast('榜单已更新至最新');
+        break;
+      case 'play-chart': {
+        const c = chart();
+        if (c) playById(c.ids[0], c.ids);
+        break;
+      }
+      case 'shuffle-chart': {
+        const c = chart();
+        if (c) {
+          const q = c.ids.slice().sort(() => Math.random() - 0.5);
+          playById(q[0], q);
+        }
+        break;
+      }
+      case 'play-local':
+        playById(TRACKS[0].id, TRACKS.map(t => t.id));
+        break;
+      case 'shuffle-local': {
+        const q = TRACKS.map(t => t.id).sort(() => Math.random() - 0.5);
+        state.shuffle = true;
+        syncModes();
+        playById(q[0], q);
+        break;
+      }
+      case 'clear-search':
+        state.query = '';
+        $('#search-input').value = '';
+        render();
+        $('#search-input').focus();
+        break;
+      default:
+        break;
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const playEl = e.target.closest('[data-play]');
+    if (playEl) {
+      const holder = playEl.closest('[data-queue]');
+      const q = holder ? holder.dataset.queue.split(',').filter(Boolean) : null;
+      playById(playEl.dataset.play, q);
+      return;
+    }
+    const viewEl = e.target.closest('[data-view]');
+    if (viewEl) { go(viewEl.dataset.view); return; }
+    const chartEl = e.target.closest('[data-chart]');
+    if (chartEl) { openChart(chartEl.dataset.chart); return; }
+    const stationEl = e.target.closest('[data-station]');
+    if (stationEl) { startStation(stationEl.dataset.station); return; }
+    const liveEl = e.target.closest('[data-live]');
+    if (liveEl) { enterLive(liveEl.dataset.live); return; }
+    const actionEl = e.target.closest('[data-action]');
+    if (actionEl) { handleAction(actionEl.dataset.action, actionEl); }
+  });
+
+  document.addEventListener('change', (e) => {
+    const key = e.target.dataset ? e.target.dataset.setting : null;
+    if (!key || !(key in state.settings)) return;
+    state.settings[key] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (key === 'reduceMotion') document.documentElement.classList.toggle('reduce-motion', state.settings.reduceMotion);
+    toast('设置已更新');
+  });
+
+  $('#search-form').addEventListener('submit', (e) => e.preventDefault());
+  $('#search-input').addEventListener('input', (e) => {
+    state.query = e.target.value.trim();
+    render();
+  });
+
+  $('#btn-play').addEventListener('click', togglePlay);
+  $('#btn-prev').addEventListener('click', () => {
+    if (state.progress > 5) {
+      state.progress = 0;
+      syncProgress();
+      return;
+    }
+    step(-1);
+  });
+  $('#btn-next').addEventListener('click', () => step(1));
+  $('#btn-shuffle').addEventListener('click', () => {
+    state.shuffle = !state.shuffle;
+    syncModes();
+    toast(state.shuffle ? '随机播放已开启' : '随机播放已关闭');
+  });
+  $('#btn-repeat').addEventListener('click', () => {
+    const order = ['all', 'one', 'off'];
+    state.repeat = order[(order.indexOf(state.repeat) + 1) % order.length];
+    syncModes();
+    toast(`循环方式：${repeatLabel()}`);
+  });
+  $('#btn-fav').addEventListener('click', () => {
+    const id = state.currentId;
+    const wasOn = state.favorites.has(id);
+    if (wasOn) state.favorites.delete(id);
+    else state.favorites.add(id);
+    syncFav();
+    toast(wasOn ? '已取消收藏' : '已加入收藏');
+    if (state.view === 'mine' && !state.query) render();
+  });
+  $('#btn-queue').addEventListener('click', () => {
+    if ($('#queue').hidden) openQueue();
+    else closeQueue(true);
+  });
+  $('#queue-close').addEventListener('click', () => closeQueue(true));
+  $('#scrim').addEventListener('click', () => closeQueue(true));
+  $('#btn-devices').addEventListener('click', () => toast('未发现可投放设备'));
+  $('#btn-mute').addEventListener('click', () => {
+    if (state.volume > 0) {
+      state.lastVolume = state.volume;
+      state.volume = 0;
+    } else {
+      state.volume = state.lastVolume || 65;
+    }
+    syncVolume();
+  });
+  $('#range-volume').addEventListener('input', (e) => {
+    state.volume = Number(e.target.value);
+    if (state.volume > 0) state.lastVolume = state.volume;
+    syncVolume();
+  });
+  $('#range-progress').addEventListener('input', (e) => {
+    state.progress = Number(e.target.value);
+    syncProgress();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (!$('#queue').hidden) { closeQueue(true); return; }
+      if (state.query) {
+        state.query = '';
+        $('#search-input').value = '';
+        render();
+      }
+      return;
+    }
+    const control = e.target.closest('button, input, select, textarea, a, [contenteditable="true"]');
+    if (e.key === '/' && !control) {
+      e.preventDefault();
+      $('#search-input').focus();
+      return;
+    }
+    if (control) return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      togglePlay();
+      return;
+    }
+    if (e.key === 'ArrowRight') { seek(5); return; }
+    if (e.key === 'ArrowLeft') { seek(-5); }
+  });
+
+  render();
+  renderDock();
+  syncVolume();
+  syncModes();
+  startClock();
+})();
+</script>
+</body>
+</html>

@@ -77,12 +77,12 @@ test("stage-scope 块存在且把 8 个结构层变量指向场景层（嵌套�
   }
 });
 
-test("tokens.css 的夜间块不许改场景层（改了就说明播放页还在跟主题）", () => {
+test("单一配色：tokens.css 不再有 [data-theme] 主题块（2026-11 只留深色）", () => {
   const css = readSrc("../src/renderer/ui/tokens.css");
-  const at = css.indexOf(':root[data-theme="dark"]');
-  assert.ok(at > 0, "找不到夜间块");
-  const dark = css.slice(at);
-  assert.ok(!/--stage-[a-z-]+:/.test(dark), "夜间块里出现了 --stage-* 覆盖");
+  assert.ok(!/:root\[data-theme=/.test(css), "还有 data-theme 主题块：整站已只保留一套配色");
+  assert.ok(!/\.shell\.live:has\(/.test(css), "还有「外壳跟随皮肤」的配色块");
+  /* 场景层只留在 :root 默认值里，且默认值就是新深色体系 */
+  assert.ok(/--stage-accent:\s*#ff5a36/.test(css), "场景层应是深色橙红默认值");
 });
 
 test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、不多）", () => {
@@ -96,20 +96,8 @@ test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、
   }
 });
 
-test("全局配色块都不许改场景层（B-9 守门；forest 已删）", () => {
-  const css = readSrc("../src/renderer/ui/tokens.css");
-  /* 选择器允许是列表：dark 那一块与「深色皮肤下外壳跟走」共用同一个规则头
-     （:root[data-theme="dark"], .shell.live:has(...)），只认 /:root\[…\]\s*\{/ 会漏掉它 */
-  const blocks = css.match(/(?:^|\n)[^{\n]*:root\[data-theme="[^"]+"\][^{]*\{[\s\S]*?\n\}/g) ?? [];
-  assert.equal(blocks.length, 2, "应有 dark / sepia 两个主题块");
-  /* 皮肤接管舞台明暗后，外壳那两份「跟随块」也是全局配色，同样不许碰场景层，
-     否则浅色皮肤会把 --stage-* 一起拉去纸色，A-10 破在同一处 */
-  const shellBlocks = css.match(/:has\([^{]*\{[\s\S]*?\n\}/g) ?? [];
-  assert.ok(shellBlocks.length >= 1, "皮肤跟随明暗的块不见了（外壳会不跟皮肤走）");
-  for (const block of [...blocks, ...shellBlocks]) {
-    assert.ok(!/--stage-[a-z-]+:/.test(block), `主题块改了场景层：${block.slice(0, 40)}`);
-  }
-  // 全局配色包的白名单也不能漏进场景层
+test("全局配色包白名单不许混入场景层（B-9 守门）", () => {
+  // 全局配色包只能覆盖结构层；场景层（播放页）永远走自己的预设与主题包
   for (const key of GLOBAL_TOKEN_KEYS) {
     assert.ok(!key.startsWith("--stage-"), `全局配色包白名单混入 ${key}`);
   }
