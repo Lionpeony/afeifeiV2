@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { AppState, RemoteTrackMeta } from "../../contracts/index.js";
@@ -37,6 +37,8 @@ import { BootSplash } from "./BootSplash.js";
 import { invalidateAccountData, type AccountBundle } from "./account-data.js";
 import { loadNet } from "../domain/net-cache/index.js";
 import { accountKey } from "./account-data.js";
+import { getThemePref, subscribeThemePref } from "./theme.js";
+import { getMotionPref, subscribeMotionPref } from "./motion.js";
 
 
 /** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。 */
@@ -87,6 +89,10 @@ function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState("");
+  // 外观偏好：DOM 的 data-theme / data-motion 由 theme.ts / motion.ts 写真；
+  // 这里只订阅变化，让设置页的分段按钮跟上（也含系统明暗/减少动效的自动切换）。
+  const themePref = useSyncExternalStore(subscribeThemePref, getThemePref, getThemePref);
+  const motionPref = useSyncExternalStore(subscribeMotionPref, getMotionPref, getMotionPref);
   // 外壳只有一种：边栏 + 内容 + 控制台
   const [page, setPage] = useState<PageId>("online");
   // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的内容页亮给用户
@@ -329,8 +335,11 @@ function App() {
    * 本地曲目从曲库取，取不到就留空（副行只剩播放状态，不编一个"未知歌手"）。
    */
   const npMeta = trackId ? state.queue.remote[trackId] : undefined;
-  const npTitle = npMeta?.title ?? trackTitle;
-  const npArtist = npMeta?.artist ?? (trackId && !remote ? trackById(trackId)?.artist ?? "" : "");
+  /* 本地曲目 trackTitle 为空（kernel 只存在线元数据），旧实现直接回落到文件名；
+     曲库里本来就有标题/歌手，先查库再退文件名，底栏才显示「夜的第七章」而不是 .mp3。 */
+  const localMeta = trackId && !remote ? trackById(trackId) : undefined;
+  const npTitle = npMeta?.title ?? trackTitle ?? localMeta?.title ?? null;
+  const npArtist = npMeta?.artist ?? localMeta?.artist ?? "";
   /* 底栏副行的信号源名（「网易云」）：比「在线音源」多一句实话。sources 列表启动后不变。 */
   const sourceName = remote
     ? services.current?.sources().find((s) => s.id === remote.sourceId)?.name ?? null
@@ -887,6 +896,10 @@ function App() {
               services.current?.setLyricFilters(text) ?? Promise.resolve(["还没准备好，请稍后再试"])
             }
             globalTokenCount={globalTokenCount}
+            themePref={themePref}
+            onTheme={(pref) => void services.current?.setTheme(pref)}
+            motionPref={motionPref}
+            onMotion={(pref) => void services.current?.setMotion(pref)}
             onImportGlobalTheme={async () => {
               const tokens = await services.current?.importGlobalTheme();
               setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);

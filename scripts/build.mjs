@@ -204,9 +204,28 @@ await build({
   define: { "process.env.NODE_ENV": '"production"' },
 });
 
-const css = [
+/* v4.2：字体与 token/基础层不带层级；旧覆盖层统一进 @layer legacy，
+   这样 base.css 的全局基线与动效降级能稳定压过旧规则，且不需要 !important。 */
+const baseCss = [
   "src/renderer/ui/fonts.css",
+  "src/renderer/ui/fonts-v42.css",
   "src/renderer/ui/tokens.css",
+  "src/renderer/ui/base.css",
+  "src/renderer/ui/v42/page.css",
+  "src/renderer/ui/v42/console.css",
+  "src/renderer/ui/v42/console-control.css",
+  "src/renderer/ui/v42/console-pop.css",
+  "src/renderer/ui/v42/discover.css",
+  "src/renderer/ui/v42/charts.css",
+  "src/renderer/ui/v42/chart-table.css",
+  "src/renderer/ui/v42/search.css",
+  "src/renderer/ui/v42/playlists.css",
+  "src/renderer/ui/v42/playlist-detail.css",
+]
+  .map((f) => fs.readFileSync(f, "utf8"))
+  .join("\n");
+
+const legacyCss = [
   "src/renderer/ui/app.css",
   "src/renderer/ui/player.css",
   "src/renderer/ui/views/pages.css",
@@ -222,7 +241,11 @@ const css = [
 ]
   .map((f) => fs.readFileSync(f, "utf8"))
   .join("\n");
+
+const css = `${baseCss}\n@layer legacy {\n${legacyCss}\n}\n`;
 fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
+// fonts-v42.css 的 url 是 ./fonts/*.woff2，必须一起进 dist。
+fs.cpSync("src/renderer/ui/fonts", path.join(OUT, "renderer", "fonts"), { recursive: true });
 fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
 fs.copyFileSync("src/renderer/mini.html", path.join(OUT, "renderer", "mini.html"));
 fs.copyFileSync("src/renderer/mini.css", path.join(OUT, "renderer", "mini.css"));

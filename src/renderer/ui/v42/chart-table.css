@@ -1,0 +1,100 @@
+/* ============================================================
+   v4.2 · 榜单 / 歌单共用的密集曲目表
+   ============================================================ */
+
+/* 榜单表：序号小的名次用莓粉，其余墨色 */
+.disc-board .lib-thead.online-thead {
+  display: grid;
+  grid-template-columns: 26px 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+  gap: 10px;
+  align-items: center;
+  height: 30px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.disc-board .lib-row.online-row {
+  display: grid;
+  grid-template-columns: 26px 38px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 48px;
+  gap: 10px;
+  align-items: center;
+  height: 46px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out-soft);
+}
+.disc-board .lib-row.online-row:hover {
+  background: var(--ink-soft-2);
+  box-shadow: none;
+}
+.disc-board .top10 .lib-no {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.disc-board .row-cover {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sub);
+}
+.disc-board .row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.disc-board .lib-title {
+  overflow: hidden;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.disc-board .lib-artist {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.disc-board .lib-no {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.disc-board .lib-dur {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* 加载更多 */
+.disc-board .pl-more,
+.playlists-page .pl-more {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1-5);
+  padding: 9px;
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--radius-btn);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+.disc-board .pl-more:hover,
+.playlists-page .pl-more:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}

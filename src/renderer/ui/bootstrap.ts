@@ -111,7 +111,8 @@ import {
   type LyricBindings,
 } from "../domain/lyrics/bindings.js";
 import { searchLrclib } from "../domain/lyrics/fetch-lrclib.js";
-import { applyTheme, rgbToHex, THEME_KEY, type Theme } from "./theme.js";
+import { currentTheme, getThemePref, initThemePref, rgbToHex, setThemePref, subscribeThemePref, THEME_KEY, watchSystemTheme } from "./theme.js";
+import { getMotionPref, initMotionPref, MOTION_KEY, setMotionPref, watchSystemMotion } from "./motion.js";
 import {
   GLOBAL_THEME_KEY,
   getGlobalTokens,
@@ -617,10 +618,15 @@ export async function bootstrap(): Promise<Services> {
     });
   }
 
-  // 2026-11 整站只保留深色：不再跟随系统明暗，也不再恢复旧主题档。
-  // data-theme 仍写入——窗口三键取色链（syncWindowOverlay）依赖它。
-  const theme: Theme = "dark";
-  applyTheme(theme);
+  // v4.2：默认明亮「排练室」，可切熄灯或跟随系统；旧存档 sepia 归档为 light。
+  // data-theme 写入的是解析后的生效值——窗口三键取色链（syncWindowOverlay）依赖它。
+  initThemePref(await kv.read(THEME_KEY));
+  initMotionPref(await kv.read(MOTION_KEY));
+  watchSystemTheme();
+  watchSystemMotion();
+  // 系统明暗变化时（偏好 system）重算三键，否则右上角会停在旧底色
+  subscribeThemePref(syncWindowOverlay);
+  const theme = currentTheme();
 
   // 全局配色包（B-9）：覆盖挂在 html 的 inline style 上，优先级高于预设块
   const storedGlobal = await kv.read(GLOBAL_THEME_KEY);
@@ -742,11 +748,21 @@ export async function bootstrap(): Promise<Services> {
 
   const services: Services = {
     engine,
-    theme,
+    /** 生效值现场读 DOM：用户切档后这里立刻是新的，不会停在启动时的快照。 */
+    get theme() {
+      return currentTheme();
+    },
+    themePref: getThemePref(),
     setTheme(next) {
-      applyTheme(next);
+      setThemePref(next);
       void kv.write(THEME_KEY, next);
       syncWindowOverlay(); // 系统三键跟着换色，夜间下右侧不挂白条
+      return next;
+    },
+    motionPref: getMotionPref(),
+    setMotion(next) {
+      setMotionPref(next);
+      void kv.write(MOTION_KEY, next);
       return next;
     },
     syncWindowOverlay, // 切页后重算：三键跟「当前可见页面」走（播放页恒深色）

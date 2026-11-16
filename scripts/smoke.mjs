@@ -299,18 +299,19 @@ async function main() {
   // 音源切换已收进左下角账号菜单：注册表接没接上，从那里看
   await app.evaluate(`document.querySelector(".side-acct")?.click()`);
   assert.ok(await app.waitFor(`document.querySelector(".acct-menu") !== null`, 3000), "左下角账号菜单打不开");
+  // 音源列表来自 bootstrap 完成后的注册表：冷启动可能比首屏慢一拍，等它接上
+  const sourceReady = await app.waitFor(`document.querySelectorAll(".acct-row b").length > 0`, 3000);
   const sourceOptions = await app.evaluate(
     `[...document.querySelectorAll(".acct-row b")].map((b) => (b.textContent || "").trim())`,
   );
   await app.evaluate(`document.querySelector(".acct-scrim")?.click()`);
   await sleep(250);
-  assert.ok(sourceOptions.length > 0, "音源列表是空的（注册表没接上）");
+  assert.ok(sourceReady && sourceOptions.length > 0, `音源列表是空的（注册表没接上）：${JSON.stringify(sourceOptions)}`);
 
-  /* ---- 顶栏（2026-11-16 整站换装）：品牌 / 搜索 / 账号；明暗切换已随「只留深色」移除 ---- */
+  /* ---- 顶栏（v4.2）：品牌 / 搜索 / 账号；默认亮色「排练室」 ---- */
   assert.ok(await app.waitFor(`!!document.querySelector(".topbar .search input")`, 3000), "顶栏缺搜索框");
-  assert.equal(await app.evaluate(`!!document.querySelector(".theme-toggle")`), false, "明暗切换应已移除");
   const shellBg = await app.evaluate(`getComputedStyle(document.querySelector(".shell.live")).backgroundColor`);
-  assert.equal(shellBg, "rgb(11, 12, 13)", `壳底应为 OLED 深色，实际 ${shellBg}`);
+  assert.equal(shellBg, "rgb(255, 248, 245)", `默认应为亮色排练室，实际 ${shellBg}`);
   console.log(`  顶栏 OK：搜索入口在顶栏，壳底 ${shellBg}`);
 
   /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在「更多」弹层内联段里，且真的落到状态 ---- */

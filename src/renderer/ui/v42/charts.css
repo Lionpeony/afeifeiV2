@@ -1,0 +1,399 @@
+/* ============================================================
+   v4.2 · 发现页榜单
+   封面卡带 + 同页下钻：冠军、二三名的台柱、其余密集行。
+   ============================================================ */
+
+/* ---------------- 榜单 ---------------- */
+.disc-sect {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  margin: 0 0 var(--space-1-5);
+  padding: 0 2px;
+  border: 0;
+}
+.disc-sect b {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  font-weight: 400;
+  line-height: var(--lh-title);
+  letter-spacing: 0.02em;
+}
+.disc-sect .mono {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+}
+.disc-sect i {
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.disc-strip {
+  display: flex;
+  gap: var(--space-1-5);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px var(--space-1-5);
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.disc-card {
+  position: relative;
+  flex: 0 0 126px;
+  width: 126px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  scroll-snap-align: start;
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.disc-card:hover {
+  transform: translateY(-3px);
+}
+.disc-card-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  overflow: hidden;
+  color: var(--on-gradient);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 16%, transparent);
+  background: linear-gradient(150deg, var(--brand-pink-600), var(--lavender-600));
+  background-position: center;
+  background-size: cover;
+  transition: border-color var(--dur-fast) var(--ease-out-soft);
+}
+.disc-card:nth-child(4n + 2) .disc-card-cover {
+  background-image: linear-gradient(150deg, var(--lavender-600), var(--coral-600));
+}
+.disc-card:nth-child(4n + 3) .disc-card-cover {
+  background-image: linear-gradient(150deg, var(--coral-600), var(--brand-pink-700));
+}
+.disc-card:nth-child(4n + 4) .disc-card-cover {
+  background-image: linear-gradient(150deg, var(--brand-pink-700), var(--brand-pink-600));
+}
+.disc-card-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, transparent 34%, color-mix(in srgb, var(--scrim) 45%, transparent)),
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--on-gradient) 16%, transparent) 0 1px,
+      transparent 1px 7px
+    ),
+    radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--on-gradient) 34%, transparent), transparent 62%);
+  pointer-events: none;
+}
+/* 暗色下品牌粉/薰衣草被提亮成粉彩，白字会掉到 3:1 以下：
+   在渐变上压一层固定暗色 scrim（亮色下渐变本身够深，不需要） */
+:root[data-theme="dark"] .disc-card-cover::before {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--scrim) 80%, transparent), var(--scrim)),
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--on-gradient) 12%, transparent) 0 1px,
+      transparent 1px 7px
+    );
+}
+.disc-card-cover::after {
+  content: counter(rank, decimal-leading-zero);
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  color: var(--on-gradient);
+  opacity: 0.4;
+  font-family: var(--font-mono);
+  font-size: var(--fs-title);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+.disc-strip {
+  counter-reset: rank;
+}
+.disc-card {
+  counter-increment: rank;
+}
+.disc-card-art-name {
+  position: relative;
+  z-index: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  padding: 0 10px;
+  color: var(--on-gradient);
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.disc-card.on .disc-card-cover {
+  border-color: var(--accent);
+}
+.disc-card-name {
+  display: block;
+  margin-top: var(--space-1);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.disc-card.on .disc-card-name {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.disc-card-count {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 下钻：纸面 setlist */
+.disc-board {
+  position: relative;
+  margin-top: var(--space-1);
+  padding: var(--space-3) 20px var(--space-2);
+  border-radius: 18px;
+  background: var(--bg-card);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--brand-pink-400) 10%, transparent);
+}
+.disc-board::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 34px;
+  width: 66px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-pink-400) 70%, transparent),
+    color-mix(in srgb, var(--brand-pink-400) 38%, transparent)
+  );
+  transform: rotate(-2deg);
+  pointer-events: none;
+}
+.disc-board .list-now,
+.disc-found .list-now {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 var(--space-1-5);
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+.disc-board .list-now b,
+.disc-found .list-now b {
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-title);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.disc-board .list-now span,
+.disc-found .list-now span {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+}
+
+/* 冠军 + 二三名的台柱 */
+.chart-champ {
+  display: grid;
+  grid-template-columns: 54px 88px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-1-5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--brand-pink-400) 7%, transparent);
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft);
+}
+.chart-champ:hover {
+  border-color: color-mix(in srgb, var(--brand-pink-400) 45%, transparent);
+  background: color-mix(in srgb, var(--brand-pink-400) 11%, transparent);
+}
+.champ-rank {
+  position: static;
+  top: auto;
+  right: auto;
+  color: var(--brand-pink-400);
+  font-family: var(--font-mono);
+  font-size: var(--fs-display);
+  font-weight: 500;
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+  text-align: center;
+  -webkit-text-stroke: 0;
+}
+.champ-cover {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-sub);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--text-primary) 16%, transparent);
+}
+.champ-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.champ-cover i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--text-primary) 14%, transparent) 0 1px,
+      transparent 1px 5px
+    ),
+    var(--bg-sub);
+}
+.champ-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.champ-tag {
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+}
+.champ-tx b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: var(--lh-title);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.champ-artist,
+.champ-meta {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+.champ-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-podium {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1-5);
+  margin: var(--space-1-5) 0 var(--space-1);
+}
+.chart-hero-cell {
+  display: grid;
+  grid-template-columns: 34px 52px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: none;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out-soft);
+}
+.chart-hero-cell:hover {
+  background: var(--ink-soft);
+}
+.chart-hero-rank {
+  position: static;
+  top: auto;
+  right: auto;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-title);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  -webkit-text-stroke: 0;
+}
+.chart-hero-cover {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: block;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sub);
+}
+.chart-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.chart-hero-cover i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--text-primary) 12%, transparent) 0 1px,
+      transparent 1px 5px
+    ),
+    var(--bg-sub);
+}
+.chart-hero-cell b {
+  grid-column: 3;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chart-hero-artist {
+  grid-column: 3;
+  grid-row: 2;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chart-hero-dur {
+  display: none;
+}

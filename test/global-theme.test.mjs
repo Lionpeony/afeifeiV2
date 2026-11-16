@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isTheme, rgbToHex } from "../dist-test/ui-theme.mjs";
+import { isTheme, isThemePref, resolveTheme, rgbToHex } from "../dist-test/ui-theme.mjs";
 import {
   GLOBAL_TOKEN_KEYS,
   getGlobalTokens,
@@ -12,10 +12,16 @@ import {
 
 /* ---- 全局配色（B-9）：三档预设 + 白名单净化 ---- */
 
-test("三档主题：旧值 light/dark 仍合法，已删的 forest 与未知值拒绝", () => {
-  for (const id of ["light", "dark", "sepia"]) assert.equal(isTheme(id), true);
-  assert.equal(isTheme("forest"), false); // 2026-11-10 删除「夜航」档
-  for (const id of ["custom", "", 1, null]) assert.equal(isTheme(id), false);
+test("主题偏好 light/dark/system；生效值只有 light/dark；sepia/forest 与未知值拒绝", () => {
+  for (const id of ["light", "dark", "system"]) assert.equal(isThemePref(id), true);
+  for (const id of ["sepia", "forest", "custom", "", 1, null]) assert.equal(isThemePref(id), false);
+  // 生效值不写 system：CSS 只认 light/dark，跟随系统在 theme.ts 里解析
+  assert.equal(isTheme("light"), true);
+  assert.equal(isTheme("dark"), true);
+  assert.equal(isTheme("system"), false);
+  assert.equal(resolveTheme("system", true), "dark");
+  assert.equal(resolveTheme("system", false), "light");
+  assert.equal(resolveTheme("light", true), "light");
 });
 
 test("rgbToHex：三键只收 #rrggbb，rgb()/rgba() 归一化成六位色", () => {

@@ -1,0 +1,354 @@
+/* ============================================================
+   v4.2 · 发现页
+   主视觉是一张「每日推荐」票根：封面 + 标题 + 试听四条 + 大日期；
+   榜单是封面卡带 + 同页下钻的纸面 setlist；搜索是整页任务态。
+   ============================================================ */
+
+.discover .disc-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 2px 2px var(--space-4);
+}
+
+/* ---------------- 每日推荐 ---------------- */
+.disc-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 26px;
+  padding: var(--space-2);
+  border-radius: 20px;
+  background: var(--bg-card);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--brand-pink-400) 12%, transparent);
+  overflow: hidden;
+}
+/* 胶带：贴住票根上缘，唯一一处“手作”痕迹 */
+.disc-hero::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 34px;
+  width: 76px;
+  height: 20px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-pink-400) 78%, transparent),
+    color-mix(in srgb, var(--brand-pink-400) 46%, transparent)
+  );
+  transform: rotate(-3deg);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--brand-pink-600) 18%, transparent);
+  pointer-events: none;
+}
+
+.disc-hero-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 20%, transparent);
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+.disc-daily:not(.locked) .disc-hero:hover .disc-hero-cover {
+  transform: rotate(-1deg) scale(1.015);
+}
+.disc-hero-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.disc-hero-cover i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--brand-pink-400) 18%, transparent) 0 1px,
+      transparent 1px 8px
+    ),
+    linear-gradient(150deg, var(--bg-sub), var(--bg-card));
+}
+/* 旧版中心的方印会被读成"图片裂了"；保留内缩虚线，去掉中心方块 */
+.disc-hero-cover i::after {
+  content: none;
+}
+.disc-hero-cover::before {
+  content: "DAILY MIX";
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--scrim);
+  color: var(--on-gradient);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.18em;
+  backdrop-filter: blur(6px);
+}
+.disc-hero-cover::after {
+  content: "";
+  position: absolute;
+  inset: auto 10px 10px auto;
+  right: 10px;
+  bottom: 10px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 86%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.disc-hero-tx {
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  /* 给右下角的大日期让出宽度，试听行的歌手/时长不会被压 */
+  padding-right: 20px;
+}
+.disc-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.disc-kicker::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--brand-pink-400);
+  transform: rotate(45deg);
+}
+.disc-hero-tx h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+}
+.disc-sub {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+.disc-sub.err {
+  color: var(--coral-600);
+}
+.disc-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.disc-acts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-btn);
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    border-color var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft),
+    transform var(--dur-tap) var(--ease-spring);
+}
+.disc-acts button:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.disc-acts button:active {
+  transform: scale(0.96);
+}
+.disc-acts button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.disc-acts button.primary:hover {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+:root[data-theme="dark"] .disc-acts button.primary {
+  border: 1.4px solid var(--brand-pink-400);
+  background: color-mix(in srgb, var(--brand-pink-400) 14%, transparent);
+  color: var(--text-primary);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--brand-pink-400) 16%, transparent);
+}
+:root[data-theme="dark"] .disc-acts button.primary:hover {
+  background: color-mix(in srgb, var(--brand-pink-400) 24%, transparent);
+  color: var(--text-primary);
+}
+
+/* 页头日期：页面上唯一的时间感，跟票根里的大日期同一份真实时间 */
+.discover .disc-date {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  align-self: flex-end;
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+}
+.discover .disc-date b {
+  font-size: var(--fs-display);
+  font-weight: 500;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.discover .disc-date span {
+  padding-bottom: 2px;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+}
+
+/* 日期票根：吸在 hero 右上角 */
+.disc-stamp {
+  position: absolute;
+  right: 20px;
+  bottom: -18px;
+  top: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  color: var(--accent-text);
+  opacity: 0.16;
+  font-family: var(--font-mono);
+  pointer-events: none;
+}
+.disc-stamp b {
+  font-size: calc(var(--fs-display) * 4);
+  font-weight: 500;
+  line-height: 0.8;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.disc-stamp span {
+  padding-bottom: 8px;
+  color: var(--accent-text);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  letter-spacing: 0.3em;
+}
+
+/* 试听四条：28px 行高，只有 hover 才铺底 */
+.disc-preview {
+  width: 100%;
+  /* 右下角的大日期是装饰层，试听行永远给它让出 170px，不压到时长 */
+  max-width: min(640px, calc(100% - 170px));
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.disc-preview button {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 120px 48px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out-soft);
+}
+.disc-preview button:hover {
+  background: var(--ink-soft-2);
+}
+.disc-preview .no {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+.disc-preview b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.disc-preview .ar {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.disc-preview .du {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* 未登录：不编假歌单，只把票根换成一封邀请 */
+.disc-daily.locked .disc-hero {
+  border: 1px dashed var(--hairline-2);
+  box-shadow: none;
+}
+.disc-daily.locked .disc-hero-cover {
+  filter: saturate(0.5);
+  opacity: 0.8;
+}
+
+/* 窄窗：大日期退场，试听行拿回宽度；封面缩到 180，标题不再被 26px 序号列挤掉 */
+@media (max-width: 900px) {
+  .disc-hero {
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: var(--space-1-5);
+  }
+  .disc-stamp {
+    display: none;
+  }
+  .disc-hero-tx {
+    padding-right: 0;
+  }
+  .disc-preview {
+    max-width: 100%;
+  }
+  .disc-preview button {
+    grid-template-columns: 22px minmax(0, 1fr) 88px 42px;
+    gap: 8px;
+  }
+}

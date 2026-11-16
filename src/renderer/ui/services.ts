@@ -15,7 +15,8 @@ import type { QrSession } from "../capability/sources/netease/index.js";
 import type { ScanStats } from "../domain/library/scan.js";
 import type { Track } from "../domain/library/schema.js";
 import type { LrclibHit } from "../domain/lyrics/fetch-lrclib.js";
-import type { Theme } from "./theme.js";
+import type { Theme, ThemePref } from "./theme.js";
+import type { MotionPref } from "./motion.js";
 import { ERROR_INFO, errorText, translateError } from "../capability/errors.js";
 
 export interface Api {
@@ -127,10 +128,16 @@ declare global {
 
 export interface Services {
   engine: AudioEngine;
-  /** 启动时读到的明暗主题（docs/09 B4）。 */
+  /** 生效主题（system 已解析）：只读，现场以 DOM 为准（docs/09 B4）。 */
   theme: Theme;
-  /** 切换并持久化，返回生效值。 */
-  setTheme(theme: Theme): Theme;
+  /** 用户偏好：明亮 / 熄灯 / 跟随系统。 */
+  themePref: ThemePref;
+  /** 切换并持久化，返回偏好值。 */
+  setTheme(theme: ThemePref): ThemePref;
+  /** 动效偏好：完整 / 轻动效 / 关闭 / 跟随系统。 */
+  motionPref: MotionPref;
+  /** 切换并持久化，返回偏好值。 */
+  setMotion(motion: MotionPref): MotionPref;
   /** 重算窗口三键（titleBarOverlay）颜色：现场读「当前可见页面」的底色，切页后调用。 */
   syncWindowOverlay(): void;
   pick(): Promise<string[]>;

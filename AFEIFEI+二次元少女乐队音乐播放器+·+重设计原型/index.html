@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-palette="default">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="creative-medium" content="interactive-prototype" />
+  <title>AFEIFEI 少女乐队后台 · 音乐播放器</title>
+
+  <link rel="preload" as="style" href="https://miaoda.feishu.cn/fonts/css2?family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
+
+  <link rel="preload" as="style" href="css/base.css" />
+  <link rel="preload" as="style" href="css/shell.css" />
+  <link rel="preload" as="style" href="css/pages.css" />
+  <link rel="preload" as="style" href="css/player.css" />
+  <link rel="preload" as="style" href="css/eggs.css" />
+  <link rel="preload" as="style" href="css/anime.css" />
+  <link rel="preload" as="style" href="css/v4.css" />
+  <link rel="preload" as="style" href="css/polish.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/shell.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <link rel="stylesheet" href="css/player.css" />
+  <link rel="stylesheet" href="css/eggs.css" />
+  <link rel="stylesheet" href="css/anime.css" />
+  <link rel="stylesheet" href="css/v4.css" />
+  <link rel="stylesheet" href="css/polish.css" />
+
+  <link rel="preload" as="script" crossorigin="anonymous" href="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react@18.3.1/umd/react.production.min.js" />
+  <link rel="preload" as="script" crossorigin="anonymous" href="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react-dom@18.3.1/umd/react-dom.production.min.js" />
+  <link rel="preload" as="script" crossorigin="anonymous" href="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/@babel/standalone@7.29.0/babel.min.js" />
+
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/data.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/icons.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/ui.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/anime.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Sidebar.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/icons4.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/TrackTable.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Auth.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Discover.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Playlists.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Likes.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/LocalFiles.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Search.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/RowMenu.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Extras.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Archive.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Wander.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Settings.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/NowPlaying.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/MiniPlayer.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/Eggs.jsx" />
+  <link rel="preload" as="fetch" crossorigin="anonymous" href="js/app.jsx" />
+
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://sf3-scmcdn-cn.feishucdn.com/obj/feishu-static/miaoda/coding-unpkg-sdk/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="js/data.jsx"></script>
+  <script type="text/babel" src="js/icons.jsx"></script>
+  <script src="js/sound.js"></script>
+  <script type="text/babel" src="js/ui.jsx"></script>
+  <script type="text/babel" src="js/anime.jsx"></script>
+  <script type="text/babel" src="js/Sidebar.jsx"></script>
+  <script type="text/babel" src="js/icons4.jsx"></script>
+  <script type="text/babel" src="js/TrackTable.jsx"></script>
+  <script type="text/babel" src="js/Auth.jsx"></script>
+  <script type="text/babel" src="js/Discover.jsx"></script>
+  <script type="text/babel" src="js/Playlists.jsx"></script>
+  <script type="text/babel" src="js/Likes.jsx"></script>
+  <script type="text/babel" src="js/LocalFiles.jsx"></script>
+  <script type="text/babel" src="js/Search.jsx"></script>
+  <script type="text/babel" src="js/RowMenu.jsx"></script>
+  <script type="text/babel" src="js/Extras.jsx"></script>
+  <script type="text/babel" src="js/Archive.jsx"></script>
+  <script type="text/babel" src="js/Wander.jsx"></script>
+  <script type="text/babel" src="js/Settings.jsx"></script>
+  <script type="text/babel" src="js/NowPlaying.jsx"></script>
+  <script type="text/babel" src="js/MiniPlayer.jsx"></script>
+  <script type="text/babel" src="js/Eggs.jsx"></script>
+  <script type="text/babel" src="js/app.jsx"></script>
+</body>
+</html>

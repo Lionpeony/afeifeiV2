@@ -8,7 +8,7 @@
  * 这里自己开窗口 + 注册 renderer 启动必需的 IPC handler，userData 指到
  * 临时目录、快照直接落盘——绝不动用户真实索引。
  */
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -16,9 +16,36 @@ import path from "node:path";
 const OUT = path.resolve("docs/assets");
 const PROFILE = path.join(os.tmpdir(), `afeifei-shots-${process.pid}`);
 
+protocol.registerSchemesAsPrivileged([
+  { scheme: "appmedia", privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
+
 app.setPath("userData", PROFILE);
 
+// reduced-motion 验收：Chromium 开关让 matchMedia 真的报 reduce，
+// motion.ts 的 system 档才会解析成 off（只改 CSS 媒体查询测不出这条链路）。
+if (process.env.SHOTS_REDUCE === "1") app.commandLine.appendSwitch("force-prefers-reduced-motion");
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** 底栏截图要真播一首：fixture 的路径是假的，换成系统自带 wav（取最长的一首）。 */
+const SAMPLE = (() => {
+  try {
+    const dir = "C:\\Windows\\Media";
+    const file = fs
+      .readdirSync(dir)
+      .filter((n) => /\.wav$/i.test(n))
+      .map((n) => path.join(dir, n))
+      .sort((a, b) => fs.statSync(b).size - fs.statSync(a).size)[0];
+    if (!file) return null;
+    // WAV 头 byteRate 在偏移 28：时长 = 数据字节 / 每秒字节
+    const buf = fs.readFileSync(file);
+    const byteRate = buf.readUInt32LE(28) || 176400;
+    return { path: file, durationMs: Math.round(((buf.length - 44) / byteRate) * 1000) };
+  } catch {
+    return null;
+  }
+})();
 
 /** 截图 fixture：空曲库看不出表头/行的列对齐。 */
 const TRACKS = [
@@ -41,6 +68,20 @@ const TRACKS = [
   mtimeMs: 1000 + i,
   hasCover: false,
 }));
+
+if (SAMPLE) {
+  TRACKS.push({
+    id: SAMPLE.path.replace(/\\/g, "/").toLowerCase(),
+    path: SAMPLE.path,
+    title: "夜の練習",
+    artist: "AFEIFEI",
+    album: "Rehearsal",
+    durationMs: SAMPLE.durationMs,
+    size: 11000,
+    mtimeMs: 999,
+    hasCover: false,
+  });
+}
 
 const PAGES = [
   ["发现", "online"],
@@ -85,6 +126,39 @@ function registerMinimalIpc() {
   ipcMain.handle("library:appendLog", () => undefined);
   ipcMain.handle("library:clearLog", () => undefined);
   ipcMain.handle("library:cover", () => null);
+  // 底栏播放态需要真能出声：appmedia://<token> → 本地文件
+  const granted = new Map();
+  ipcMain.handle("media:grant", (_e, filePath) => {
+    if (typeof filePath !== "string") return null;
+    // hostname 会被 URL 小写化：token 必须用小写十六进制
+    const token = Buffer.from(filePath).toString("hex");
+    granted.set(token, filePath);
+    return token;
+  });
+  protocol.handle("appmedia", (request) => {
+    const file = granted.get(new URL(request.url).hostname);
+    if (!file) return new Response("not found", { status: 404 });
+    try {
+      const size = fs.statSync(file).size;
+      const range = /^bytes=(\d+)-(\d*)$/.exec(request.headers.get("range") ?? "");
+      const headers = { "content-type": "audio/wav", "accept-ranges": "bytes" };
+      if (range) {
+        const start = Number(range[1]);
+        const end = range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+        headers["content-range"] = `bytes ${start}-${end}/${size}`;
+        headers["content-length"] = String(end - start + 1);
+        return new Response(fs.readFileSync(file).subarray(start, end + 1), {
+          status: 206,
+          headers,
+        });
+      }
+      headers["content-length"] = String(size);
+      return new Response(fs.readFileSync(file), { headers });
+    } catch (err) {
+      console.error("appmedia read failed", file, err);
+      return new Response("read failed", { status: 500 });
+    }
+  });
   ipcMain.handle("store:read", (_e, key) => readFile(file(`store-${String(key)}.json`)));
   ipcMain.handle("store:write", (_e, key, json) => writeFile(file(`store-${String(key)}.json`), json));
   ipcMain.handle("app-state:load", () => null);
@@ -158,6 +232,13 @@ app.whenReady().then(async () => {
     path.join(PROFILE, "store-likes.json"),
     JSON.stringify(TRACKS.slice(0, 5).map((t) => t.id)),
   );
+  // v4.2 验收：主题/动效偏好走 KV（裸字符串，和真主进程一致）
+  if (process.env.SHOTS_THEME) {
+    fs.writeFileSync(path.join(PROFILE, "store-ui-theme.json"), process.env.SHOTS_THEME);
+  }
+  if (process.env.SHOTS_MOTION) {
+    fs.writeFileSync(path.join(PROFILE, "store-ui-motion.json"), process.env.SHOTS_MOTION);
+  }
   registerMinimalIpc();
 
   const [shotW, shotH] = (process.env.SHOTS_SIZE ?? "1334x747").split("x").map(Number);
@@ -178,6 +259,17 @@ app.whenReady().then(async () => {
   await win.loadFile(path.resolve("dist/renderer/index.html"));
   await sleep(900); // 曲库恢复 + 首帧
 
+  if (process.env.SHOTS_REDUCE === "1") {
+    const got = await win.webContents.executeJavaScript(
+      `({ reduce: matchMedia("(prefers-reduced-motion: reduce)").matches, motion: document.documentElement.dataset.motion })`,
+      true,
+    );
+    if (!got.reduce || got.motion !== "off") {
+      throw new Error(`减少动效没有生效：reduce=${got.reduce}, data-motion=${got.motion}`);
+    }
+    console.log("reduced-motion → data-motion=off");
+  }
+
   // 渲染进程崩了会让 capturePage() 返回空图（写出 0 字节 PNG，肉眼看不出来）——把它说出来
   win.webContents.on("render-process-gone", (_e, details) => {
     console.error(`✗ 渲染进程结束：${details.reason}（exitCode ${details.exitCode}）`);
@@ -194,6 +286,8 @@ app.whenReady().then(async () => {
    * 在 HEAD 里就是一张 0 字节的图）。返回是否真的拍到了。
    */
   const shoot = async (name) => {
+    // 把指针挪出内容区：否则鼠标落点所在的卡片会一直带 hover 态进截图
+    win.webContents.sendInputEvent({ type: "mouseMove", x: 2, y: 2 });
     // 先逼一帧：DOM 改完但没合成时，capturePage 会返回上一帧（弹窗关掉了图里还开着）
     await win.webContents.executeJavaScript(
       `new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`,
@@ -257,6 +351,15 @@ app.whenReady().then(async () => {
     if (!ok) throw new Error(`找不到导航项「${label}」`);
     await sleep(400); // 切页后一帧
     await shoot(`page-${id}${suffix}.png`);
+    if (id === "online") {
+      // 榜单卡带整排在首屏只露半截：单独滚到它再拍一张，卡面与首数才是证据
+      await win.webContents.executeJavaScript(
+        `document.querySelector(".disc-strip")?.scrollIntoView({ block: "center" })`,
+        true,
+      );
+      await sleep(300);
+      await shoot(`page-toplists${suffix}.png`);
+    }
   }
 
   // 设置页下半（M9：曲库目录 / 开机自启）——不滚到底一行都看不到
@@ -399,9 +502,8 @@ app.whenReady().then(async () => {
   await sleep(900);
   const chartProbe = await win.webContents.executeJavaScript(
     `(() => {
-      const rows = [...document.querySelectorAll(".online-row")];
-      const after = (el) => parseFloat(getComputedStyle(el, "::after").width) || 0;
       const cover = document.querySelector(".champ-cover");
+      const firstCard = document.querySelector(".disc-card-cover");
       return {
         hero: Boolean(document.querySelector(".disc-hero")),
         stamp: Boolean(document.querySelector(".disc-stamp b")),
@@ -409,14 +511,14 @@ app.whenReady().then(async () => {
         cards: document.querySelectorAll(".disc-card").length,
         cardH: Math.round(document.querySelector(".disc-card")?.getBoundingClientRect().height ?? 0),
         cardName: document.querySelector(".disc-card-name")?.textContent ?? "",
+        // 卡面名字要压在渐变上：只有下面的名字、卡面还是灰斜纹 = 版式退化
+        artName: document.querySelector(".disc-card-art-name")?.textContent ?? "",
+        cardBg: firstCard ? getComputedStyle(firstCard).backgroundImage : "",
         champ: document.querySelectorAll(".chart-champ").length,
         podium: document.querySelectorAll(".chart-hero-cell").length,
-        rows: rows.length,
+        rows: document.querySelectorAll(".online-row").length,
         top10: document.querySelectorAll(".online-row.top10").length,
-        // 热度墨条坡：第 4 名的墨线必须比第 10 名长（判据可红可绿）
-        w4: rows[0] ? Math.round(after(rows[0])) : 0,
-        w10: rows[6] ? Math.round(after(rows[6])) : 0,
-        // 冠军封面要真的是大图（148px 档），缩水成普通 cell 就是版式退化
+        // 冠军封面是 88px 实体图；缩成普通行高就是版式退化
         champCover: cover ? Math.round(cover.getBoundingClientRect().width) : 0,
       };
     })()`,
@@ -425,16 +527,17 @@ app.whenReady().then(async () => {
   if (
     !chartProbe.hero ||
     !chartProbe.stamp ||
-    chartProbe.dailyCover < 180 ||
+    chartProbe.dailyCover < 200 ||
     chartProbe.cards < 5 ||
-    chartProbe.cardH < 140 ||
+    chartProbe.cardH < 160 ||
     !chartProbe.cardName ||
+    !chartProbe.artName ||
+    !chartProbe.cardBg.includes("linear-gradient") ||
     chartProbe.champ !== 1 ||
     chartProbe.podium !== 2 ||
     chartProbe.rows < 5 ||
     chartProbe.top10 < 3 ||
-    chartProbe.w4 <= chartProbe.w10 ||
-    chartProbe.champCover < 140
+    chartProbe.champCover < 80
   ) {
     throw new Error(`发现页没长齐：${JSON.stringify(chartProbe)}`);
   }
@@ -557,6 +660,7 @@ app.whenReady().then(async () => {
     true,
   );
   if (searchState.rows !== 3) throw new Error(`在线搜索没出 3 条：${JSON.stringify(searchState)}`);
+  await shoot(`page-search${suffix}.png`);
   await win.webContents.executeJavaScript(
     `[...document.querySelectorAll(".list-now button")].find((b) => (b.textContent || "").trim() === "全选")?.click()`,
     true,
@@ -821,6 +925,75 @@ app.whenReady().then(async () => {
   await clickLabel("播放队列");
   await sleep(300);
   await shoot("queue.png");
+
+  /* v4.2 底栏：真播系统 wav，拍播放态；再缩到 1024 验窄窗不溢出 */
+  if (SAMPLE) {
+    await win.webContents.executeJavaScript(`document.querySelector(".qp-x")?.click()`, true);
+    await win.webContents.executeJavaScript(
+      `document.querySelector('.side-item[data-page="local"]')?.click()`,
+      true,
+    );
+    await sleep(300);
+    await win.webContents.executeJavaScript(
+      `[...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "曲目")?.click()`,
+      true,
+    );
+    await sleep(300);
+    await win.webContents.executeJavaScript(
+      `(() => {
+        const row = [...document.querySelectorAll(".lib-row")].find((r) =>
+          (r.querySelector(".lib-title")?.textContent ?? "").includes("夜の練習"),
+        );
+        (row ?? document.querySelector(".lib-row"))?.click();
+      })()`,
+      true,
+    );
+    await sleep(1100);
+    await shoot(`console-playing${suffix}.png`);
+
+    // 验收：72px、无横向溢出（窄窗同一判据）
+    const bar = await win.webContents.executeJavaScript(
+      `(() => {
+        const el = document.querySelector(".console");
+        const r = el.getBoundingClientRect();
+        return { h: r.height, scroll: el.scrollWidth, client: el.clientWidth };
+      })()`,
+      true,
+    );
+    if (Math.round(bar.h) !== 72) throw new Error(`底栏高度应为 72，实际 ${bar.h}`);
+    if (bar.scroll > bar.client + 1) throw new Error(`底栏横向溢出：${bar.scroll} > ${bar.client}`);
+
+    // 两个弹层：音量 / 更多
+    const openTool = (label) =>
+      win.webContents.executeJavaScript(
+        `document.querySelector('.tools button[aria-label="${label}"]')?.click()`,
+        true,
+      );
+    await openTool("音量");
+    await sleep(250);
+    await shoot(`console-volume${suffix}.png`);
+    await openTool("音量");
+    await sleep(150);
+    await openTool("更多");
+    await sleep(250);
+    await shoot(`console-more${suffix}.png`);
+    await openTool("更多");
+    await sleep(150);
+
+    win.setContentSize(1024, shotH);
+    await sleep(400);
+    await shoot(`console-playing-1024${suffix}.png`);
+    const narrow = await win.webContents.executeJavaScript(
+      `(() => {
+        const el = document.querySelector(".console");
+        return { scroll: el.scrollWidth, client: el.clientWidth };
+      })()`,
+      true,
+    );
+    if (narrow.scroll > narrow.client + 1) throw new Error(`1024 底栏横向溢出：${narrow.scroll} > ${narrow.client}`);
+    win.setContentSize(shotW, shotH);
+    await sleep(250);
+  }
 
   // 失败标记（P0-16）的视觉证据不在这里拍：fixture 的路径是假的但元素不报 error
   // （没有 media:grant handler 时音频静默失败），拍出来是一张"看起来正常"的假图。

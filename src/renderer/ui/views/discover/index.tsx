@@ -280,7 +280,23 @@ export function DiscoverView({
 
   return (
     <section className="library discover">
-      <PageHead title="发现" eyebrow={`DISCOVER · ${sourceName}`} extra={tabs} />
+      <PageHead
+        title="发现"
+        eyebrow={`DISCOVER · ${sourceName}`}
+        extra={
+          <>
+            {tabs}
+            <div className="disc-date" title="今天的日期">
+              <b>{pad(today.getDate())}</b>
+              <span>
+                {MONTHS[today.getMonth()]}
+                <br />
+                {WEEKDAYS[today.getDay()]}
+              </span>
+            </div>
+          </>
+        }
+      />
 
       {loginOpen ? (
         <LoginDialog
@@ -479,7 +495,7 @@ export function DiscoverView({
                       </button>
                     ) : null}
                     {acct.hint && canLogin ? (
-                      <button type="button" onClick={openLogin}>
+                      <button type="button" className="primary" onClick={openLogin}>
                         登录{sourceName}
                       </button>
                     ) : null}
@@ -552,7 +568,9 @@ export function DiscoverView({
                         className="disc-card-cover"
                         aria-hidden="true"
                         style={list.coverUrl ? { backgroundImage: `url("${list.coverUrl}")` } : undefined}
-                      />
+                      >
+                        <b className="disc-card-art-name">{list.name}</b>
+                      </span>
                       <span className="disc-card-name">{list.name}</span>
                       <span className="disc-card-count mono">{list.count > 0 ? `${list.count} 首` : "—"}</span>
                     </button>

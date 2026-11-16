@@ -141,6 +141,7 @@ export function PlaylistsView(props: PlaylistViewProps) {
           name={item?.name ?? ""}
           meta={meta}
           cover={item?.coverUrl}
+          sourceTag={item ? nameOf(item.sourceId) : undefined}
           save={item ? { on: lib.isSaved, run: lib.toggleSave } : undefined}
           tracks={lib.tracks}
           busy={lib.busy}

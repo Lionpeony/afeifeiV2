@@ -354,9 +354,6 @@ html::after {
   z-index: 50; /* 模态层（00 §9.2 全局层序表） */
 }
 
-
-}
-
 /* 毛玻璃浮层：半透纸面板 + 背景模糊，材质层 token 保四主题自动换装 */
 .dialog {
   position: relative;

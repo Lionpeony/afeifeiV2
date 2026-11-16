@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { onFrame } from "../compositor.js";
 
 /**
  * 数字滚动（移植 Magic UI NumberTicker）。
@@ -31,21 +32,24 @@ export function NumberTicker({
 
     const from = fromRef.current;
     const start = performance.now();
-    let raf = 0;
+    let stop: (() => void) | null = null;
 
     const tick = (now: number) => {
       const p = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
       setShown(from + (value - from) * eased);
-      if (p < 1) {
-        raf = requestAnimationFrame(tick);
-      } else {
-        fromRef.current = value;
-      }
+      if (p < 1) return;
+      fromRef.current = value;
+      // 滚到终值就退订：全应用只有 compositor 持有 rAF 循环（lint 规则 4）
+      stop?.();
+      stop = null;
     };
 
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    stop = onFrame(tick);
+    return () => {
+      stop?.();
+      stop = null;
+    };
   }, [value, duration]);
 
   const text = new Intl.NumberFormat(locale, {

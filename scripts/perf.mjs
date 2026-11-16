@@ -124,7 +124,7 @@ async function once() {
   assert.ok(rendered > 0 && rendered < 100, `虚拟列表只该渲染几十行，实际 ${rendered}`);
 
   const searchMs = await app.evaluate(`(async () => {
-    const input = document.querySelector(".search");
+    const input = document.querySelector(".topbar .search input");
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
     const t0 = performance.now();
     setter.call(input, "zjl");

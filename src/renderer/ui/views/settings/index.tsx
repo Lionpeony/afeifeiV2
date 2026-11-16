@@ -10,6 +10,10 @@ import {
   removeDislike,
   subscribe as subscribeDislikes,
 } from "../../../domain/dislikes/index.js";
+import { THEME_PRESETS } from "../../theme/presets.js";
+import { MOTION_PRESETS } from "../../motion.js";
+import type { ThemePref } from "../../theme.js";
+import type { MotionPref } from "../../motion.js";
 
 export interface SettingsViewProps {
   trackCount: number;
@@ -42,6 +46,11 @@ export interface SettingsViewProps {
   /** 歌词正则过滤（B-2）：一行一条。返回写错、已忽略的模式。 */
   lyricFilters: string;
   onSaveLyricFilters(text: string): Promise<string[]>;
+  /* ---- 外观：主题 / 动效偏好（v4.2） ---- */
+  themePref: ThemePref;
+  onTheme(pref: ThemePref): void;
+  motionPref: MotionPref;
+  onMotion(pref: MotionPref): void;
   /* ---- 全局配色包（B-9） ---- */
   globalTokenCount: number;
   onImportGlobalTheme(): Promise<Record<string, string> | null>;
@@ -106,6 +115,42 @@ export function SettingsView(props: SettingsViewProps) {
           <h3>
             外观<span>APPEARANCE</span>
           </h3>
+          <div className="set-row">
+            <span className="k">
+              <b>主题</b>
+              <span>{THEME_PRESETS.find((p) => p.id === props.themePref)?.hint ?? ""}</span>
+            </span>
+            <div className="seg">
+              {THEME_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={props.themePref === preset.id ? "on" : ""}
+                  onClick={() => props.onTheme(preset.id)}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="set-row">
+            <span className="k">
+              <b>动效</b>
+              <span>{MOTION_PRESETS.find((p) => p.id === props.motionPref)?.hint ?? ""}</span>
+            </span>
+            <div className="seg">
+              {MOTION_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className={props.motionPref === preset.id ? "on" : ""}
+                  onClick={() => props.onMotion(preset.id)}
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="set-row">
             <span className="k">
               <b>全局配色包</b>

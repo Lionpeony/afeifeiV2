@@ -1,0 +1,214 @@
+/* ============================================================
+   v4.2 · 歌单页
+   左边是账号歌单目录（带封套），右边是一张纸面 setlist：
+   大封面 + 歌单名 + 收藏动作 + 曲目表。
+   ============================================================ */
+
+/* 音源切换：胶囊分段，选中实心交互粉；暗色改描边 */
+.playlists-page .lib-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: 0 0 var(--space-1-5);
+  flex: none;
+}
+.playlists-page .seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-btn);
+  background: var(--bg-sub);
+}
+.playlists-page .seg button {
+  height: 30px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-btn);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+.playlists-page .seg button:hover {
+  color: var(--text-primary);
+}
+.playlists-page .seg button.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+:root[data-theme="dark"] .playlists-page .seg button.on {
+  border: 1px solid var(--brand-pink-400);
+  background: color-mix(in srgb, var(--brand-pink-400) 16%, transparent);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+/* 导入条 */
+.playlists-page .pl-import {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1-5);
+  padding: var(--space-1-5);
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--radius-card);
+  background: var(--bg-card);
+}
+.playlists-page .pl-import .search {
+  flex: 1;
+  height: 34px;
+  padding: 0 var(--space-1-5);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-btn);
+  background: var(--bg-sub);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  outline: none;
+}
+.playlists-page .pl-import .search:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+.playlists-page .pl-import button.primary {
+  height: 34px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-btn);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+.playlists-page .pl-import button.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.playlists-page .pl-import .pl-import-x {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-btn);
+  background: none;
+  color: var(--text-secondary);
+}
+.playlists-page .pl-import .pl-import-x:hover {
+  background: var(--ink-soft);
+  color: var(--text-primary);
+}
+
+/* ---------------- 两栏 ---------------- */
+.playlists-page .pl-wrap {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 262px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+/* 左：目录 */
+.playlists-page .pl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.playlists-page .pl-sect {
+  margin: 0;
+  padding: 0 10px var(--space-1);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.playlists-page .pl-sect + .pl-sect {
+  margin-top: var(--space-1-5);
+}
+.playlists-page .pl-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out-soft),
+    box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+.playlists-page .pl-item:hover {
+  background: var(--ink-soft);
+}
+.playlists-page .pl-item.on {
+  background: color-mix(in srgb, var(--marker-yellow) 24%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.playlists-page .pl-thumb {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-card);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 12%, transparent);
+}
+.playlists-page .pl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.playlists-page .pl-thumb i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--brand-pink-400) 16%, transparent) 0 1px,
+      transparent 1px 7px
+    ),
+    var(--bg-sub);
+}
+.playlists-page .pl-name {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.playlists-page .pl-item.on .pl-name {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.playlists-page .pl-count {
+  flex: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+.playlists-page .pl-empty {
+  margin: var(--space-1) 0;
+  padding: var(--space-2);
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--radius-card);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}

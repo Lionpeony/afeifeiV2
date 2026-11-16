@@ -77,12 +77,20 @@ test("stage-scope 块存在且把 8 个结构层变量指向场景层（嵌套�
   }
 });
 
-test("单一配色：tokens.css 不再有 [data-theme] 主题块（2026-11 只留深色）", () => {
+test("v4.2 亮暗双档：亮色「排练室」是默认，暗色只覆盖颜色，场景层默认值暂不动", () => {
   const css = readSrc("../src/renderer/ui/tokens.css");
-  assert.ok(!/:root\[data-theme=/.test(css), "还有 data-theme 主题块：整站已只保留一套配色");
-  assert.ok(!/\.shell\.live:has\(/.test(css), "还有「外壳跟随皮肤」的配色块");
-  /* 场景层只留在 :root 默认值里，且默认值就是新深色体系 */
-  assert.ok(/--stage-accent:\s*#ff5a36/.test(css), "场景层应是深色橙红默认值");
+  assert.ok(/:root\s*\{[\s\S]*?--bg-base:\s*#FFF8F5/.test(css), "亮色「排练室」应是默认档");
+  const dark = css.match(/:root\[data-theme="dark"\]\s*\{([\s\S]*?)\n\}/);
+  assert.ok(dark, "缺暗色「排练室熄灯」块");
+  assert.ok(/--bg-base:\s*#2A2438/.test(dark[1]), "暗色底色不对");
+  // 暗色块只覆盖颜色/阴影：出现布局、字号、动效就是写错了层
+  assert.ok(
+    !/--space-|--fs-|--lh-|--dur-|--ease-|--nav-w|--console-h/.test(dark[1]),
+    "暗色块混入了布局/字号/动效 token",
+  );
+  /* 场景层（播放页）阶段 6 才接入新体系；在那之前保持既有深色默认值，
+     否则本阶段的全局主题会把播放页一起翻白。 */
+  assert.ok(/--stage-accent:\s*#ff5a36/.test(css), "场景层默认值应在阶段 6 之前保持现状");
 });
 
 test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、不多）", () => {

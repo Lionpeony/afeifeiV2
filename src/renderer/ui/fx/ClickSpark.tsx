@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { onFrame } from "../compositor.js";
 
 interface Spark {
   x: number;
@@ -41,7 +42,7 @@ export function ClickSpark({
     const stroke = getComputedStyle(probe).color;
     probe.remove();
 
-    let raf = 0;
+    let stop: (() => void) | null = null;
     const sparks: Spark[] = [];
 
     const resize = () => {
@@ -77,7 +78,11 @@ export function ClickSpark({
       }
       ctx.globalAlpha = 1;
 
-      raf = sparks.length > 0 ? requestAnimationFrame(draw) : 0;
+      // 粒子放完就退订：全应用只有 compositor 持有 rAF 循环（lint 规则 4）
+      if (sparks.length === 0 && stop) {
+        stop();
+        stop = null;
+      }
     };
 
     const onPointerDown = (e: PointerEvent) => {
@@ -86,7 +91,7 @@ export function ClickSpark({
         const angle = (Math.PI * 2 * i) / count;
         sparks.push({ x: e.clientX, y: e.clientY, dx: Math.cos(angle), dy: Math.sin(angle), born: now });
       }
-      if (raf === 0) raf = requestAnimationFrame(draw);
+      if (!stop) stop = onFrame(draw);
     };
 
     window.addEventListener("resize", resize);
@@ -94,7 +99,8 @@ export function ClickSpark({
     return () => {
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointerdown", onPointerDown);
-      if (raf) cancelAnimationFrame(raf);
+      stop?.();
+      stop = null;
     };
   }, [color, count, distance, duration]);
 

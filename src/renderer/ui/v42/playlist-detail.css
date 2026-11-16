@@ -1,0 +1,269 @@
+/* ============================================================
+   v4.2 · 歌单右栏：纸面 setlist
+   ============================================================ */
+
+/* 右：纸面 setlist */
+.playlists-page .pl-wrap > .lib-list {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3) 20px var(--space-2);
+  border-radius: 20px;
+  background: var(--bg-card);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--brand-pink-400) 10%, transparent);
+}
+.playlists-page .pl-wrap > .lib-list::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 34px;
+  width: 70px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--brand-pink-400) 70%, transparent),
+    color-mix(in srgb, var(--brand-pink-400) 38%, transparent)
+  );
+  transform: rotate(-2deg);
+  pointer-events: none;
+}
+
+/* 抬头：104px 封套 + 名字 + 收藏 */
+.playlists-page .pl-wrap .list-now {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 4px 18px;
+  align-items: start;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+.playlists-page .now-cover {
+  position: relative;
+  grid-row: 1 / 3;
+  display: block;
+  width: 104px;
+  height: 104px;
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--bg-sub);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--text-primary) 18%, transparent);
+}
+.playlists-page .now-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.playlists-page .now-cover-blank {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--brand-pink-400) 18%, transparent) 0 1px,
+      transparent 1px 8px
+    ),
+    var(--bg-sub);
+  color: var(--accent-text);
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-style: normal;
+}
+.playlists-page .now-cover-tag {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 2px 7px;
+  border-radius: var(--radius-btn);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+}
+.playlists-page .now-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* 没有封套时，标题占满整行，不留 104px 空槽 */
+.playlists-page .list-now > .now-tx:first-child {
+  grid-column: 1 / -1;
+}
+.playlists-page .now-tx b {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.playlists-page .now-tx span {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+}
+.playlists-page .now-act {
+  grid-column: 2;
+  align-self: start;
+  justify-self: start;
+  margin: 6px 0 0;
+  padding: 5px 12px;
+  border: 1px solid var(--hairline-2);
+  border-radius: var(--radius-btn);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  transition:
+    border-color var(--dur-fast) var(--ease-out-soft),
+    color var(--dur-fast) var(--ease-out-soft),
+    background-color var(--dur-fast) var(--ease-out-soft);
+}
+.playlists-page .now-act:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+.playlists-page .now-act.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.playlists-page .list-now > .now-act:first-child {
+  grid-column: 1 / -1;
+}
+
+/* 表头与行：与榜单同一套骨架 */
+.playlists-page .lib-thead.online-thead {
+  display: grid;
+  grid-template-columns: 30px 40px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+  height: 30px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.playlists-page .lib-thead.online-thead .th-no {
+  text-align: right;
+}
+.playlists-page .pl-wrap .lib-row.online-row {
+  display: grid;
+  grid-template-columns: 30px 40px minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr) 52px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  height: 48px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  transition: background-color var(--dur-fast) var(--ease-out-soft);
+}
+.playlists-page .pl-wrap .lib-row.online-row:hover {
+  background: var(--ink-soft-2);
+  box-shadow: none;
+}
+.playlists-page .pl-wrap .lib-no {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.playlists-page .pl-wrap .row-cover {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-sub);
+}
+.playlists-page .pl-wrap .row-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.playlists-page .pl-wrap .lib-title {
+  overflow: hidden;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.playlists-page .pl-wrap .lib-artist {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.playlists-page .pl-wrap .lib-dur {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* 骨架行 */
+.playlists-page .online-skel .sk-row {
+  height: 44px;
+  gap: 14px;
+  padding: 0 6px;
+  border-bottom: 0;
+}
+.playlists-page .online-skel .sk-bar {
+  border-radius: var(--radius-btn);
+  background: var(--ink-soft-2);
+}
+
+@media (max-width: 1180px) {
+  .playlists-page .pl-wrap {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: var(--space-1-5);
+  }
+  .playlists-page .pl-wrap .list-now {
+    grid-template-columns: 84px minmax(0, 1fr);
+  }
+  .playlists-page .now-cover {
+    width: 84px;
+    height: 84px;
+  }
+  .playlists-page .now-tx b {
+    font-size: var(--fs-title);
+  }
+}
+
+/* 窄窗：榜单/歌单表先放弃专辑列，把宽度让给歌名与歌手 */
+@media (max-width: 900px) {
+  .playlists-page .lib-thead.online-thead,
+  .playlists-page .pl-wrap .lib-row.online-row,
+  .disc-board .lib-thead.online-thead,
+  .disc-board .lib-row.online-row {
+    grid-template-columns: 26px 38px minmax(0, 1.7fr) minmax(0, 1fr) 48px;
+  }
+  .playlists-page .lib-thead .th-b,
+  .playlists-page .pl-wrap .lib-row.online-row > :nth-child(5),
+  .disc-board .lib-thead .th-b,
+  .disc-board .lib-row.online-row > :nth-child(5) {
+    display: none;
+  }
+}

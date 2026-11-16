@@ -15,6 +15,8 @@ interface Props {
   meta: string;
   /** 抬头左侧的封套（歌单封面）。没有就不摆，不画占位碎图 */
   cover?: string;
+  /** 封面右下角的音源小签（「网易云」）：封面才有位置，没有封面就不挂 */
+  sourceTag?: string;
   /** 收藏动作；undefined = 这张不可收藏（无选中 / 跨源收藏项） */
   save?: { on: boolean; run(): void };
   tracks: RemoteTrack[];
@@ -31,17 +33,21 @@ interface Props {
  * 右栏曲目表：和榜单页同一套骨架（序号 + 封套 + 四列），
  * 区别只是歌单从 01 连续排，没有前三名台柱——歌单的名次不是信息，曲序才是。
  */
-export function TrackList({ name, meta, cover, save, tracks, busy, nextPage, empty, onPlay, onMore }: Props) {
+export function TrackList({ name, meta, cover, sourceTag, save, tracks, busy, nextPage, empty, onPlay, onMore }: Props) {
   return (
     <div className="lib-list">
       {name ? (
         <p className="list-now">
-          {/* 封套抬头（2026-11-10 重设计）：歌单有自己的脸，右栏先把脸摆出来 */}
-          {cover ? (
-            <span className="now-cover" aria-hidden="true">
+          {/* 封套抬头（2026-11-10）：歌单有自己的脸。没有封面就摆程序化占位，
+              不留 104px 空槽，也不画碎图。 */}
+          <span className="now-cover" aria-hidden="true">
+            {cover ? (
               <img src={cover} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
-            </span>
-          ) : null}
+            ) : (
+              <i className="now-cover-blank">{name.slice(0, 1)}</i>
+            )}
+            {sourceTag ? <span className="now-cover-tag">{sourceTag}</span> : null}
+          </span>
           <span className="now-tx">
             <b>{name}</b>
             <span>{meta}</span>
