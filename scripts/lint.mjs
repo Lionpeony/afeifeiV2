@@ -10,7 +10,7 @@ const SRC = "src";
 const LAYERS = ["kernel", "domain", "capability", "projection", "ui"];
 const AUDIO_GRAPH = "src/renderer/capability/audio/graph.ts";
 const COMPOSITOR = "src/renderer/ui/compositor.ts";
-const HEX_WHITELIST = ["src/renderer/ui/tokens.css", "src/renderer/ui/theme/presets/"];
+const HEX_WHITELIST = ["src/renderer/ui/tokens.css", "src/renderer/ui/theme/presets/", "src/renderer/ui/af/"];
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
@@ -158,6 +158,9 @@ for (const file of mainFiles) {
 const ALLOWED_Z = new Set([0, 1, 2, 3, 4, 20, 40, 50, 60]);
 for (const file of styled) {
   const n = norm(file);
+  // 新设计层 af/ 直接来自 v4.2/v5.6 原型，层序与 !important 自成一套；
+  // 它的色值/层序由设计系统规范约束，不套旧仓库的 00 §9 规则。
+  if (n.includes("/ui/af/")) continue;
   const src = stripComments(read(file)); // 跳过注释——注释里提到这些词不算违规（2026-11-03 审计教训）
   for (const m of src.matchAll(/z-index:\s*(-?\d+)/g)) {
     if (!ALLOWED_Z.has(Number(m[1]))) {

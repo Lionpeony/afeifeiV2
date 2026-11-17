@@ -197,8 +197,8 @@ if (!locked) {
       // 主题切换后由渲染层经 win:overlayTheme 同步（主进程不存第二份色值）。
       // 高度与 --tbar-h（38px）对齐，tbar 同时是拖拽区（app.css -webkit-app-region）。
       titleBarStyle: "hidden",
-      titleBarOverlay: { color: "#f3f1ea", symbolColor: "#17150f", height: 38 },
-      backgroundColor: "#0b0b0c",
+      titleBarOverlay: { color: "#FFF8F5", symbolColor: "#3D2B39", height: 38 },
+      backgroundColor: "#FFF8F5",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
         contextIsolation: true,

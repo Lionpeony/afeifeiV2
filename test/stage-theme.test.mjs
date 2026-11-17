@@ -88,9 +88,8 @@ test("v4.2 亮暗双档：亮色「排练室」是默认，暗色只覆盖颜色
     !/--space-|--fs-|--lh-|--dur-|--ease-|--nav-w|--console-h/.test(dark[1]),
     "暗色块混入了布局/字号/动效 token",
   );
-  /* 场景层（播放页）阶段 6 才接入新体系；在那之前保持既有深色默认值，
-     否则本阶段的全局主题会把播放页一起翻白。 */
-  assert.ok(/--stage-accent:\s*#ff5a36/.test(css), "场景层默认值应在阶段 6 之前保持现状");
+  /* 场景层已随整站还原接入新设计：默认值指向莓粉，不再保留旧版橙红。 */
+  assert.ok(/--stage-accent:\s*var\(--pink-600\)/.test(css), "场景层默认值应指向新设计的莓粉");
 });
 
 test("tokens.css 的场景层声明与 STAGE_TOKEN_KEYS 双向对账（不漏、不多）", () => {

@@ -1,245 +1,208 @@
 /* ============================================================
-   AFEIFEI Design Tokens · v4.2
+   AFEIFEI Design Tokens · v4.2（按 offline_single 原型落地）
    唯一事实源：AFEIFEI 设计系统规范 design.md（v4.2，2026-11-16）
-   全仓库只有本文件允许写 hex；派生色一律 color-mix/currentColor。
-   修改本文件必须同步 DESIGN.md；新增 token 先写进 design.md 再落这里。
+   - 主变量名沿用原型（--bg/--card/--text/--pink-600 …），
+     下方再补一层规范名别名（--bg-base/--text-primary/--brand-pink-* …），
+     供尚未重写的逻辑（global-theme / 播放页设置）继续读取。
+   - 全仓库只有本文件允许写 hex；派生色一律 color-mix/currentColor。
    ============================================================ */
 
-:root {
-  color-scheme: light;
+:root{
+  /* light · 排练室 */
+  --bg:#FFF8F5;
+  --bg-sub:#FFE8EF;
+  --card:#FFFFFF;
+  --text:#3D2B39;
+  --text-2:#6B5A68;
+  --text-3:#7C6B78;
+  --pink-400:#FF6B9D;      /* 装饰专用 */
+  --pink-600:#D63384;      /* 交互 */
+  --pink-650:#C72D78;      /* hover：加深不提亮 */
+  --pink-700:#B7286C;
+  --lav:#7B5FC9;
+  --mint:#7EC8E3;
+  --coral:#C62A3F;
+  --coral-deco:#FF4D6D;
+  --yellow:#FFD166;
+  --line:rgba(61,43,57,.10);
+  --line-strong:rgba(61,43,57,.18);
+  --wash:rgba(255,107,157,.08);
+  --shadow:0 4px 20px rgba(255,107,157,.15);
+  --shadow-soft:0 2px 10px rgba(61,43,57,.06);
+  --shadow-lift:0 14px 34px rgba(255,107,157,.22);
+  --gradient-tri:linear-gradient(90deg,#FF9EBB,#B8A9E8,#7EC8E3);
 
-  /* ① 亮色「排练室」：表面 */
-  --bg-base: #FFF8F5;
-  --bg-sub: #FFE8EF;
-  --bg-card: #FFFFFF;
+  --radius-card:16px;
+  --radius-sheet:20px;
+  --radius-btn:999px;
 
-  /* ① 文字 */
-  --text-primary: #3D2B39;
-  --text-secondary: #6B5A68;
+  /* 六层字阶与间距（规范名；af/polish.css 也读这一套） */
+  --space-1:8px;
+  --space-2:16px;
+  --space-3:24px;
+  --space-4:32px;
+  --fs-display:28px;  --lh-display:36px;
+  --fs-title:20px;    --lh-title:28px;
+  --fs-heading:16px;  --lh-heading:24px;
+  --fs-body:14px;     --lh-body:22px;
+  --fs-caption:12px;  --lh-caption:18px;
+  --fs-micro:11px;    --lh-micro:16px;
 
-  /* ① 品牌色：400 只做装饰，600/700 才承载交互 */
-  --brand-pink-400: #FF6B9D; /* 胶带 / 贴纸 / 柔光 / 渐变，禁止文字与交互面 */
-  --brand-pink-600: #D63384; /* 交互主色，白字 4.50:1 */
-  --brand-pink-650: #C72D78; /* hover：加深不提亮，保住白字对比（design.md §5） */
-  --brand-pink-700: #B7286C; /* active / 按下，白字 5.94:1 */
-  --lavender-600: #7B5FC9;
-  --mint-400: #7EC8E3; /* 只做装饰 / 信号 */
-  --coral-600: #C62A3F;
-  --marker-yellow: #FFD166; /* 只做马克笔底，禁止黄色文字 */
+  --font-display:"ZCOOL XiaoWei","Yozai","Songti SC","PingFang SC",serif;
+  --font-body:"Noto Sans SC","PingFang SC","Source Han Sans SC","Microsoft YaHei",sans-serif;
+  --font-hand:"ZCOOL KuaiLe","Long Cang","Yozai",cursive;
+  --font-jp:"Yu Gothic","Hiragino Maru Gothic ProN","Microsoft YaHei",sans-serif;
+  --font-mono:"JetBrains Mono","SF Mono",ui-monospace,Consolas,monospace;
 
-  /* ① 音源语义色 */
-  --src-netease: #C20C0C;
-  --src-qq: #31C27C;
-  --tag-vip: #B8860B;
+  /* motion tokens · v3.2 */
+  --ease-out-soft:cubic-bezier(.22,.61,.36,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --ease-curtain:cubic-bezier(.65,0,.35,1);
+  --ease:var(--ease-out-soft);
+  --dur-tap:120ms;
+  --dur-fast:220ms;
+  --dur-base:380ms;
+  --dur-curtain:500ms;
+  --dur-ambient:2s;
 
-  /* ① 状态色 */
-  --state-success: #2E7D5B;
-  --state-warning: var(--coral-600);
+  /* ---- v4.2 规范名别名（只指向上面的原型变量） ---- */
+  --bg-base:#FFF8F5;
+  --bg-card:var(--card);
+  --text-primary:var(--text);
+  --text-secondary:var(--text-2);
+  --brand-pink-400:var(--pink-400);
+  --brand-pink-600:var(--pink-600);
+  --brand-pink-650:var(--pink-650);
+  --brand-pink-700:var(--pink-700);
+  --lavender-600:var(--lav);
+  --mint-400:var(--mint);
+  --coral-600:var(--coral);
+  --marker-yellow:var(--yellow);
+  --shadow-pink:var(--shadow);
+  --shadow-pop:0 8px 32px rgba(61,43,57,.18);
+  --radius-cover:4px;
 
-  /* ① 发丝 / 洗底（从主文字派生，不新增色相） */
-  --hairline: rgba(61, 43, 57, 0.11);
-  --hairline-2: rgba(61, 43, 57, 0.22);
-  --ink-soft: rgba(61, 43, 57, 0.045);
-  --ink-soft-2: rgba(61, 43, 57, 0.075);
+  --hairline:var(--line);
+  --hairline-2:var(--line-strong);
+  --ink-soft:rgba(61,43,57,.045);
+  --ink-soft-2:rgba(61,43,57,.075);
+  --surface:var(--card);
+  --surface-2:var(--bg-sub);
+  --fg:var(--text);
+  --fg-dim:var(--text-2);
+  --line-soft:var(--ink-soft);
+  --row-hover:var(--wash);
+  --bg-raised:var(--bg-sub);
+  --mask:rgba(61,43,57,.55);
+  --glass-bg:var(--card);
+  --glass-border:var(--line-strong);
+  --glass-shadow:var(--shadow);
+  --grain-opacity:0;
+  --grain-blend:multiply;
 
-  /* ① 两档阴影，禁止第三档 */
-  --shadow-pink: 0 4px 20px rgba(255, 107, 157, 0.15);
-  --shadow-pop: 0 8px 32px rgba(61, 43, 57, 0.18);
-  --gradient-tri: linear-gradient(90deg, #FF9EBB, #B8A9E8, #7EC8E3);
+  --accent:var(--pink-600);
+  --accent-hover:var(--pink-650);
+  --accent-press:var(--pink-700);
+  --accent-text:var(--pink-700);
+  --accent-ink:var(--on-accent);
+  --on-accent:#FFFFFF;
+  --on-gradient:#FFFFFF;
+  --scrim:rgba(32,20,28,.46);
+  --marker-line:rgba(255,209,102,.55);
+  --focus-ring:0 0 0 3px rgba(214,51,132,.35);
+  --brass:#B8860B;
+  --danger:var(--coral);
 
-  /* ② 语义层：组件只读这一层，不直接读 palettes */
-  --accent: var(--brand-pink-600);
-  --accent-hover: var(--brand-pink-650);
-  --accent-press: var(--brand-pink-700);
-  --accent-text: var(--brand-pink-700);
-  --on-accent: #FFFFFF;
-  /* 压在图/渐变上的文字：亮暗两档都必须保持白色，不跟随 bg-card 翻转 */
-  --on-gradient: #FFFFFF;
-  /* 图片/渐变上的压暗层：亮暗保持一致，保证白字不被浅色封面吃掉 */
-  --scrim: rgba(32, 20, 28, 0.46);
-  --marker-line: rgba(255, 209, 102, 0.55);
-  --focus-ring: 0 0 0 3px rgba(214, 51, 132, 0.35);
+  /* 音源语义色 */
+  --src-netease:#C20C0C;
+  --src-qq:#31C27C;
+  --tag-vip:#B8860B;
+  --state-success:#2E7D5B;
+  --state-warning:var(--coral);
 
-  /* ③ 字体栈 */
-  --font-display: "ZCOOL XiaoWei", "Yozai", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-body: "PingFang SC", "Source Han Sans SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
-  --font-hand: "ZCOOL KuaiLe", "Long Cang", cursive;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  /* 布局（旧代码仍读这两个名字） */
+  --nav-w:200px;
+  --topbar-h:60px;
+  --console-h:72px;
 
-  /* ③ 六层字阶：全站唯一字号来源 */
-  --fs-display: 28px;
-  --lh-display: 36px;
-  --fw-display: 700;
-  --fs-title: 20px;
-  --lh-title: 28px;
-  --fw-title: 600;
-  --fs-heading: 16px;
-  --lh-heading: 24px;
-  --fw-heading: 600;
-  --fs-body: 14px;
-  --lh-body: 22px;
-  --fw-body: 400;
-  --fs-caption: 12px;
-  --lh-caption: 18px;
-  --fw-caption: 400;
-  --fs-micro: 11px;
-  --lh-micro: 16px;
-  --fw-micro: 500;
-
-  /* ④ 间距 / 圆角 / 布局（8px 基准；4/12 为现有光学值的两个派生档） */
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
-  --space-half: 4px;
-  --space-1-5: 12px;
-  --radius-card: 16px;
-  --radius-btn: 999px;
-  --radius-cover: 4px;
-  --nav-w: 200px;
-  --topbar-h: 60px;
-  --console-h: 72px;
-
-  /* ⑤ 动效：三曲线五时长 */
-  --ease-out-soft: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-curtain: cubic-bezier(0.65, 0, 0.35, 1);
-  --dur-tap: 120ms;
-  --dur-fast: 220ms;
-  --dur-base: 380ms;
-  --dur-curtain: 500ms;
-  --dur-ambient: 2000ms;
-
-  /* ⑥ 迁移别名（MIGRATION ALIASES —— 阶段 8 删除）
-     旧组件仍读这些名字；它们只指向新 token，不保存独立色值。 */
-  --bg: var(--bg-base);
-  --surface: var(--bg-card);
-  --surface-2: var(--bg-sub);
-  --fg: var(--text-primary);
-  --fg-dim: var(--text-secondary);
-  --muted: var(--text-secondary);
-  --muted-2: var(--text-secondary);
-  --ink-faint: var(--text-secondary);
-  --line: var(--hairline);
-  --line-strong: var(--hairline-2);
-  --line-soft: var(--ink-soft);
-  --row-hover: var(--ink-soft-2);
-  --accent-ink: var(--on-accent);
-  --accent-press: var(--brand-pink-700);
-  --accent-soft: color-mix(in srgb, var(--brand-pink-600) 12%, transparent);
-  --brass: var(--tag-vip);
-  --danger: var(--coral-600);
-  --bg-raised: var(--bg-sub);
-  --mask: color-mix(in srgb, var(--text-primary) 55%, transparent);
-  --glass-bg: var(--bg-card);
-  --glass-border: var(--hairline-2);
-  --glass-shadow: var(--shadow-pop);
-  --grain-opacity: 0;
-  --grain-blend: multiply;
-  --font-disp: var(--font-display);
-  --font-sans: var(--font-body);
-  --r-sm: var(--radius-cover);
-  --r-md: var(--radius-card);
-  --r-lg: var(--radius-card);
-  --r-pill: var(--radius-btn);
-  --ease: var(--ease-out-soft);
-  --tbar-h: var(--topbar-h);
-
-  /* 迁移别名：旧控制室 / 夜场变量 → 新 token（直播页阶段外，先统一底色） */
-  --live-bg: var(--bg-base);
-  --live-panel: var(--bg-card);
-  --live-panel-2: var(--bg-sub);
-  --live-fg: var(--text-primary);
-  --live-fg-dim: var(--text-secondary);
-  --live-fg-faint: var(--text-secondary);
-  --live-line: var(--hairline);
-  --live-line-strong: var(--hairline-2);
-  --live-onair: var(--coral-600);
-  --live-accent: var(--accent);
-  --live-phosphor: var(--brand-pink-400);
-  --live-signal: var(--lavender-600);
-  --live-slot: var(--bg-sub);
-  --live-accent-ink: var(--on-accent);
-  --live-serif: var(--font-display);
-  --live-paper: var(--bg-card);
-  --live-ink: var(--text-primary);
-
-  --night-bg: var(--bg-base);
-  --night-panel: var(--bg-card);
-  --night-panel-2: var(--bg-sub);
-  --night-fg: var(--text-primary);
-  --night-fg-dim: var(--text-secondary);
-  --night-fg-faint: var(--text-secondary);
-  --night-line: var(--hairline);
-  --night-line-strong: var(--hairline-2);
-  --night-onair: var(--coral-600);
-  --night-accent: var(--accent);
-  --night-phosphor: var(--brand-pink-400);
-  --night-signal: var(--lavender-600);
-  --night-slot: var(--bg-sub);
-  --night-accent-ink: var(--on-accent);
-
-  /* ⑦ 场景层（播放页）：阶段 6 再接入新体系，当前保留既有四套预设的默认值，
-     避免本阶段改全局主题时把播放页一起翻白。 */
-  --stage-bg: #0b0c0d;
-  --stage-fg: #f4f1ea;
-  --stage-fg-dim: #a2a5a2;
-  --stage-line: rgba(244, 241, 234, 0.24);
-  --stage-line-soft: rgba(244, 241, 234, 0.1);
-  --stage-raised: #151819;
-  --stage-disc: #151819;
-  --stage-disc-groove: #1c2021;
-  --stage-accent: #ff5a36;
-  --stage-tint: #ff5a36;
-  --stage-wallpaper: none;
-  --stage-cover-size: 320px;
-  --stage-cover-radius: 10px;
-  --stage-cover-frame: none;
-  --stage-cover-shadow: 0 24px 56px rgba(0, 0, 0, 0.55);
-  --stage-cover-spin: 0s;
-  --stage-lyric-size: 22px;
-  --stage-lyric-weight: 600;
-  --stage-dur: 200ms;
-  --stage-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* 播放页过渡别名：视觉重绘完成前，避免其它代码读空 */
+  --stage-bg:var(--bg);
+  --stage-fg:var(--text);
+  --stage-fg-dim:var(--text-2);
+  --stage-line:var(--line-strong);
+  --stage-line-soft:var(--line);
+  --stage-raised:var(--card);
+  --stage-disc:var(--card);
+  --stage-disc-groove:var(--bg-sub);
+  --stage-accent:var(--pink-600);
+  --stage-tint:var(--pink-600);
+  --stage-wallpaper:none;
+  --stage-cover-size:320px;
+  --stage-cover-radius:10px;
+  --stage-cover-frame:none;
+  --stage-cover-shadow:var(--shadow-pop);
+  --stage-cover-spin:0s;
+  --stage-lyric-size:22px;
+  --stage-lyric-weight:600;
+  --stage-dur:200ms;
+  --stage-ease:var(--ease-out-soft);
 }
 
-/* 暗色「排练室熄灯」：只覆盖颜色，不动布局/字号/动效 */
-:root[data-theme="dark"] {
-  color-scheme: dark;
+:root[data-theme="dark"]{
+  --bg:#2A2438;
+  --bg-base:#2A2438;
+  --bg-sub:#352E48;
+  --card:#3D3554;
+  --text:#F4EAF2;
+  --text-2:#B8ABC7;
+  --text-3:#9C8FB0;
+  --pink-400:#FF85B0;
+  --pink-600:#E06A9E;
+  --pink-650:#F0A0C2;
+  --pink-700:#F0A0C2;
+  --lav:#B9A7F0;
+  --mint:#8FDCEE;
+  --coral:#FF8A9B;
+  --coral-deco:#FF8A9B;
+  --line:rgba(244,234,242,.12);
+  --line-strong:rgba(244,234,242,.22);
+  --wash:rgba(255,133,176,.10);
+  --shadow:0 4px 22px rgba(0,0,0,.28);
+  --shadow-soft:0 2px 10px rgba(0,0,0,.22);
+  --shadow-lift:0 16px 36px rgba(0,0,0,.4);
 
-  --bg-base: #2A2438;
-  --bg-sub: #352E48;
-  --bg-card: #3D3554;
+  --shadow-pop:0 8px 32px rgba(0,0,0,.42);
+  --ink-soft:rgba(244,234,242,.05);
+  --ink-soft-2:rgba(244,234,242,.09);
+  --line-soft:var(--ink-soft);
+  --mask:rgba(244,234,242,.55);
+  --accent:var(--pink-400);
+  --accent-hover:var(--pink-600);
+  --accent-press:var(--pink-400);
+  --accent-text:#FFA7C4;
+  --on-accent:var(--bg);
+  --marker-line:rgba(255,198,110,.38);
+  --focus-ring:0 0 0 3px rgba(255,133,176,.4);
+  --tag-vip:#D4A943;
+  --state-success:#7FD3AE;
+  --brass:#D4A943;
+}
 
-  --text-primary: #F4EAF2;
-  --text-secondary: #B8ABC7;
-
-  --brand-pink-400: #FF85B0;
-  --brand-pink-600: #E06A9E;
-  --brand-pink-650: #F0A0C2;
-  --brand-pink-700: #E06A9E;
-  --lavender-600: #B9A7F0;
-  --mint-400: #8FDCEE;
-  --coral-600: #FF8A9B;
-  --marker-yellow: #FFC66E;
-
-  --tag-vip: #D4A943;
-  --state-success: #7FD3AE;
-
-  --hairline: rgba(244, 234, 242, 0.13);
-  --hairline-2: rgba(244, 234, 242, 0.26);
-  --ink-soft: rgba(244, 234, 242, 0.05);
-  --ink-soft-2: rgba(244, 234, 242, 0.09);
-
-  --shadow-pink: 0 4px 20px rgba(0, 0, 0, 0.3);
-  --shadow-pop: 0 8px 32px rgba(0, 0, 0, 0.42);
-
-  /* 暗色下实心粉底 + 白字不达标：按钮走描边，on-accent 不再是白色 */
-  --accent: var(--brand-pink-400);
-  --accent-hover: var(--brand-pink-600);
-  --accent-press: var(--brand-pink-400);
-  --accent-text: #FFA7C4;
-  --on-accent: var(--bg-base);
-  --marker-line: rgba(255, 198, 110, 0.38);
-  --focus-ring: 0 0 0 3px rgba(255, 133, 176, 0.4);
+/* 限定色板 · E12 */
+:root[data-palette="mygo"]{
+  --bg:#F7F6FF; --bg-sub:#ECEBFB;
+  --pink-600:#5E49B8; --pink-650:#4A379B; --pink-700:#4A379B;
+  --lav:#5E49B8; --pink-400:#9B8FD4;
+  --wash:rgba(123,95,201,.09);
+}
+:root[data-palette="gbc"]{
+  --bg:#FFF8EE; --bg-sub:#FFEBD4;
+  --pink-600:#B7500F; --pink-650:#93400B; --pink-700:#93400B;
+  --pink-400:#E89050; --lav:#B7500F;
+  --mint:#7FB7B0; --wash:rgba(232,144,80,.10);
+}
+:root[data-palette="btr"]{
+  --bg:#FFF5F8; --bg-sub:#FFDFE7;
+  --pink-600:#C2185B; --pink-650:#9E1149; --pink-700:#9E1149;
+  --pink-400:#FF6B9D; --wash:rgba(255,107,157,.12);
 }

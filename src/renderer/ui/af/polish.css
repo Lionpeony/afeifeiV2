@@ -1,0 +1,257 @@
+/* ============================================================
+   AFEIFEI · v4.2 细节打磨（字阶 / 版式节奏 / 动效细节）
+   全部为对 v3~v4.1 的覆盖层，不改主题与功能
+   ============================================================ */
+
+/* ---------------- 1. 字阶 token ---------------- */
+:root{
+  --fs-display:28px;  --lh-display:36px;
+  --fs-title:20px;    --lh-title:28px;
+  --fs-heading:16px;  --lh-heading:24px;
+  --fs-body:14px;     --lh-body:22px;
+  --fs-caption:12px;  --lh-caption:18px;
+  --fs-micro:11px;    --lh-micro:16px;
+
+  --sidebar-w:200px;
+  --row-h:48px;
+  --row-h-compact:40px;
+  --dur-page:300ms;
+}
+
+body{letter-spacing:.008em}
+
+.display{
+  font-size:var(--fs-display);line-height:var(--lh-display);
+  letter-spacing:.015em;text-wrap:balance;
+}
+.page .display{font-size:32px;line-height:1.22}
+.h1{font-size:var(--fs-display);line-height:var(--lh-display)}
+.h2{font-size:var(--fs-heading);line-height:var(--lh-heading)}
+.h3{font-size:var(--fs-body);line-height:1.45}
+.body{font-size:var(--fs-body);line-height:var(--lh-body)}
+.meta{font-size:var(--fs-caption);line-height:var(--lh-caption)}
+.eyebrow{font-size:var(--fs-micro);line-height:var(--lh-micro);letter-spacing:.2em}
+.num{
+  font-family:var(--font-mono);font-size:var(--fs-caption);
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+}
+
+/* 手写体只在拟声 / 便签 / 批注里出现，且不超过 16px */
+
+/* 中日混排：留一点字距，避免装饰字挤在一起 */
+.jp,.tbl__name,.mix-row__title,.sr-row__title{letter-spacing:.05em}
+
+/* ---------------- 2. 侧栏 200px + 拨片标滑动 ---------------- */
+.app{grid-template-columns:var(--sidebar-w) minmax(0,1fr)}
+.sidebar{padding:24px 14px 14px}
+.nav{position:relative}
+.nav__marker{
+  position:absolute;left:-14px;top:0;width:5px;height:18px;
+  border-radius:0 4px 4px 0;background:var(--pink-600);
+  transform:translateY(0);
+  transition:transform 280ms var(--ease-spring);
+  pointer-events:none;
+}
+.nav-item{padding:0 12px;gap:10px}
+.nav-item__count{margin-left:auto}
+
+/* ---------------- 3. 页头 / 节奏（8px 栅格） ---------------- */
+.page{padding:8px 32px 40px}
+.page-head{margin-bottom:24px;align-items:flex-end}
+.page-head .eyebrow{margin-bottom:8px}
+.section-head{margin:32px 0 16px}
+.disc__sect{margin:32px 0 16px}
+.paper{padding:24px}
+.top-preview{padding:20px 20px 12px}
+
+/* ---------------- 4. 曲目表：48 / 40 行高 + 数字不横跳 ---------------- */
+.tbl__head,.tbl__row{gap:16px}
+.tbl__row{height:var(--row-h)}
+.tbl--dense .tbl__row{height:42px}
+.is-compact .tbl__row{height:var(--row-h-compact)}
+.is-compact .tbl__cover{width:28px;height:28px}
+.tbl__head{
+  font-size:var(--fs-micro);letter-spacing:.08em;
+  font-family:var(--font-mono);text-transform:uppercase;
+}
+.tbl__c-no,.tbl__c-time,.tbl__c-time .num,.bar__time,.timeline__t,
+.mix-row__no,.mix-row__dur,.top-card__count,.dl-row__pct{
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+}
+.tbl__name{font-size:13.5px;line-height:1.35}
+.tbl__c-artist,.tbl__c-album{font-size:var(--fs-caption);color:var(--text-2)}
+.tbl__cover{
+  width:34px;height:34px;border-radius:4px;
+  outline:1px solid rgba(61,43,57,.1);outline-offset:-1px;
+}
+:root[data-theme="dark"] .tbl__cover{outline-color:rgba(255,255,255,.14)}
+.tbl__row .tbl__more{
+  opacity:0;transform:scale(.8);
+  transition:opacity 120ms var(--ease),transform 120ms var(--ease-spring),
+             background 160ms var(--ease),color 160ms var(--ease);
+}
+.tbl__row:hover .tbl__more,.tbl__row:focus-within .tbl__more{opacity:1;transform:scale(1)}
+.tbl__heart{transition:opacity 120ms var(--ease),color 160ms var(--ease),transform 160ms var(--ease-spring)}
+
+/* 封面统一印刷卡纸感 */
+.sr-row__art,.bar__cover,.bar__cover-btn,.search-row img,.mini-card__art{
+  border-radius:4px;
+}
+.sr-row__art,.search-row img{outline:1px solid rgba(61,43,57,.1);outline-offset:-1px}
+
+/* ---------------- 5. 发现页权重重排 ---------------- */
+.disc__head{margin-bottom:22px}
+.mix{padding:22px;border-radius:20px}
+.mix__title{font-size:32px;line-height:1.16}
+.top-card__art{aspect-ratio:auto;height:92px;border-radius:12px}
+@media (max-height:900px){.top-card__art{height:84px}}
+.top-card__art::before{transition:opacity .28s var(--ease)}
+.top-card__art::after{transition:border-color .28s var(--ease),inset .28s var(--ease)}
+.top-card__art .halftone-hover{display:none}
+.toplists{padding-bottom:12px}
+.top-preview{
+  background:transparent;box-shadow:none;border:1px dashed var(--line-strong);
+  border-radius:16px;
+}
+.top-preview .tbl__row{height:44px}
+.top-preview__more{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;
+  height:34px;margin-top:4px;border-radius:9px;
+  font-size:var(--fs-caption);color:var(--text-3);
+  transition:background 160ms var(--ease),color 160ms var(--ease);
+}
+.top-preview__more:hover{background:var(--wash);color:var(--pink-700)}
+.hot-cards{margin-bottom:18px}
+
+/* ---------------- 6. 底部播放栏 72px + 撕票齿孔 ---------------- */
+.bar{
+  height:72px;padding:0 22px;
+  box-shadow:0 -6px 24px rgba(255,107,157,.06);
+}
+.bar__cover-btn{width:44px;height:44px;border-radius:4px}
+.bar__title{font-size:13.5px}
+.search-overlay{left:calc(var(--sidebar-w) + 34px);width:min(720px,calc(100vw - var(--sidebar-w) - 60px))}
+.bar__time{font-size:var(--fs-micro)}
+.bar__seek-track{height:3px}
+.bar__seek-buffer{
+  position:absolute;left:0;top:0;bottom:0;border-radius:4px;
+  background:rgba(255,209,102,.38);
+  transition:width 600ms linear;
+  animation:bufBreathe 3.2s var(--ease-out-soft) infinite;
+}
+:root[data-theme="dark"] .bar__seek-buffer{background:rgba(255,209,102,.26)}
+@keyframes bufBreathe{0%,100%{opacity:.55}50%{opacity:.85}}
+.bar::before{
+  content:"";position:absolute;left:0;right:0;top:-1px;height:1px;
+  background-image:repeating-linear-gradient(90deg,var(--line-strong) 0 4px,transparent 4px 10px);
+  pointer-events:none;
+}
+.bar::after{
+  content:"";position:absolute;left:0;right:0;top:0;height:9px;
+  background-image:radial-gradient(circle at 6px 0,var(--bg) 3.4px,transparent 3.7px);
+  background-size:12px 9px;background-repeat:repeat-x;
+  pointer-events:none;opacity:.9;
+}
+:root[data-theme="dark"] .bar::after{
+  background-image:radial-gradient(circle at 6px 0,var(--bg) 3.4px,transparent 3.7px);
+}
+.bar__time{animation:timeRoll 180ms var(--ease-out-soft) both}
+@keyframes timeRoll{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:none}
+}
+.lyricbar{bottom:84px}
+.toasts{bottom:88px}
+
+/* ---------------- 7. 页面转场 ---------------- */
+.page{
+  animation:pageIn var(--dur-page) var(--ease-out-soft) both;
+}
+@keyframes pageIn{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:none}
+}
+
+/* ---------------- 8. 自定义滚动条 ---------------- */
+.main__page{scrollbar-width:thin;scrollbar-color:rgba(214,51,132,.3) rgba(255,248,245,.7)}
+.main__page::-webkit-scrollbar{width:8px;height:8px}
+.main__page::-webkit-scrollbar-track{background:rgba(255,240,238,.9);border-radius:99px}
+.main__page::-webkit-scrollbar-thumb{
+  background:rgba(214,51,132,.3);border-radius:99px;border:2px solid transparent;background-clip:content-box;
+}
+.main__page::-webkit-scrollbar-thumb:hover{background:rgba(214,51,132,.55);background-clip:content-box}
+:root[data-theme="dark"] .main__page{scrollbar-color:rgba(255,133,176,.34) rgba(42,36,56,.6)}
+:root[data-theme="dark"] .main__page::-webkit-scrollbar-track{background:rgba(52,44,70,.8)}
+:root[data-theme="dark"] .main__page::-webkit-scrollbar-thumb{background:rgba(255,133,176,.34);background-clip:content-box}
+.toplists::-webkit-scrollbar{height:6px}
+.toplists::-webkit-scrollbar-thumb{background:rgba(214,51,132,.24);border-radius:99px}
+
+/* ---------------- 9. 便签 idle 微动（装饰层） ---------------- */
+.empty-sheet{
+  animation:notePlace 460ms var(--ease-spring) both,
+            noteSway 4.2s 520ms var(--ease-out-soft) infinite;
+}
+@keyframes noteSway{
+  0%,100%{transform:rotate(-.5deg)}
+  50%{transform:rotate(.3deg)}
+}
+.search-empty-note.loop{animation:noteSwaySoft 4.4s var(--ease-out-soft) infinite}
+@keyframes noteSwaySoft{
+  0%,100%{transform:rotate(-.4deg)}
+  50%{transform:rotate(.35deg)}
+}
+
+/* ---------------- 10. 设置里的紧凑密度说明 ---------------- */
+.density-row{display:flex;align-items:center;gap:6px;padding:3px;border-radius:999px;background:var(--wash)}
+.density-row button{
+  height:28px;padding:0 13px;border-radius:999px;font-size:var(--fs-caption);color:var(--text-2);
+  transition:background 180ms var(--ease),color 180ms var(--ease);
+}
+.density-row button.is-on{background:var(--card);color:var(--pink-700);box-shadow:var(--shadow-soft)}
+:root[data-theme="dark"] .density-row button.is-on{color:var(--pink-400)}
+
+/* ---------------- 11. 动效档位兜底 ---------------- */
+:root[data-motion="light"] .empty-sheet,
+:root[data-motion="light"] .search-empty-note.loop,
+:root[data-motion="light"] .bar__seek-buffer{animation:none !important}
+:root[data-motion="off"] .nav__marker{transition-duration:150ms !important}
+@media (prefers-reduced-motion:reduce){
+  .empty-sheet,.search-empty-note.loop,.bar__seek-buffer{animation:none !important}
+}
+
+/* ---------------- 12. 窄屏收敛 ---------------- */
+@media (max-width:1200px){
+  .page{padding:8px 24px 32px}
+  .search-overlay{left:calc(var(--sidebar-w) + 16px);width:calc(100vw - var(--sidebar-w) - 40px)}
+  .lyricbar{left:var(--sidebar-w)}
+}
+
+/* ---------------- 13. 侧栏 200px 下的收口 ---------------- */
+.side-card{padding:11px 11px 10px}
+.side-card__meta{font-size:10.5px}
+.side-card__note{font-size:10.5px}
+.side-user{padding:6px 8px;gap:8px}
+.side-user__meta b{font-size:11.5px;white-space:nowrap}
+.side-user__meta span{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidebar__foot{flex-wrap:nowrap;gap:6px;padding:8px 4px 0}
+.sidebar__foot .eyebrow{font-size:9px;letter-spacing:.06em;white-space:nowrap}
+.sidebar__foot .icon-btn{width:28px;height:28px}
+.sidebar__foot .row{gap:2px}
+.nav__marker{left:-8px;border-radius:0 3px 3px 0}
+
+/* 轻量榜单单据不再需要胶带 */
+.top-preview .tape{display:none}
+
+/* ---------------- 14. 收尾细节 ---------------- */
+.top-card__art::before{transition:filter .26s var(--ease),opacity .26s var(--ease)}
+.top-card:hover .top-card__art::before{filter:brightness(1.06)}
+.top-card.is-active .top-card__art::before{filter:brightness(1.04)}
+
+.body,.set-card__desc,.empty-sheet p,.search-empty-note p,.top-preview__head .meta{
+  text-wrap:pretty;
+}
+
+/* 播放栏在窄屏下的呼吸 */
+@media (max-width:1240px){
+  .bar{grid-template-columns:minmax(190px,1fr) minmax(340px,1.4fr) minmax(150px,.8fr);gap:14px}
+}

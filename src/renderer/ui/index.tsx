@@ -12,9 +12,9 @@ import { onFrame } from "./compositor.js";
 import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
 import { toast } from "./toast.js";
-import { StageView } from "./views/stage/index.js";
-import { DiscoverView, type SourceOption } from "./views/discover/index.js";
-import { PlaylistsView } from "./views/playlists/index.js";
+import type { SourceOption } from "./views/discover/index.js";
+import { DiscoverPage } from "./af/pages/Discover.js";
+import { PlaylistsPage } from "./af/pages/Playlists.js";
 import { StatsView } from "./views/stats/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
@@ -31,9 +31,8 @@ import { AccountMenu, type AccountProfile } from "./live/AccountMenu.js";
 import { LoginDialog } from "./views/discover/LoginDialog.js";
 import { installKeyboard } from "./input/keyboard.js";
 import { CommandPalette } from "./input/CommandPalette.js";
-import { Sidebar } from "./Sidebar.js";
-import { Topbar } from "./Topbar.js";
-import { BootSplash } from "./BootSplash.js";
+import { Sidebar } from "./af/Sidebar.js";
+import { Topbar } from "./af/Topbar.js";
 import { invalidateAccountData, type AccountBundle } from "./account-data.js";
 import { loadNet } from "../domain/net-cache/index.js";
 import { accountKey } from "./account-data.js";
@@ -58,14 +57,19 @@ const accountHint = (kind: AccountKind, sourceName: string): string => {
 /** 当前音源本身没有账号能力（例如 QQ 音乐）：不拿别的账号顶替，直接说清。 */
 const noAccountHint = (sourceName: string): string =>
   `${sourceName} 没有账号数据；切到支持账号的音源（如网易云音乐）再看这里`;
-import { LikedView } from "./views/liked/index.js";
-import { RadioView } from "./views/radio/index.js";
-import { RecentView } from "./views/recent/index.js";
-import { RoamView } from "./views/roam/index.js";
-import { SettingsView } from "./views/settings/index.js";
+import { LikedPage } from "./af/pages/Liked.js";
+import { RoamPage } from "./af/pages/Roam.js";
+import { SettingsPage } from "./af/pages/Settings.js";
+import { HistoryPage } from "./af/pages/History.js";
+import { ArchivePage } from "./af/pages/Archive.js";
+import { LocalPage } from "./af/pages/Local.js";
+import { DownloadsPage } from "./af/pages/Downloads.js";
+import { StudioDrawer } from "./af/Studio.js";
+import { MediaDock } from "./af/MediaDock.js";
+import { Hotkeys, KeysSheet } from "./af/Keys.js";
+import { PerfHUD } from "./af/PerfHUD.js";
+import { ListEditor } from "./af/ListEditor.js";
 import { getTracks, trackById } from "../domain/library/state.js";
-import { LibraryView } from "./views/library/index.js";
-import { DownloadsView } from "./views/downloads/index.js";
 import { PAGE_LABEL, type PageId } from "./pages.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
 import { QueuePanel } from "./QueuePanel.js";
@@ -78,6 +82,14 @@ import { useAccountLikes, type AccountKind } from "./hooks/use-account-likes.js"
 import type { ShortcutStatus } from "./shortcuts.js";
 import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
 import { Console } from "./Console.js";
+import { AfContext, type AfSource, type AfTrack } from "./af/context.js";
+import { useAfUi } from "./af/use-af.js";
+import { NowPlaying } from "./af/NowPlaying.js";
+import { Auth, DemoPanel, EggLayer, FocusLines, LyricsBar, MascotWalk, MiniCard, OnomaLayer } from "./af/layers.js";
+import { ScanLogin } from "./af/ScanLogin.js";
+import { RowMenu } from "./af/RowMenu.js";
+import { useSystemReduce, loadPref } from "./af/prefs.js";
+import { sourceShort, sourceTone } from "./af/data.js";
 
 function baseName(p: string | null): string {
   if (!p) return "未选择";
@@ -93,8 +105,18 @@ function App() {
   // 这里只订阅变化，让设置页的分段按钮跟上（也含系统明暗/减少动效的自动切换）。
   const themePref = useSyncExternalStore(subscribeThemePref, getThemePref, getThemePref);
   const motionPref = useSyncExternalStore(subscribeMotionPref, getMotionPref, getMotionPref);
+  const systemReduce = useSystemReduce();
+  const resolvedTheme: "light" | "dark" =
+    themePref === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
+      : themePref;
+  const effectiveMotion = motionPref === "system" ? (systemReduce ? "off" : "full") : motionPref;
+  const reduce = effectiveMotion === "off";
   // 外壳只有一种：边栏 + 内容 + 控制台
   const [page, setPage] = useState<PageId>("online");
+  const [localTab, setLocalTab] = useState<"library" | "downloads" | "radio">("library");
   // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的内容页亮给用户
   const [bootReady, setBootReady] = useState(false);
   /* 顶栏搜索提交的一次性请求：at 变化即重新执行。
@@ -209,6 +231,11 @@ function App() {
       if (endsAt !== null) sleepEl.current.textContent = fmt(Math.max(0, endsAt - Date.now()));
     }
   };
+
+  useEffect(() => {
+    // 启动层在 index.html 里，App 挂载后通知它退场
+    (window as unknown as { __bootDone?: () => void }).__bootDone?.();
+  }, []);
 
   useEffect(() => {
     const offFrame = onFrame(syncPosition);
@@ -656,7 +683,9 @@ function App() {
   ): Promise<void> => {
     const svc = services.current;
     if (!svc) return;
-    await svc.resolveOnlineUrl(sourceId, track.sourceId, "320k");
+    const q = loadPref<string>("quality", "hq");
+    const level = q === "standard" ? "128k" : q === "lossless" || q === "hires" ? "flac" : "320k";
+    await svc.resolveOnlineUrl(sourceId, track.sourceId, level);
 
     const tracks = list && list.length > 0 ? list : [track];
     const items = tracks.map((t) => remoteTrackId(sourceId, t.sourceId));
@@ -788,170 +817,42 @@ function App() {
   const renderPage = (): ReactNode => {
     switch (page) {
       case "stage":
-        return (
-          <StageView
-            state={state}
-            cover={(trackId) => services.current?.cover(trackId, trackId) ?? Promise.resolve(null)}
-            spectrum={(bins) => services.current?.spectrum(bins) ?? null}
-            exportTheme={() => services.current?.exportTheme() ?? Promise.resolve(false)}
-            importTheme={() => services.current?.importTheme() ?? Promise.reject(new Error("还没准备好"))}
-            durationMs={() => services.current?.engine.durationMs() ?? 0}
-            positionMs={() => services.current?.positionMs() ?? 0}
-            findLyric={() => setFindOpen(true)}
-            notify={setNotice}
-            onBack={() => setPage(lastRoom.current)}
-            live
-          />
-        );
+        // 播放页是 fixed 覆盖层（af/NowPlaying），内容区留空
+        return null;
       case "mine":
-        return mineTab === "liked" ? (
-          <LikedView
-            tabs={mineTabs}
+        return (
+          <LikedPage
             onPlayGroup={onPlayGroup}
             account={() => accountBundle("liked")}
             onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "喜欢的音乐")}
             onUnlike={unlikeAccount}
           />
-        ) : mineTab === "recent" ? (
-          <RecentView
-            tabs={mineTabs}
-            onPlayGroup={onPlayGroup}
-            account={() => accountBundle("week")}
-            onPlayRemote={(sourceId, track, list) => playRemoteSafe(sourceId, track, list, false, "最近播放")}
-          />
-        ) : (
-          <StatsView tabs={mineTabs} />
         );
-      case "roam":
-        return (
-          <RoamView
-            onPlayGroup={onPlayGroup}
-            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
-            account={() => accountBundle("fm")}
-            onPlayRemote={(sourceId, track, list, stream) =>
-              playRemoteSafe(sourceId, track, list, stream === true, "私人 FM")
-            }
-            onReportDislike={(sourceId, songId) =>
-              services.current?.reportDislike(sourceId, songId, "fm") ?? Promise.resolve(false)
-            }
-          />
-        );
-      case "settings":
-        return (
-          <SettingsView
-            trackCount={getTracks().length}
-            scanning={scanning}
-            notice={scanNote}
-            onScan={() => void onScan()}
-            onOpenFx={() => setFxOpen(true)}
-            onOpenLyric={() => void services.current?.openLyric()}
-            onOpenMini={() => void services.current?.openMini()}
-            playOnError={state.playback.onError}
-            onPlayOnError={(value) => dispatch({ type: "playback/setOnError", onError: value })}
-            outputId={state.audio.outputId}
-            onOutput={(id) => dispatch({ type: "audio/setOutput", id })}
-            shortcutBindings={shortcutBindings}
-            shortcutStatus={shortcutStatus}
-            onShortcutChange={async (action, acc) => {
-              const ctrl = shortcutsRef.current;
-              if (!ctrl) return "快捷键还没准备好";
-              const err = await ctrl.setBinding(action, acc);
-              setShortcutBindings(ctrl.bindings());
-              return err;
-            }}
-            onShortcutReset={async () => {
-              const ctrl = shortcutsRef.current;
-              if (!ctrl) return;
-              await ctrl.resetDefaults();
-              setShortcutBindings(ctrl.bindings());
-            }}
-            onExportBackup={() =>
-              void services.current?.exportBackup().then((dest) => {
-                if (dest) setScanNote(`已备份到 ${dest}`);
-              })
-            }
-            onImportBackup={() =>
-              void services.current?.importBackup().then((r) => {
-                if (r?.restored) setScanNote("备份已恢复，重启应用后生效");
-              })
-            }
-            libraryRoots={libraryRoots}
-            onAddRoot={() =>
-              void services.current?.addLibraryRoot().then((roots) => {
-                if (!roots) return;
-                setLibraryRoots(roots);
-                setScanNote("目录已加入，点「扫描文件夹」按新列表重扫");
-              })
-            }
-            onRemoveRoot={(dir) =>
-              void services.current?.removeLibraryRoot(dir).then((roots) => {
-                setLibraryRoots(roots);
-                setScanNote("目录已移除；已入库的曲目不会自动删，重扫才标记 missing");
-              })
-            }
-            autoLaunch={autoLaunch}
-            onAutoLaunch={(on) => void services.current?.setAutoLaunch(on).then(setAutoLaunch)}
-            lyricFilters={lyricFiltersText}
-            onSaveLyricFilters={(text) =>
-              services.current?.setLyricFilters(text) ?? Promise.resolve(["还没准备好，请稍后再试"])
-            }
-            globalTokenCount={globalTokenCount}
-            themePref={themePref}
-            onTheme={(pref) => void services.current?.setTheme(pref)}
-            motionPref={motionPref}
-            onMotion={(pref) => void services.current?.setMotion(pref)}
-            onImportGlobalTheme={async () => {
-              const tokens = await services.current?.importGlobalTheme();
-              setGlobalTokenCount(tokens ? Object.keys(tokens).length : 0);
-              return tokens ?? null;
-            }}
-            onExportGlobalTheme={() => services.current?.exportGlobalTheme() ?? Promise.resolve(false)}
-            onClearGlobalTheme={async () => {
-              await services.current?.clearGlobalTheme();
-              setGlobalTokenCount(0);
-            }}
-          />
-        );
+      case "history":
+        return <HistoryPage />;
+      case "archive":
+        return <ArchivePage />;
+      case "downloads":
+        return <DownloadsPage />;
       case "local":
         return (
-          <LibraryView
-            onPlay={onPlay}
-            onPlayGroup={onPlayGroup}
-            onAddToQueue={(ids) => dispatch({ type: "queue/add", items: ids })}
-            onScan={() => void onScan()}
+          <LocalPage
+            mode="local"
+            tracks={getTracks()}
             scanning={scanning}
             scanNote={scanNote}
-            cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
-            onEditMeta={(id, patch) =>
-              services.current?.editTrackMeta(id, patch) ?? Promise.reject(new Error("还没准备好，请稍后再试"))
-            }
-            downloads={() =>
-              services.current ? (
-                <DownloadsView
-                  embedded
-                  services={services.current}
-                  onRemove={(id) => services.current?.removeDownload(id) ?? Promise.resolve()}
-                />
-              ) : (
-                <p className="lib-empty">还没准备好，请稍候。</p>
-              )
-            }
-            radio={() => (
-              <RadioView
-                embedded
-                onPlayGroup={onPlayGroup}
-                now={
-                  trackId
-                    ? { title: trackTitle ?? baseName(trackId), artist: remote ? "在线音源" : "本地曲库" }
-                    : null
-                }
-              />
-            )}
+            onScan={() => void onScan()}
+            onPlayGroup={onPlayGroup}
+            downloads={null}
           />
         );
+      case "roam":
+        return <RoamPage />;
+      case "settings":
+        return <SettingsPage />;
       case "playlists":
         return (
-          <PlaylistsView
+          <PlaylistsPage
             sources={sources.filter((s) => s.canPlaylists)}
             listPlaylists={(sourceId) => {
               const svc = services.current;
@@ -983,7 +884,7 @@ function App() {
         );
       case "online":
         return (
-          <DiscoverView
+          <DiscoverPage
             sources={sources}
             daily={() => accountBundle("daily")}
             seekQuery={searchSeek}
@@ -1055,37 +956,142 @@ function App() {
     loggedIn: accountProfiles[getActiveSource()]?.loggedIn ?? false,
   };
 
+  /* ---------- 界面层：真实状态 → 原型组件能消费的形状 ---------- */
+  const toAfTrack = (id: string): AfTrack => {
+    const meta = state.queue.remote[id];
+    if (meta) {
+      return {
+        id,
+        title: meta.title,
+        artist: meta.artist,
+        album: meta.artist,
+        cover: meta.coverUrl ?? null,
+        dur: (meta.durationMs ?? 0) / 1000,
+        remote: { sourceId: meta.sourceId, songId: meta.songId, coverUrl: meta.coverUrl },
+      };
+    }
+    const t = trackById(id);
+    return {
+      id,
+      title: t?.title ?? baseName(id),
+      artist: t?.artist ?? "",
+      album: t?.album ?? "",
+      cover: null,
+      dur: (t?.durationMs ?? 0) / 1000,
+    };
+  };
+  const currentTrack: AfTrack = trackId
+    ? toAfTrack(trackId)
+    : { id: "", title: "还没选歌", artist: "", album: "", cover: npCover, dur: 0 };
+
+  const afSources: AfSource[] = sources.map((s) => ({
+    id: s.id,
+    name: s.name,
+    short: sourceShort(s.id, s.name),
+    tone: sourceTone(s.id),
+    canAuth: s.canAuth,
+    canPlaylists: s.canPlaylists,
+    canDownload: s.canDownload,
+  }));
+  const afAccounts: Record<string, boolean> = Object.fromEntries(
+    sources.map((s) => [s.id, Boolean(accountProfiles[s.id]?.loggedIn)]),
+  );
+  const afLoggedIn = Object.values(afAccounts).some(Boolean);
+
+  const playIds = (ids: string[], startAt = 0): void => {
+    const local: Track[] = [];
+    const remoteTracks: RemoteTrack[] = [];
+    let remoteSource = "";
+    for (const id of ids) {
+      const meta = state.queue.remote[id];
+      if (meta) {
+        remoteTracks.push({
+          sourceId: meta.sourceId,
+          title: meta.title,
+          artist: meta.artist,
+          album: meta.artist,
+          durationMs: meta.durationMs ?? 0,
+          coverUrl: meta.coverUrl,
+        });
+        remoteSource = meta.sourceId;
+      } else {
+        const t = trackById(id);
+        if (t) local.push(t);
+      }
+    }
+    if (remoteTracks.length > 0 && remoteTracks.length >= local.length) {
+      const at = Math.min(Math.max(0, startAt), remoteTracks.length - 1);
+      playRemoteSafe(remoteSource, remoteTracks[at]!, remoteTracks, false, "我的歌单");
+    } else if (local.length > 0) {
+      onPlayGroup(local, Math.min(Math.max(0, startAt), local.length - 1));
+    } else {
+      toast("这些曲目当前播不了", "info");
+    }
+  };
+
+  const { api: afApi, onomas, focusKey, mascot, setMascot, boot } = useAfUi({
+    page,
+    setPage: (p) => setPage(p as PageId),
+    localTab,
+    setLocalTab,
+    mineTab,
+    setMineTab,
+    state,
+    services,
+    playing,
+    themePref,
+    setThemePref: (p) => void services.current?.setTheme(p),
+    motionPref,
+    setMotionPref: (m) => void services.current?.setMotion(m),
+    resolvedTheme,
+    reduce,
+    accountSource,
+    resolveAccountSource,
+    ensureAccount,
+    toggleCurrentLike,
+    sources: afSources,
+    source: getActiveSource(),
+    setSource: (id) => {
+      setActiveSource(id);
+    },
+    accounts: afAccounts,
+    loggedIn: afLoggedIn,
+    loginFor: (id) => setLoginFor(id),
+    loginSrc: loginFor,
+    logout: (id) => {
+      void (async () => {
+        await services.current?.logout(id).catch(() => undefined);
+        invalidateAccountData(`account:${id}:`);
+        refreshAccountProfiles();
+      })();
+    },
+    searchOnline: (q) => {
+      const svc = services.current;
+      return svc ? svc.searchOnline(getActiveSource(), q) : Promise.resolve({ items: [] });
+    },
+    playRemote: (sourceId, track, list, origin) =>
+      playRemoteSafe(sourceId, track as RemoteTrack, list as RemoteTrack[], false, origin),
+    playIds,
+    toAfTrack,
+    currentTrack,
+    notify: (text, kind) => toast(text, kind ?? "info"),
+    openFx: () => setFxOpen(true),
+    lastRoom: lastRoom.current,
+  });
+
   return (
-    <main className={`shell live${offline ? " offline" : ""}`}>
-      {/* 加载页是覆盖层不是替换：主壳先挂好，脚本/快捷键在预取期间也能正常工作 */}
-      {!bootReady ? <BootSplash /> : null}
+    <AfContext.Provider value={afApi}>
+      {/* 启动层是 index.html 里的纯 HTML/CSS，不在这里挂 */}
       {/* 离线态（P0-25）：常驻横幅，不用 toast —— 断网期间 toast 会反复刷屏 */}
       {offline ? (
         <div className="net-banner" role="status" aria-live="polite">
           离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
         </div>
       ) : null}
-      <Topbar
-        account={accountSummary}
-        onAccount={() => {
-          setAccountOpen((open) => !open);
-          refreshAccountProfiles();
-        }}
-        onSearch={(query) => {
-          if (query) setSearchSeek({ text: query, at: Date.now() });
-          setPage("online");
-        }}
-      />
-
-      <Sidebar
-        page={page}
-        onGo={setPage}
-        account={accountSummary}
-        onAccount={() => {
-          setAccountOpen((open) => !open);
-          refreshAccountProfiles();
-        }}
-      />
+      <div className={`app${afApi.density === "compact" ? " is-compact" : ""}${offline ? " offline" : ""}`}>
+        <Sidebar />
+        <div className="main">
+          <Topbar />
 
       <AccountMenu
         open={accountOpen}
@@ -1150,8 +1156,7 @@ function App() {
         <div className="tune-flash" key={tuneFlash} aria-hidden="true" onAnimationEnd={() => setTuneFlash(0)} />
       ) : null}
 
-      <div className="body">
-        <section className="main">
+          <div className="main__page scroll live-room" key={page}>
           {notice ? (
             /* 常驻提示（新版本 / 上次异常退出）必须能关：这类不自动消退，
                没有 × 就只能等下次覆盖或重启（2026-11-12 用户："一直显示不会消失"）。 */
@@ -1185,18 +1190,10 @@ function App() {
               </button>
             </div>
           ) : null}
-          {/* key=page：切页即重挂容器，进场动画（live.css room-tune/bleed-tune）每次都重播 */}
-          {page === "stage" ? (
-            <div className="live-plate" key={page}>
-              <div className="live-plate-body">{renderPage()}</div>
-            </div>
-          ) : (
-            <div className="live-room" key={page}>{renderPage()}</div>
-          )}
-        </section>
-      </div>
+          {renderPage()}
+          </div>
 
-      <Console
+        <Console
         npCover={npCover}
         phase={phase}
         likedNow={likedNow}
@@ -1232,100 +1229,55 @@ function App() {
         dragging={dragging}
         services={services}
       />
-      <Toaster />
-
-      {fxOpen && (
-        <div className="fx-panel" role="dialog" aria-label="音效设置">
-          <div className="fx-head">
-            <span className="fx-label">AUDIO · 音效</span>
-            <button
-              type="button"
-              onClick={() =>
-                dispatch({
-                  type: "audio/restore",
-                  // 音效重置只动音效：输出设备是另一件事，不能被顺手改回默认（P0-09）
-                  config: {
-                    preampDb: PREAMP_DEFAULT,
-                    eq: EQ_DEFAULT,
-                    crossfadeSec: 0,
-                    outputId: state.audio.outputId,
-                  },
-                })
-              }
-            >
-              重置
-            </button>
-          </div>
-          <EqCurve gains={state.audio.eq} sampleRate={services.current?.engine.sampleRate() ?? 48000} />
-          {/* 音量归控制台的「音量」按钮弹层，面板里只留音效相关，一处状态一个入口 */}
-          <label className="fx-row">
-            <span>前置</span>
-            <input
-              type="range"
-              min="-12"
-              max="12"
-              step="1"
-              value={Math.round(state.audio.preampDb)}
-              onChange={(e) => dispatch({ type: "audio/setPreamp", db: Number(e.target.value) })}
-            />
-            <span className="fx-val">{Math.round(state.audio.preampDb)} dB</span>
-          </label>
-          <label className="fx-row">
-            <span>交叉淡化</span>
-            <select
-              value={state.audio.crossfadeSec}
-              onChange={(e) => dispatch({ type: "audio/setCrossfade", sec: Number(e.target.value) })}
-            >
-              <option value={0}>关</option>
-              <option value={3}>3 秒</option>
-              <option value={6}>6 秒</option>
-            </select>
-            <span className="fx-val" />
-          </label>
-          <span className="fx-label">EQ · 10 BANDS</span>
-          {/* 预设（A-06 判据 ≥3）：点亮条件不是"点过"，而是当前增益真的等于这一组 */}
-          <div className="fx-presets">
-            {EQ_PRESETS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                aria-pressed={sameGains(state.audio.eq, p.gains)}
-                onClick={() => dispatch({ type: "audio/setEq", gains: [...p.gains] })}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
-          {/* 10 段竖排：横向一行放 10 根会挤成一堆，竖排还能看见峰谷 */}
-          <div className="fx-bands">
-            {state.audio.eq.map((db, i) => {
-              const hz = EQ_BANDS[i];
-              return (
-                <label className="fx-band" key={hz}>
-                  <b>{Math.round(db)}</b>
-                  {/* 0dB 基准线挂在轨道容器上：挂在整块上要算文字行高，必然偏几像素 */}
-                  <span className="fx-track">
-                    <input
-                      type="range"
-                      min="-12"
-                      max="12"
-                      step="1"
-                      value={Math.round(db)}
-                      aria-label={`${hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`}`}
-                      onChange={(e) => {
-                        const gains = [...state.audio.eq];
-                        gains[i] = Number(e.target.value);
-                        dispatch({ type: "audio/setEq", gains });
-                      }}
-                    />
-                  </span>
-                  <i>{hz >= 1000 ? `${hz / 1000}k` : hz}</i>
-                </label>
-              );
-            })}
-          </div>
         </div>
-      )}
+      </div>
+
+      <Toaster />
+      {page === "stage" ? <NowPlaying /> : null}
+      <RowMenu />
+      {afApi.lyricsBar && !afApi.playerOpen ? <LyricsBar /> : null}
+      <Auth />
+      <ScanLogin
+        sourceId={loginFor}
+        sourceName={sources.find((s) => s.id === loginFor)?.name ?? loginFor ?? ""}
+        sourceTone={sourceTone(loginFor ?? "")}
+        account={accountProfiles[loginFor ?? ""]?.nick ?? undefined}
+        start={async (ch) => {
+          const svc = services.current;
+          if (!svc) throw new Error("还没准备好，请稍后再试");
+          const result = await svc.startLogin(loginFor as string, ch);
+          if (!("key" in result) || typeof result.key !== "string" || typeof result.qrImage !== "string") {
+            throw new Error("获取二维码失败");
+          }
+          return { key: result.key, qrImage: result.qrImage };
+        }}
+        poll={(key) => services.current?.pollLogin(key) ?? Promise.resolve({ code: 0, loggedIn: false, message: "还没准备好" })}
+        sendCaptcha={loginFor === "netease" ? (phone) => services.current!.sendCaptcha(phone) : undefined}
+        loginByCaptcha={loginFor === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
+        onSuccess={() => {
+          const id = loginFor;
+          if (!id) return;
+          setLoginFor(null);
+          setTuneFlash((k) => k + 1);
+          setActiveSource(id);
+          invalidateAccountData(`account:${id}:`);
+          ensureAccount(id);
+          refreshAccountProfiles();
+        }}
+        onClose={() => setLoginFor(null)}
+      />
+      <EggLayer />
+      <StudioDrawer />
+      <MediaDock />
+      <KeysSheet />
+      <Hotkeys />
+      <PerfHUD />
+      <ListEditor />
+      {afApi.miniMode ? <MiniCard /> : null}
+      {afApi.demoOpen ? <DemoPanel /> : null}
+      <OnomaLayer items={onomas} />
+      {focusKey > 0 ? <FocusLines key={focusKey} /> : null}
+      {mascot ? <MascotWalk onEnd={() => setMascot(false)} /> : null}
 
       {paletteOpen ? (
         <CommandPalette
@@ -1380,7 +1332,7 @@ function App() {
           onClose={() => setQueueOpen(false)}
         />
       ) : null}
-    </main>
+    </AfContext.Provider>
   );
 }
 

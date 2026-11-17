@@ -1,0 +1,305 @@
+/* 全屏播放页 · 原型 .np（幕布 / 舞台 / 分幕队列 / 演出时间线 / 歌词字幕） */
+import { useMemo, useRef, useState } from "react";
+
+import { useAf } from "./context.js";
+import { TrackArt } from "./art.js";
+import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX } from "./icons.js";
+import { PlayGlyph, Strike, Tape } from "./ui.js";
+import { LyricWall } from "./LyricWall.js";
+import { usePosition } from "./use-position.js";
+
+function fmt(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+export function NowPlaying() {
+  const api = useAf();
+  const {
+    track,
+    playing,
+    setPlaying,
+    queue,
+    queueIndex,
+    goTo,
+    userSkip,
+    shuffle,
+    toggleShuffle,
+    repeat,
+    cycleRepeat,
+    isLiked,
+    toggleLike,
+    closePlayer,
+    playerClosing,
+    chorusAt,
+    markChorus,
+    struckId,
+    sheerSide,
+    onomaAt,
+    lyricsOn,
+    setLyricsOn,
+    lyricsFull,
+    setKeysOpen,
+    keysHintSeen,
+    dismissKeysHint,
+    reduce,
+  } = api;
+  const { pos, dur } = usePosition(api);
+  const total = track.dur || dur || 0;
+  const barRef = useRef<HTMLDivElement>(null);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressed = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const liked = isLiked(track);
+
+  const ratioFromEvent = (e: React.PointerEvent): number => {
+    const r = barRef.current?.getBoundingClientRect();
+    if (!r) return 0;
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  };
+  const seek = (e: React.PointerEvent): void => {
+    api.seekTo(ratioFromEvent(e) * total);
+  };
+  const onDown = (e: React.PointerEvent): void => {
+    longPressed.current = false;
+    setDragging(true);
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    const r = ratioFromEvent(e);
+    pressTimer.current = setTimeout(() => {
+      longPressed.current = true;
+      markChorus(r * total);
+    }, 550);
+  };
+  const onUp = (e: React.PointerEvent): void => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    if (!longPressed.current) seek(e);
+    setDragging(false);
+  };
+
+  const chorusPct = chorusAt != null && total > 0 ? (chorusAt / total) * 100 : null;
+  const showChorusHint = chorusAt != null && pos >= chorusAt - 8 && pos < chorusAt;
+  const pct = total > 0 ? Math.min(100, (pos / total) * 100) : 0;
+
+  const acts = useMemo(() => {
+    if (queue.length <= 12) return [queue];
+    const out = [];
+    for (let i = 0; i < queue.length; i += 4) out.push(queue.slice(i, i + 4));
+    return out;
+  }, [queue]);
+
+  const totalDur = queue.reduce((s, t) => s + t.dur, 0);
+
+  return (
+    <div className={"np" + (playerClosing ? " np--closing" : "") + (lyricsFull && lyricsOn ? " np--lyrics-full" : "")} data-screen-label="播放页" role="dialog" aria-label="播放页">
+      {!reduce && !playerClosing && (
+        <>
+          <div className="curtain curtain--l"></div>
+          <div className="curtain curtain--r"></div>
+        </>
+      )}
+      {!reduce && playerClosing && (
+        <>
+          <div className="curtain curtain--close curtain--close-l"></div>
+          <div className="curtain curtain--close curtain--close-r"></div>
+        </>
+      )}
+
+      <div className="np__top">
+        <button className="np__close" onClick={closePlayer}>
+          <IconChevronDown size={17} />收起
+        </button>
+        <span style={{ width: 1, height: 16, background: "var(--line)" }}></span>
+        <span className="np__top-label">
+          <IconNote size={13} />
+          正在演出 · SETLIST {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}
+        </span>
+        <span className="spacer"></span>
+        <button className="np__keysbtn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单">快捷键 <kbd>?</kbd></button>
+        <span className="meta hand" style={{ fontSize: 12 }}>{Math.round(totalDur / 60)} 分钟就散场</span>
+      </div>
+
+      <div className="np__main">
+        <div className="np__stage">
+          <div className="np__stage-top">
+          <div className={"np__art" + (playing ? " loop is-breathing" : "")}>
+            <Tape w={78} rot={-4} style={{ top: -11, left: 34 }} />
+            {track.cover ? (
+              <img key={track.id} className="np__art-img" src={track.cover} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="np__art-img" style={{ display: "block", overflow: "hidden" }}>
+                <TrackArt id={track.id} size={352} radius={20} />
+              </span>
+            )}
+            <span className="np__art-badge">
+              <IconPick size={40} style={{ position: "absolute", opacity: 0.16 }} />
+              <b style={{ position: "relative" }}>{String(queueIndex + 1).padStart(2, "0")}</b>
+            </span>
+            {struckId && <span className={"sheer is-on sheer--" + (sheerSide || "r")}></span>}
+          </div>
+
+          <div className="np__info">
+            <div className="np__kicker">
+              <span className="eyebrow">{track.album}</span>
+              <span style={{ width: 12, height: 1, background: "var(--line-strong)" }}></span>
+              <span className="meta">{new Date().getFullYear()}</span>
+            </div>
+            <h1 key={track.id} className="np__title">{track.title}</h1>
+            <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
+            <div className="np__band jp">
+              <span>{track.artist}</span>
+              <i></i>
+              <span style={{ color: "var(--text-3)" }}>{track.album}</span>
+            </div>
+
+            <div className="np__progress-wrap">
+              {showChorusHint && <span className="np__chorus-hint">要来了♡</span>}
+              <div
+                className={"np__progress" + (dragging ? " is-dragging" : "")}
+                ref={barRef}
+                onPointerDown={onDown}
+                onPointerUp={onUp}
+                onPointerLeave={() => {
+                  if (pressTimer.current) clearTimeout(pressTimer.current);
+                  setDragging(false);
+                }}
+                onPointerMove={(e) => {
+                  if (dragging) api.seekTo(ratioFromEvent(e) * total);
+                }}
+                title="点击跳转，长按标记副歌点"
+              >
+                <div className="np__progress-track">
+                  <div className="np__progress-fill" style={{ width: pct + "%" }}></div>
+                  {chorusPct != null && (
+                    <span className="np__chorus-mark" style={{ left: chorusPct + "%" }}>
+                      <IconPick size={13} />
+                    </span>
+                  )}
+                  <span className="np__progress-knob" style={{ left: pct + "%" }}></span>
+                </div>
+              </div>
+              <div className="np__times">
+                <span className="num" style={{ color: "var(--text-2)" }}>{fmt(pos)}</span>
+                <span className="num" style={{ color: "var(--text-3)" }}>-{fmt(Math.max(0, total - pos))}</span>
+              </div>
+            </div>
+
+            <div className="np__controls">
+              <button className={"np__ctrl" + (shuffle ? " is-on" : "")} onClick={(e) => { onomaAt(e.currentTarget, "シャッ", "mint"); toggleShuffle(); }} title="随机（绕路）">
+                <IconShuffle size={18} />
+              </button>
+              <button className="np__ctrl" onClick={() => userSkip("prev")} title="上一首">
+                <IconPrev size={20} />
+              </button>
+              <button className={"np__ctrl np__ctrl--main" + (playing ? " is-playing" : "")} onClick={() => setPlaying(!playing)} title={playing ? "暂停" : "播放"}>
+                <PlayGlyph playing={playing} size={22} />
+              </button>
+              <button className="np__ctrl" onClick={() => userSkip("next")} title="下一首">
+                <IconNext size={20} />
+              </button>
+              <button className={"np__ctrl" + (repeat !== "off" ? " is-on" : "")} onClick={cycleRepeat} title="循环">
+                {repeat === "one" ? <IconRepeatOne size={18} /> : <IconRepeat size={18} />}
+              </button>
+              <span className="np__ctrl-sep"></span>
+              <button
+                className={"np__ctrl like-btn" + (liked ? " is-liked" : "")}
+                onClick={(e) => { onomaAt(e.currentTarget, "ポンッ", "coral"); toggleLike(track); }}
+                title="喜欢（盖一枚拨片）"
+              >
+                {liked ? <IconPick size={19} /> : <IconPickOutline size={19} />}
+              </button>
+              <button className={"np__ctrl" + (lyricsOn ? " is-on" : "")} onClick={() => setLyricsOn(!lyricsOn)} title="歌词字幕（ED 风）" aria-pressed={lyricsOn}>
+                <IconNote size={18} />
+              </button>
+              <span className="meta" style={{ marginLeft: 6, color: "var(--text-3)", whiteSpace: "nowrap" }}>长按进度条标记副歌</span>
+            </div>
+            <div className="np__stage-note">
+              <span className="hand">台侧视角 · 第三排有人在跟着打拍子</span>
+              <span className="np__stage-note__line"></span>
+            </div>
+          </div>
+          </div>
+          <LyricWall />
+        </div>
+
+        <aside className="np__queue">
+          <div className="np__queue-head">
+            <div>
+              <div className="np__queue-title">今晚的顺序</div>
+              <div className="np__queue-sub">
+                {acts.length > 1 ? `分 ${acts.length} 幕 · 每幕四首` : `${queue.length} 首 · 一口气听完`}
+              </div>
+            </div>
+            <span className="num" style={{ color: "var(--text-3)", marginTop: 4 }}>{queue.length} 首</span>
+          </div>
+
+          <div className="np__queue-list scroll">
+            <svg className="qpath" width="18" height="100%" viewBox="0 0 18 600" preserveAspectRatio="none" aria-hidden="true">
+              <path className="qpath__straight" d="M9 0 V600" vectorEffect="non-scaling-stroke" />
+              <path
+                className={"qpath__detour" + (shuffle ? " is-on" : "")}
+                d="M9 0 C-4 40, 22 70, 9 110 S -3 170, 9 210 S 21 280, 9 320 S -3 380, 9 420 S 21 490, 9 530 S -2 580, 9 600"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+            {acts.map((group, gi) => (
+              <div key={gi}>
+                {acts.length > 1 && (
+                  <div className="act-sep">
+                    <span className="act-sep__num">{["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"][gi] ?? String(gi + 1)}</span>
+                    <span className={"act-sep__bar act-sep__bar--" + ((gi % 3) + 1)}></span>
+                  </div>
+                )}
+                {group.map((t, i) => {
+                  const idx = gi * (acts.length > 1 ? 4 : group.length) + i;
+                  const isCur = t.id === track.id;
+                  return (
+                    <button key={t.id + idx} className={"qrow" + (isCur ? " is-current" : "") + (struckId === t.id ? " is-struck" : "")} onClick={() => goTo(t.id)}>
+                      {isCur && playing ? (
+                        <span className="qrow__playing"><i></i><i></i><i></i></span>
+                      ) : (
+                        <span className="qrow__no">{String(idx + 1).padStart(2, "0")}</span>
+                      )}
+                      <span className="qrow__title">{t.title}</span>
+                      <span className="qrow__dur">{fmt(t.dur)}</span>
+                      {struckId === t.id && <Strike />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <div className="np__queue-foot">
+            <span className="hand">划掉的那首就别返场了</span>
+            <IconPickOutline size={13} style={{ color: "var(--coral)", opacity: 0.6 }} />
+          </div>
+        </aside>
+      </div>
+
+      {!keysHintSeen && !lyricsFull ? (
+        <div className="np-hint" role="status">
+          <span className="np-hint__text"><b>键盘也弹得了</b><span>播放页里这些键一直有效</span></span>
+          <span className="np-hint__keys"><kbd>空格</kbd><kbd>← →</kbd><kbd>Shift+← →</kbd><kbd>?</kbd></span>
+          <button className="np-hint__go" onClick={() => { setKeysOpen(true); dismissKeysHint(); }}>看全部</button>
+          <button className="np-hint__close" onClick={dismissKeysHint} title="知道了" aria-label="知道了"><IconX size={12} /></button>
+        </div>
+      ) : null}
+
+      <div className="np__timeline">
+        <span className="np__timeline-label">演出时间线</span>
+        <div className="np__timeline-track">
+          {queue.map((t, i) => (
+            <button
+              key={t.id + i}
+              className={"tl-seg" + (t.id === track.id ? " is-current" : "") + (i < queueIndex ? " is-past" : "")}
+              style={{ flexGrow: Math.max(0.4, t.dur / 60) }}
+              onClick={() => goTo(t.id)}
+              title={t.title}
+              aria-label={t.title}
+            ></button>
+          ))}
+        </div>
+        <span className="np__timeline-time">{fmt(pos)} / {fmt(total)}</span>
+      </div>
+    </div>
+  );
+}

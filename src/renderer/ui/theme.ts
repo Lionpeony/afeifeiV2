@@ -49,6 +49,12 @@ export function resolveTheme(p: ThemePref, dark: boolean = systemDark()): Theme 
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
+  // 镜像到 localStorage：index.html 的纯 HTML 启动层要在 React 之前读到首帧主题
+  try {
+    localStorage.setItem("afeifei.v42.theme", theme);
+  } catch {
+    /* 隐私模式/配额满：启动层退回系统偏好 */
+  }
 }
 
 /** 当前生效值以 DOM 为准（唯一写真点），避免各处闭包拿到陈旧 state。 */

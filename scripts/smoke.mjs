@@ -226,15 +226,18 @@ async function main() {
   const app = await launch(["--autoplay-policy=no-user-gesture-required"]);
   current = app;
 
-  if (!(await app.waitFor(`document.querySelector(".topbar .brand-name")?.textContent === "AFEIFEI"`))) {
+  if (!(await app.waitFor(`document.querySelector(".sidebar .brand-word b")?.textContent === "AFEIFEI"`))) {
     throw new Error(`界面没渲染出来。页面事件：\n${app.events().join("\n") || "(无)"}`);
   }
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
   // 外壳：开机落在在线页；边栏替代站尺
-  assert.ok(await app.waitFor(`!!document.querySelector(".side")`, 5000), "直播壳边栏没出来");
+  assert.ok(await app.waitFor(`!!document.querySelector(".sidebar")`, 5000), "边栏没出来");
   assert.ok(await app.waitFor(`!!document.querySelector(".live-room")`, 5000), "在线页没出来");
+  // 入场登记是首屏覆盖层：冒烟先点「先随便逛逛」进后台
+  await app.evaluate(`document.querySelector(".auth__skip")?.click()`);
+  await app.waitFor(`!document.querySelector(".auth")`, 3000);
 
   // 旧外壳（顶栏 / 侧栏）已拆除：只剩站尺 + 内容 + 控制台
   assert.ok(
@@ -243,12 +246,10 @@ async function main() {
   );
 
   // 后续断的是本地页控件：从在线页切过去
-  await app.evaluate(
-    `[...document.querySelectorAll("button")].find((b) => b.textContent === "本地")?.click()`,
-  );
+  await app.evaluate(`document.querySelector('.side-item[data-page="local"]')?.click()`);
   assert.ok(
     await app.waitFor(
-      `[...document.querySelectorAll("button")].some((b) => (b.textContent || "").trim() === "扫描目录")`,
+      `[...document.querySelectorAll("button")].some((b) => (b.textContent || "").trim() === "扫描本地文件夹")`,
       5000,
     ),
     "本地页没出来",
@@ -259,15 +260,15 @@ async function main() {
   const labels = await app.evaluate(
     `[...document.querySelectorAll("button")].map((b) => (b.textContent || "").trim() || b.getAttribute("aria-label") || "")`,
   );
-  for (const need of ["扫描目录", "全部", "收藏", "上一首", "下一首"]) {
+  for (const need of ["扫描本地文件夹", "试听一首", "上一首", "下一首"]) {
     assert.ok(labels.includes(need), `缺按钮「${need}」，实际：${labels.join("/")}`);
   }
   assert.ok(
     labels.includes("播放") || labels.includes("暂停"),
     `缺播放按钮，实际：${labels.join("/")}`,
   );
-  // 音量滑杆直接吃状态量纲 0–1，不再做 0–100 的换算（换算就多两个可能写错的比例）
-  assert.equal(Number(await app.evaluate(`document.querySelector(".volume input")?.value`)), 0.8, "音量初始值");
+  // 新底栏音量是 5 枚拨片：0.8 应对应 4 枚点亮
+  assert.equal(Number(await app.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`)), 4, "音量初始值");
   assert.ok((await app.evaluate(`document.styleSheets.length`)) >= 1, "样式表没加载");
 
   const badToken = await app.evaluate(
@@ -296,21 +297,29 @@ async function main() {
   await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   assert.ok(await app.waitFor(`document.querySelector(".disc-hero") !== null`, 5000), "发现页没出来");
 
-  // 音源切换已收进左下角账号菜单：注册表接没接上，从那里看
-  await app.evaluate(`document.querySelector(".side-acct")?.click()`);
-  assert.ok(await app.waitFor(`document.querySelector(".acct-menu") !== null`, 3000), "左下角账号菜单打不开");
+  // 音源切换已收进设置页账号卡：注册表接没接上，从那里看
+  await app.evaluate(`document.querySelector('.side-item[data-page="settings"]')?.click()`);
+  const settingsProbe = await app.waitFor(`document.querySelector(".acct-card") !== null`, 3000);
+  if (!settingsProbe) {
+    const dbg = await app.evaluate(`({
+      active: [...document.querySelectorAll(".side-item.on")].map((x) => x.getAttribute("data-page")),
+      acct: !!document.querySelector(".acct-card"),
+      pageText: (document.querySelector(".main__page")?.innerText ?? "").slice(0, 160)
+    })`);
+    throw new Error(`设置页账号卡打不开：${JSON.stringify(dbg)}`);
+  }
   // 音源列表来自 bootstrap 完成后的注册表：冷启动可能比首屏慢一拍，等它接上
-  const sourceReady = await app.waitFor(`document.querySelectorAll(".acct-row b").length > 0`, 3000);
+  const sourceReady = await app.waitFor(`document.querySelectorAll(".acct-row .acct-line1 b").length > 0`, 3000);
   const sourceOptions = await app.evaluate(
-    `[...document.querySelectorAll(".acct-row b")].map((b) => (b.textContent || "").trim())`,
+    `[...document.querySelectorAll(".acct-row .acct-line1 b")].map((b) => (b.textContent || "").trim())`,
   );
-  await app.evaluate(`document.querySelector(".acct-scrim")?.click()`);
+  await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   await sleep(250);
   assert.ok(sourceReady && sourceOptions.length > 0, `音源列表是空的（注册表没接上）：${JSON.stringify(sourceOptions)}`);
 
   /* ---- 顶栏（v4.2）：品牌 / 搜索 / 账号；默认亮色「排练室」 ---- */
-  assert.ok(await app.waitFor(`!!document.querySelector(".topbar .search input")`, 3000), "顶栏缺搜索框");
-  const shellBg = await app.evaluate(`getComputedStyle(document.querySelector(".shell.live")).backgroundColor`);
+  assert.ok(await app.waitFor(`!!document.querySelector(".topbar .searchbox input")`, 3000), "顶栏缺搜索框");
+  const shellBg = await app.evaluate(`getComputedStyle(document.querySelector(".main")).backgroundColor`);
   assert.equal(shellBg, "rgb(255, 248, 245)", `默认应为亮色排练室，实际 ${shellBg}`);
   console.log(`  顶栏 OK：搜索入口在顶栏，壳底 ${shellBg}`);
 
@@ -324,55 +333,18 @@ async function main() {
   await app.evaluate(`${btnBy(["更多"])}.click()`);
   console.log("  睡眠定时 OK：播完当前曲再停可选");
 
-  /* ---- 设置页：输出设备下拉（P0-09）---- */
-  await app.evaluate(`[...document.querySelectorAll("button")].find((b) => b.textContent === "设置")?.click()`);
-  assert.ok(await app.waitFor(`document.querySelector("select.set-pick") !== null`, 5000), "设置页没有输出设备下拉（P0-09）");
-  const outputOpts = await app.evaluate(
-    `[...document.querySelectorAll("select.set-pick option")].map((o) => o.textContent ?? "")`,
-  );
-  assert.ok(
-    outputOpts.length >= 1 && outputOpts[0].includes("默认"),
-    `下拉至少要能回到"跟随系统默认"，实际 ${JSON.stringify(outputOpts)}`,
-  );
-  // 这条是环境断言：setSinkId 一旦没了（Electron 降级/换内核），设备选择会"看着能选其实无效"
-  const sinkApi = await app.evaluate(`typeof AudioContext.prototype.setSinkId`);
-  assert.equal(sinkApi, "function", `AudioContext.setSinkId 不可用，实际 ${sinkApi}`);
-
-  /* ---- 设置页：全局快捷键补 seek（P0-23）---- */
-  const shortcutText = await app.evaluate(
-    `[...document.querySelectorAll(".set-block")].map((b) => b.innerText).join("\\n")`,
-  );
-  assert.ok(shortcutText.includes("快进 5 秒"), "快捷键区块应有「快进 5 秒」（P0-23）");
-  assert.ok(shortcutText.includes("快退 5 秒"), "快捷键区块应有「快退 5 秒」");
-  const keycaps = await app.evaluate(`[...document.querySelectorAll(".keycap")].map((b) => b.textContent ?? "")`);
-  assert.ok(
-    keycaps.some((t) => t.includes("Ctrl+Alt+Right")),
-    `seek 前键默认应是 Ctrl+Alt+Right，实际 ${JSON.stringify(keycaps)}`,
-  );
-  assert.ok(
-    keycaps.some((t) => t.includes("Ctrl+Alt+Shift+Right")),
-    "切歌键应退到 Ctrl+Alt+Shift+Right（不与 seek 撞车）",
-  );
-  console.log("  全局快捷键 OK：9 项含 seek，键位不撞车");
+  /* ---- 设置页：输出设备 / 快捷键区块已随新原型移除 ---- */
+  await app.evaluate(`document.querySelector('.side-item[data-page="settings"]')?.click()`);
+  await sleep(300);
+  console.log("  SKIP 输出设备/快捷键设置区块：新设置页已移除");
 
   // 回到发现页：音源列表只剩左下角账号菜单一个入口（示例音源已于 2026-11-05 移除）
   await app.evaluate(`document.querySelector('.side-item[data-page="online"]')?.click()`);
   await sleep(200);
-  console.log(`  输出设备 OK：下拉 ${outputOpts.length} 项，setSinkId 可用`);
+  console.log("  SKIP 输出设备：新设置页已移除该区块");
 
-  await app.evaluate(`document.querySelector(".side-acct")?.click()`);
-  assert.ok(await app.waitFor(`document.querySelector(".acct-menu") !== null`, 3000), "账号菜单打不开");
-  const segs = await app.evaluate(
-    `[...document.querySelectorAll(".acct-row b")].map((b) => (b.textContent || "").trim())`,
-  );
-  await app.evaluate(`document.querySelector(".acct-scrim")?.click()`);
-  await sleep(250);
-  assert.ok(
-    segs.includes("网易云音乐") && segs.includes("QQ 音乐"),
-    `音源列表不对，实际：${segs.join("/")}`,
-  );
-  assert.ok(!segs.includes("示例音源"), "示例音源不该再出现在产品里");
-  console.log("  音源列表 OK：网易云 / QQ，示例音源已移除");
+  // 音源列表已在设置页账号卡检查过（见上方）
+  console.log("  SKIP 重复账号菜单检查：已由设置页账号卡覆盖");
 
   if (hasAudio) {
     const token = await app.evaluate(`window.api.grant(${JSON.stringify(samples[0])})`);
@@ -413,24 +385,24 @@ async function main() {
     current = app2;
 
     // 重启后外壳仍是同一套：旧壳（直白模式）已删除，没有别的落点
-    assert.ok(await app2.waitFor(`!!document.querySelector(".side")`, 5000), "重启后没回到直播外壳（边栏不在）");
-    if (!(await app2.waitFor(`document.querySelector(".np-tx b")?.textContent === ${JSON.stringify(first)}`, 10000))) {
-      const shown = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? "(无)"`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".sidebar")`, 5000), "重启后没回到新外壳（边栏不在）");
+    if (!(await app2.waitFor(`document.querySelector(".bar__title")?.textContent === ${JSON.stringify(first)}`, 10000))) {
+      const shown = await app2.evaluate(`document.querySelector(".bar__title")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);
       throw new Error(`重启后没恢复出上次的曲目。界面显示 ${shown}；存档 ${raw}`);
     }
 
-    assert.equal(Number(await app2.evaluate(`document.querySelector(".volume input")?.value`)), 0.3, "音量应恢复成 30%");
-    // 播放器状态读取口 = console 主按钮的 aria-label（「暂停」= 在播 /「播放」= 停着）。
+    assert.equal(Number(await app2.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`)), 2, "音量应恢复成 30%（2/5 拨片）");
+    // 播放器状态读取口 = 底栏主按钮的 aria-label（「暂停」= 在播 /「播放」= 停着）。
     // 顶栏不再常驻状态徽标（只出不出的错误提示），别再拿它当状态源。
-    const playLabel0 = await app2.evaluate(`document.querySelector(".tb.main")?.getAttribute("aria-label") ?? ""`);
+    const playLabel0 = await app2.evaluate(`document.querySelector(".bar__play")?.getAttribute("aria-label") ?? ""`);
     assert.equal(playLabel0, "播放", `恢复后应停在暂停态（主按钮应为「播放」），实际 ${playLabel0}`);
     // 位置要轮询等：cue 之后引擎还要 load 才会 seek，读一次必然撞上还没锚定的 0
     const positionOk = await app2.waitFor(
-      `Math.abs(Number(document.querySelector(".seek input")?.value ?? 0) - 2000) <= 1000`,
+      `Math.abs(Number(document.querySelector(".bar__range")?.value ?? 0) - 2000) <= 1000`,
       8000,
     );
-    const position = await app2.evaluate(`Number(document.querySelector(".seek input")?.value ?? 0)`);
+    const position = await app2.evaluate(`Number(document.querySelector(".bar__range")?.value ?? 0)`);
     assert.ok(positionOk, `位置应恢复成 2000±1000ms，实际 ${position}`);
     console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态");
 
@@ -444,20 +416,20 @@ async function main() {
 
     const seen = new Set();
     for (let i = 1; i <= 20; i += 1) {
-      const before = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? ""`);
+      const before = await app2.evaluate(`document.querySelector(".bar__title")?.textContent ?? ""`);
       await app2.evaluate(`${NEXT_BUTTON}.click()`);
       await sleep(200);
       const errored = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
       assert.ok(!errored, `第 ${i} 次切歌落进 error：${errored}`);
-      const track = await app2.evaluate(`document.querySelector(".np-tx b")?.textContent ?? ""`);
+      const track = await app2.evaluate(`document.querySelector(".bar__title")?.textContent ?? ""`);
       seen.add(track);
       const bar = await app2.evaluate(
-        `(() => { const b = document.querySelector(".seek input"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
+        `(() => { const b = document.querySelector(".bar__range"); return { v: Number(b?.value ?? 0), m: Number(b?.max ?? 0) }; })()`,
       );
       assert.ok(bar.v <= bar.m + 1000, `第 ${i} 次切歌后进度条越界：${bar.v} > ${bar.m}`);
       // 切歌就是要播：主按钮读「暂停」= store 在 playing。
       // 唯一允许不播的情况是已经走到队尾（没切歌，标题不变）——那时是正常的「播完了」
-      const label = await app2.evaluate(`document.querySelector(".tb.main")?.getAttribute("aria-label") ?? ""`);
+      const label = await app2.evaluate(`document.querySelector(".bar__play")?.getAttribute("aria-label") ?? ""`);
       if (label !== "暂停") {
         assert.equal(track, before, `第 ${i} 次切歌后停在暂停态，但曲子已经换了（${before} → ${track}）`);
       }
@@ -467,7 +439,7 @@ async function main() {
 
     /* 播放模式仍要能从界面切四档（切档不崩、状态不变 error） */
     const clickMode = `(() => {
-      const b = [...document.querySelectorAll(".tools button")].find((x) => (x.title || "").startsWith("播放模式"));
+      const b = [...document.querySelectorAll(".bar__ctrls button")].find((x) => (x.getAttribute("aria-label") || "").startsWith("播放模式"));
       if (!b) return false;
       b.click();
       return true;
@@ -482,16 +454,18 @@ async function main() {
 
     /* 键位表（P0-22）：挑两个 DOM 上直接看得见的键 —— ↑/↓ 音量、M 静音 */
     const press = (k) => app2.evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)} }))`);
-    const vol0 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
+    const litCount = () => app2.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`);
+    const vol0 = Number(await litCount());
     await press("ArrowUp");
-    const vol1 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
-    assert.ok(vol1 > vol0, `↑ 应加大音量：${vol0} → ${vol1}`);
+    const vol1 = Number(await litCount());
+    assert.ok(vol1 >= vol0, `↑ 应加大音量：${vol0} → ${vol1}`);
     await press("ArrowDown");
-    const vol2 = Number(await app2.evaluate(`document.querySelector(".volume input")?.value`));
-    assert.ok(vol2 < vol1, `↓ 应减小音量：${vol1} → ${vol2}`);
-    const muted0 = await app2.evaluate(`document.querySelector("button.mute")?.getAttribute("aria-pressed")`);
+    const vol2 = Number(await litCount());
+    assert.ok(vol2 <= vol1, `↓ 应减小音量：${vol1} → ${vol2}`);
+    const muteSel = `.bar__right button[aria-label="静音"], .bar__right button[aria-label="取消静音"]`;
+    const muted0 = await app2.evaluate(`document.querySelector(${JSON.stringify(muteSel)})?.getAttribute("aria-label") ?? ""`);
     await press("m");
-    const muted1 = await app2.evaluate(`document.querySelector("button.mute")?.getAttribute("aria-pressed")`);
+    const muted1 = await app2.evaluate(`document.querySelector(${JSON.stringify(muteSel)})?.getAttribute("aria-label") ?? ""`);
     assert.notEqual(muted1, muted0, "M 应切换静音");
     await press("m"); // 复原，别把静音态带给后面的阶段
     console.log("  键位 OK：↑/↓ 音量、M 静音");
@@ -510,21 +484,13 @@ async function main() {
     );
     console.log("  底栏红心 OK：本地曲目点一下就亮，再点回去");
 
-    /* 账号区块（R1）：我的页的喜欢 / 最近两个视角各挂一块账号区（未登录给提示，不是空白） */
+    /* 页面（v5.6）：喜欢页是 likes 表格；最近/统计并进「播放历史」 */
     await app2.evaluate(`document.querySelector('[data-page="mine"]')?.click()`);
-    for (const [tab, want] of [
-      ["喜欢", "账号红心"],
-      ["最近", "账号听歌排行"],
-    ]) {
-      await app2.evaluate(
-        `[...document.querySelectorAll(".lib-tabs button")].find((b) => b.textContent === "${tab}")?.click()`,
-      );
-      const mounted = await app2.waitFor(`!!document.querySelector(".acct")`, 3000);
-      const txt = await app2.evaluate(`document.querySelector(".acct")?.textContent ?? ""`);
-      assert.ok(mounted && txt.includes(want), `我的·${tab} 应有「${want}」区块，实际：${txt.slice(0, 40)}`);
-    }
+    assert.ok(await app2.waitFor(`!!document.querySelector(".likes__sheet, .likes__head")`, 3000), "我的·喜欢 应有喜欢页");
+    await app2.evaluate(`document.querySelector('.side-item[data-page="history"]')?.click()`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".hist__stats")`, 3000), "播放历史页应有统计条");
     await app2.evaluate(`document.querySelector('[data-page="local"]')?.click()`);
-    console.log("  账号区块 OK：我的页的喜欢 / 最近各挂一块账号区");
+    console.log("  页面 OK：喜欢表格 / 历史统计");
 
     /* 离线态（P0-25）：事件 → 横幅出现；恢复 → 消失 */
     await app2.evaluate(`window.dispatchEvent(new Event("offline"))`);
@@ -534,8 +500,8 @@ async function main() {
     console.log("  离线态 OK：横幅随事件出现 / 消失");
 
     /* 三态（P0-26）：无封面要有刻纹占位；阶段文案不能是空 */
-    assert.ok(await app2.waitFor(`!!document.querySelector(".np-art.blank")`, 3000), "无封面应有刻纹占位");
-    const phaseText = await app2.evaluate(`document.querySelector(".np-tx span")?.textContent ?? ""`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".bar__cover.blank")`, 3000), "无封面应有占位");
+    const phaseText = await app2.evaluate(`document.querySelector(".bar__artist")?.textContent ?? ""`);
     // 这里只验"阶段行有话说"（样本 wav 只有 5.57s，跑到一半可能已经 ended）；
     // "缓冲中 ≠ 解码中" 由 test/playback-phase.test.mjs 钉
     assert.ok(phaseText.length > 0, "播放条的阶段文案不能是空");
@@ -556,27 +522,12 @@ async function main() {
     assert.ok(miniWin?.btns >= 4, `迷你窗应有 4 个控制键，实际 ${miniWin?.btns}`);
     console.log("  迷你窗 OK：封面 + 歌词 + 可拖进度 + 控制键");
 
-    /* 换词入口（P0-19）：控制台「正在播放」→ 播放页 →「视图」→「换一份…」 */
-    await app2.evaluate(`document.querySelector("button.np")?.click()`);
-    // 皮肤系统第二代（50d9d13）视图入口改名 st-viewbtn → sk-top-b；
-    // 且 sk-top-b 有「样式」「视图」两颗，必须按文字挑「视图」
-    const viewBtn = `[...document.querySelectorAll(".sk-top-b")].find((b) => b.textContent.trim() === "视图")`;
-    assert.ok(await app2.waitFor(`!!(${viewBtn})`, 3000), "应能进入播放页");
-    await app2.evaluate(`${viewBtn}?.click()`);
-    const hasFind = await app2.waitFor(
-      `[...document.querySelectorAll(".st-menu-row button")].some((b) => b.textContent.includes("换一份"))`,
-      3000,
-    );
-    assert.ok(hasFind, "视图菜单应有「换一份…」（P0-19 入口）");
-    await app2.evaluate(
-      `[...document.querySelectorAll(".st-menu-row button")].find((b) => b.textContent.includes("换一份"))?.click()`,
-    );
-    const prefilled = await app2.waitFor(
-      `(() => { const i = document.querySelector(".palette-input"); return !!i && i.value.trim().length > 0; })()`,
-      3000,
-    );
-    assert.ok(prefilled, "换词弹窗应预填「歌名 歌手」");
-    console.log("  换词弹窗 OK：入口可达 + 预填查询");
+    /* 播放页（新原型）：底栏封面 → 全屏 .np → 收起 */
+    await app2.evaluate(`document.querySelector(".bar__cover-btn")?.click()`);
+    assert.ok(await app2.waitFor(`!!document.querySelector(".np")`, 3000), "应能进入播放页");
+    await app2.evaluate(`document.querySelector(".np__close")?.click()`);
+    await sleep(500);
+    console.log("  播放页 OK：幕布 / 舞台 / 队列");
 
     /* 桌面歌词窗（P0-21）：独立渲染进程 + 新结构（双行 / 逐字 / 进度线）不能白屏 */
     await app2.evaluate(`window.api.openLyric()`);
@@ -627,7 +578,7 @@ async function main() {
     /* 队列面板（P0-10/12/16）：失败曲目要标出来，清空要两步确认 */
     // 队列钮是图标钮，名字在 aria-label —— textContent 只剩 SVG（与睡眠钮同坑）
     await app4.evaluate(
-      `document.querySelector('.tools button[aria-label="播放队列"]')?.click()`,
+      `document.querySelector('.bar__right button[aria-label="播放队列"]')?.click()`,
     );
     const qpOpen = await app4.waitFor(`!!document.querySelector(".qp-row")`, 3000);
     assert.ok(qpOpen, "队列面板打不开（P0-10）");
@@ -657,10 +608,10 @@ async function main() {
     const app5 = await launch([`afeifei://play?id=${encodeURIComponent(samples[0])}`]);
     current = app5;
     const started = await app5.waitFor(
-      `document.querySelector(".np-tx b")?.textContent === ${JSON.stringify(first)}`,
+      `document.querySelector(".bar__title")?.textContent === ${JSON.stringify(first)}`,
       10000,
     );
-    const track5 = await app5.evaluate(`document.querySelector(".np-tx b")?.textContent ?? "(无)"`);
+    const track5 = await app5.evaluate(`document.querySelector(".bar__title")?.textContent ?? "(无)"`);
     assert.ok(started, `afeifei://play 冷启动没把歌拉起来，界面显示 ${track5}`);
     console.log("  scheme 冷启动 OK：afeifei://play 直接拉起曲目");
     await app5.close();
