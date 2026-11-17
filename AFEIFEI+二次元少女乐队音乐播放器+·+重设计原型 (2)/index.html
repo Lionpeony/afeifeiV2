@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-palette="default">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="creative-medium" content="interactive-prototype" />
+  <title>AFEIFEI 少女乐队后台 · 音乐播放器</title>
+
+  <link rel="preload" as="style" href="https://miaoda.feishu.cn/fonts/css2?family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=ZCOOL+XiaoWei&family=ZCOOL+KuaiLe&family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" />
+
+  <link rel="preload" as="style" href="css/base.css" />
+  <link rel="preload" as="style" href="css/shell.css" />
+  <link rel="preload" as="style" href="css/pages.css" />
+  <link rel="preload" as="style" href="css/player.css" />
+  <link rel="preload" as="style" href="css/eggs.css" />
+  <link rel="preload" as="style" href="css/anime.css" />
+  <link rel="preload" as="style" href="css/v4.css" />
+  <link rel="preload" as="style" href="css/polish.css" />
+  <link rel="preload" as="style" href="css/studio.css" />
+  <link rel="preload" as="style" href="css/lyrics.css" />
+  <link rel="preload" as="style" href="css/account.css" />
+  <link rel="preload" as="style" href="css/splash.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/shell.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <link rel="stylesheet" href="css/player.css" />
+  <link rel="stylesheet" href="css/eggs.css" />
+  <link rel="stylesheet" href="css/anime.css" />
+  <link rel="stylesheet" href="css/v4.css" />
+  <link rel="stylesheet" href="css/polish.css" />
+  <link rel="stylesheet" href="css/studio.css" />
+  <link rel="stylesheet" href="css/lyrics.css" />
+  <link rel="stylesheet" href="css/account.css" />
+  <link rel="stylesheet" href="css/splash.css" />
+
+  <script src="vendor/react.production.min.js"></script>
+  <script src="vendor/react-dom.production.min.js"></script>
+</head>
+<body>
+  <!-- 首屏启动层：纯 HTML/CSS，不等 React。动画只走 transform / clip-path -->
+  <div id="splash" aria-hidden="true">
+    <div class="splash__inner">
+      <div class="splash__logo">
+        <svg viewBox="0 0 48 48" width="58" height="58" aria-hidden="true">
+          <path d="M24 4.6c8 0 15.2 6.4 15.2 14.3 0 8.8-8.2 16.4-12.9 20.7-1.3 1.2-3.3 1.2-4.6 0C17 35.3 8.8 27.7 8.8 18.9 8.8 11 16 4.6 24 4.6z" fill="#E8478E"/>
+          <path d="M24 4.6c8 0 15.2 6.4 15.2 14.3 0 2.2-.5 4.3-1.5 6.2C33.9 18 29.4 12.7 24 4.6z" fill="#fff" opacity=".22"/>
+          <g fill="#FDF7F3" opacity=".95">
+            <rect x="26.8" y="16" width="2.4" height="10.4" rx="1.2"/>
+            <circle cx="24.2" cy="26.8" r="4.1"/>
+            <rect x="28.6" y="13.6" width="5.6" height="2.6" rx="1.3" transform="rotate(12 31.4 14.9)"/>
+          </g>
+        </svg>
+        <div class="splash__word">AFEIFEI</div>
+        <div class="splash__sub">少女乐队后台 · 音乐播放器</div>
+      </div>
+
+      <div class="splash__rail">
+        <div class="splash__slide">
+          <span class="splash__guitar">
+            <svg viewBox="0 0 116 60" width="124" height="62" fill="currentColor" aria-hidden="true">
+              <g>
+                <circle cx="34" cy="34" r="16"/>
+                <circle cx="19" cy="42" r="11"/>
+                <rect x="44" y="28.6" width="58" height="6.6" rx="3.3" transform="rotate(-7 44 32)"/>
+                <rect x="98" y="20" width="14" height="12" rx="3.4" transform="rotate(-7 105 26)"/>
+              </g>
+              <circle cx="33" cy="34" r="5.6" fill="#FDF7F3"/>
+              <rect x="53" y="30" width="3" height="3" rx="1.2" fill="#FDF7F3" opacity=".8"/>
+              <rect x="62" y="30" width="3" height="3" rx="1.2" fill="#FDF7F3" opacity=".8"/>
+            </svg>
+          </span>
+        </div>
+        <span class="splash__spark"></span>
+      </div>
+
+      <div class="splash__bar"><i></i><b></b></div>
+    </div>
+  </div>
+
+  <script>
+    /* 首帧就把主题定对（避免亮闪），并接管启动层的退场节奏 */
+    (function () {
+      var root = document.documentElement;
+      var S = "afeifei.v31.";
+      function rd(k) { try { var v = localStorage.getItem(S + k); return v == null ? null : JSON.parse(v); } catch (e) { return null; } }
+      var q;
+      try { q = new URLSearchParams(location.search); } catch (e) { q = { get: function () { return null; } }; }
+
+      var pref = q.get("theme") || rd("theme") || "light";
+      var dark = pref === "dark" || (pref === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      root.dataset.theme = dark ? "dark" : "light";
+      root.style.colorScheme = dark ? "dark" : "light";
+      var mo = q.get("motion") || rd("motion");
+      if (mo) root.dataset.motion = mo;
+
+      var node = document.getElementById("splash");
+      if (!node) return;
+      var tpl = node.cloneNode(true);
+
+      function hide(target, started) {
+        var wait = Math.max(0, 1650 - (performance.now() - started));
+        setTimeout(function () {
+          target.classList.add("is-done");
+          setTimeout(function () { if (target.parentNode) target.parentNode.removeChild(target); }, 560);
+        }, wait);
+      }
+
+      window.__bootDone = function () {};
+      window.__splashReplay = function () {
+        var n = tpl.cloneNode(true);
+        document.body.appendChild(n);
+        hide(n, performance.now());
+      };
+
+      if (q.get("boot") === "0") { node.parentNode.removeChild(node); return; }
+
+      var t0 = performance.now(), hid = false;
+      window.__bootDone = function () { if (hid) return; hid = true; hide(node, t0); };
+      setTimeout(window.__bootDone, 4200);
+
+    })();
+  </script>
+
+  <div id="root"></div>
+
+  <script src="js/compiled/data.js"></script>
+  <script src="js/compiled/icons.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/compiled/ui.js"></script>
+  <script src="js/compiled/anime.js"></script>
+  <script src="js/compiled/Sidebar.js"></script>
+  <script src="js/compiled/icons4.js"></script>
+  <script src="js/compiled/TrackTable.js"></script>
+  <script src="js/compiled/Auth.js"></script>
+  <script src="js/compiled/Discover.js"></script>
+  <script src="js/compiled/Playlists.js"></script>
+  <script src="js/compiled/Likes.js"></script>
+  <script src="js/compiled/LocalFiles.js"></script>
+  <script src="js/compiled/Search.js"></script>
+  <script src="js/compiled/RowMenu.js"></script>
+  <script src="js/compiled/Extras.js"></script>
+  <script src="js/compiled/Archive.js"></script>
+  <script src="js/compiled/Wander.js"></script>
+  <script src="js/compiled/Settings.js"></script>
+  <script src="js/compiled/NowPlaying.js"></script>
+  <script src="js/compiled/MiniPlayer.js"></script>
+  <script src="js/compiled/Eggs.js"></script>
+  <script src="js/compiled/Studio.js"></script>
+  <script src="js/compiled/PlaylistEditor.js"></script>
+  <script src="js/compiled/History.js"></script>
+  <script src="js/compiled/Shortcuts.js"></script>
+  <script src="js/compiled/LyricWall.js"></script>
+  <script src="js/compiled/SourceSwap.js"></script>
+  <script src="js/compiled/ScanLogin.js"></script>
+  <script src="js/compiled/Perf.js"></script>
+  <script src="js/compiled/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+/* ============================================================
+   AFEIFEI · 首屏启动层（React 之前的纯 HTML/CSS 版本）
+   动画只用 transform / clip-path / opacity，全部交给合成器，
+   这样即使 React 正在挂载、主线程被占，它也不会卡帧。
+   ============================================================ */
+#splash{
+  position:fixed;inset:0;z-index:300;
+  display:grid;place-items:center;
+  background:#FDF7F3;
+  transition:opacity .5s cubic-bezier(.22,.61,.36,1);
+  will-change:opacity;
+  contain:strict;
+}
+:root[data-theme="dark"] #splash{background:#1D1721}
+#splash.is-done{opacity:0;pointer-events:none}
+
+.splash__inner{width:min(520px,70vw);text-align:center}
+
+.splash__logo{
+  display:flex;flex-direction:column;align-items:center;
+  animation:splashFade .4s cubic-bezier(.22,.61,.36,1) both;
+}
+.splash__word{
+  margin-top:12px;
+  font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
+  font-size:15px;letter-spacing:.42em;padding-left:.42em;
+  color:#3D2B39;
+}
+:root[data-theme="dark"] .splash__word{color:#F3E9EF}
+.splash__sub{
+  margin-top:6px;
+  font-family:var(--font-hand,"ZCOOL KuaiLe",cursive);
+  font-size:11px;letter-spacing:.2em;
+  color:#A08B99;
+}
+
+.splash__rail{
+  position:relative;height:56px;margin-top:34px;
+  border-bottom:1.5px dashed #D9C6D2;
+}
+:root[data-theme="dark"] .splash__rail{border-bottom-color:#3E3242}
+
+/* 整条轨道平移（= 吉他手滑过），只动 transform */
+.splash__slide{
+  position:absolute;left:0;right:0;top:0;bottom:0;
+  transform:translate3d(-12%,0,0);
+  will-change:transform;
+  animation:splashSlide 1050ms cubic-bezier(.65,0,.35,1) 100ms both;
+}
+.splash__guitar{
+  position:absolute;left:0;bottom:3px;color:#E2478F;
+  transform-origin:50% 55%;
+  will-change:transform;
+  animation:splashTilt 1050ms cubic-bezier(.65,0,.35,1) 100ms both;
+}
+.splash__guitar svg{display:block}
+
+.splash__spark{
+  position:absolute;bottom:-2px;left:56%;width:5px;height:5px;border-radius:50%;
+  background:#FFD166;opacity:0;will-change:transform,opacity;
+  animation:splashSpark .5s cubic-bezier(.22,.61,.36,1) 1020ms both;
+}
+
+.splash__bar{
+  position:relative;margin-top:16px;height:2px;border-radius:99px;
+  background:#F0E2EA;overflow:hidden;
+}
+:root[data-theme="dark"] .splash__bar{background:#382C3D}
+/* 渐变整条先画好，再让一块“遮挡板”滑开 —— 全程 transform，合成器跑 */
+.splash__bar{position:relative;overflow:hidden}
+.splash__bar i{
+  position:absolute;inset:0;display:block;
+  background:linear-gradient(90deg,#FF6B9D,#B8A9E8 55%,#7EC8E3);
+}
+.splash__bar b{
+  position:absolute;inset:0;display:block;background:#F0E2EA;
+  will-change:transform;
+  transform:translate3d(0,0,0);
+  animation:splashBar 1150ms cubic-bezier(.22,.61,.36,1) 100ms both;
+}
+:root[data-theme="dark"] .splash__bar b{background:#382C3D}
+
+@keyframes splashFade{from{opacity:0}to{opacity:1}}
+@keyframes splashSlide{
+  0%{transform:translate3d(-12%,0,0)}
+  62%{transform:translate3d(48%,0,0)}
+  78%{transform:translate3d(52%,0,0)}
+  100%{transform:translate3d(56%,0,0)}
+}
+@keyframes splashTilt{
+  0%{transform:rotate(-16deg)}
+  62%{transform:rotate(-4deg)}
+  78%{transform:rotate(2deg)}
+  100%{transform:rotate(-2deg)}
+}
+@keyframes splashSpark{
+  0%{opacity:0;transform:scale(.2)}
+  45%{opacity:1;transform:scale(1.8)}
+  100%{opacity:0;transform:scale(.6) translateY(-16px)}
+}
+@keyframes splashBar{
+  from{transform:translate3d(0,0,0)}
+  to{transform:translate3d(101%,0,0)}
+}
+
+/* 动效关闭 / 系统减少动效：直接给出终点状态 */
+:root[data-motion="off"] .splash__slide,
+:root[data-motion="off"] .splash__guitar,
+:root[data-motion="off"] .splash__spark,
+:root[data-motion="off"] .splash__bar b{animation:none;transform:translate3d(101%,0,0)}
+:root[data-motion="off"] .splash__slide{transform:translate3d(56%,0,0)}
+:root[data-motion="off"] .splash__guitar{transform:rotate(-2deg)}
+:root[data-motion="off"] .splash__bar i{clip-path:none}
+
+@media (prefers-reduced-motion:reduce){
+  .splash__slide,.splash__guitar,.splash__spark,.splash__bar b{animation:none}
+  .splash__slide{transform:translate3d(56%,0,0)}
+  .splash__guitar{transform:rotate(-2deg)}
+  .splash__bar b{transform:translate3d(101%,0,0)}
+  #splash{transition:none}
+}
