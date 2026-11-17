@@ -48,17 +48,7 @@ const fmtDur = (ms: number): string => {
 };
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-
-const HOT_GRADS = [
-  ["#F05A6B", "#F79A8A"],
-  ["#5BC48A", "#A6E3B8"],
-  ["#5EB6E8", "#9FD8F5"],
-  ["#8B72E8", "#B6A2F6"],
-  ["#38C77E", "#8BE7A8"],
-  ["#E8A05E", "#F6CE9A"],
-  ["#6E86C9", "#AFC0EE"],
-  ["#F06A9B", "#F7AFCB"],
-];
+const HOT_GRADS = 4;
 
 export function DiscoverPage(props: DiscoverPageProps) {
   const af = useAf();
@@ -258,6 +248,33 @@ export function DiscoverPage(props: DiscoverPageProps) {
       ? "正在取今天的推荐…"
       : `来自${sourceName}账号 · ${acct.songs.length} 首 · 每天 06:00 换新`;
   const hot = (acct.songs.length > 0 ? acct.songs : tracks).slice(0, 8);
+  const hotOrigin = acct.songs.length > 0 ? "今日推荐" : selectedList?.name ?? "当前榜单";
+
+  /* 传单墙来自真实播放历史：按天归档，最多三张；没有记录就不摆假海报 */
+  const dayMap = new Map<number, { at: number; ids: string[] }>();
+  for (const h of af.history) {
+    const d = new Date(h.at);
+    d.setHours(0, 0, 0, 0);
+    const key = d.getTime();
+    const row = dayMap.get(key);
+    if (row) row.ids.push(h.id);
+    else dayMap.set(key, { at: key, ids: [h.id] });
+  }
+  const flyerDays = [...dayMap.values()]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 3)
+    .map((g) => {
+      const d = new Date(g.at);
+      const first = g.ids[0] ? af.resolveTrack(g.ids[0]) : null;
+      return {
+        key: g.at,
+        day: pad(d.getDate()),
+        mon: MONTHS[d.getMonth()],
+        count: g.ids.length,
+        title: first?.title ?? "一场没有留下曲名的排练",
+        cover: first?.cover ?? null,
+      };
+    });
 
   return (
     <div className="page disc" data-screen-label="发现">
@@ -394,8 +411,8 @@ export function DiscoverPage(props: DiscoverPageProps) {
               <div className="toplists scroll-x disc-strip" role="list" aria-label="榜单目录">
                 {lists.map((list, i) => (
                   <button key={list.id} role="listitem" className={"top-card" + (pick === list.id ? " is-active" : "")} onClick={() => { setPick(list.id); void loadTracks(list.id, 0); }} title={list.name}>
-                    <span className="top-card__art" style={{ background: `linear-gradient(150deg,${HOT_GRADS[i % HOT_GRADS.length][0]},${HOT_GRADS[i % HOT_GRADS.length][1]})` }}>
-                      <IconPlay size={15} style={{ opacity: 0.5, color: "#fff", position: "relative", zIndex: 1 }} />
+                    <span className={"top-card__art g" + (i % HOT_GRADS)}>
+                      <IconPlay size={15} style={{ opacity: 0.5, color: "var(--on-accent)", position: "relative", zIndex: 1 }} />
                       <b>{list.name}</b>
                       <span className="top-card__no">{pad(i + 1)}</span>
                     </span>
@@ -439,55 +456,68 @@ export function DiscoverPage(props: DiscoverPageProps) {
             </>
           ) : null}
 
-          <div className="disc__sect">
-            <h2 className="sect-title">热门推荐<span>HOT TRACKS</span></h2>
-            <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>这周被搜得最多的几首</span>
-          </div>
-          <div className="hot-cards">
-            {hot.slice(0, 2).map((t, i) => (
-              <button key={t.sourceId + i} className="hot-card" onClick={() => { void props.onPlay(sourceId, t, hot, "热门推荐"); af.openPlayer(); }}>
-                {t.coverUrl ? <img className="hot-card__img" src={t.coverUrl} alt="" referrerPolicy="no-referrer" /> : <span className="hot-card__img" style={{ display: "grid", placeItems: "center" }}><TrackArt id={t.sourceId} size={62} radius={10} /></span>}
-                <span className="hot-card__body">
-                  <span className="hot-card__kicker">HOT · {pad(i + 1)}</span>
-                  <span className="hot-card__title truncate">{t.title}</span>
-                  <span className="hot-card__meta truncate">{t.artist} · {t.album}</span>
-                </span>
-                <span className="hot-card__play"><IconPlay size={14} /></span>
-              </button>
-            ))}
-          </div>
+          {hot.length > 0 ? (
+            <>
+              <div className="disc__sect">
+                <h2 className="sect-title">今日再听<span>HOT TRACKS</span></h2>
+                <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>从{hotOrigin}里挑的几首</span>
+              </div>
+              <div className="hot-cards">
+                {hot.slice(0, 2).map((t, i) => (
+                  <button key={t.sourceId + i} className="hot-card" onClick={() => { void props.onPlay(sourceId, t, hot, hotOrigin); af.openPlayer(); }}>
+                    {t.coverUrl ? <img className="hot-card__img" src={t.coverUrl} alt="" referrerPolicy="no-referrer" /> : <span className="hot-card__img" style={{ display: "grid", placeItems: "center" }}><TrackArt id={t.sourceId} size={62} radius={10} /></span>}
+                    <span className="hot-card__body">
+                      <span className="hot-card__kicker">HOT · {pad(i + 1)}</span>
+                      <span className="hot-card__title truncate">{t.title}</span>
+                      <span className="hot-card__meta truncate">{t.artist} · {t.album}</span>
+                    </span>
+                    <span className="hot-card__play"><IconPlay size={14} /></span>
+                  </button>
+                ))}
+              </div>
 
-          <AfTrackTable
-            items={hot.map(toAf)}
-            onPlay={(i) => { const t = hot[i]; if (t) { void props.onPlay(sourceId, t, hot, "热门推荐"); af.openPlayer(); } }}
-            sourceLabel={sourceName}
-          />
+              <AfTrackTable
+                items={hot.map(toAf)}
+                onPlay={(i) => { const t = hot[i]; if (t) { void props.onPlay(sourceId, t, hot, hotOrigin); af.openPlayer(); } }}
+                sourceLabel={sourceName}
+              />
+            </>
+          ) : null}
 
           <div className="disc__sect">
             <h2 className="sect-title">传单墙<span>FLYERS</span></h2>
             <button className="btn btn-ghost btn-sm" onClick={() => af.setPage("archive")}>全部演出<IconArrowRight size={14} /></button>
           </div>
-          <div className="flyers flyers--compact">
-            {[0, 1, 2].map((i) => {
-              const grads = [["#FF9EBB", "#B8A9E8"], ["#7EC8E3", "#B8A9E8"], ["#FFD166", "#FF9EBB"]];
-              return (
-                <div key={i} style={{ position: "relative" }}>
+          {flyerDays.length > 0 ? (
+            <div className="flyers flyers--compact">
+              {flyerDays.map((f, i) => (
+                <div key={f.key} style={{ position: "relative" }}>
                   <Tape w={60} rot={-3} style={{ top: -9, left: "50%", marginLeft: -30 }} />
-                  <button className="flyer flyer__rot" style={{ ["--rot" as string]: i === 1 ? "0.9deg" : "-1.2deg" }} onClick={() => { if (tracks[0]) void playChart(tracks[0]); }}>
-                    <span className="flyer__img" style={{ background: `linear-gradient(150deg,${grads[i][0]},${grads[i][1]})` }} />
+                  <button
+                    className="flyer flyer__rot"
+                    style={{ ["--rot" as string]: i === 1 ? "0.9deg" : "-1.2deg" }}
+                    onClick={() => { af.setArchiveFilter("all"); af.setPage("archive"); }}
+                    title={`${f.mon} ${f.day} · ${f.count} 首`}
+                  >
+                    <span
+                      className={"flyer__img flyer__img--g" + (i % 3)}
+                      style={f.cover ? { backgroundImage: `url("${f.cover}")`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                    />
                     <span className="flyer__scrim"></span>
                     <span className="flyer__halftone"></span>
-                    <span className="flyer__tag">{["剩 12 席", "自带耳塞", "别带闪光灯"][i]}</span>
+                    <span className="flyer__tag">{f.count} 首</span>
                     <span className="flyer__body">
-                      <span className="flyer__kicker" style={{ display: "block" }}>ONE NIGHT ONLY · 12.0{i + 5} SAT</span>
-                      <span className="flyer__title" style={{ display: "block" }}>{["一夜限り", "深夜场", "排练公开日"][i]}</span>
-                      <span className="flyer__meta"><span>地下室 B1</span><span style={{ opacity: 0.5 }}>/</span><span>{["19:30 开演", "23:00 开演", "15:00 开始"][i]}</span></span>
+                      <span className="flyer__kicker" style={{ display: "block" }}>{f.mon} {f.day} · SETLIST</span>
+                      <span className="flyer__title" style={{ display: "block" }}>{f.title}</span>
+                      <span className="flyer__meta"><span>已归档</span><span style={{ opacity: 0.5 }}>/</span><span>点开回看</span></span>
                     </span>
                   </button>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="lib-note hand">还没有演出记录。随便播几首，这里就会长出第一张传单。</p>
+          )}
 
           <div className="row gap8" style={{ marginTop: 24 }}>
             <IconSparkle size={13} style={{ color: "var(--pink-400)" }} />

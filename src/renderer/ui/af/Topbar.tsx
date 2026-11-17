@@ -6,7 +6,15 @@ import { sourceShort, sourceTone } from "./data.js";
 import { PillWipe } from "./SourceSwap.js";
 import { TrackArt } from "./art.js";
 import { Tape } from "./ui.js";
-import { GuitarFigure, IconArrowRight, IconSearch } from "./icons.js";
+import { GuitarFigure, IconArrowRight, IconMax, IconMin, IconSearch, IconX } from "./icons.js";
+
+/** 最大化后的“还原”图标：两个错位的方框，和 Windows 的含义一致 */
+const RestoreGlyph = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+    <rect x="3.6" y="1.6" width="6.8" height="6.8" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+    <path d="M1.6 3.6v5.8a1 1 0 0 0 1 1h5.8" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+  </svg>
+);
 
 interface RemoteItem {
   sourceId: string;
@@ -191,7 +199,18 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
 }
 
 export function Topbar() {
-  const { sources, source, switchSource, setPage, tryCode, toast } = useAf();
+  const { sources, source, switchSource, tryCode } = useAf();
+  const [maximized, setMaximized] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void window.api.windowIsMaximized().then((v) => {
+      if (alive) setMaximized(v);
+    });
+    window.api.onWindowMaximized((v) => setMaximized(v));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -210,7 +229,14 @@ export function Topbar() {
   const win = (window as unknown as { api?: { winMinimize?(): void; winMaximize?(): void; winClose?(): void } }).api;
 
   return (
-    <header className="topbar">
+    <header
+      className="topbar"
+      onDoubleClick={(e) => {
+        const el = e.target as HTMLElement;
+        if (el.closest("button, input, .win-ctrl, .searchbox, .src-switch")) return;
+        void window.api.toggleMaximize().then(setMaximized);
+      }}
+    >
       <div className="searchbox">
         <div className="searchbox__field">
           <IconSearch size={15} style={{ color: "var(--text-3)", flex: "none" }} />
@@ -260,17 +286,22 @@ export function Topbar() {
             </button>
           ))}
         </div>
-
-        <button
-          className="topbar__avatar"
-          title="设置 / 账号"
-          onClick={() => {
-            setPage("settings");
-            toast("账号与音源都在设置里。", { hand: true });
-          }}
-        >
-          a
-        </button>
+        <div className="win-ctrl" aria-label="窗口控制">
+          <button type="button" title="最小化" aria-label="最小化" onClick={() => void window.api.minimizeWindow()}>
+            <IconMin size={14} />
+          </button>
+          <button
+            type="button"
+            title={maximized ? "还原" : "最大化"}
+            aria-label={maximized ? "还原" : "最大化"}
+            onClick={() => void window.api.toggleMaximize().then(setMaximized)}
+          >
+            {maximized ? <RestoreGlyph /> : <IconMax size={12} />}
+          </button>
+          <button type="button" title="关闭" aria-label="关闭" onClick={() => void window.api.closeWindow()}>
+            <IconX size={14} />
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -1,5 +1,5 @@
 /* AFEIFEI 二次元表现层与独立窗口组件
-   OnomaLayer / FocusLines / MascotWalk / EggLayer / DemoPanel / LyricsBar / MiniCard / Auth
+   OnomaLayer / FocusLines / MascotWalk / EggLayer / DemoPanel / Auth
    从 offline_single/js/anime.jsx、Eggs.jsx、Extras.jsx、Auth.jsx 移植。 */
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -9,11 +9,6 @@ import {
   GuitarFigure,
   IconArrowRight,
   IconCheck,
-  IconMax,
-  IconNext,
-  IconNote,
-  IconPrev,
-  IconQueue,
   IconX,
   InstBass,
   InstDrum,
@@ -23,11 +18,11 @@ import {
   Silhouette,
   IconPick,
 } from "./icons.js";
-import { PlayGlyph, Tape } from "./ui.js";
+import { Tape } from "./ui.js";
 import { usePref } from "./prefs.js";
 import { Sound } from "./sound.js";
-import { usePosition } from "./use-position.js";
 import { lyricState, subscribeLyric } from "../lyric-source.js";
+import { hashStr } from "./art.js";
 
 export interface OnomaItem {
   id: string;
@@ -213,164 +208,40 @@ export function DemoPanel() {
   );
 }
 
-/* ---------- 桌面歌词条 ---------- */
-export function LyricsBar() {
-  const api = useAf();
-  const { track, setLyricsBar } = api;
-  const { pos } = usePosition(api);
-  const lines = useLyricLines();
-  const KEY = "afeifei.v42.lyricbar";
-  const read = (): { x?: number; y?: number; scale?: number } => {
-    try {
-      return JSON.parse(localStorage.getItem(KEY) || "{}") as { x?: number; y?: number; scale?: number };
-    } catch {
-      return {};
-    }
-  };
-  const [box, setBox] = useState(() => read());
-  const [scale, setScale] = useState(() => read().scale || 1);
-  const [dragging, setDragging] = useState(false);
-  const dragRef = useRef<{ dx: number; dy: number; w: number; h: number } | null>(null);
-  const persist = (next: { x?: number; y?: number; scale: number }): void => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* 隐私模式忽略 */
-    }
-  };
-
-  let cur = 0;
-  const ms = pos * 1000;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (lines[i]!.startMs <= ms) cur = i;
-    else break;
-  }
-  const start = lines[cur]?.startMs ?? 0;
-  const end = lines[cur + 1]?.startMs ?? start + 4000;
-  const p = Math.max(0, Math.min(1, (ms - start) / Math.max(1, end - start))) * 100;
-  const now = lines[cur]?.text ?? "暂无歌词";
-  const next = lines[cur + 1]?.text ?? "";
-
-  const onDown = (e: React.PointerEvent<HTMLDivElement>): void => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    dragRef.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, w: r.width, h: r.height };
-    setDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  const onMove = (e: React.PointerEvent<HTMLDivElement>): void => {
-    const d = dragRef.current;
-    if (!d) return;
-    const x = Math.max(8, Math.min(window.innerWidth - d.w - 8, e.clientX - d.dx));
-    const y = Math.max(8, Math.min(window.innerHeight - d.h - 8, e.clientY - d.dy));
-    setBox({ x, y, scale });
-  };
-  const onUp = (): void => {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    setDragging(false);
-    setBox((b) => {
-      persist({ ...b, scale });
-      return b;
-    });
-  };
-  const setSize = (d: number): void => {
-    const next = Math.max(0.85, Math.min(1.5, Math.round((scale + d) * 100) / 100));
-    setScale(next);
-    setBox((b) => {
-      persist({ ...b, scale: next });
-      return b;
-    });
-  };
-
-  const style = {
-    ["--lb-fs" as string]: scale,
-    left: box.x != null ? box.x + "px" : undefined,
-    top: box.x != null ? box.y + "px" : undefined,
-    right: box.x != null ? "auto" : undefined,
-    bottom: box.x != null ? "auto" : undefined,
-  };
-
-  return (
-    <div
-      className={"lyricbar" + (dragging ? " is-dragging" : "")}
-      style={style}
-      role="status"
-      aria-label="桌面歌词"
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-    >
-      <span className="lyricbar__grip" title="拖动改变位置"><IconQueue size={13} /></span>
-      <span className="lyricbar__badge"><IconNote size={12} />桌面歌词</span>
-      <div className="lyricbar__stage">
-        <span className="lyricbar__cur" key={cur} style={{ fontSize: 19 * scale + "px" }}>
-          {now}
-          <span className="lyricbar__fill" style={{ ["--p" as string]: p + "%", fontSize: 19 * scale + "px" }} aria-hidden="true">{now}</span>
-        </span>
-        <span className="lyricbar__next">{next}</span>
-      </div>
-      <div className="lyricbar__tools">
-        <button onClick={() => setSize(-0.08)} title="缩小字号">A-</button>
-        <button onClick={() => setSize(0.08)} title="放大字号">A+</button>
-      </div>
-      <button className="lyricbar__close" onClick={() => setLyricsBar(false)} title="关闭桌面歌词" aria-label="关闭桌面歌词">
-        <IconX size={14} />
-      </button>
-    </div>
-  );
-}
-
-/* ---------- 迷你模式 ---------- */
-export function MiniCard() {
-  const api = useAf();
-  const { track, playing, setPlaying, userSkip, setMiniMode, source, onoma, isLiked, toggleLike } = api;
-  const { pos, dur } = usePosition(api);
-  const pct = dur > 0 ? Math.min(100, (pos / dur) * 100) : 0;
-  const liked = isLiked(track);
-  return (
-    <div className="mini-stage" data-screen-label="迷你模式">
-      <div className="mini-stage__wall">
-        <span className="mini-stage__mark">AFEIFEI</span>
-        <span className="mini-stage__hint hand">窗口收拢成一张便签 · 点右上角展开</span>
-        <span className="mini-stage__note">真实客户端会收成一个无边框置顶小窗；原型内为样式演示。</span>
-      </div>
-      <div className="mini-card" role="region" aria-label="迷你播放器">
-        <button className="mini-card__art" onClick={() => setMiniMode(false)} title="展开完整窗口">
-          {track.cover ? <img src={track.cover} alt="" /> : <span style={{ display: "grid", placeItems: "center", height: "100%" }}><IconPick size={22} /></span>}
-          {playing && <span className="mini-card__glow"></span>}
-        </button>
-        <div className="mini-card__body">
-          <span className="mini-card__title truncate">{track.title}</span>
-          <span className="mini-card__artist truncate">
-            {track.artist}
-            <span className="mini-card__src" style={{ color: sourceTone(source) }}>{sourceShort(source)}</span>
-          </span>
-        </div>
-        <div className="mini-card__ctrl">
-          <button onClick={() => userSkip("prev")} title="上一首" aria-label="上一首"><IconPrev size={15} /></button>
-          <button className="mini-card__play" onClick={() => setPlaying(!playing)} title={playing ? "暂停" : "播放"} aria-label={playing ? "暂停" : "播放"}>
-            <PlayGlyph playing={playing} size={14} />
-          </button>
-          <button onClick={() => userSkip("next")} title="下一首" aria-label="下一首"><IconNext size={15} /></button>
-          <button
-            onClick={() => { onoma("ポンッ", { tone: "coral", x: window.innerWidth - 120, y: window.innerHeight - 120 }); toggleLike(track); }}
-            className={liked ? "is-on" : ""}
-            title="喜欢"
-            aria-label="喜欢"
-          >
-            {liked ? <IconCheck size={14} /> : <IconPick size={14} />}
-          </button>
-          <button onClick={() => setMiniMode(false)} title="展开完整窗口" aria-label="展开完整窗口"><IconMax size={13} /></button>
-        </div>
-        <div className="mini-card__line" title="播放进度"><i style={{ width: pct + "%" }} /></div>
-      </div>
-    </div>
-  );
-}
-
 /* ---------- 入场登记 ---------- */
+/** 程序化二维码：11×11 确定性点阵 + 三个定位角，原型同款 */
+function FakeQR({ seed = "afeifei", size = 96 }: { seed?: string; size?: number }) {
+  const n = 11;
+  const h = hashStr(seed);
+  const cells: [number, number][] = [];
+  for (let y = 0; y < n; y += 1) {
+    for (let x = 0; x < n; x += 1) {
+      const finder = (x < 4 && y < 4) || (x > n - 5 && y < 4) || (x < 4 && y > n - 5);
+      if (finder) continue;
+      if ((h >>> ((x * 5 + y * 7) % 29)) & 1) cells.push([x, y]);
+    }
+  }
+  const Finder = ({ fx, fy }: { fx: number; fy: number }) => (
+    <g>
+      <rect x={fx} y={fy} width="4" height="4" rx="1" />
+      <rect x={fx + 1} y={fy + 1} width="2" height="2" fill="var(--card)" />
+    </g>
+  );
+  return (
+    <svg className="auth-src__qr" width={size} height={size} viewBox={`0 0 ${n} ${n}`} aria-hidden="true">
+      <rect width={n} height={n} fill="var(--card)" />
+      <g fill="var(--text)">
+        {cells.map(([x, y], i) => (
+          <rect key={i} x={x} y={y} width="1" height="1" />
+        ))}
+        <Finder fx={0} fy={0} />
+        <Finder fx={n - 4} fy={0} />
+        <Finder fx={0} fy={n - 4} />
+      </g>
+    </svg>
+  );
+}
+
 export function Auth() {
   const { sources, accounts, loggedIn, loginFor, toast } = useAf();
   const [entered, setEntered] = usePref("entered", false);
@@ -404,7 +275,7 @@ export function Auth() {
                 </span>
                 <span className="auth-src__body">
                   <span className="auth-src__qr" style={{ display: "grid", placeItems: "center", color: "var(--text-3)" }}>
-                    <IconNote size={34} />
+                    <FakeQR seed={src.id + "afeifei"} size={94} />
                   </span>
                   <span className="auth-src__meta">
                     {on ? (

@@ -298,7 +298,7 @@ async function main() {
   assert.ok(await app.waitFor(`document.querySelector(".disc-hero") !== null`, 5000), "发现页没出来");
 
   // 音源切换已收进设置页账号卡：注册表接没接上，从那里看
-  await app.evaluate(`document.querySelector('.side-item[data-page="settings"]')?.click()`);
+  await app.evaluate(`document.querySelector('[data-page="settings"]')?.click()`);
   const settingsProbe = await app.waitFor(`document.querySelector(".acct-card") !== null`, 3000);
   if (!settingsProbe) {
     const dbg = await app.evaluate(`({
@@ -326,15 +326,22 @@ async function main() {
   /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在「更多」弹层内联段里，且真的落到状态 ---- */
   // 2026-11-13 工具排 8→5：睡眠入口收进「更多」弹层（先开弹层，段类不变）
   await app.evaluate(`${btnBy(["更多"])}.click()`);
-  assert.ok(await app.waitFor(`!!document.querySelector(".sleep-wait input")`, 3000), "更多弹层应有「播完当前曲再停」勾选");
-  await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`);
-  assert.equal(await app.evaluate(`document.querySelector(".sleep-wait input")?.checked`), true, "勾上后应保持选中");
-  await app.evaluate(`document.querySelector(".sleep-wait input")?.click()`); // 复原，别把偏好写进存档
+  assert.ok(
+    await app.waitFor(`!!document.querySelector(".more-sheet .more-switch input")`, 3000),
+    "更多弹层应有「播完当前曲再停」开关",
+  );
+  await app.evaluate(`document.querySelector(".more-sheet .more-switch input")?.click()`);
+  assert.equal(
+    await app.evaluate(`document.querySelector(".more-sheet .more-switch input")?.checked`),
+    true,
+    "打开后应保持选中",
+  );
+  await app.evaluate(`document.querySelector(".more-sheet .more-switch input")?.click()`); // 复原，别把偏好写进存档
   await app.evaluate(`${btnBy(["更多"])}.click()`);
   console.log("  睡眠定时 OK：播完当前曲再停可选");
 
   /* ---- 设置页：输出设备 / 快捷键区块已随新原型移除 ---- */
-  await app.evaluate(`document.querySelector('.side-item[data-page="settings"]')?.click()`);
+  await app.evaluate(`document.querySelector('[data-page="settings"]')?.click()`);
   await sleep(300);
   console.log("  SKIP 输出设备/快捷键设置区块：新设置页已移除");
 
@@ -507,20 +514,38 @@ async function main() {
     assert.ok(phaseText.length > 0, "播放条的阶段文案不能是空");
     console.log(`  三态 OK：刻纹占位 + 阶段「${phaseText}」`);
 
-    /* 迷你窗（P0-27）：封面位 + 歌词行 + 可拖进度 */
+    /* 迷你窗（P0-27）：化妆镜 / 拍立得封面 / 可拖进度 / 走带 */
     await app2.evaluate(`window.api.openMini()`);
     const miniWin = await evaluateInWindow(
       "mini.html",
       `({
-        seek: !!document.querySelector(".mini-seek"),
-        art: !!document.querySelector(".mini-art"),
-        btns: document.querySelectorAll(".mini-btns button").length,
+        seek: !!document.querySelector(".mirror__range"),
+        art: !!document.querySelector(".mirror__photo"),
+        btns: document.querySelectorAll(".mirror__ops button").length,
+        close: !!document.querySelector(".mirror__close"),
+        setlist: !!document.querySelector(".mirror__setlist"),
+        bulbs: document.querySelectorAll(".mirror__bulb").length,
       })`,
     );
     assert.ok(miniWin?.seek, "迷你窗应有可拖进度条（P0-27）");
-    assert.ok(miniWin?.art, "迷你窗应有封面位");
-    assert.ok(miniWin?.btns >= 4, `迷你窗应有 4 个控制键，实际 ${miniWin?.btns}`);
-    console.log("  迷你窗 OK：封面 + 歌词 + 可拖进度 + 控制键");
+    assert.ok(miniWin?.art, "迷你窗应有封面位（拍立得）");
+    assert.ok(miniWin?.btns >= 6, `迷你窗走带应有 6 个键，实际 ${miniWin?.btns}`);
+    assert.ok(miniWin?.close, "迷你窗应有独立关闭键");
+    assert.ok(miniWin?.setlist, "迷你窗应显示 SETLIST / 状态行");
+    assert.equal(miniWin?.bulbs, 10, `化妆镜应有一圈 10 颗灯泡，实际 ${miniWin?.bulbs}`);
+    console.log("  迷你窗 OK：化妆镜 + 拍立得 + 可拖进度 + 走带");
+
+    /* 迷你窗红心要真的落到主窗：桥只发意图，写者仍是 store / 红心域 */
+    const likedBefore = await app2.evaluate(`document.querySelector(".bar__heart")?.classList.contains("is-on") ?? null`);
+    const likeClicked = await evaluateInWindow(
+      "mini.html",
+      `(() => { const b = document.querySelector(".mirror__like"); if (!b) return false; b.click(); return true; })()`,
+    );
+    assert.ok(likeClicked, "迷你窗应有红心键");
+    await sleep(500);
+    const likedAfter = await app2.evaluate(`document.querySelector(".bar__heart")?.classList.contains("is-on") ?? null`);
+    assert.notEqual(likedAfter, likedBefore, "迷你窗红心应同步到底栏，而不是只改本地小窗");
+    console.log("  迷你窗红心 OK：意图回到主窗，底栏同步");
 
     /* 播放页（新原型）：底栏封面 → 全屏 .np → 收起 */
     await app2.evaluate(`document.querySelector(".bar__cover-btn")?.click()`);

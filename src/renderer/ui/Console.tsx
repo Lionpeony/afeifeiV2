@@ -25,6 +25,7 @@ import {
   IconQueue,
   IconRepeat,
   IconRepeatOne,
+  IconSettings,
   IconShuffle,
   IconVolume,
 } from "./af/icons.js";
@@ -61,9 +62,7 @@ export function Console(props: {
   sleepPending: boolean;
   page: PageId;
   queueOpen: boolean;
-  fxOpen: boolean;
   setQueueOpen: Dispatch<SetStateAction<boolean>>;
-  setFxOpen: Dispatch<SetStateAction<boolean>>;
   setPage: (page: PageId) => void;
   toggleCurrentLike: () => void;
   timeEl: RefObject<HTMLSpanElement | null>;
@@ -71,7 +70,6 @@ export function Console(props: {
   barEl: RefObject<HTMLInputElement | null>;
   tipEl: RefObject<HTMLSpanElement | null>;
   sleepEl: RefObject<HTMLSpanElement | null>;
-  ringEl: RefObject<SVGCircleElement | null>;
   dragging: RefObject<boolean>;
   services: RefObject<Services | null>;
 }): React.JSX.Element {
@@ -97,9 +95,7 @@ export function Console(props: {
     sleepPending,
     page,
     queueOpen,
-    fxOpen,
     setQueueOpen,
-    setFxOpen,
     setPage,
     toggleCurrentLike,
     timeEl,
@@ -244,6 +240,9 @@ export function Console(props: {
         <div className="bar__seek">
           <span ref={timeEl} className="bar__time">0:00</span>
           <div className="bar__seek-track">
+            <b className="bar__seek-buffer" aria-hidden="true" />
+            <i className="bar__seek-fill" aria-hidden="true" />
+            <span className="bar__seek-knob" aria-hidden="true" />
             <input
               ref={barEl}
               className={"bar__range" + (playing ? " playing" : "")}
@@ -286,7 +285,7 @@ export function Console(props: {
                 const duration = services.current?.engine.durationMs() ?? 0;
                 if (timeEl.current) timeEl.current.textContent = fmt(v);
                 const pct = duration > 0 ? Math.min(100, (v / duration) * 100) : 0;
-                e.currentTarget.style.setProperty("--fill", `${pct.toFixed(2)}%`);
+                e.currentTarget.parentElement?.style.setProperty("--fill", `${pct.toFixed(2)}%`);
               }}
             />
             <span ref={tipEl} className="bar__seek-tip" aria-hidden="true" />
@@ -320,15 +319,33 @@ export function Console(props: {
         <span className="bar__sep" />
         <button
           type="button"
-          className={"bar__icon" + (af.lyricsBar ? " is-on" : "")}
-          onClick={() => af.setLyricsBar(!af.lyricsBar)}
-          title="桌面歌词"
-          aria-pressed={af.lyricsBar}
+          className="bar__icon"
+          onClick={() => {
+            void window.api.toggleLyric().then((r) => {
+              if (r === "unlocked") toast("桌面歌词已解锁，可以拖动和调字号了", "info");
+            });
+          }}
+          title="桌面歌词（锁定时第一下 = 解锁，第二下 = 关闭）"
         >
           <IconNote size={17} />
         </button>
-        <button type="button" className="bar__icon" onClick={() => af.setMiniMode(true)} title="迷你模式">
+        {/* 迷你 / 悬浮：真正的无边框置顶窗；与 QQ/网易云悬浮窗同一类东西 */}
+        <button
+          type="button"
+          className="bar__icon"
+          onClick={() => void window.api.toggleMini()}
+          title="迷你 / 悬浮窗（K）"
+        >
           <IconMin size={17} />
+        </button>
+        <button
+          type="button"
+          className={"bar__icon" + (af.studio ? " is-on" : "")}
+          onClick={() => af.setStudio({ tab: "eq" })}
+          title="排练室 · 定时 / 音质 / EQ（E）"
+          aria-expanded={Boolean(af.studio)}
+        >
+          <IconSettings size={17} />
         </button>
         <button
           type="button"
@@ -354,51 +371,93 @@ export function Console(props: {
         </button>
       </div>
 
-      <div className={"vol-pop more-pop" + (sleepEndsAt || sleepPending ? " armed" : "")} role="dialog" aria-label="更多" hidden={!moreOpen}>
-        <p className="more-cap">播放</p>
-        <p className="sleep-now">
-          {sleepPending ? "已到点 · 这首播完就停" : sleepEndsAt ? (sleepWaitEnd ? "定时中 · 播完当前曲停" : "定时中 · 到点自动暂停") : "到点只暂停，不退出"}
-        </p>
-        <label className="sleep-wait">
-          <input type="checkbox" checked={sleepWaitEnd} onChange={(e) => dispatch({ type: "sleep/setWaitEnd", waitEnd: e.target.checked })} />
-          <span>播完当前曲再停</span>
-        </label>
-        <div className="sleep-opts">
-          {SLEEP_OPTIONS.map((m) => (
-            <button key={m} type="button" onClick={() => { dispatch({ type: "sleep/set", endsAt: Date.now() + m * 60000 }); setMoreOpen(false); }}>
-              {m} 分钟
-            </button>
-          ))}
-          <button type="button" disabled={!sleepEndsAt} onClick={() => { dispatch({ type: "sleep/clear" }); setMoreOpen(false); }}>
-            取消
+      <div
+        className={"more-sheet" + (sleepEndsAt || sleepPending ? " is-armed" : "")}
+        role="dialog"
+        aria-label="更多"
+        hidden={!moreOpen}
+      >
+        <i className="more-tape" aria-hidden="true" />
+
+        <div className="more-head">
+          <p className="more-eyebrow">SIDE STAGE · 台侧备忘</p>
+          <button type="button" className="more-x" onClick={() => setMoreOpen(false)} aria-label="关闭更多面板">
+            ✕
           </button>
         </div>
-        <p className="more-cap more-cap-rate">播放速度{playbackRate !== 1 ? ` · ${playbackRate.toFixed(2)}x` : ""}</p>
-        <div className="rate-opts">
-          {RATE_OPTIONS.map((r) => (
-            <button key={r} type="button" className={playbackRate === r ? "on" : ""} onClick={() => dispatch({ type: "player/setPlaybackRate", rate: r })}>
-              {r.toFixed(2)}x
+        <h3 className="more-title">今晚几点收工？</h3>
+
+        <section className="more-block">
+          <div className="more-rowhead">
+            <span className="more-label">定时关闭</span>
+            <span className={"more-state" + (sleepEndsAt || sleepPending ? " is-on" : "")}>
+              {sleepPending ? "这首完就停" : sleepEndsAt ? (sleepWaitEnd ? "播完这首停" : "到点暂停") : "还没设"}
+            </span>
+          </div>
+          <p className="more-note">到点只暂停，不退出；想听就再点播放。</p>
+          <div className="more-stamps">
+            {SLEEP_OPTIONS.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  dispatch({ type: "sleep/set", endsAt: Date.now() + m * 60000 });
+                  setMoreOpen(false);
+                }}
+              >
+                {m} 分
+              </button>
+            ))}
+            <button
+              type="button"
+              className="more-stamp--ghost"
+              disabled={!sleepEndsAt}
+              onClick={() => {
+                dispatch({ type: "sleep/clear" });
+                setMoreOpen(false);
+              }}
+            >
+              取消
             </button>
-          ))}
-        </div>
-        <label className="rate-pitch">
-          <input type="checkbox" checked={preservesPitch} onChange={(e) => dispatch({ type: "player/setPreservesPitch", on: e.target.checked })} />
-          音调补偿（变速不变调）
-        </label>
-        <button type="button" className="more-row" onClick={() => { af.setStudio({ tab: "eq" }); setMoreOpen(false); }} title="排练室均衡器（E）">
-          打开排练室均衡器 →
-        </button>
-        <p className="more-cap">台侧</p>
-        <button type="button" className="more-row" onClick={() => { af.setStudio({ tab: "sleep" }); setMoreOpen(false); }} title="排练室 · 定时 / 音质 / EQ">
-          排练室 · 定时 / 音质 / EQ
-        </button>
-        <button type="button" className="more-row" onClick={() => { af.setDock(!af.dock); af.setDockPin(true); setMoreOpen(false); }} title="媒体键悬浮控制（K）">
-          {af.dock ? "收起媒体键悬浮控制" : "媒体键悬浮控制（K）"}
-        </button>
-        <p className="more-cap">窗口</p>
-        <button type="button" className="more-row" onClick={() => { void services.current?.openLyric(); setMoreOpen(false); }} title="桌面歌词">
-          桌面歌词
-        </button>
+          </div>
+          <label className="more-switch">
+            <input type="checkbox" checked={sleepWaitEnd} onChange={(e) => dispatch({ type: "sleep/setWaitEnd", waitEnd: e.target.checked })} />
+            <span className="more-switch-dot" aria-hidden="true" />
+            <span>播完当前曲再停</span>
+          </label>
+        </section>
+
+        <span className="more-rule" aria-hidden="true" />
+
+        <section className="more-block">
+          <div className="more-rowhead">
+            <span className="more-label">播放速度</span>
+            <span className={"more-state" + (playbackRate !== 1 ? " is-on" : "")}>{playbackRate.toFixed(2)}x</span>
+          </div>
+          <div className="more-stamps more-stamps--rate">
+            {RATE_OPTIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className={playbackRate === r ? "on" : ""}
+                aria-pressed={playbackRate === r}
+                onClick={() => dispatch({ type: "player/setPlaybackRate", rate: r })}
+              >
+                {r.toFixed(2)}x
+              </button>
+            ))}
+          </div>
+          <label className="more-switch">
+            <input type="checkbox" checked={preservesPitch} onChange={(e) => dispatch({ type: "player/setPreservesPitch", on: e.target.checked })} />
+            <span className="more-switch-dot" aria-hidden="true" />
+            <span>音调补偿（变速不变调）</span>
+          </label>
+        </section>
+
+        <footer className="more-foot">
+          <span>灯灭之前，歌先停。</span>
+          <span className="more-mark" aria-hidden="true">后台</span>
+        </footer>
       </div>
     </footer>
   );

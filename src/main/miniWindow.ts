@@ -33,7 +33,7 @@ const saveGeometry = (): void => {
 };
 
 export function registerMiniIpc(): void {
-  ipcMain.handle("mini:open", async () => {
+  const openMiniWindow = async (): Promise<void> => {
     if (mini && !mini.isDestroyed()) {
       mini.focus();
       return;
@@ -49,11 +49,15 @@ export function registerMiniIpc(): void {
       /* 坏档当没有 */
     }
     mini = new BrowserWindow({
-      width: 420,
-      // 2026-11-10 重设计：封面 64 + 标题/歌词/进度三行 + 上下呼吸（112 会把进度条压到边上）
-      height: 136,
+      width: 320,
+      // P0-27 修「现在太大了」：原来 420×180 是 V1 拍立得票根的尺寸，
+      // 「后台化妆镜」只需要镜面 + 一张便签，320×140 够了。
+      height: 140,
       ...(x !== undefined && y !== undefined ? { x, y } : {}),
       frame: false,
+      transparent: true,
+      hasShadow: false,
+      backgroundColor: "#00000000",
       resizable: false,
       alwaysOnTop: true,
       skipTaskbar: true,
@@ -74,6 +78,12 @@ export function registerMiniIpc(): void {
       mini = null;
     });
     void mini.loadURL("app://afeifei/mini.html");
+  };
+
+  ipcMain.handle("mini:open", openMiniWindow);
+  ipcMain.handle("mini:toggle", () => {
+    if (mini && !mini.isDestroyed()) mini.close();
+    else void openMiniWindow();
   });
 
   /* 迷你窗就绪（2026-11-10 修 BUG）：桥只在 store 变化 / 500ms 节流点推送，

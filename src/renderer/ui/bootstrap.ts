@@ -985,7 +985,9 @@ export async function bootstrap(): Promise<Services> {
 
     spectrum: (bins) => engine.spectrum(bins),
     openMini: () => api.openMini(),
+    toggleMini: () => api.toggleMini(),
     openLyric: () => api.openLyric(),
+    toggleLyric: () => api.toggleLyric(),
     unlockLyric: () => api.unlockLyric(),
 
     exportBackup: () => api.exportBackup(),

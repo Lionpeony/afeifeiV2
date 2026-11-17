@@ -9,13 +9,11 @@ import { bootstrap } from "./bootstrap.js";
 import type { Services } from "./services.js";
 import type { Track } from "../domain/library/schema.js";
 import { onFrame } from "./compositor.js";
-import { EqCurve } from "./EqCurve.js";
 import { Toaster } from "./Toaster.js";
 import { toast } from "./toast.js";
 import type { SourceOption } from "./views/discover/index.js";
 import { DiscoverPage } from "./af/pages/Discover.js";
 import { PlaylistsPage } from "./af/pages/Playlists.js";
-import { StatsView } from "./views/stats/index.js";
 import type { RemoteTrack } from "../../contracts/capability.js";
 import { startMiniBridge } from "./mini-bridge.js";
 import { startLyricBridge } from "./lyric-bridge.js";
@@ -65,7 +63,6 @@ import { ArchivePage } from "./af/pages/Archive.js";
 import { LocalPage } from "./af/pages/Local.js";
 import { DownloadsPage } from "./af/pages/Downloads.js";
 import { StudioDrawer } from "./af/Studio.js";
-import { MediaDock } from "./af/MediaDock.js";
 import { Hotkeys, KeysSheet } from "./af/Keys.js";
 import { PerfHUD } from "./af/PerfHUD.js";
 import { ListEditor } from "./af/ListEditor.js";
@@ -85,7 +82,7 @@ import { Console } from "./Console.js";
 import { AfContext, type AfSource, type AfTrack } from "./af/context.js";
 import { useAfUi } from "./af/use-af.js";
 import { NowPlaying } from "./af/NowPlaying.js";
-import { Auth, DemoPanel, EggLayer, FocusLines, LyricsBar, MascotWalk, MiniCard, OnomaLayer } from "./af/layers.js";
+import { Auth, DemoPanel, EggLayer, FocusLines, MascotWalk, OnomaLayer } from "./af/layers.js";
 import { ScanLogin } from "./af/ScanLogin.js";
 import { RowMenu } from "./af/RowMenu.js";
 import { useSystemReduce, loadPref } from "./af/prefs.js";
@@ -166,7 +163,6 @@ function App() {
       off();
     };
   }, []);
-  const [fxOpen, setFxOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -192,11 +188,7 @@ function App() {
   const barEl = useRef<HTMLInputElement>(null);
   const tipEl = useRef<HTMLSpanElement>(null);
   const sleepEl = useRef<HTMLSpanElement>(null);
-  const ringEl = useRef<SVGCircleElement>(null);
   const dragging = useRef(false);
-
-  /** 主键进度环周长（r=23，与 Console.tsx 的 tb-ring-arc 同源） */
-  const RING_CIRC = 2 * Math.PI * 23;
 
   // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
   // 状态一变（恢复 / seek / 切歌）就立即同步一次，不能只等 rAF：
@@ -215,14 +207,8 @@ function App() {
       // 已播比例喂给 CSS 渐变（细线 seek 的墨色填充），不触发渲染
       const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
       barEl.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
-    }
-    // 主键进度环：弧长 = 已播比例，与进度条同一份 position/duration，不触发渲染
-    if (ringEl.current) {
-      const ringPct = duration > 0 ? Math.min(1, Math.max(0, position / duration)) : 0;
-      // 不足 2% 不画：54px 的环上 1.4% 只有一个点那么长，
-      // 读起来像污渍而不是进度（2026-11-12 用户截图里的"球旁小绿点"）。
-      const shown = ringPct < 0.02 ? 0 : ringPct;
-      ringEl.current.style.strokeDashoffset = (RING_CIRC * (1 - shown)).toFixed(2);
+      // 原型轨道是 div + i/knob：宽度与滑块位置都从父级 --fill 计算
+      barEl.current.parentElement?.style.setProperty("--fill", `${pct.toFixed(2)}%`);
     }
     // 睡眠定时剩余时间同样只写 DOM：1s 一个 setInterval 会违反「时间唯一」（I1），
     // 而 deadline 是绝对的，掉帧后补算也不会累积误差。
@@ -275,7 +261,7 @@ function App() {
         setSources(s.sources());
         refreshAccountProfiles();
         syncPosition();
-        startMiniBridge(s);
+        startMiniBridge(s, { onLike: () => likeActionRef.current() });
         startLyricBridge(s);
 
         // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
@@ -565,7 +551,6 @@ function App() {
       }),
       registerCommand({ id: "scan", label: "扫描目录", run: () => void onScan() }),
       registerCommand({ id: "import-source", label: "导入音源", run: () => void onImportSource() }),
-      registerCommand({ id: "open-mini", label: "打开迷你窗", run: () => void services.current?.openMini() }),
       registerCommand({ id: "open-lyric", label: "打开桌面歌词", run: () => void services.current?.openLyric() }),
       registerCommand({
         id: "backup-export",
@@ -1075,7 +1060,10 @@ function App() {
     toAfTrack,
     currentTrack,
     notify: (text, kind) => toast(text, kind ?? "info"),
-    openFx: () => setFxOpen(true),
+    profileOf: (id) => {
+      const p = accountProfiles[id];
+      return p ? { nick: p.nick ?? null, avatarUrl: p.avatarUrl ?? null } : null;
+    },
     lastRoom: lastRoom.current,
   });
 
@@ -1215,9 +1203,7 @@ function App() {
         sleepPending={sleepPending}
         page={page}
         queueOpen={queueOpen}
-        fxOpen={fxOpen}
         setQueueOpen={setQueueOpen}
-        setFxOpen={setFxOpen}
         setPage={setPage}
         toggleCurrentLike={toggleCurrentLike}
         timeEl={timeEl}
@@ -1225,7 +1211,6 @@ function App() {
         barEl={barEl}
         tipEl={tipEl}
         sleepEl={sleepEl}
-        ringEl={ringEl}
         dragging={dragging}
         services={services}
       />
@@ -1235,7 +1220,6 @@ function App() {
       <Toaster />
       {page === "stage" ? <NowPlaying /> : null}
       <RowMenu />
-      {afApi.lyricsBar && !afApi.playerOpen ? <LyricsBar /> : null}
       <Auth />
       <ScanLogin
         sourceId={loginFor}
@@ -1268,12 +1252,10 @@ function App() {
       />
       <EggLayer />
       <StudioDrawer />
-      <MediaDock />
       <KeysSheet />
       <Hotkeys />
       <PerfHUD />
       <ListEditor />
-      {afApi.miniMode ? <MiniCard /> : null}
       {afApi.demoOpen ? <DemoPanel /> : null}
       <OnomaLayer items={onomas} />
       {focusKey > 0 ? <FocusLines key={focusKey} /> : null}

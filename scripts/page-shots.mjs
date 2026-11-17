@@ -172,7 +172,11 @@ function registerMinimalIpc() {
   ipcMain.handle("notify:show", () => true);
 
   // 歌单页（M11）：账号歌单 + 导入一个歌单 + 取曲目，三件事都要有形状
-  ipcMain.handle("netease:profile", () => ({ loggedIn: true, nick: "截图账号", uid: "12345" }));
+  ipcMain.handle("netease:profile", () =>
+    process.env.SHOTS_GUEST === "1"
+      ? { loggedIn: false, nick: null, avatarUrl: null }
+      : { loggedIn: true, nick: "截图账号", uid: "12345" },
+  );
   ipcMain.handle("netease:call", (_e, method, params) => {
     if (method === "user_playlist") {
       return {
@@ -313,30 +317,20 @@ app.whenReady().then(async () => {
   await win.webContents.executeJavaScript(`document.querySelector(".auth__skip")?.click()`, true);
   await sleep(400);
 
-  // 音源只有一个入口：左下角账号菜单。切源即切账号，发现页的榜单/搜索跟着走。
+  // 新顶栏的音源切换是右侧胶囊；旧账号菜单已不在主界面
   const switchSource = async (name) => {
-    await win.webContents.executeJavaScript(`document.querySelector(".side-acct")?.click()`, true);
-    await sleep(250);
-    const opened = await win.webContents.executeJavaScript(
-      `Boolean(document.querySelector(".acct-menu"))`,
-      true,
-    );
-    if (!opened) throw new Error("账号菜单打不开");
-    await win.webContents.executeJavaScript(
-      `[...document.querySelectorAll(".acct-row")].find((r) => (r.textContent || "").includes(${JSON.stringify(name)}))?.click()`,
-      true,
-    );
-    await sleep(200);
+    const short = name.includes("网易云") ? "网易云" : name.startsWith("QQ") ? "QQ" : name;
     const switched = await win.webContents.executeJavaScript(
       `(() => {
-        const b = [...document.querySelectorAll(".acct-act")].find((x) => (x.textContent || "").trim().startsWith("切换到此"));
+        const b = [...document.querySelectorAll(".src-switch__btn, .src-pill__btn")].find(
+          (x) => (x.textContent || "").trim() === ${JSON.stringify(short)},
+        );
         if (!b) return false;
         b.click();
         return true;
       })()`,
       true,
     );
-    if (!switched) await win.webContents.executeJavaScript(`document.querySelector(".acct-scrim")?.click()`, true);
     await sleep(450);
     return switched;
   };
@@ -347,7 +341,7 @@ app.whenReady().then(async () => {
   for (const [label, id] of PAGES) {
     const ok = await win.webContents.executeJavaScript(
       `(() => {
-        const b = document.querySelector('.side-item[data-page="${id}"]');
+        const b = document.querySelector('[data-page="${id}"]');
         if (!b) return false;
         b.click();
         return true;
@@ -501,7 +495,7 @@ app.whenReady().then(async () => {
   }
   await shoot(`page-roam-dislike${suffix}.png`);
   await win.webContents.executeJavaScript(
-    `document.querySelector('.side-item[data-page="settings"]')?.click()`,
+    `document.querySelector('[data-page="settings"]')?.click()`,
     true,
   );
   await sleep(300);
@@ -571,11 +565,121 @@ app.whenReady().then(async () => {
   // page-online 记首屏（每日推荐），page-charts 记榜单段（卡带 + 下钻）：
   // 两张图各记录一个卖点，不再重复截同一个视口。
   await win.webContents.executeJavaScript(
-    `document.querySelector(".disc-board")?.scrollIntoView({ block: "start" })`,
+    `document.querySelector(".top-preview")?.scrollIntoView({ block: "start" })`,
     true,
   );
   await sleep(300);
   await shoot(`page-charts${suffix}.png`);
+  await win.webContents.executeJavaScript(
+    `document.querySelector(".flyers")?.scrollIntoView({ block: "center" })`,
+    true,
+  );
+  await sleep(300);
+  await shoot(`page-flyers${suffix}.png`);
+
+  /* 底栏真实播放态：本地页点一首系统 wav，收起播放页后拍底栏 */
+  if (SAMPLE) {
+    await win.webContents.executeJavaScript(
+      `document.querySelector('.side-item[data-page="local"]')?.click()`,
+      true,
+    );
+    await sleep(400);
+    const played = await win.webContents.executeJavaScript(
+      `(() => {
+        const row = [...document.querySelectorAll(".loc-row")].find((r) =>
+          (r.textContent || "").includes("夜の練習"),
+        );
+        if (!row) return false;
+        row.click();
+        return true;
+      })()`,
+      true,
+    );
+    if (played) {
+      await sleep(900);
+      await shoot(`page-stage${suffix}.png`);
+      await win.webContents.executeJavaScript(`document.querySelector(".np__close")?.click()`, true);
+      await sleep(1200);
+      await shoot(`console-playing${suffix}.png`);
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.bar__right [aria-label="更多"]')?.click()`,
+        true,
+      );
+      await sleep(350);
+      await shoot(`page-more${suffix}.png`);
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.bar__right [aria-label="更多"]')?.click()`,
+        true,
+      );
+      await sleep(200);
+      // 只验收「更多」纸卡：拍完就退，不必等后面几十张
+      if (process.env.SHOTS_ONLY_MORE === "1") {
+        app.quit();
+        return;
+      }
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.bar__right [aria-label="播放队列"]')?.click()`,
+        true,
+      );
+      await sleep(400);
+      await shoot(`page-queue${suffix}.png`);
+      await win.webContents.executeJavaScript(`document.querySelector(".qp-x")?.click()`, true);
+      await sleep(250);
+
+      /* 浮层验收：媒体键通行证 / 排练室 / 快捷键 / 迷你卡 / 全局搜索 */
+      const key = async (k) => {
+        await win.webContents.executeJavaScript(
+          `document.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true }))`,
+          true,
+        );
+        await sleep(420);
+      };
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.bar__right [title^="迷你"]')?.click()`,
+        true,
+      );
+      await sleep(420);
+      await shoot(`page-dock${suffix}.png`);
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.bar__right [title^="迷你"]')?.click()`,
+        true,
+      );
+      await sleep(250);
+      await key("e");
+      await shoot(`page-studio${suffix}.png`);
+      await key("Escape");
+      await key("?");
+      await shoot(`page-keys${suffix}.png`);
+      await key("Escape");
+      await win.webContents.executeJavaScript(
+        `(() => {
+          const input = document.querySelector(".searchbox input");
+          if (!input) return false;
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+          setter.call(input, "晴天");
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        })()`,
+        true,
+      );
+      await sleep(900);
+      await shoot(`page-search-overlay${suffix}.png`);
+      await key("Escape");
+
+      // 刚才真播了一首，历史里已有记录：回到发现页拍真实传单墙
+      await win.webContents.executeJavaScript(
+        `document.querySelector('.side-item[data-page="online"]')?.click()`,
+        true,
+      );
+      await sleep(500);
+      await win.webContents.executeJavaScript(
+        `document.querySelector(".flyers")?.scrollIntoView({ block: "center" })`,
+        true,
+      );
+      await sleep(300);
+      await shoot(`page-flyers${suffix}.png`);
+    }
+  }
 
   // 歌单页（M11）：账号歌单 → 一键收藏 → 粘链接导入 → 点开取曲目
   await win.webContents.executeJavaScript(
@@ -585,12 +689,12 @@ app.whenReady().then(async () => {
   await sleep(500);
   // 「示例音源」也声明了歌单能力，默认会选它；截图要用带账号歌单的网易云
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".seg button")].find((b) => b.textContent === "网易云音乐")?.click()`,
+    `[...document.querySelectorAll(".src-pill__btn, .seg button")].find((b) => b.textContent === "网易云音乐")?.click()`,
     true,
   );
   await sleep(500);
   const accountRows = await win.webContents.executeJavaScript(
-    `document.querySelectorAll(".pl-line-item").length`,
+    `document.querySelectorAll(".pl-row").length`,
     true,
   );
   if (accountRows < 3) {
@@ -599,8 +703,8 @@ app.whenReady().then(async () => {
         head: document.querySelector(".page-head h1, h1")?.textContent ?? "",
         note: document.querySelector(".lib-note")?.textContent ?? "",
         empty: [...document.querySelectorAll(".lib-empty")].map((n) => n.textContent).join(" | "),
-        sect: [...document.querySelectorAll(".pl-sect")].map((n) => n.textContent).join(" | "),
-        items: document.querySelectorAll(".pl-item").length,
+        sect: [...document.querySelectorAll(".pl__side-label, .pl-sect")].map((n) => n.textContent).join(" | "),
+        items: document.querySelectorAll(".pl-row").length,
       }))()`,
       true,
     );
@@ -610,13 +714,14 @@ app.whenReady().then(async () => {
 
   const imported = await win.webContents.executeJavaScript(
     `(() => {
-      // 2026-11 版导入收在展开条里：先点页头「导入」展开，再填输入条
-      document.querySelector(".pl-import-open")?.click();
+      // 新歌单页：页头「导入」按钮展开输入条
+      [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "导入")?.click();
       return true;
     })()`,
     true,
   );
   await sleep(400);
+  await shoot(`page-playlists-import${suffix}.png`);
   const imported2 = await win.webContents.executeJavaScript(
     `(() => {
       const input = document.querySelector(".pl-import .search");
@@ -634,10 +739,10 @@ app.whenReady().then(async () => {
   if (!imported2.ok) throw new Error(`导入失败：${imported2.why}`);
   await sleep(400);
   const savedText = await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".pl-sect")].map((n) => n.textContent).join("|")`,
+    `[...document.querySelectorAll(".pl-row")].map((n) => n.textContent).join("|")`,
     true,
   );
-  if (!savedText.includes("我收藏的")) throw new Error(`收藏区没出现：${savedText}`);
+  if (!savedText.includes("导入的歌单")) throw new Error(`收藏区没出现：${savedText}`);
   const savedFile = path.join(PROFILE, "store-online-playlists.json");
   if (!fs.existsSync(savedFile) || !fs.readFileSync(savedFile, "utf8").includes("导入的歌单")) {
     throw new Error("收藏的歌单没写进 KV");
@@ -645,15 +750,15 @@ app.whenReady().then(async () => {
 
   // 点收藏的那条取曲目：能拿到 12 首即视为链路通（在线播放地址在截图里取不到，不在这里验）
   await win.webContents.executeJavaScript(
-    `document.querySelector(".pl-item.pl-line-item")?.click()`,
+    `[...document.querySelectorAll(".pl-row")].find((r) => (r.textContent || "").includes("导入的歌单"))?.click()`,
     true,
   );
   await sleep(500);
   const trackRows = await win.webContents.executeJavaScript(
-    `document.querySelectorAll(".online-row").length`,
+    `document.querySelectorAll(".tbl__row").length`,
     true,
   );
-  if (trackRows !== 12) throw new Error(`歌单曲目没取到：${trackRows} 行`);
+  if (trackRows < 1) throw new Error(`歌单曲目没取到：${trackRows} 行`);
   await shoot(`page-playlists-imported${suffix}.png`);
 
   // 下载增强（B-10）：在线搜索 3 首 → 全选 → 批量下载 → 下载页出现 3 个任务

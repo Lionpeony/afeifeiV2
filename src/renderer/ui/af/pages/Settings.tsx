@@ -22,7 +22,7 @@ import {
 
 export function SettingsPage() {
   const af = useAf();
-  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, sfx, setSfx, motion, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, openFx, setPage, setMineTab } = af;
+  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, sfx, setSfx, motion, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
   const [code, setCode] = useState("");
   const sleepEndsAt = getState().sleep.endsAt;
   const allEmpty = sources.every((s) => !accounts[s.id]);

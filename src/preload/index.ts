@@ -24,7 +24,17 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("notify:show", payload),
   autoLaunch: (): Promise<boolean> => ipcRenderer.invoke("app:autoLaunch"),
   setAutoLaunch: (on: boolean): Promise<boolean> => ipcRenderer.invoke("app:setAutoLaunch", on),
-  // 无框窗口：系统三键（titleBarOverlay）颜色跟全局主题走；bg/fg 由渲染层现场从 token 读出
+  // 无框窗口：自绘三键（渲染层）+ 最大化状态回推
+  minimizeWindow: (): Promise<void> => ipcRenderer.invoke("win:minimize"),
+  toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke("win:toggleMax"),
+  closeWindow: (): Promise<void> => ipcRenderer.invoke("win:close"),
+  windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke("win:isMaximized"),
+  onWindowMaximized: (cb: (max: boolean) => void): void => {
+    ipcRenderer.on("win:maximized", (_e, max: unknown) => {
+      if (typeof max === "boolean") cb(max);
+    });
+  },
+  // 兼容旧桥：窗口不再启用 titleBarOverlay，保留调用以免旧渲染层报错
   setWindowOverlayTheme: (bg: string, fg: string): Promise<boolean> =>
     ipcRenderer.invoke("win:overlayTheme", bg, fg),
   readTags: (filePaths: string[]): Promise<unknown[]> => ipcRenderer.invoke("library:readTags", filePaths),
@@ -71,6 +81,8 @@ contextBridge.exposeInMainWorld("api", {
 
   // 迷你窗：主窗只管推投影、收意图转发
   openMini: (): Promise<void> => ipcRenderer.invoke("mini:open"),
+  toggleMini: (): Promise<void> => ipcRenderer.invoke("mini:toggle"),
+  toggleLyric: (): Promise<"opened" | "closed" | "unlocked"> => ipcRenderer.invoke("lyric:toggle"),
   pushMiniState: (json: string): void => ipcRenderer.send("mini:state", json),
   onMiniAction: (cb: (action: string) => void): void => {
     ipcRenderer.on("mini:forward", (_e, action: unknown) => {

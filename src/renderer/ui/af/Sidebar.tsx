@@ -9,7 +9,7 @@ import { Tape } from "./ui.js";
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
 
 export function Sidebar() {
-  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn } = useAf();
+  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf } = useAf();
   const likedCount = useSyncExternalStore(subscribeLikes, () => getLikes().size, () => 0);
 
   const nav: { id: NavId; label: string; icon: typeof IconCompass }[] = [
@@ -63,6 +63,10 @@ export function Sidebar() {
   const weekday = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][today.getDay()];
   const linked = Object.values(accounts).filter(Boolean).length;
   const src = sources.find((s) => s.id === source);
+  const linkedId = sources.find((s) => accounts[s.id])?.id;
+  const profile = profileOf(source) ?? (linkedId ? profileOf(linkedId) : null);
+  const avatarUrl = profile?.avatarUrl ?? null;
+  const nick = profile?.nick ?? null;
 
   return (
     <aside className="sidebar">
@@ -87,6 +91,7 @@ export function Sidebar() {
               className={"nav-item side-item" + (activeId === n.id ? " is-active on" : "")}
               data-page={dataPage}
               onClick={() => go(n.id)}
+              title={n.label}
             >
               <span className="nav-ico"><Ico size={18} /></span>
               <span>{n.label}</span>
@@ -94,15 +99,6 @@ export function Sidebar() {
             </button>
           );
         })}
-        <button
-          className={"nav-item side-item" + (page === "settings" ? " is-active on" : "")}
-          data-page="settings"
-          onClick={() => setPage("settings")}
-          ref={(el) => { itemRefs.current["settings"] = el; }}
-        >
-          <span className="nav-ico"><IconSettings size={18} /></span>
-          <span>设置</span>
-        </button>
       </nav>
 
       <div className="sidebar__next">
@@ -119,12 +115,22 @@ export function Sidebar() {
         </div>
 
         <div className="side-user">
-          <span className="side-user__avatar">{linked > 1 ? "A" : "a"}</span>
+          <span className="side-user__avatar">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" referrerPolicy="no-referrer" />
+            ) : nick ? (
+              nick.slice(0, 1).toUpperCase()
+            ) : linked > 1 ? (
+              "A"
+            ) : (
+              "a"
+            )}
+          </span>
           <span className="side-user__meta">
-            <b>{src?.name ?? "后台值班"}</b>
+            <b>{nick ?? src?.name ?? "后台值班"}</b>
             <span className="num">{linked}/{sources.length} 个音源已登录</span>
           </span>
-          <button className="icon-btn" title="设置" onClick={() => setPage("settings")} style={{ marginLeft: "auto" }}>
+          <button className="icon-btn" title="设置" data-page="settings" onClick={() => setPage("settings")} style={{ marginLeft: "auto" }}>
             <IconSettings size={16} />
           </button>
         </div>

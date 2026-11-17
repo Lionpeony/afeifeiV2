@@ -9,19 +9,22 @@ import { ipcMain, type BrowserWindow } from "electron";
  * tokens.css，主进程不存第二份。
  */
 export function registerWindowIpc(getWin: () => BrowserWindow | null): void {
-  ipcMain.handle("win:overlayTheme", (_e, bg: unknown, fg: unknown) => {
-    // 只接受 #rrggbb；别的形状不喂给 Electron API
-    const hex = (v: unknown): v is string =>
-      typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v);
-    if (!hex(bg) || !hex(fg)) return false;
-    const win = getWin();
-    // macOS / Linux 没有这套 overlay 能力（方法不存在或抛错），静默降级
-    if (!win || typeof win.setTitleBarOverlay !== "function") return false;
-    try {
-      win.setTitleBarOverlay({ color: bg, symbolColor: fg });
-      return true;
-    } catch {
-      return false;
-    }
+  ipcMain.handle("win:minimize", () => {
+    getWin()?.minimize();
   });
+  ipcMain.handle("win:toggleMax", () => {
+    const win = getWin();
+    if (!win) return false;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+    return win.isMaximized();
+  });
+  ipcMain.handle("win:close", () => {
+    getWin()?.close();
+  });
+  ipcMain.handle("win:isMaximized", () => getWin()?.isMaximized() ?? false);
+
+  // 自绘三键后不再启用 titleBarOverlay。保留通道让旧渲染层调用时安静返回 false，
+  // 避免 setTitleBarOverlay 把系统原生按钮重新挂回来。
+  ipcMain.handle("win:overlayTheme", () => false);
 }

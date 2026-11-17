@@ -121,6 +121,8 @@ export interface AfApi {
   closeScan(): void;
   accounts: Record<string, boolean>;
   loggedIn: boolean;
+  /** 当前账号的真实头像/昵称（没有登录返回 null） */
+  profileOf(id: string): { nick: string | null; avatarUrl: string | null } | null;
   loginFor(id: string): void;
   logout(id: string): void;
   /* 反馈 */
@@ -146,14 +148,9 @@ export interface AfApi {
   setDensity(d: AfDensity): void;
   sfx: boolean;
   setSfx(v: boolean): void;
-  openFx(): void;
   /* 歌词 / 窗口 */
   lyricsOn: boolean;
   setLyricsOn(v: boolean): void;
-  lyricsBar: boolean;
-  setLyricsBar(v: boolean): void;
-  miniMode: boolean;
-  setMiniMode(v: boolean): void;
   /* 全屏播放页 */
   playerOpen: boolean;
   playerClosing: boolean;
@@ -209,11 +206,6 @@ export interface AfApi {
   sleepLeft: number;
   showTr: boolean;
   setShowTr(v: boolean): void;
-  dock: boolean;
-  setDock(v: boolean): void;
-  dockPin: boolean;
-  setDockPin(v: boolean): void;
-  flashDock(): void;
   keysOpen: boolean;
   setKeysOpen(v: boolean): void;
   lyricsFull: boolean;

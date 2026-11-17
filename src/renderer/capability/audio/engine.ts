@@ -18,8 +18,7 @@ export interface EngineHooks {
   onEnded?: () => void;
   onError?: (code: ErrorCode) => void;
   /** 等数据中（P0-26）：waiting → true，playing/canplay → false。只报变化，调用方去重。 */
-  onBuffering?: (on: boolean) => void;
-  /** 快到结尾了：该把下一首预取进待命元素（P0-08，每首只发一次）。 */
+  onBuffering?: (on: boolean) => void;  /** 快到结尾了：该把下一首预取进待命元素（P0-08，每首只发一次）。 */
   onPreloadNext?: () => void;
   /** 进入 crossfade 窗口（仅 crossfadeSec>0 时发一次）：该切下一首了。 */
   onNearEnd?: () => void;
@@ -67,6 +66,8 @@ export class AudioEngine {
   private nearEndFired = false;
   /** 元数据还没到就收到的 seek 目标（毫秒），loadedmetadata 时补上。 */
   private pendingSeekMs: number | null = null;
+  /** 媒体时间订阅者（P0-27：最小化后 rAF 停了，靠 <audio> 的 timeupdate 续命）。 */
+  private timeListeners = new Set<(positionMs: number) => void>();
 
   constructor(media: MediaPort) {
     this.media = media;
@@ -106,13 +107,27 @@ export class AudioEngine {
         });
       }
       el.addEventListener("timeupdate", () => {
-        if (el === this.el) this.detectNearEnd();
+        if (el !== this.el) return;
+        this.detectNearEnd();
+        /* 媒体时间广播（P0-27）：主窗最小化后 rAF 停了，合成器不再走表，
+           但 <audio> 的 timeupdate 仍在走。迷你窗 / 桌面歌词订阅这里，
+           最小化也照样换行。时间仍只有这一个来源（元素时钟）。 */
+        const ms = el.currentTime * 1000;
+        for (const fn of this.timeListeners) fn(ms);
       });
     }
   }
 
   on(hooks: EngineHooks): void {
     this.hooks = hooks;
+  }
+
+  /** 媒体时间订阅（约 4Hz，播放/最小化时都会来）。返回取消函数。 */
+  onTime(fn: (positionMs: number) => void): () => void {
+    this.timeListeners.add(fn);
+    return () => {
+      this.timeListeners.delete(fn);
+    };
   }
 
   /**

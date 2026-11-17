@@ -1,0 +1,116 @@
+/* ============================================================
+   v4.2 · 响应式收敛（最后加载）
+   studio.css 的 @media (max-width:1360px) 会重排底栏三列；
+   这一层必须排在它后面，才能让 1024/768 真正收窄而不是把右侧裁掉。
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  .settings .set-body { grid-template-columns: 1fr; }
+  .stats-ranks { grid-template-columns: 1fr; }
+  .radio-body { grid-template-columns: 1fr; }
+}
+
+/* 1120 以下侧栏收成 76px 图标条：原型只写了 min-width:1120，
+   1024 窗口会把左边栏裁到屏幕外（品牌和导航文字都被切） */
+@media (max-width: 1120px) {
+  .app {
+    --sidebar-w: 76px;
+    min-width: 0;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  }
+  .sidebar {
+    padding: 18px 8px 12px;
+    align-items: center;
+  }
+  .sidebar__brand {
+    justify-content: center;
+    padding: 0 0 18px;
+  }
+  .brand-word,
+  .nav__label,
+  .side-card,
+  .side-user__meta,
+  .sidebar__foot .eyebrow,
+  .nav-item > span:not(.nav-ico) {
+    display: none;
+  }
+  .nav {
+    width: 100%;
+    align-items: center;
+  }
+  .nav-item {
+    width: 44px;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+  }
+  .nav-item__count {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    padding: 0 4px;
+    font-size: 8px;
+  }
+  .nav__marker {
+    left: 0;
+    border-radius: 0 3px 3px 0;
+  }
+  .sidebar__next {
+    width: 100%;
+    align-items: center;
+  }
+  .side-user {
+    flex-direction: row;
+    gap: 4px;
+    padding: 6px 0;
+  }
+  .sidebar .side-user .icon-btn {
+    margin-left: 0;
+    width: 28px;
+    height: 28px;
+  }
+  .sidebar__foot {
+    justify-content: center;
+  }
+  .page {
+    padding: 8px 18px 28px;
+  }
+  .search-overlay {
+    left: 16px;
+    width: calc(100vw - 32px);
+  }
+  .lyricbar {
+    left: var(--sidebar-w);
+  }
+  .bar {
+    grid-template-columns: 150px minmax(240px, 1fr) auto;
+    gap: 8px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .bar__meta {
+    max-width: 120px;
+  }
+}
+
+/* 900 以下：底栏先让出音量拨片，保留走带与窗口入口 */
+@media (max-width: 900px) {
+  .bar {
+    grid-template-columns: 150px minmax(0, 1fr) auto;
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .bar__right {
+    gap: 2px;
+  }
+  .bar__right .vol,
+  .bar__right .bar__sep {
+    display: none;
+  }
+  .bar__right [title="桌面歌词"],
+  .bar__right [title^="迷你"],
+  .bar__right [aria-label="更多"] {
+    display: none;
+  }
+}

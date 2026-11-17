@@ -506,7 +506,7 @@ try {
   })()`);
   await sleep(300);
   const picked = await page.evaluate(`(() => {
-    const b = [...document.querySelectorAll('.rate-opts button')].find((x) => x.textContent.trim() === '2.00x');
+    const b = [...document.querySelectorAll('.more-sheet .more-stamps button')].find((x) => x.textContent.trim() === '2.00x');
     if (!b) return false;
     b.click();
     return true;
@@ -554,7 +554,7 @@ try {
   })()`);
   await sleep(250);
   await page.evaluate(`(() => {
-    const b = [...document.querySelectorAll('.rate-opts button')].find((x) => x.textContent.trim() === '1.00x');
+    const b = [...document.querySelectorAll('.more-sheet .more-stamps button')].find((x) => x.textContent.trim() === '1.00x');
     b?.click();
   })()`);
   await sleep(300);

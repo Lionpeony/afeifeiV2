@@ -49,7 +49,7 @@ export interface AfUiInput {
   toAfTrack(id: string): AfTrack;
   currentTrack: AfTrack;
   notify(text: string, kind?: "ok" | "info" | "bad"): void;
-  openFx(): void;
+  profileOf(id: string): { nick: string | null; avatarUrl: string | null } | null;
   lastRoom: string;
 }
 
@@ -76,8 +76,6 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [sfx, setSfx] = usePref<boolean>("sfx", true);
   const [density, setDensity] = usePref<AfDensity>("density", "cozy");
   const [lyricsOn, setLyricsOn] = usePref<boolean>("lyricsOn", false);
-  const [lyricsBar, setLyricsBar] = usePref<boolean>("lyricsBar", false);
-  const [miniMode, setMiniMode] = useState(false);
   const playerOpen = input.page === "stage";
   const [playerClosing, setPlayerClosing] = useState(false);
   const [rowMenu, setRowMenu] = useState<{ trackId: string; x: number; y: number } | null>(null);
@@ -223,16 +221,6 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   }, [sleepStore.endsAt]);
 
   const [showTr, setShowTr] = usePref<boolean>("showTr", true);
-  const [dock, setDock] = useState(false);
-  const [dockPin, setDockPin] = useState(false);
-  const dockTimer = useRef(0);
-  const flashDock = (): void => {
-    if (!dock) onoma("ピッ", { tone: "mint", x: window.innerWidth - 190, y: window.innerHeight - 260 });
-    setDock(true);
-    window.clearTimeout(dockTimer.current);
-    if (!dockPin) dockTimer.current = window.setTimeout(() => setDock(false), 3200);
-  };
-  useEffect(() => () => window.clearTimeout(dockTimer.current), []);
   const [keysOpen, setKeysOpen] = useState(false);
   const [lyricsFull, setLyricsFull] = useState(false);
   const [keysHintSeen, setKeysHintSeen] = usePref<boolean>("keysHintSeen", false);
@@ -671,6 +659,14 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const queue = state.queue.items.map((id) => toAfTrack(id));
   const queueIndex = Math.max(0, queue.findIndex((t) => t.id === currentId));
 
+  /* E16 分幕：队列第一次超过 12 首时静默收下（原型同一条判据） */
+  useEffect(() => {
+    if (queue.length <= 12) return;
+    const t = window.setTimeout(() => discover("E16", { silent: true }), 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue.length]);
+
   const api: AfApi = {
     page: input.page,
     setPage: input.setPage,
@@ -713,6 +709,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     closeScan,
     accounts,
     loggedIn,
+    profileOf: input.profileOf,
     loginFor: input.loginFor,
     logout: input.logout,
     toast,
@@ -735,13 +732,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     setDensity,
     sfx,
     setSfx,
-    openFx: input.openFx,
     lyricsOn,
     setLyricsOn,
-    lyricsBar,
-    setLyricsBar,
-    miniMode,
-    setMiniMode,
     playerOpen,
     playerClosing,
     openPlayer,
@@ -790,11 +782,6 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     sleepLeft,
     showTr,
     setShowTr,
-    dock,
-    setDock,
-    dockPin,
-    setDockPin,
-    flashDock,
     keysOpen,
     setKeysOpen,
     lyricsFull,

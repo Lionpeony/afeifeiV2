@@ -71,7 +71,6 @@ export function Hotkeys() {
         if (a.lyricsFull) { a.setLyricsFull(false); return; }
         if (a.listEditor) { a.setListEditor(null); return; }
         if (a.studio) { a.setStudio(null); return; }
-        if (a.dock) { a.setDock(false); return; }
         return;
       }
       if (typing(active)) return;
@@ -84,7 +83,7 @@ export function Hotkeys() {
       if (key === "h") { stop(); a.setPage("history"); return; }
       if (key === "g") { stop(); a.setPage("playlists"); return; }
       if (key === "d") { stop(); a.setPage("online"); return; }
-      if (key === "k") { stop(); a.setDock(!a.dock); a.setDockPin(true); return; }
+      if (key === "k") { stop(); void window.api.toggleMini(); return; }
       if (key === "t") { stop(); a.setStudio({ tab: "sleep" }); return; }
       if (key === "q") { stop(); a.setStudio({ tab: "quality" }); return; }
       if (key === "e") { stop(); a.setStudio({ tab: "eq" }); return; }

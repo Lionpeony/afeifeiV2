@@ -35,7 +35,13 @@ export interface Api {
   notify(payload: { title: string; body: string }): Promise<boolean>;
   autoLaunch(): Promise<boolean>;
   setAutoLaunch(on: boolean): Promise<boolean>;
-  /** 无框窗口：系统三键（titleBarOverlay）颜色跟全局主题走；bg/fg 现场从 DOM token 读。 */
+  /** 无框窗口：自绘三键 + 最大化状态。 */
+  minimizeWindow(): Promise<void>;
+  toggleMaximize(): Promise<boolean>;
+  closeWindow(): Promise<void>;
+  windowIsMaximized(): Promise<boolean>;
+  onWindowMaximized(cb: (max: boolean) => void): void;
+  /** 兼容旧桥：窗口不再启用 titleBarOverlay，保留调用以免旧渲染层报错。 */
   setWindowOverlayTheme(bg: string, fg: string): Promise<boolean>;
   readTags(filePaths: string[]): Promise<unknown[]>;
   statFiles(filePaths: string[]): Promise<{ path: string; size: number; mtimeMs: number }[]>;
@@ -72,6 +78,8 @@ export interface Api {
   qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }>;
   qqLogout(): Promise<void>;
   openMini(): Promise<void>;
+  toggleMini(): Promise<void>;
+  toggleLyric(): Promise<"opened" | "closed" | "unlocked">;
   pushMiniState(json: string): void;
   onMiniAction(cb: (action: string) => void): void;
   /** 迷你窗挂载完成的信号：桥要立刻补推一次当前状态 */
@@ -235,6 +243,8 @@ export interface Services {
   installSource(fileName: string, code: string): Promise<{ id: string; name: string }>;
   /** 开/聚焦迷你窗。 */
   openMini(): Promise<void>;
+  toggleMini(): Promise<void>;
+  toggleLyric(): Promise<"opened" | "closed" | "unlocked">;
   /** 开桌面歌词窗；已开着且在穿透态则解锁（M9-1）。 */
   openLyric(): Promise<void>;
   /** 解锁桌面歌词（穿透 → 交互）。 */

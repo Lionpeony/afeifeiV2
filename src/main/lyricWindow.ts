@@ -41,21 +41,28 @@ function forward(): void {
   lyric.webContents.send("lyric:state", JSON.stringify(obj));
 }
 
-/** 桌面歌词窗开关（全局快捷键用）：开着就关，没开就开。 */
-export function toggleLyricWindow(): void {
+/** 桌面歌词窗开关（底栏按钮 / 全局快捷键）：开着就关，没开就开。
+ *  例外（2026-11-18 修 BUG）：穿透态收不到鼠标，如果这里直接 close，
+ *  用户锁上之后就再也解不开、也关不掉。所以第一次点只解锁，再点才关。 */
+export type LyricToggleResult = "opened" | "closed" | "unlocked";
+
+export function toggleLyricWindow(): LyricToggleResult {
   if (lyric && !lyric.isDestroyed()) {
+    if (mode === "pass") {
+      setMode("interactive");
+      return "unlocked";
+    }
     lyric.close();
-    return;
+    return "closed";
   }
   void openLyricWindow();
+  return "opened";
 }
 
 export function registerLyricIpc(): void {
-  // 桌面歌词窗开关（全局快捷键用）：状态只有主进程知道（渲染层看不到别的窗口）。
-  ipcMain.handle("lyric:toggle", () => {
-    toggleLyricWindow();
-    return true;
-  });
+  // 桌面歌词窗开关（状态只有主进程知道）：返回值告诉渲染层刚才做了什么，
+  // "unlocked" 时底栏按钮要提示用户已经解锁（否则看起来像点了个寂寞）
+  ipcMain.handle("lyric:toggle", () => toggleLyricWindow());
 
   ipcMain.handle("lyric:open", () => openLyricWindow());
 

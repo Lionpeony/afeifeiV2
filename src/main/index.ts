@@ -1,5 +1,5 @@
 import path from "node:path";
-import { app, BrowserWindow, ipcMain, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, protocol, screen } from "electron";
 import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
@@ -184,20 +184,21 @@ if (!locked) {
     registerWindowIpc(() => mainWin);
     startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）
 
+    // 默认窗口按工作区自适应：大屏 1440×900，小屏占满可用区域但不小于布局下限。
+    const work = screen.getPrimaryDisplay().workAreaSize;
+    const winW = Math.min(1440, Math.max(1120, work.width - 40));
+    const winH = Math.min(900, Math.max(720, work.height - 40));
     const win = new BrowserWindow({
-      width: 1280,
-      height: 800,
+      width: winW,
+      height: winH,
       // 布局下限：rail 5×44 + tail 4×34 ≈ 388，加顶栏与 console 后 620 才不裁「设置」入口；
       // 宽度给到 960 是因为页头（标题 + 统计 + 5 个排序 chip + 扫描按钮）再窄就把按钮压成竖排。
       // 按默认 1.2 界面缩放折算：960×1.2≈1152、620×1.2≈744 —— 取整后保证缩放后仍剩 960×620 的布局宽高。
-      minWidth: 1160,
-      minHeight: 740,
-      // 无框窗口：去掉「原生标题栏 + 应用内顶栏」叠两层的老样子。
-      // 右上三键由系统绘制（titleBarOverlay），颜色初始值 = tokens.css 日间 --bg/--fg，
-      // 主题切换后由渲染层经 win:overlayTheme 同步（主进程不存第二份色值）。
-      // 高度与 --tbar-h（38px）对齐，tbar 同时是拖拽区（app.css -webkit-app-region）。
+      minWidth: 1120,
+      minHeight: 720,
+      // 无框窗口：原生标题栏去掉，右上三键由渲染层自绘（与界面同一套材质）。
+      // titleBarStyle hidden 保留系统 resize / 阴影；不再启用 titleBarOverlay。
       titleBarStyle: "hidden",
-      titleBarOverlay: { color: "#FFF8F5", symbolColor: "#3D2B39", height: 38 },
       backgroundColor: "#FFF8F5",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
@@ -208,6 +209,10 @@ if (!locked) {
     });
 
     mainWin = win;
+    win.center();
+    // 自绘三键的「最大化/还原」图标跟着窗口状态走（双击顶栏、系统快捷键都要同步）
+    win.on("maximize", () => win.webContents.send("win:maximized", true));
+    win.on("unmaximize", () => win.webContents.send("win:maximized", false));
 
     let zoom = ZOOM_DEFAULT;
     const applyZoom = (factor: number): void => {

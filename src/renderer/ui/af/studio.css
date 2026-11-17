@@ -23,14 +23,14 @@
 
 /* ---------------- 2. 排练室抽屉 ---------------- */
 .studio-mask{
-  position:fixed;inset:0 0 72px 0;z-index:88;
+  position:fixed;inset:var(--topbar-h) 0 72px 0;z-index:88;
   background:rgba(61,43,57,.16);
   animation:fadeIn 180ms var(--ease) both;
 }
 :root[data-theme="dark"] .studio-mask{background:rgba(12,8,18,.42)}
 
 .studio{
-  position:fixed;z-index:89;right:0;top:0;bottom:72px;width:396px;
+  position:fixed;z-index:89;right:0;top:var(--topbar-h);bottom:72px;width:396px;
   display:flex;flex-direction:column;
   background:var(--card);border-left:1px solid var(--line);
   box-shadow:-18px 0 48px rgba(61,43,57,.16);

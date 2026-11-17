@@ -4,7 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 /**
  * 桌面歌词窗（M9-1 / P0-21）：只读投影 + 三个意图（锁定 / 改窗高 / 关窗）。
  * 这里**没有任何歌词状态**——行文本、逐字字数、整曲进度都由主窗歌词桥按同一份 doc
- * 算好后推过来，本窗只渲染。中键 = 锁定（切穿透）；解锁从主窗「桌面歌词」按钮回去。
+ * 算好后推过来，本窗只渲染。中键 = 锁定（切穿透）；解锁从主窗「桌面歌词」按钮回去
+ * （锁定后窗口收不到鼠标，主窗按钮第一次点 = 解锁，再点 = 关闭）。
  * 字号存本窗 localStorage（app:// 域，键名带 lyric- 前缀避免与迷你窗撞）。
  * 窗口位置与穿透态由主进程持久化（`main/lyricWindow.ts`），本窗只报内容高度
  * （2026-11-10 修 BUG：窗高原来写死 132px，字号放大就裁字）。
@@ -17,6 +18,8 @@ interface LyricState {
   lit?: number;
   /** 整曲进度 0..1，底部细线 */
   song?: number;
+  /** 主窗主题：纸签跟着亮/暗换纸色 */
+  theme?: string;
   mode: "interactive" | "pass";
 }
 
@@ -37,18 +40,33 @@ declare global {
 function Lyric() {
   const [st, setSt] = useState<LyricState>({ text: "", mode: "interactive" });
   const [font, setFont] = useState(() => clampFont(Number(localStorage.getItem(FONT_KEY)) || 36));
+  const [hint, setHint] = useState(false);
   const capRef = useRef<HTMLDivElement | null>(null);
   const lastSent = useRef(0);
 
   useEffect(() => {
     window.lyricApi.onState((json) => {
       try {
-        setSt(JSON.parse(json) as LyricState);
+        const next = JSON.parse(json) as LyricState;
+        setSt(next);
+        if (next.theme) document.documentElement.dataset.theme = next.theme;
       } catch {
         /* 坏包直接丢，下一行会再来 */
       }
     });
   }, []);
+
+  /* 锁定后窗口就收不到鼠标了，必须当场告诉用户「从哪儿解锁」，
+     否则看起来像卡死。提示 4.2 秒后自己让位给歌词。 */
+  useEffect(() => {
+    if (st.mode !== "pass") {
+      setHint(false);
+      return;
+    }
+    setHint(true);
+    const t = window.setTimeout(() => setHint(false), 4200);
+    return () => window.clearTimeout(t);
+  }, [st.mode]);
 
   useEffect(() => {
     localStorage.setItem(FONT_KEY, String(font));
@@ -103,7 +121,16 @@ function Lyric() {
           <i style={{ width: `${songPct}%` }} />
         </div>
 
-        {st.mode === "interactive" ? (
+        {st.mode === "pass" ? (
+          /* 穿透态：收不到鼠标，所以只留一枚看得见的小锁，告诉用户它还活着 */
+          <span className="lyric-lock" aria-hidden="true">
+            <svg viewBox="0 0 12 12" aria-hidden="true">
+              <rect x="2.5" y="5.5" width="7" height="5" rx="1.4" fill="currentColor" />
+              <path d="M4 5.5V4a2 2 0 0 1 4 0v1.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
+            </svg>
+            已锁定
+          </span>
+        ) : (
           <div className="lyric-tools">
             <button type="button" onClick={() => setFont((f) => clampFont(f - 4))} title="字号缩小">
               A-
@@ -111,14 +138,21 @@ function Lyric() {
             <button type="button" onClick={() => setFont((f) => clampFont(f + 4))} title="字号放大">
               A+
             </button>
-            <button type="button" onClick={() => window.lyricApi.action("lock")} title="锁定（穿透鼠标，主窗按钮解锁）">
+            <button
+              type="button"
+              className="lyric-tools__lock"
+              onClick={() => window.lyricApi.action("lock")}
+              title="锁定（鼠标穿透；再点底栏「桌面歌词」解锁）"
+            >
               锁定
             </button>
             <button type="button" onClick={() => window.lyricApi.close()} title="关闭桌面歌词">
               ✕
             </button>
           </div>
-        ) : null}
+        )}
+
+        {hint ? <div className="lyric-hint" role="status">已锁定 · 点底栏「桌面歌词」解锁</div> : null}
       </div>
     </div>
   );

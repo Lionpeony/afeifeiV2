@@ -8,7 +8,7 @@ import { usePosition } from "./use-position.js";
 
 export function LyricWall() {
   const af = useAf();
-  const { lyricsOn, setLyricsOn, lyricsBar, setLyricsBar, lyricsFull, setLyricsFull, reduce } = af;
+  const { lyricsOn, setLyricsOn, lyricsFull, setLyricsFull, reduce } = af;
   const { pos } = usePosition(af);
   const lines = useLyricLines();
   const full = !!lyricsFull;
@@ -59,7 +59,7 @@ export function LyricWall() {
         <div className="lw__head">
           <span className="lw__head-title"><b>歌词</b><span className="lw__head-sub">逐行 · 当前音源</span></span>
           <div className="lw__tools">
-            <button className={"lw__tool" + (lyricsBar ? " is-on" : "")} onClick={() => setLyricsBar(!lyricsBar)} title="桌面歌词" aria-pressed={lyricsBar}>桌面</button>
+            <button className="lw__tool" onClick={() => void window.api.toggleLyric()} title="桌面歌词">桌面</button>
             <button className={"lw__tool" + (full ? " is-on" : "")} onClick={() => setLyricsFull(!full)} title={full ? "收起大歌词（Esc）" : "展开成大歌词"}>
               {full ? <IconMin size={13} /> : <IconMax size={13} />}
             </button>

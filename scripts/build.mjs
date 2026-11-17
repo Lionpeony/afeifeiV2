@@ -223,6 +223,7 @@ const cssFiles = [
   "src/renderer/ui/af/studio.css",
   "src/renderer/ui/af/lyrics.css",
   "src/renderer/ui/af/splash.css",
+  "src/renderer/ui/af/responsive.css",
 ];
 
 const css = cssFiles.map((f) => fs.readFileSync(f, "utf8")).join("\n");
