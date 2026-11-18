@@ -49,10 +49,10 @@ export function registerMiniIpc(): void {
       /* 坏档当没有 */
     }
     mini = new BrowserWindow({
-      width: 320,
-      // P0-27 修「现在太大了」：原来 420×180 是 V1 拍立得票根的尺寸，
-      // 「后台化妆镜」只需要镜面 + 一张便签，320×140 够了。
-      height: 140,
+      width: 440,
+      // 2026-11-18 重做：横向小条（圆形贴纸封面 + 曲名/歌手/词 + 细进度 + 走带）。
+      // 320×140 的「化妆镜」版不再使用；高度 120 给卡片阴影留 12px。
+      height: 120,
       ...(x !== undefined && y !== undefined ? { x, y } : {}),
       frame: false,
       transparent: true,

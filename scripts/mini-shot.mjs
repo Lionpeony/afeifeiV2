@@ -29,8 +29,8 @@ const COVER =
 
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
-    width: 320,
-    height: 140,
+    width: 440,
+    height: 120,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -67,8 +67,8 @@ app.whenReady().then(async () => {
   const idle = await win.webContents.capturePage();
   fs.writeFileSync("docs/assets/page-mini-window.png", idle.toPNG());
 
-  // 鼠标移到便签上：灯泡亮、走带翻出（hover 态是这个小窗的主要工作状态）
-  win.webContents.sendInputEvent({ type: "mouseMove", x: 280, y: 92 });
+  // 鼠标移到卡片上：贴纸封面/hover 态（新横向小条的主要工作状态）
+  win.webContents.sendInputEvent({ type: "mouseMove", x: 300, y: 64 });
   await sleep(600);
   const hover = await win.webContents.capturePage();
   fs.writeFileSync("docs/assets/page-mini-window-hover.png", hover.toPNG());

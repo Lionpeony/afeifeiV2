@@ -1,8 +1,7 @@
-/* 迷你 / 悬浮窗（2026-11-18 重做）：「后台化妆镜」。
-   320×140 透明无边框窗。左边是一面圈着灯泡的化妆镜，今晚的封面像拍立得
-   别在镜面上；右边是贴在镜边的便签，写着曲名、歌手和这一句词。
-   鼠标进来灯泡亮起、镜子微微转向你，便签下方翻出走带和进度。
-   颜色、字号全部来自 tokens（mini.html 同时加载 app.css）；窗口本体透明。 */
+/* 迷你 / 悬浮窗（2026-11-18 重做）· 横向小条
+   440×120 透明无边框窗。左边圆形贴纸封面压在卡片外沿，右边曲名/歌手/词，
+   底部一条细进度线，右侧心、关闭与上一首/播放/下一首。
+   颜色全部来自 tokens（mini.html 同时加载 app.css）。 */
 * { box-sizing: border-box; }
 html,
 body {
@@ -15,567 +14,302 @@ body {
   overflow: hidden;
 }
 #root { height: 100%; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.mirror {
-  position: relative;
-  height: calc(100% - 8px);
-  margin: 4px;
-  padding: 8px 10px 8px 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.mini {
+  height: 100%;
+  padding: 6px 6px 6px 26px;
   -webkit-app-region: drag;
-  animation: mirrorIn 380ms var(--ease-out-soft) both;
+  animation: miniIn 380ms var(--ease-out-soft) both;
 }
 
-/* ---------- 镜子本体 ---------- */
-.mirror__disc {
+.mini__card {
   position: relative;
-  flex: none;
-  width: 108px;
-  height: 108px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--text) 11%, transparent);
-  background:
-    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.6), transparent 46%),
-    linear-gradient(150deg, color-mix(in srgb, var(--pink-400) 14%, var(--card)), var(--card) 48%, color-mix(in srgb, var(--text) 7%, var(--card)));
-  box-shadow:
-    0 10px 24px color-mix(in srgb, var(--text) 20%, transparent),
-    inset 0 -2px 6px color-mix(in srgb, var(--text) 10%, transparent);
-  transition: transform var(--dur-base) var(--ease-out-soft);
+  height: 100%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--text) 22%, transparent);
 }
-.mirror:hover .mirror__disc {
-  transform: perspective(720px) rotateY(-2.4deg) translateX(-2px);
-}
-.mirror__disc::after {
-  content: "";
+
+/* 卡片上沿的胶带：让它是「贴上去的一张便签」，不是系统卡片 */
+.mini__tape {
   position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--pink-400) 30%, transparent);
-  box-shadow: inset 0 2px 5px rgb(255 255 255 / 0.55);
+  top: -6px;
+  left: 50%;
+  width: 56px;
+  height: 14px;
+  margin-left: -28px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 214, 225, 0.92), rgba(255, 236, 241, 0.85), rgba(255, 214, 225, 0.92));
+  transform: rotate(-2.5deg);
+  box-shadow: 0 1px 3px rgba(214, 51, 132, 0.16);
   pointer-events: none;
 }
-.mirror.is-playing .mirror__disc {
-  box-shadow:
-    0 10px 24px color-mix(in srgb, var(--text) 20%, transparent),
-    0 0 26px color-mix(in srgb, var(--yellow) 24%, transparent),
-    inset 0 -2px 6px color-mix(in srgb, var(--text) 10%, transparent);
-}
 
-/* 灯泡：十颗围着镜框；播放时慢慢呼吸（禁用动效时全灭，只靠亮度区分） */
-.mirror__bulb {
+/* 播出状态小签 */
+.mini__onair {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--yellow) 62%, var(--card));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 12%, transparent);
-  opacity: 0.42;
-  transform: rotate(calc(var(--i) * 36deg)) translateY(-48px);
-  transition: opacity var(--dur-fast) var(--ease-out-soft), background-color var(--dur-fast) var(--ease-out-soft), box-shadow var(--dur-fast) var(--ease-out-soft);
-}
-.mirror__bulb::after {
-  content: "";
-  position: absolute;
-  inset: 1.4px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.72);
-  opacity: 0.75;
-}
-.mirror:hover .mirror__bulb {
-  opacity: 0.95;
-  background: var(--yellow);
-  box-shadow:
-    0 0 6px 1px color-mix(in srgb, var(--yellow) 60%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent);
-  /* 灯泡一颗接一颗亮起来，像有人按了开关 */
-  transition-delay: calc(var(--i) * 26ms);
-}
-.mirror.is-playing .mirror__bulb {
-  background: var(--yellow);
-  box-shadow:
-    0 0 7px 1px color-mix(in srgb, var(--yellow) 55%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent);
-  animation: bulbBreathe 3.6s ease-in-out infinite;
-  animation-delay: calc(var(--i) * -360ms);
-}
-.mirror.is-playing:hover .mirror__bulb { opacity: 1; }
-
-/* 玻璃：留出 10px 镜框，里面才是照人的那一面 */
-.mirror__glass {
-  position: absolute;
-  inset: 10px;
-  border-radius: 50%;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.92), transparent 44%),
-    radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--bg-sub) 78%, var(--card)), color-mix(in srgb, var(--text) 16%, var(--bg-sub)));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--pink-400) 26%, transparent),
-    inset 0 8px 16px rgb(255 255 255 / 0.35);
-}
-/* 镜面高光：没有它，玻璃读起来只是一块粉色圆 */
-.mirror__glass::before {
-  content: "";
-  position: absolute;
-  left: 10%;
-  top: 6%;
-  width: 58%;
-  height: 34%;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgb(255 255 255 / 0.92), transparent 74%);
-  transform: rotate(-20deg);
-  pointer-events: none;
-}
-.mirror__sheen {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(118deg, transparent 40%, rgb(255 255 255 / 0.5) 47%, transparent 54%);
-  opacity: 0.55;
-  transform: translateX(-92%);
-  transition: transform 720ms var(--ease-out-soft);
-}
-/* 鼠标进来时，镜面像被转了一下：一道高光扫过去 */
-.mirror:hover .mirror__sheen { transform: translateX(92%); }
-
-/* 拍立得：封面别在镜面上，播放时轻轻晃 */
-.mirror__photo {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 62px;
-  height: 71px;
-  margin: -35px 0 0 -31px;
-  padding: 4px 4px 10px;
-  border-radius: 1px;
-  background: rgb(255 255 255 / 0.96);
-  box-shadow:
-    0 6px 14px color-mix(in srgb, var(--text) 24%, transparent),
-    0 1px 3px color-mix(in srgb, var(--text) 18%, transparent);
-  transform: rotate(-4deg);
-  transition: transform 420ms var(--ease-spring);
-  -webkit-app-region: no-drag;
-  cursor: pointer;
-}
-.mirror:hover .mirror__photo {
-  animation: none;
-  transform: rotate(-1.6deg) scale(1.045) translateY(-2px);
-}
-.mirror.is-playing .mirror__photo {
-  animation: photoSway 7.5s ease-in-out infinite;
-}
-.mirror__img,
-.mirror__initial {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: color-mix(in srgb, var(--bg-sub) 70%, var(--card));
-}
-.mirror__img { animation: coverIn 380ms var(--ease-out-soft) both; }
-.mirror__initial {
-  display: grid;
-  place-items: center;
-  color: color-mix(in srgb, var(--pink-600) 72%, var(--text));
-  font-family: var(--font-display);
-  font-size: 30px;
-  line-height: 1;
-  background:
-    radial-gradient(circle at 36% 28%, rgb(255 255 255 / 0.7), transparent 52%),
-    color-mix(in srgb, var(--pink-400) 14%, var(--bg-sub));
-}
-.mirror__photo.is-blank { transform: rotate(-5deg); }
-.mirror__tape {
-  position: absolute;
-  left: 50%;
-  top: -5px;
-  width: 26px;
-  height: 7px;
-  margin-left: -13px;
-  background: color-mix(in srgb, var(--pink-400) 66%, transparent);
-  transform: rotate(-4deg);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 12%, transparent);
-}
-
-/* ---------- 便签：曲名 / 歌词 / 走带 ---------- */
-.mirror__sheet {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
-}
-/* 压在便签下面的第二张纸：让「贴上去的纸」有厚度，不是一张网页卡 */
-.mirror__under {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border: 1px solid color-mix(in srgb, var(--pink-400) 14%, var(--line-strong));
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--pink-400) 7%, color-mix(in srgb, var(--card) 72%, var(--bg-sub)));
-  transform: rotate(0.8deg) translate(3px, 3px);
-}
-.mirror__note {
-  position: relative;
-  z-index: 1;
-  height: 100%;
-  padding: 7px 8px 6px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid color-mix(in srgb, var(--pink-400) 22%, var(--line-strong));
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--pink-400) 7%, color-mix(in srgb, var(--card) 78%, var(--bg-sub))), color-mix(in srgb, var(--card) 82%, var(--bg-sub)) 40%);
-  box-shadow:
-    0 8px 22px color-mix(in srgb, var(--text) 16%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.5);
-  transform: rotate(-0.3deg);
-  transition: transform var(--dur-fast) var(--ease-out-soft), box-shadow var(--dur-fast) var(--ease-out-soft);
-}
-.mirror:hover .mirror__note {
-  transform: rotate(-0.3deg) translateY(-2px);
-  box-shadow:
-    0 12px 26px color-mix(in srgb, var(--text) 20%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.5);
-}
-.mirror__tape--note {
-  top: -4px;
-  left: 16px;
-  margin-left: 0;
-  width: 30px;
-  transform: rotate(-5deg);
-}
-
-/* ON AIR 灯牌：播放时红点亮，暂停是 STANDBY */
-.mirror__onair {
-  position: absolute;
-  top: 5px;
-  right: 6px;
+  left: 82px;
+  top: -8px;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  height: 12px;
-  padding: 0 5px;
-  border-radius: 2px;
-  background: var(--text);
-  color: var(--card);
-  font-family: var(--font-mono);
-  font-size: 6.5px;
-  letter-spacing: 0.12em;
-  opacity: 0.62;
-  transition: opacity var(--dur-fast) var(--ease-out-soft);
-}
-.mirror__onair i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--coral-deco) 40%, transparent);
-  transition: background-color var(--dur-fast) var(--ease-out-soft), box-shadow var(--dur-fast) var(--ease-out-soft);
-}
-.mirror__onair.is-on {
-  opacity: 1;
-}
-.mirror__onair.is-on i {
-  background: var(--coral-deco);
-  box-shadow: 0 0 5px color-mix(in srgb, var(--coral-deco) 70%, transparent);
-}
-
-.mirror__title {
-  margin: 0;
-  padding-right: 58px;
-  overflow: hidden;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.3;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.mirror__artist {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  margin: 0;
-  overflow: hidden;
-  color: var(--text-2);
-  font-size: 10px;
-  white-space: nowrap;
-}
-.mirror__artist-name { overflow: hidden; text-overflow: ellipsis; }
-.mirror__src {
-  flex: none;
-  padding: 0 5px;
-  border: 1px solid color-mix(in srgb, var(--pink-600) 42%, transparent);
+  height: 16px;
+  padding: 0 7px;
   border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-family: var(--font-hand);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--text) 8%, transparent);
+  pointer-events: none;
+}
+.mini__onair i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-3);
+  display: block;
+}
+.mini__onair.is-on {
   color: var(--pink-700);
-  font-family: var(--font-mono);
-  font-size: 8px;
-  line-height: 12px;
+  border-color: color-mix(in srgb, var(--pink-600) 30%, transparent);
+}
+.mini__onair.is-on i {
+  background: var(--pink-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pink-600) 16%, transparent);
+  animation: onAir 1.8s var(--ease) infinite;
 }
 
-.mirror__lyric {
-  flex: 1 1 auto;
-  min-height: 0;
+/* 圆形贴纸封面：压在卡片左沿 */
+.mini__art {
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  width: 88px;
+  height: 88px;
+  margin-top: -44px;
+  padding: 0;
+  border: 3px solid var(--card);
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--pink-400), var(--lav));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--text) 26%, transparent);
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  z-index: 2;
+  transition: transform var(--dur-base) var(--ease-spring);
+}
+.mini__art:hover { transform: rotate(-2deg) scale(1.02); }
+.mini__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mini__initial {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: 30px;
+  color: var(--on-gradient);
+}
+.mini__art-ring {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+.mini.is-playing .mini__art-ring {
+  animation: ringTurn 12s linear infinite;
+  border-color: rgba(255, 255, 255, 0.72);
+}
+
+/* 文字区 */
+.mini__body {
+  position: absolute;
+  left: 82px;
+  right: 116px;
+  top: 16px;
+  bottom: 12px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 0;
-  margin: 1px 0 2px;
-  overflow: hidden;
+  min-width: 0;
 }
-.mirror__line {
+.mini__title {
   margin: 0;
-  overflow: hidden;
-  color: var(--pink-700);
-  font-family: var(--font-hand);
-  font-size: 12px;
-  line-height: 1.3;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  animation: lyricIn 260ms var(--ease-out-soft) both;
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--text);
 }
-.mirror__line-on { color: var(--pink-700); }
-.mirror__line-off { color: var(--text-3); }
-.mirror__tr {
-  margin: 0;
-  overflow: hidden;
-  color: var(--text-3);
-  font-size: 9.5px;
-  line-height: 1.3;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  animation: lyricIn 260ms var(--ease-out-soft) both;
-}
-
-/* 进度：常驻，鼠标不来也能看见播到哪儿 */
-.mirror__seek {
-  flex: none;
+.mini__sub {
+  margin: 3px 0 0;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
+  font-size: 10.5px;
+  color: var(--text-2);
 }
-.mirror__time {
+.mini__src {
   flex: none;
-  color: var(--text-3);
+  padding: 0 5px;
+  border: 1px solid color-mix(in srgb, var(--pink-600) 25%, transparent);
+  border-radius: 999px;
   font-family: var(--font-mono);
   font-size: 9px;
+  line-height: 14px;
+  color: var(--pink-700);
+}
+.mini__lyric {
+  margin: 4px 0 0;
+  font-family: var(--font-hand);
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.mini__lyric-on { color: var(--pink-700); }
+.mini__lyric-off { color: var(--text-3); }
+
+/* 进度 */
+.mini__progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-bottom: 1px;
+}
+.mini__time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
-.mirror__time--dim { opacity: 0.78; }
-.mirror__track {
+.mini__time.is-dim { color: var(--text-3); }
+.mini__track {
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1;
   height: 3px;
-  border-radius: 2px;
+  border-radius: 99px;
   background: var(--line-strong);
+  cursor: pointer;
 }
-.mirror__track:focus-within {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pink-600) 46%, transparent);
-}
-.mirror__track > i {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--pink-600), var(--pink-400));
-}
-.mirror__knob {
-  position: absolute;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  margin: -3.5px 0 0 -3.5px;
-  border-radius: 50%;
-  border: 1.5px solid var(--pink-600);
-  background: var(--card);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 22%, transparent);
-  pointer-events: none;
-}
-.mirror__range {
+.mini__track > i {
   position: absolute;
   left: 0;
-  right: 0;
-  top: -8px;
+  top: 0;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--pink-400), var(--pink-600));
+}
+.mini__knob {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 2px solid var(--pink-600);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 25%, transparent);
+  transition: width 160ms var(--ease), height 160ms var(--ease);
+}
+.mini:hover .mini__knob { width: 11px; height: 11px; }
+.mini__range {
+  position: absolute;
+  inset: -7px 0;
   width: 100%;
-  height: 19px;
-  margin: 0;
+  height: 17px;
   opacity: 0;
   cursor: pointer;
   -webkit-app-region: no-drag;
-  z-index: 2;
 }
 
-/* 走带：hover / 键盘聚焦时，像纸条一样从便签底部翻上来；SETLIST 让位 */
-.mirror__dock {
-  position: relative;
-  flex: none;
-  height: 28px;
-  margin-top: 0;
-  overflow: hidden;
-}
-.mirror__ops {
+/* 右上红心 / 关闭 */
+.mini__topact {
   position: absolute;
-  inset: 0;
+  right: 10px;
+  top: 8px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  opacity: 0;
-  transform: translateY(100%);
-  pointer-events: none;
-  transition:
-    opacity var(--dur-fast) var(--ease-out-soft),
-    transform var(--dur-base) var(--ease-spring);
+  gap: 2px;
+  -webkit-app-region: no-drag;
 }
-.mirror:hover .mirror__ops,
-.mirror:focus-within .mirror__ops {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-}
-.mirror__ops button {
+.mini__icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--text-2);
-  cursor: pointer;
+  color: var(--text-3);
   -webkit-app-region: no-drag;
-  transition:
-    color var(--dur-fast) var(--ease-out-soft),
-    background-color var(--dur-fast) var(--ease-out-soft),
-    transform var(--dur-tap) var(--ease-spring);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-tap) var(--ease-spring);
 }
-.mirror__ops button:hover {
-  color: var(--text);
-  background: var(--wash);
-}
-.mirror__ops button:active { transform: scale(0.9); }
-.mirror__ops svg { width: 13px; height: 13px; }
-.mirror__ops .mirror__play {
-  width: 28px;
-  height: 28px;
-  background: var(--pink-600);
-  color: var(--on-accent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--pink-600) 34%, transparent);
-}
-.mirror__ops .mirror__play:hover {
-  background: var(--pink-700);
-  color: var(--on-accent);
-}
-.mirror__ops .mirror__play svg { width: 13px; height: 13px; }
-.mirror__ops .mirror__like.is-on { color: var(--pink-600); }
-.mirror__ops .mirror__close { color: var(--text-3); }
+.mini__icon:hover { background: var(--wash); color: var(--pink-700); }
+.mini__icon:active { transform: scale(0.92); }
+.mini__icon svg { width: 15px; height: 15px; }
+.mini__like.is-on { color: var(--coral); }
+.mini__close:hover { color: var(--coral); }
 
-.mirror__idle {
+/* 右下走带 */
+.mini__controls {
   position: absolute;
-  inset: 0;
+  right: 8px;
+  bottom: 10px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  pointer-events: none;
-  opacity: 1;
-  transform: none;
-  transition:
-    opacity var(--dur-fast) var(--ease-out-soft),
-    transform var(--dur-fast) var(--ease-out-soft);
+  gap: 4px;
+  -webkit-app-region: no-drag;
 }
-.mirror:hover .mirror__idle,
-.mirror:focus-within .mirror__idle {
-  opacity: 0;
-  transform: translateY(-100%);
+.mini__skip { width: 26px; height: 26px; color: var(--text-2); }
+.mini__play {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--pink-600);
+  color: var(--on-gradient);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 5px 14px rgba(214, 51, 132, 0.32);
+  -webkit-app-region: no-drag;
+  transition: transform var(--dur-tap) var(--ease-spring), background var(--dur-fast) var(--ease);
 }
-.mirror__setlist {
-  overflow: hidden;
-  color: var(--text-3);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.mirror__hint {
-  flex: none;
-  color: var(--text-3);
-  font-family: var(--font-hand);
-  font-size: 9px;
-}
+.mini__play svg { width: 16px; height: 16px; }
+.mini__play:hover { background: var(--pink-700); }
+.mini__play:active { transform: scale(0.92); }
+.mini.is-playing .mini__play { animation: playBreath 3.2s var(--ease) infinite; }
 
-/* ---------- 动效 ---------- */
-@keyframes bulbBreathe {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-@keyframes photoSway {
-  0%, 100% { transform: rotate(-4deg); }
-  50% { transform: rotate(-2.6deg); }
-}
-@keyframes lyricIn {
-  from { opacity: 0; transform: translateY(4px); }
+/* 空态 / 失败：少一点装饰，别假装在播 */
+.mini.is-empty .mini__onair { color: var(--text-3); }
+.mini.is-empty .mini__art { filter: saturate(0.5); }
+.mini.is-failed .mini__art { filter: grayscale(0.7); }
+.mini.is-failed .mini__play { background: var(--coral); }
+
+@keyframes miniIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
-@keyframes coverIn {
-  from { opacity: 0; transform: scale(1.06); }
-  to { opacity: 1; transform: none; }
+@keyframes onAir {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
-@keyframes mirrorIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.985); }
-  to { opacity: 1; transform: none; }
+@keyframes ringTurn {
+  to { transform: rotate(360deg); }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .mirror { animation-duration: 1ms; }
-  .mirror.is-playing .mirror__bulb,
-  .mirror.is-playing .mirror__photo { animation: none; }
-  .mirror__line,
-  .mirror__tr { animation-duration: 1ms; }
-  .mirror__sheen { transition: none; transform: none; }
-  .mirror:hover .mirror__photo { transform: rotate(-4deg); }
-  .mirror,
-  .mirror__disc,
-  .mirror__note,
-  .mirror__bulb,
-  .mirror__ops,
-  .mirror__idle { transition-duration: 120ms; }
+@keyframes playBreath {
+  0%, 100% { box-shadow: 0 5px 14px rgba(214, 51, 132, 0.32); }
+  50% { box-shadow: 0 5px 20px rgba(214, 51, 132, 0.5); }
 }
 
-/* 主窗动效档位：light 去循环与大幅位移，off 只留 120ms 透明度（与全站同一条规则） */
-:root[data-motion="light"] .mirror.is-playing .mirror__bulb,
-:root[data-motion="light"] .mirror.is-playing .mirror__photo,
-:root[data-motion="off"] .mirror.is-playing .mirror__bulb,
-:root[data-motion="off"] .mirror.is-playing .mirror__photo {
+:root[data-motion="light"] .mini.is-playing .mini__play,
+:root[data-motion="light"] .mini.is-playing .mini__art-ring,
+:root[data-motion="light"] .mini__onair.is-on i,
+:root[data-motion="off"] .mini__play,
+:root[data-motion="off"] .mini__art-ring,
+:root[data-motion="off"] .mini__onair.is-on i {
   animation: none;
-}
-:root[data-motion="light"] .mirror__sheen,
-:root[data-motion="off"] .mirror__sheen {
-  transition: none;
-  transform: none;
-}
-:root[data-motion="light"] .mirror:hover .mirror__photo,
-:root[data-motion="off"] .mirror:hover .mirror__photo {
-  transform: rotate(-4deg);
-}
-:root[data-motion="off"] .mirror__line,
-:root[data-motion="off"] .mirror__tr { animation-duration: 1ms; }
-:root[data-motion="off"] .mirror { animation-duration: 1ms; }
-:root[data-motion="off"] .mirror:hover .mirror__disc { transform: none; }
-:root[data-motion="off"] .mirror,
-:root[data-motion="off"] .mirror__disc,
-:root[data-motion="off"] .mirror__note,
-:root[data-motion="off"] .mirror__bulb,
-:root[data-motion="off"] .mirror__ops,
-:root[data-motion="off"] .mirror__idle {
-  transition-duration: 120ms;
-  transition-property: opacity;
 }

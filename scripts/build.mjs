@@ -228,6 +228,18 @@ const cssFiles = [
 
 const css = cssFiles.map((f) => fs.readFileSync(f, "utf8")).join("\n");
 fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
+
+/* 迷你窗只要 tokens + 基础层 + 字体：不再加载整个主应用外壳 CSS，
+   否则 shell.css 里的旧 `.mini{display:flex;height:82px}` 会把新小条挤扁。 */
+const miniBaseCss = [
+  "src/renderer/ui/fonts.css",
+  "src/renderer/ui/fonts-v42.css",
+  "src/renderer/ui/tokens.css",
+  "src/renderer/ui/af/base.css",
+]
+  .map((f) => fs.readFileSync(f, "utf8"))
+  .join("\n");
+fs.writeFileSync(path.join(OUT, "renderer", "mini-base.css"), miniBaseCss);
 // fonts-v42.css 的 url 是 ./fonts/*.woff2，必须一起进 dist。
 fs.cpSync("src/renderer/ui/fonts", path.join(OUT, "renderer", "fonts"), { recursive: true });
 fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
