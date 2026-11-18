@@ -1,0 +1,22 @@
+# GitHub 语言统计口径（不是构建配置）
+#
+# 产品代码 = src/**/*.ts + src/**/*.tsx。其余是设计原型、vendored 运行时、
+# Electron 入口壳与样式、构建/验证脚本；它们仍然留在仓库里，只是不计入
+# GitHub 的语言占比，避免两个 3MB+ 的原型 HTML 把仓库显示成「HTML 项目」。
+
+# 设计原型与参考物：不是产品源码
+offline_single/** linguist-vendored
+offline_v2/** linguist-vendored
+AFEIFEI+设计系统+·+开发交付规范/** linguist-documentation
+
+# 壳层与表现层：HTML 只是 Electron 入口，CSS 是设计系统实现，脚本是构建工具
+*.html linguist-detectable=false
+*.css  linguist-detectable=false
+*.js   linguist-detectable=false
+*.cjs  linguist-detectable=false
+*.mjs  linguist-detectable=false
+*.jsx  linguist-detectable=false
+
+# 明确把 TypeScript 作为主语言
+*.ts   linguist-detectable=true
+*.tsx  linguist-detectable=true
