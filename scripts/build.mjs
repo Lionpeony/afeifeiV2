@@ -242,6 +242,11 @@ const miniBaseCss = [
 fs.writeFileSync(path.join(OUT, "renderer", "mini-base.css"), miniBaseCss);
 // fonts-v42.css 的 url 是 ./fonts/*.woff2，必须一起进 dist。
 fs.cpSync("src/renderer/ui/fonts", path.join(OUT, "renderer", "fonts"), { recursive: true });
+// 详情页的角色立绘（有就复制；没有时 CSS 背景图静默为空）
+const assetsDir = "src/renderer/ui/af/assets";
+if (fs.existsSync(assetsDir)) {
+  fs.cpSync(assetsDir, path.join(OUT, "renderer", "assets"), { recursive: true });
+}
 fs.copyFileSync("src/renderer/index.html", path.join(OUT, "renderer", "index.html"));
 fs.copyFileSync("src/renderer/splash.js", path.join(OUT, "renderer", "splash.js"));
 fs.copyFileSync("src/renderer/mini.html", path.join(OUT, "renderer", "mini.html"));

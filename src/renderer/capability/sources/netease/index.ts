@@ -1,4 +1,5 @@
 import type {
+  HomeSection,
   LyricDoc,
   OnlinePlaylist,
   RemoteTrack,
@@ -58,6 +59,9 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     const id = song.id;
     if (id === undefined || id === null) return null;
     const album = pickAlbum(song);
+    const al = (song.al ?? song.album ?? {}) as { id?: unknown };
+    const ar = (song.ar ?? song.artists) as { id?: unknown }[] | undefined;
+    const artistId = ar?.[0]?.id;
     return {
       sourceId: String(id),
       title: typeof song.name === "string" && song.name ? song.name : "未知曲目",
@@ -65,6 +69,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       album: album.name,
       durationMs: pickDuration(song),
       coverUrl: album.cover,
+      artistId: artistId === undefined || artistId === null ? undefined : String(artistId),
+      albumId: al.id === undefined || al.id === null ? undefined : String(al.id),
     };
   }
 
@@ -220,6 +226,65 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
           };
         })
         .filter((t): t is Toplist => t !== null);
+    },
+
+    /** 首页栏目：后端给什么就渲染什么，某一栏失败只少那一栏。 */
+    async home(): Promise<HomeSection[]> {
+      const [rec, news] = await Promise.allSettled([
+        ncm<{ result?: Record<string, unknown>[] }>("personalized", { limit: 12 }),
+        ncm<{ result?: Record<string, unknown>[] }>("personalized_newsong", { limit: 12 }),
+      ]);
+
+      const sections: HomeSection[] = [];
+      if (rec.status === "fulfilled") {
+        const items = (rec.value?.result ?? [])
+          .map((p): HomeSection["items"][number] | null => {
+            const id = p.id;
+            if (id === undefined || id === null) return null;
+            return {
+              kind: "playlist",
+              id: String(id),
+              title: typeof p.name === "string" && p.name ? p.name : "未命名歌单",
+              subtitle: Number.isFinite(Number(p.trackCount)) ? `${Number(p.trackCount)} 首` : undefined,
+              coverUrl: typeof p.picUrl === "string" ? p.picUrl : undefined,
+              playCount: Number.isFinite(Number(p.playCount)) ? Number(p.playCount) : undefined,
+            };
+          })
+          .filter((x): x is HomeSection["items"][number] => x !== null);
+        if (items.length > 0) sections.push({ id: "recommend-playlists", title: "推荐歌单", subtitle: "根据你的口味", layout: "cards", items });
+      }
+      if (news.status === "fulfilled") {
+        const items = (news.value?.result ?? [])
+          .map((n): HomeSection["items"][number] | null => {
+            const song = (n.song ?? {}) as Record<string, unknown>;
+            const track = toTrack({ ...song, id: song.id ?? n.id });
+            return track ? { kind: "track", track } : null;
+          })
+          .filter((x): x is HomeSection["items"][number] => x !== null);
+        if (items.length > 0) sections.push({ id: "new-songs", title: "新歌速递", subtitle: "刚刚上线", layout: "tracks", items });
+      }
+      return sections;
+    },
+
+    /** 歌手热门曲目（点歌手名进入）。 */
+    async getArtist(sourceId: string, page = 0): Promise<SearchResult> {
+      const limit = 50;
+      const body = await ncm<{ songs?: Record<string, unknown>[] }>("artist_songs", {
+        id: sourceId,
+        order: "hot",
+        limit,
+        offset: page * limit,
+      });
+      const songs = body?.songs ?? [];
+      const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      return { items, nextPage: songs.length >= limit ? page + 1 : undefined };
+    },
+
+    /** 专辑曲目（点专辑名进入）。 */
+    async getAlbum(sourceId: string): Promise<SearchResult> {
+      const body = await ncm<{ songs?: Record<string, unknown>[] }>("album", { id: sourceId });
+      const items = (body?.songs ?? []).map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      return { items };
     },
 
     /** 歌单头信息（M11 导入用）。id 不存在时上游给 code=404，统一报人话。 */

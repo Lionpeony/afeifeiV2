@@ -324,6 +324,12 @@ export const IconMore = (p: IcProps) => (
 export const IconMin = (p: IcProps) => (
   <Ic {...p}><path d="M5 12h14" /></Ic>
 );
+export const IconMini = (p: IcProps) => (
+  <Ic {...p}>
+    <rect x="4" y="5" width="16" height="14" rx="2.4" />
+    <rect x="12.4" y="12.4" width="6" height="5" rx="1.2" fill="currentColor" stroke="none" />
+  </Ic>
+);
 export const IconMax = (p: IcProps) => (
   <Ic {...p}><rect x="5.4" y="5.4" width="13.2" height="13.2" rx="1.6" /></Ic>
 );

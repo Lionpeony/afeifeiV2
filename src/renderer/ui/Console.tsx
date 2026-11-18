@@ -16,11 +16,9 @@ import { sourceTone } from "./af/data.js";
 import {
   IconHeart,
   IconHeartFill,
-  IconMin,
   IconMore,
   IconNext,
   IconNote,
-  IconPick,
   IconPrev,
   IconQueue,
   IconRepeat,
@@ -111,7 +109,7 @@ export function Console(props: {
   const [coverFailed, setCoverFailed] = useState<string | null>(null);
   const showCover = npCover !== null && npCover !== coverFailed;
   const footerRef = useRef<HTMLElement | null>(null);
-  const lit = Math.round(volume * 5);
+  const volumePct = Math.round(volume * 100);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -304,17 +302,18 @@ export function Console(props: {
         >
           <IconVolume size={16} />
         </button>
-        <div className="vol" title={"音量 " + Math.round(volume * 100) + "%"}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <button
-              key={i}
-              className={"vol__pick" + (i < lit ? " is-lit" : "")}
-              onClick={() => dispatch({ type: "player/setVolume", volume: (i + 1) / 5 })}
-              aria-label={"音量 " + (i + 1) * 20 + "%"}
-            >
-              <IconPick size={11} />
-            </button>
-          ))}
+        <div className="vol" title={"音量 " + volumePct + "%"}>
+          <input
+            className="vol__range"
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            style={{ "--fill": `${volumePct}%` } as React.CSSProperties}
+            onChange={(e) => dispatch({ type: "player/setVolume", volume: Number(e.currentTarget.value) })}
+            aria-label={"音量 " + volumePct + "%"}
+          />
         </div>
         <span className="bar__sep" />
         <button
@@ -329,15 +328,7 @@ export function Console(props: {
         >
           <IconNote size={17} />
         </button>
-        {/* 迷你 / 悬浮：真正的无边框置顶窗；与 QQ/网易云悬浮窗同一类东西 */}
-        <button
-          type="button"
-          className="bar__icon"
-          onClick={() => void window.api.toggleMini()}
-          title="迷你 / 悬浮窗（K）"
-        >
-          <IconMin size={17} />
-        </button>
+        {/* 迷你 / 悬浮窗开关已移到顶栏右上（QQ/网易云同位置） */}
         <button
           type="button"
           className={"bar__icon" + (af.studio ? " is-on" : "")}

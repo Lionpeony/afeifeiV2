@@ -877,11 +877,23 @@ function App() {
               const svc = services.current;
               return svc ? svc.listToplists(sourceId) : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
+            home={(sourceId) => {
+              const svc = services.current;
+              return svc ? svc.home(sourceId) : Promise.resolve([]);
+            }}
             playlistTracks={(sourceId, listId, page) => {
               const svc = services.current;
               return svc
                 ? svc.playlistTracks(sourceId, listId, page)
                 : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            artistTracks={(sourceId, artistId, page) => {
+              const svc = services.current;
+              return svc ? svc.artistTracks(sourceId, artistId, page) : Promise.reject(new Error("还没准备好，请稍后再试"));
+            }}
+            albumTracks={(sourceId, albumId, page) => {
+              const svc = services.current;
+              return svc ? svc.albumTracks(sourceId, albumId, page) : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
             onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
             onSearch={(sourceId, keyword) => {

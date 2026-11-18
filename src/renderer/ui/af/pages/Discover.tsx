@@ -1,7 +1,7 @@
 /* 发现页 · 原型 .page.disc（每日推荐 / 榜单 / 热门 / 传单墙 + 搜索态）
    数据逻辑沿用现有 DiscoverView：账号每日推荐、榜单、搜索、下载。 */
-import { useEffect, useState } from "react";
-import type { RemoteTrack, Toplist } from "../../../../contracts/capability.js";
+import { Fragment, useEffect, useRef, useState } from "react";
+import type { HomeSection, RemoteTrack, Toplist } from "../../../../contracts/capability.js";
 import { getNet, invalidatePrefix, loadNet, refreshNet } from "../../../domain/net-cache/index.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { toast } from "../../toast.js";
@@ -12,7 +12,7 @@ import { useAf } from "../context.js";
 import type { AfTrack } from "../context.js";
 import { TrackArt } from "../art.js";
 import { AfTrackTable } from "../TrackTable.js";
-import { IconArrowRight, IconPlay, IconRefresh, IconSparkle, IconDownload } from "../icons.js";
+import { IconArrowRight, IconBack, IconPlay, IconRefresh, IconSparkle, IconDownload } from "../icons.js";
 import { Tape } from "../ui.js";
 
 export interface AfSourceOption {
@@ -28,7 +28,11 @@ export interface DiscoverPageProps {
   sources: AfSourceOption[];
   daily(): Promise<AccountBundle>;
   listToplists(sourceId: string): Promise<Toplist[]>;
+  /** 首页栏目（数据驱动）：源返回几块就渲染几块 */
+  home(sourceId: string): Promise<HomeSection[]>;
   playlistTracks(sourceId: string, listId: string, page?: number): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
+  artistTracks(sourceId: string, artistId: string, page?: number): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
+  albumTracks(sourceId: string, albumId: string, page?: number): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   onPlay(sourceId: string, track: RemoteTrack, list?: RemoteTrack[], origin?: string): Promise<void>;
   onSearch(sourceId: string, keyword: string): Promise<{ items: RemoteTrack[]; nextPage?: number }>;
   onDownload(sourceId: string, track: RemoteTrack): Promise<string>;
@@ -46,9 +50,22 @@ const fmtDur = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(s / 60)}:${pad(s % 60)}`;
 };
+/** 播放量：亿/万分级，避免角标撑破封面 */
+const fmtPlays = (n: number): string => {
+  if (n >= 1e8) return `${(n / 1e8).toFixed(1)} 亿`;
+  if (n >= 1e4) return `${(n / 1e4).toFixed(n >= 1e5 ? 0 : 1)} 万`;
+  return String(n);
+};
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-const HOT_GRADS = 4;
+
+type DetailKind = "chart" | "playlist" | "artist" | "album";
+interface DetailRef {
+  id: string;
+  name: string;
+  coverUrl?: string;
+  kind: DetailKind;
+}
 
 export function DiscoverPage(props: DiscoverPageProps) {
   const af = useAf();
@@ -70,38 +87,42 @@ export function DiscoverPage(props: DiscoverPageProps) {
   const [loginOpen, setLoginOpen] = useState(false);
   const [note, setNote] = useState("");
   const [lists, setLists] = useState<Toplist[]>([]);
-  const [pick, setPick] = useState<string | null>(null);
-  const [tracks, setTracks] = useState<RemoteTrack[]>([]);
-  const [nextPage, setNextPage] = useState<number | undefined>(undefined);
-  const [chartNote, setChartNote] = useState("");
-  const [chartBusy, setChartBusy] = useState(false);
+  const [listNote, setListNote] = useState("");
+  const [homeSections, setHomeSections] = useState<HomeSection[]>([]);
+  /** 榜 / 歌单 / 歌手 / 专辑详情：整页切换，返回恢复原滚动位置 */
+  const [detail, setDetail] = useState<DetailRef | null>(null);
+  const [detailStack, setDetailStack] = useState<DetailRef[]>([]);
+  const [detailTracks, setDetailTracks] = useState<RemoteTrack[]>([]);
+  const [detailNext, setDetailNext] = useState<number | undefined>(undefined);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [detailNote, setDetailNote] = useState("");
+  const [detailShown, setDetailShown] = useState(0);
+  const savedScroll = useRef(0);
   const [chartTick, setChartTick] = useState(0);
   const canCharts = currentSource?.canToplists === true;
 
   useEffect(() => {
     if (!sourceId || !canCharts) {
       setLists([]);
-      setPick(null);
-      setTracks([]);
-      setNextPage(undefined);
-      setChartNote("");
+      setDetail(null);
+      setDetailStack([]);
+      setListNote("");
       return;
     }
     let alive = true;
     const key = `charts:toplists:${sourceId}`;
     setLists(getNet<Toplist[]>(key) ?? []);
-    setPick(null);
-    setTracks([]);
-    setNextPage(undefined);
-    setChartNote("");
+    setDetail(null);
+    setDetailStack([]);
+    setListNote("");
     loadNet(key, () => props.listToplists(sourceId))
       .then((list) => {
         if (!alive) return;
         setLists(list);
-        if (list.length === 0) setChartNote("这个音源没有给出榜单。");
+        if (list.length === 0) setListNote("这个音源没有给出榜单。");
       })
       .catch((err: unknown) => {
-        if (alive) setChartNote(err instanceof Error ? err.message : String(err));
+        if (alive) setListNote(err instanceof Error ? err.message : String(err));
       });
     return () => {
       alive = false;
@@ -109,44 +130,90 @@ export function DiscoverPage(props: DiscoverPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceId, chartTick, canCharts]);
 
-  const loadTracks = async (listId: string, page: number): Promise<void> => {
-    const key = `charts:tracks:${sourceId}:${listId}:${page}`;
-    const cached = page === 0 ? getNet<{ items: RemoteTrack[]; nextPage?: number }>(key) : undefined;
-    if (cached) {
-      setTracks(cached.items);
-      setNextPage(cached.nextPage);
+  /** 首页栏目：与榜单并行取，失败只少一块，不挡整页 */
+  useEffect(() => {
+    if (!sourceId) {
+      setHomeSections([]);
       return;
     }
-    setChartBusy(true);
-    setChartNote("");
+    let alive = true;
+    const key = `charts:home:${sourceId}`;
+    setHomeSections(getNet<HomeSection[]>(key) ?? []);
+    loadNet(key, () => props.home(sourceId))
+      .then((sections) => {
+        if (alive) setHomeSections(sections);
+      })
+      .catch(() => {
+        if (alive) setHomeSections([]);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceId, chartTick]);
+
+  /** 打开详情：记住列表滚动位置，进详情后回到顶部；从详情里点歌手/专辑会压栈 */
+  const openDetail = (item: DetailRef): void => {
+    const main = document.querySelector<HTMLElement>(".main__page");
+    if (detail) setDetailStack((s) => [...s, detail]);
+    else savedScroll.current = main ? main.scrollTop : 0;
+    setDetail(item);
+    setDetailTracks([]);
+    setDetailNext(undefined);
+    setDetailNote("");
+    setDetailShown(0);
+    if (main) main.scrollTop = 0;
+    void loadDetail(item.kind, item.id, 0);
+  };
+
+  const loadDetail = async (kind: DetailKind, listId: string, page: number): Promise<void> => {
+    const key = `charts:tracks:${sourceId}:${kind}:${listId}:${page}`;
+    const cached = page === 0 ? getNet<{ items: RemoteTrack[]; nextPage?: number }>(key) : undefined;
+    if (cached) {
+      setDetailTracks(cached.items);
+      setDetailNext(cached.nextPage);
+      setDetailShown(Math.min(120, cached.items.length));
+      return;
+    }
+    setDetailBusy(true);
+    setDetailNote("");
+    const loader =
+      kind === "artist" ? props.artistTracks : kind === "album" ? props.albumTracks : props.playlistTracks;
     try {
-      const result = await loadNet(key, () => props.playlistTracks(sourceId, listId, page));
-      setTracks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
-      setNextPage(result.nextPage);
-      if (page === 0 && result.items.length === 0) setChartNote("这个榜单暂时取不到曲目。");
+      const result = await loadNet(key, () => loader(sourceId, listId, page));
+      setDetailTracks((prev) => (page === 0 ? result.items : [...prev, ...result.items]));
+      setDetailNext(result.nextPage);
+      setDetailShown((n) => (page === 0 ? Math.min(120, result.items.length) : n + result.items.length));
+      if (page === 0 && result.items.length === 0) setDetailNote("这里暂时取不到曲目。");
     } catch (err) {
-      setChartNote(err instanceof Error ? err.message : String(err));
+      setDetailNote(err instanceof Error ? err.message : String(err));
     } finally {
-      setChartBusy(false);
+      setDetailBusy(false);
     }
   };
 
-  useEffect(() => {
-    if (pick !== null || lists.length === 0) return;
-    setPick(lists[0]!.id);
-    void loadTracks(lists[0]!.id, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lists]);
-
-  const selectedList = lists.find((l) => l.id === pick) ?? null;
-
-  const playChart = async (track: RemoteTrack): Promise<void> => {
-    try {
-      await props.onPlay(sourceId, track, tracks, selectedList?.name);
-      af.openPlayer();
-    } catch (err) {
-      setChartNote(err instanceof Error ? err.message : String(err));
+  const closeDetail = (): void => {
+    if (detailStack.length > 0) {
+      const prev = detailStack[detailStack.length - 1]!;
+      setDetailStack((s) => s.slice(0, -1));
+      setDetail(prev);
+      setDetailTracks([]);
+      setDetailNext(undefined);
+      setDetailNote("");
+      setDetailShown(0);
+      void loadDetail(prev.kind, prev.id, 0);
+      return;
     }
+    setDetail(null);
+    setDetailStack([]);
+    setDetailTracks([]);
+    setDetailNext(undefined);
+    setDetailNote("");
+    setDetailShown(0);
+    setTimeout(() => {
+      const main = document.querySelector<HTMLElement>(".main__page");
+      if (main) main.scrollTop = savedScroll.current;
+    }, 0);
   };
 
   const [keyword, setKeyword] = useState("");
@@ -247,8 +314,8 @@ export function DiscoverPage(props: DiscoverPageProps) {
     : acct.loading
       ? "正在取今天的推荐…"
       : `来自${sourceName}账号 · ${acct.songs.length} 首 · 每天 06:00 换新`;
-  const hot = (acct.songs.length > 0 ? acct.songs : tracks).slice(0, 8);
-  const hotOrigin = acct.songs.length > 0 ? "今日推荐" : selectedList?.name ?? "当前榜单";
+  const hot = acct.songs.slice(0, 8);
+  const hotOrigin = "今日推荐";
 
   /* 传单墙来自真实播放历史：按天归档，最多三张；没有记录就不摆假海报 */
   const dayMap = new Map<number, { at: number; ids: string[] }>();
@@ -275,6 +342,165 @@ export function DiscoverPage(props: DiscoverPageProps) {
         cover: first?.cover ?? null,
       };
     });
+
+  if (detail) {
+    const visibleTracks = detailTracks.slice(0, detailShown);
+    const now = new Date();
+    const dateLabel = `${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
+    const loadedMin = Math.round(detailTracks.reduce((sum, t) => sum + t.durationMs, 0) / 60000);
+    const playedAll = detailNext === undefined && detailShown >= detailTracks.length && detailTracks.length > 0;
+    const kicker = detail.kind === "chart" ? "榜单" : detail.kind === "playlist" ? "歌单" : detail.kind === "artist" ? "歌手" : "专辑";
+    const heroCover = detail.coverUrl ?? visibleTracks[0]?.coverUrl;
+
+    return (
+      <div className="page disc disc-detail page-setlist" data-screen-label="榜单详情">
+        <button type="button" className="setlist-back" onClick={closeDetail}>
+          <IconBack size={14} />返回
+        </button>
+
+        <div className="setlist">
+          <aside className="setlist-spine" aria-hidden="true">
+            <span className="setlist-spine__word">SETLIST</span>
+            <span className="setlist-spine__kana">セットリスト</span>
+            <span className="setlist-spine__date">{dateLabel}</span>
+            <span className="setlist-spine__count">
+              {detailTracks.length > 0 ? `${detailTracks.length} 首 · ${loadedMin} 分` : "…"}
+            </span>
+            <span className="setlist-spine__stamp">本番</span>
+            <span className="setlist-spine__mascot" aria-hidden="true" />
+          </aside>
+
+          <div className="setlist-body">
+            <header className="setlist-poster">
+              <Tape w={70} rot={-4} style={{ top: -11, left: 40 }} />
+              <div className="setlist-poster__frame">
+                <div className="setlist-poster__photo">
+                  {heroCover ? (
+                    <img src={heroCover} alt="" referrerPolicy="no-referrer" decoding="async" />
+                  ) : (
+                    <span className="setlist-poster__initial">{detail.name.trim().slice(0, 1)}</span>
+                  )}
+                </div>
+              </div>
+              <div className="setlist-poster__info">
+                <div className="eyebrow">LIVE SETLIST · {kicker}</div>
+                <h1 className="setlist-poster__title">{detail.name}</h1>
+                <p className="setlist-poster__hand">今晚这一场，按曲顺来——别掉拍。</p>
+                <div className="setlist-poster__stats num">
+                  {detailTracks.length > 0 ? `${detailTracks.length} 首 · 约 ${loadedMin} 分钟` : "取曲目中…"}
+                </div>
+                <div className="setlist-poster__acts">
+                  <button
+                    className="setlist-play"
+                    disabled={!detailTracks[0]}
+                    onClick={() => {
+                      if (!detailTracks[0]) return;
+                      void props.onPlay(sourceId, detailTracks[0], detailTracks, detail.name);
+                      af.openPlayer();
+                    }}
+                  >
+                    <IconPlay size={14} />全部播放
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            {detailNote ? <p className="lib-note" role="status">{detailNote}</p> : null}
+
+            <ol className="tracklist tracklist--setlist">
+              {visibleTracks.map((t, i) => {
+                const play = (): void => {
+                  void props.onPlay(sourceId, t, detailTracks, detail.name);
+                  af.openPlayer();
+                };
+                return (
+                  <Fragment key={`${t.sourceId}-${i}`}>
+                    {i === 15 ? (
+                      <li className="setlist-side" aria-hidden="true">
+                        <i />
+                        <span>SIDE B</span>
+                        <i />
+                      </li>
+                    ) : null}
+                    <li className="tracklist__row">
+                      <span className="tracklist__no">{pad(i + 1)}</span>
+                      <button type="button" className="tracklist__art" title={`播放 ${t.title}`} aria-label={`播放 ${t.title}`} onClick={play}>
+                        {t.coverUrl ? (
+                          <img src={t.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                        ) : (
+                          <TrackArt id={t.sourceId} size={38} radius={7} />
+                        )}
+                        <span className="tracklist__artplay" aria-hidden="true"><IconPlay size={12} /></span>
+                      </button>
+                      <span className="tracklist__main">
+                        <button type="button" className="tracklist__title" onClick={play}>
+                          {t.title}
+                        </button>
+                        <span className="tracklist__meta">
+                          {t.artistId ? (
+                            <button
+                              type="button"
+                              className="tracklist__link"
+                              title={`查看歌手 ${t.artist}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail({ id: t.artistId!, name: t.artist, coverUrl: t.coverUrl, kind: "artist" });
+                              }}
+                            >
+                              {t.artist}
+                            </button>
+                          ) : (
+                            <span>{t.artist}</span>
+                          )}
+                          <span className="tracklist__dot">·</span>
+                          {t.albumId ? (
+                            <button
+                              type="button"
+                              className="tracklist__link"
+                              title={`查看专辑 ${t.album}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetail({ id: t.albumId!, name: t.album, coverUrl: t.coverUrl, kind: "album" });
+                              }}
+                            >
+                              {t.album}
+                            </button>
+                          ) : (
+                            <span>{t.album}</span>
+                          )}
+                        </span>
+                      </span>
+                      <span className="tracklist__leader" aria-hidden="true" />
+                      <span className="tracklist__dur num">{fmtDur(t.durationMs)}</span>
+                    </li>
+                  </Fragment>
+                );
+              })}
+            </ol>
+
+            {detailShown < detailTracks.length || detailNext !== undefined ? (
+              <button
+                className="setlist-more"
+                disabled={detailBusy}
+                onClick={() => {
+                  if (detailShown < detailTracks.length) setDetailShown((n) => n + 120);
+                  else if (detailNext !== undefined) void loadDetail(detail.kind, detail.id, detailNext);
+                }}
+              >
+                {detailBusy
+                  ? "翻页中…"
+                  : detailShown < detailTracks.length
+                    ? `翻开下一页 · 还有 ${detailTracks.length - detailShown} 首`
+                    : "加载更多曲目"}
+              </button>
+            ) : null}
+
+            {playedAll ? <p className="setlist-encore">つづく…</p> : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page disc" data-screen-label="发现">
@@ -388,6 +614,89 @@ export function DiscoverPage(props: DiscoverPageProps) {
             <div className="mix__bigdate" aria-hidden="true"><b>{dayNum}</b><span>{monStr}</span></div>
           </section>
 
+          {homeSections
+            .filter((sec) => sec.layout === "cards")
+            .map((sec) => (
+              <section className="disc__sect home-sec" key={sec.id}>
+                <h2 className="sect-title">
+                  {sec.title}
+                  {sec.subtitle ? <span>{sec.subtitle}</span> : null}
+                </h2>
+                <div className="home-grid" role="list" aria-label={sec.title}>
+                  {sec.items.map((item) =>
+                    item.kind === "playlist" ? (
+                      <button
+                        key={item.id}
+                        role="listitem"
+                        className="home-card"
+                        title={item.title}
+                        onClick={() => openDetail({ id: item.id, name: item.title, coverUrl: item.coverUrl, kind: "playlist" })}
+                      >
+                        <span className="home-card__art">
+                          <span className="home-card__tape" aria-hidden="true" />
+                          {item.coverUrl ? (
+                            <img src={item.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                          ) : (
+                            <TrackArt id={item.id} size={132} radius={12} />
+                          )}
+                          {item.playCount && item.playCount > 0 ? (
+                            <span className="home-card__plays num">{fmtPlays(item.playCount)}</span>
+                          ) : null}
+                        </span>
+                        <span className="home-card__name">{item.title}</span>
+                      </button>
+                    ) : null,
+                  )}
+                </div>
+              </section>
+            ))}
+
+          {homeSections.some((sec) => sec.layout === "tracks") ? (
+            <div className="home-pair">
+              {homeSections
+                .filter((sec) => sec.layout === "tracks")
+                .map((sec) => {
+                  const secTracks = sec.items
+                    .filter((x): x is { kind: "track"; track: RemoteTrack } => x.kind === "track")
+                    .map((x) => x.track)
+                    .slice(0, 6);
+                  return (
+                    <section className="disc__sect home-sec home-sec--list" key={sec.id}>
+                      <h2 className="sect-title">
+                        {sec.title}
+                        {sec.subtitle ? <span>{sec.subtitle}</span> : null}
+                      </h2>
+                      <div className="home-rows" role="list">
+                        {secTracks.map((track, i) => (
+                          <button
+                            key={`${track.sourceId}-${i}`}
+                            role="listitem"
+                            className="home-trow"
+                            title={`${track.title} — ${track.artist}`}
+                            onClick={() => void props.onPlay(sourceId, track, secTracks, sec.title)}
+                          >
+                            <span className="home-trow__no num">{String(i + 1).padStart(2, "0")}</span>
+                            <span className="home-trow__art">
+                              {track.coverUrl ? (
+                                <img src={track.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                              ) : (
+                                <TrackArt id={track.sourceId} size={32} radius={6} />
+                              )}
+                            </span>
+                            <span className="home-trow__meta">
+                              <span className="home-trow__title truncate">{track.title}</span>
+                              <span className="home-trow__artist truncate">{track.artist}</span>
+                            </span>
+                            <span className="home-trow__dur num">{fmtDur(track.durationMs)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
+            </div>
+          ) : null}
+
           <div className="disc__sect">
             <h2 className="sect-title">榜单<span>TOPLISTS</span></h2>
             <div className="row gap10">
@@ -396,6 +705,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
                 <button className="icon-btn" title="刷新榜单" onClick={() => {
                   if (!sourceId) return;
                   refreshNet(`charts:toplists:${sourceId}`);
+                  refreshNet(`charts:home:${sourceId}`);
                   invalidatePrefix(`charts:tracks:${sourceId}:`);
                   setChartTick((t) => t + 1);
                 }}><IconRefresh size={15} /></button>
@@ -404,55 +714,27 @@ export function DiscoverPage(props: DiscoverPageProps) {
           </div>
 
           {!canCharts ? <p className="lib-note">{sourceName} 不提供榜单，切到网易云或 QQ 音乐看榜。</p> : null}
-          {chartNote ? <p className="lib-note" role="status">{chartNote}</p> : null}
+          {listNote ? <p className="lib-note" role="status">{listNote}</p> : null}
 
           {canCharts && lists.length > 0 ? (
             <>
-              <div className="toplists scroll-x disc-strip" role="list" aria-label="榜单目录">
+              <div className="chart-board" role="list" aria-label="榜单目录">
                 {lists.map((list, i) => (
-                  <button key={list.id} role="listitem" className={"top-card" + (pick === list.id ? " is-active" : "")} onClick={() => { setPick(list.id); void loadTracks(list.id, 0); }} title={list.name}>
-                    <span className={"top-card__art g" + (i % HOT_GRADS)}>
-                      <IconPlay size={15} style={{ opacity: 0.5, color: "var(--on-accent)", position: "relative", zIndex: 1 }} />
-                      <b>{list.name}</b>
-                      <span className="top-card__no">{pad(i + 1)}</span>
-                    </span>
-                    <span className="top-card__name">{list.name}</span>
-                    <span className="top-card__count num">{list.count > 0 ? `${list.count} 首` : "—"}</span>
+                  <button
+                    key={list.id}
+                    role="listitem"
+                    className="chart-row"
+                    onClick={() => openDetail({ id: list.id, name: list.name, coverUrl: list.coverUrl, kind: "chart" })}
+                    title={list.name}
+                  >
+                    <span className="chart-row__no">{pad(i + 1)}</span>
+                    <span className="chart-row__name truncate">{list.name}</span>
+                    <span className="chart-row__count num">{list.count > 0 ? `${list.count} 首` : "—"}</span>
+                    <IconArrowRight size={13} className="chart-row__go" />
                   </button>
                 ))}
               </div>
 
-              {selectedList ? (
-                <div className="top-preview paper">
-                  <Tape w={64} rot={-2} style={{ top: -9, left: 26 }} />
-                  <div className="top-preview__head">
-                    <div>
-                      <div className="h2">{selectedList.name}</div>
-                      <div className="meta">{tracks.length > 0 ? `${tracks.length} 首` : "取曲目中…"}</div>
-                    </div>
-                    <button className="btn btn-soft btn-sm" disabled={!tracks[0]} onClick={() => tracks[0] && void playChart(tracks[0])}>
-                      <IconPlay size={13} />播放这个榜
-                    </button>
-                  </div>
-                  <AfTrackTable
-                    items={tracks.slice(0, 6).map(toAf)}
-                    onPlay={(i) => { const t = tracks[i]; if (t) void playChart(t); }}
-                    dense
-                    sourceLabel={sourceName}
-                  />
-                  {chartBusy && tracks.length === 0 ? <div className="search-busy"><span className="hand">取曲目中……</span></div> : null}
-                  {tracks.length > 6 ? (
-                    <button className="top-preview__more" onClick={() => { if (pick) void loadTracks(pick, 0); }}>
-                      展开全部 {tracks.length} 首<IconArrowRight size={13} />
-                    </button>
-                  ) : null}
-                  {nextPage !== undefined ? (
-                    <button className="top-preview__more" disabled={chartBusy} onClick={() => pick && void loadTracks(pick, nextPage)}>
-                      {chartBusy ? "加载中…" : "加载更多"}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
             </>
           ) : null}
 

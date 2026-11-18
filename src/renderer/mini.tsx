@@ -6,12 +6,11 @@ import { useEffect, useState } from "react";
  * 状态由主窗 store 推过来（节流 500ms），按钮只发 action 字符串，
  * 真正的 dispatch 在主窗。两窗进度差最多一个推送间隔，且同源同值。
  *
- * 2026-11-18 重做：横向小条。左边一张圆形「贴纸封面」压在卡片边缘，
- * 右边一行曲名 + 一行歌手/词，底下一条细细的进度线；播放键是莓粉圆钮，
- * 右上角是红心与关闭。不是 QQ 的同款，是 AFEIFEI 自己的后台便签。
+ * 2026-11-18 重做：横向便签。圆形贴纸封面 + 曲名/歌手/词 + 细进度；
+ * 鼠标移上来文字淡出、走带翻出（QQ 音乐节奏），样式是 AFEIFEI 自己的。
  *
  * 封面只在**变了**的时候随包带过来，所以收到没带 cover 的包要沿用上一张。
- * 双击封面 = 回主窗（`focus` 由主进程直接处理，不往渲染层转）。
+ * 点击封面 = 回主窗（`focus` 由主进程直接处理，不往渲染层转）。
  */
 interface MiniState {
   status: string;
@@ -83,7 +82,6 @@ function Mini() {
   return (
     <div className={"mini" + (playing ? " is-playing" : "") + (failed ? " is-failed" : "") + (noTrack ? " is-empty" : "")}>
       <div className="mini__card">
-        <span className="mini__tape" aria-hidden="true" />
         <span className={"mini__onair" + (playing ? " is-on" : "")} aria-hidden="true">
           <i />
           {failed ? "SIGNAL LOST" : playing ? `ON AIR${setlist ? " · " + setlist : ""}` : "STANDBY"}
@@ -92,13 +90,13 @@ function Mini() {
         <button
           type="button"
           className="mini__art"
-          onDoubleClick={() => window.miniApi.action("focus")}
-          title="双击回到主窗"
-          aria-label="封面，双击回到主窗"
+          onClick={() => window.miniApi.action("focus")}
+          title="回到完整播放器"
+          aria-label="封面，点击回到完整播放器"
         >
           <span className="mini__art-ring" aria-hidden="true" />
           {st.cover ? (
-            <img key={st.cover} className="mini__img" src={st.cover} alt="" draggable={false} />
+            <img key={st.cover} className="mini__img" src={st.cover} alt="" draggable={false} referrerPolicy="no-referrer" />
           ) : (
             <b className="mini__initial">{initial}</b>
           )}
@@ -120,40 +118,48 @@ function Mini() {
               lyricLine
             )}
           </p>
+        </div>
 
-          <div className="mini__progress">
-            <span className="mini__time">{fmt(shown)}</span>
-            <div className="mini__track">
-              <i style={{ width: `${pct}%` }} aria-hidden="true" />
-              <span className="mini__knob" style={{ left: `${pct}%` }} aria-hidden="true" />
-              <input
-                className="mini__range"
-                type="range"
-                min={0}
-                max={Math.max(1, Math.round(st.dur))}
-                value={Math.round(Math.min(shown, st.dur || shown))}
-                onChange={(e) => {
-                  const v = Number(e.currentTarget.value);
-                  setDragT(v);
-                  if (!drag) window.miniApi.action(`seek:${v}`);
-                }}
-                onPointerDown={() => {
-                  setDragT(st.t);
-                  setDrag(true);
-                }}
-                onPointerUp={(e) => {
-                  setDrag(false);
-                  window.miniApi.action(`seek:${Number(e.currentTarget.value)}`);
-                }}
-                onBlur={() => setDrag(false)}
-                aria-label="播放进度"
-              />
-            </div>
-            <span className="mini__time is-dim">{fmt(st.dur)}</span>
+        <div className="mini__progress">
+          <span className="mini__time">{fmt(shown)}</span>
+          <div className="mini__track">
+            <i style={{ width: `${pct}%` }} aria-hidden="true" />
+            <span className="mini__knob" style={{ left: `${pct}%` }} aria-hidden="true" />
+            <input
+              className="mini__range"
+              type="range"
+              min={0}
+              max={Math.max(1, Math.round(st.dur))}
+              value={Math.round(Math.min(shown, st.dur || shown))}
+              onChange={(e) => {
+                const v = Number(e.currentTarget.value);
+                setDragT(v);
+                if (!drag) window.miniApi.action(`seek:${v}`);
+              }}
+              onPointerDown={() => {
+                setDragT(st.t);
+                setDrag(true);
+              }}
+              onPointerUp={(e) => {
+                setDrag(false);
+                window.miniApi.action(`seek:${Number(e.currentTarget.value)}`);
+              }}
+              onBlur={() => setDrag(false)}
+              aria-label="播放进度"
+            />
           </div>
+          <span className="mini__time is-dim">{fmt(st.dur)}</span>
         </div>
 
         <div className="mini__topact">
+          <button type="button" className="mini__icon mini__close" onClick={() => window.miniApi.close()} title="关闭迷你窗" aria-label="关闭迷你窗">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4.6 4.6l6.8 6.8M11.4 4.6l-6.8 6.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="mini__controls">
           <button
             type="button"
             className={"mini__icon mini__like" + (st.liked ? " is-on" : "")}
@@ -172,14 +178,6 @@ function Mini() {
               />
             </svg>
           </button>
-          <button type="button" className="mini__icon mini__close" onClick={() => window.miniApi.close()} title="关闭迷你窗" aria-label="关闭迷你窗">
-            <svg viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M4.6 4.6l6.8 6.8M11.4 4.6l-6.8 6.8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="mini__controls">
           <button type="button" className="mini__icon mini__skip" onClick={() => window.miniApi.action("prev")} title="上一首" aria-label="上一首">
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M4 3.4h1.8v9.2H4zM12.6 3.4v9.2L6.6 8z" fill="currentColor" />

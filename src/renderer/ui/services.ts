@@ -4,6 +4,7 @@
  */
 import type { AudioEngine } from "../capability/audio/engine.js";
 import type {
+  HomeSection,
   LyricDoc,
   OnlinePlaylist,
   Quality,
@@ -187,8 +188,14 @@ export interface Services {
   listPlaylists(sourceId: string): Promise<OnlinePlaylist[]>;
   /** 榜单列表（A-14）。下钻曲目走 playlistTracks(sourceId, 榜 id)。 */
   listToplists(sourceId: string): Promise<Toplist[]>;
+  /** 首页栏目（发现页）。源不支持返回空数组，单栏失败由 UI 少显示一块。 */
+  home(sourceId: string): Promise<HomeSection[]>;
   /** 歌单曲目（分页）。收藏的在线歌单也用这条取曲目。 */
   playlistTracks(sourceId: string, playlistId: string, page?: number): Promise<SearchResult>;
+  /** 歌手热门曲目（点歌手名进入）。源不支持时抛 capability-missing。 */
+  artistTracks(sourceId: string, artistId: string, page?: number): Promise<SearchResult>;
+  /** 专辑曲目（点专辑名进入）。 */
+  albumTracks(sourceId: string, albumId: string, page?: number): Promise<SearchResult>;
 
   /* ---- 收藏的在线歌单（M11）：分享链接 / id → 收藏 → 点开就播 ---- */
   /** 已收藏的在线歌单（本机持久化，与账号歌单列表是两件事）。 */

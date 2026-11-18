@@ -103,8 +103,7 @@ body{letter-spacing:.008em}
 .disc__head{margin-bottom:22px}
 .mix{padding:22px;border-radius:20px}
 .mix__title{font-size:32px;line-height:1.16}
-.top-card__art{aspect-ratio:auto;height:92px;border-radius:12px}
-@media (max-height:900px){.top-card__art{height:84px}}
+.top-card__art{aspect-ratio:1/1;height:auto;border-radius:12px}
 .top-card__art::before{transition:opacity .28s var(--ease)}
 .top-card__art::after{transition:border-color .28s var(--ease),inset .28s var(--ease)}
 .top-card__art .halftone-hover{display:none}

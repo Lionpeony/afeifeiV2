@@ -1,4 +1,5 @@
 import type {
+  HomeSection,
   LyricDoc,
   OnlinePlaylist,
   RemoteTrack,
@@ -32,28 +33,37 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
   /* ---------- 数据归一化 ---------- */
 
   function toTrack(s: Record<string, unknown>): RemoteTrack | null {
-    const mid = s.mid;
-    if (typeof mid !== "string" || !mid) return null;
-    const singer = (s.singer ?? []) as { name?: string }[];
+    /* 同一首歌在不同路由里字段名不同：搜索/歌单是 mid/name/album，
+       专辑详情是 songmid/songname/albumname。这里统一收口。 */
+    const mid = [s.mid, s.songmid].find((v) => typeof v === "string" && v) as string | undefined;
+    if (!mid) return null;
+    const singer = (s.singer ?? []) as { name?: string; mid?: unknown }[];
     // yakult 版搜索结果的专辑名在 album.title（匿名 musicu 直连时是 album.name），两者都收
-    const album = (s.album ?? {}) as { name?: unknown; title?: unknown; mid?: unknown };
+    const album = (s.album ?? {}) as { name?: unknown; title?: unknown; mid?: unknown; albummid?: unknown };
     const interval = Number(s.interval);
+    /* 专辑 mid 的字段位置随接口而变（搜索在 album.mid，红心/歌单部分路由在顶层
+       albummid）。只认一处会让这些来源的歌没封面 —— 取到哪个用哪个。 */
+    const albumMid = [album.mid, album.albummid, s.albummid, s.albumMid, s.album_mid].find(
+      (v) => typeof v === "string" && v,
+    ) as string | undefined;
+    const artistMid = singer.map((a) => a?.mid).find((v) => typeof v === "string" && v) as string | undefined;
     return {
       sourceId: mid,
-      title: typeof s.name === "string" && s.name ? s.name : "未知曲目",
+      title:
+        [s.name, s.songname].find((v) => typeof v === "string" && v) as string | undefined ?? "未知曲目",
       artist:
         singer
           .map((a) => a?.name)
           .filter((n): n is string => !!n)
           .join(" / ") || "未知歌手",
       album:
-      ([album.title, album.name].find((v) => typeof v === "string" && v) as string | undefined) ??
-      "未知专辑",
+        ([album.title, album.name, s.albumname].find((v) => typeof v === "string" && v) as
+          | string
+          | undefined) ?? "未知专辑",
       durationMs: Number.isFinite(interval) && interval > 0 ? Math.round(interval * 1000) : 0,
-      coverUrl:
-        typeof album.mid === "string" && album.mid
-          ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${album.mid}.jpg`
-          : undefined,
+      coverUrl: albumMid ? `https://y.gtimg.cn/music/photo_new/T002R300x300M000${albumMid}.jpg` : undefined,
+      artistId: artistMid,
+      albumId: albumMid,
     };
   }
 
@@ -143,6 +153,8 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
   }
 
   const TOP_PREFIX = "top:";
+  /** 首页推荐歌单：公开歌单详情路由，和「我的歌单」不是同一套 */
+  const REC_PREFIX = "rec:";
 
   return {
     id: "qq",
@@ -310,6 +322,18 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
         return { items, nextPage: more ? page + 1 : undefined };
       }
 
+      if (listId.startsWith(REC_PREFIX)) {
+        const id = listId.slice(REC_PREFIX.length);
+        if (!/^\d+$/.test(id)) throw err("capability-missing", "QQ 音乐暂不支持这个歌单");
+        const body = await qq<{
+          response?: { cdlist?: { songlist?: Record<string, unknown>[] }[] };
+        }>("songListDetail", { id });
+        const songs = body?.response?.cdlist?.[0]?.songlist ?? [];
+        if (!Array.isArray(songs)) throw err("network", "这个歌单暂时取不到曲目");
+        const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+        return { items };
+      }
+
       if (!/^\d+$/.test(listId)) throw err("capability-missing", "QQ 音乐暂不支持这个歌单");
       const limit = 100;
       const body = await qq<QqOwnedBody>("ownedPlaylist", { tid: Number(listId), offset: page * limit, limit });
@@ -318,6 +342,68 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       }
       const items = body.songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
       return { items, nextPage: body.more === true ? page + 1 : undefined };
+    },
+
+    /** 首页栏目：推荐歌单 / 新歌速递 / 雷达。取不到的栏直接少一块，不影响整页。 */
+    async home(): Promise<HomeSection[]> {
+      const [pl, ns, rd] = await Promise.allSettled([
+        qq<{ playlists?: Record<string, unknown>[] }>("recommendPlaylists", { limit: 12 }),
+        qq<{ songs?: Record<string, unknown>[] }>("newSongs"),
+        qq<{ songs?: Record<string, unknown>[] }>("radar"),
+      ]);
+      const sections: HomeSection[] = [];
+      if (pl.status === "fulfilled") {
+        const items = (pl.value?.playlists ?? [])
+          .map((p): HomeSection["items"][number] | null => {
+            const tid = Number(p.tid);
+            if (!Number.isSafeInteger(tid) || tid <= 0) return null;
+            return {
+              kind: "playlist",
+              id: `${REC_PREFIX}${tid}`,
+              title: typeof p.title === "string" && p.title ? p.title : "未命名歌单",
+              subtitle: Number.isFinite(Number(p.songnum)) ? `${Number(p.songnum)} 首` : undefined,
+              coverUrl: typeof p.picurl === "string" && p.picurl ? p.picurl : undefined,
+              playCount: Number.isFinite(Number(p.play_cnt)) ? Number(p.play_cnt) : undefined,
+            };
+          })
+          .filter((x): x is HomeSection["items"][number] => x !== null);
+        if (items.length > 0) sections.push({ id: "recommend-playlists", title: "推荐歌单", subtitle: "歌单广场", layout: "cards", items });
+      }
+      const tracksOf = (body: { songs?: Record<string, unknown>[] } | undefined): HomeSection["items"] =>
+        (body?.songs ?? []).map(toTrack).filter((t): t is RemoteTrack => t !== null).map((track) => ({ kind: "track" as const, track }));
+      if (ns.status === "fulfilled") {
+        const items = tracksOf(ns.value);
+        if (items.length > 0) sections.push({ id: "new-songs", title: "新歌速递", subtitle: "刚刚上线", layout: "tracks", items });
+      }
+      if (rd.status === "fulfilled") {
+        const items = tracksOf(rd.value);
+        if (items.length > 0) sections.push({ id: "radar", title: "雷达好歌", subtitle: "刷歌模式", layout: "tracks", items });
+      }
+      return sections;
+    },
+
+    /** 歌手热门曲目（点歌手名进入）。 */
+    async getArtist(sourceId: string, page = 0): Promise<SearchResult> {
+      const limit = 50;
+      const body = await qq<{
+        response?: {
+          singer?: { data?: { songlist?: Record<string, unknown>[] } };
+          data?: { songlist?: Record<string, unknown>[] };
+        };
+      }>("artistSongs", { singermid: sourceId, limit, page });
+      const songs = body?.response?.singer?.data?.songlist ?? body?.response?.data?.songlist ?? [];
+      const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      return { items, nextPage: songs.length >= limit ? page + 1 : undefined };
+    },
+
+    /** 专辑曲目（点专辑名进入）。 */
+    async getAlbum(sourceId: string): Promise<SearchResult> {
+      const body = await qq<{
+        response?: { data?: { list?: Record<string, unknown>[]; songlist?: Record<string, unknown>[] } };
+      }>("albumSongs", { albummid: sourceId });
+      const songs = body?.response?.data?.list ?? body?.response?.data?.songlist ?? [];
+      const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
+      return { items };
     },
 
     async getUrl(sourceId: string): Promise<string> {

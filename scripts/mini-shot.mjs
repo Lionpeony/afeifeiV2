@@ -30,7 +30,7 @@ const COVER =
 app.whenReady().then(async () => {
   const win = new BrowserWindow({
     width: 440,
-    height: 120,
+    height: 132,
     frame: false,
     transparent: true,
     hasShadow: false,
@@ -43,6 +43,8 @@ app.whenReady().then(async () => {
     },
   });
   await win.loadFile(path.resolve("dist/renderer/mini.html"));
+  // 等 React 挂载完再推状态：提前推的包会被丢掉（套壳无桥时没人补推）
+  await sleep(400);
   win.webContents.send(
     "mini:state",
     JSON.stringify({
@@ -62,26 +64,35 @@ app.whenReady().then(async () => {
       theme: "light",
     }),
   );
+  /** 等一帧再拍：resize / 状态刚落地时 capturePage 会拿到上一帧（文字会凭空消失） */
+  const snap = async (file) => {
+    await win.webContents.executeJavaScript(
+      `new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))`,
+      true,
+    );
+    const img = await win.webContents.capturePage();
+    fs.writeFileSync(`docs/assets/${file}`, img.toPNG());
+  };
+
   await sleep(700);
   fs.mkdirSync("docs/assets", { recursive: true });
-  const idle = await win.webContents.capturePage();
-  fs.writeFileSync("docs/assets/page-mini-window.png", idle.toPNG());
+  await snap("page-mini-window.png");
 
-  // 鼠标移到卡片上：贴纸封面/hover 态（新横向小条的主要工作状态）
+  // 鼠标移到卡片上：文字淡出、走带翻上来（QQ 音乐节奏）
   win.webContents.sendInputEvent({ type: "mouseMove", x: 300, y: 64 });
-  await sleep(600);
-  const hover = await win.webContents.capturePage();
-  fs.writeFileSync("docs/assets/page-mini-window-hover.png", hover.toPNG());
+  await sleep(60);
+  win.webContents.sendInputEvent({ type: "mouseMove", x: 302, y: 62 });
+  await sleep(700);
+  await snap("page-mini-window-hover.png");
 
-  // 熄灯：同一张镜子在暗色下的纸色与灯泡
+  // 熄灯：同一张便签在暗色下的纸色与灯泡
   win.webContents.sendInputEvent({ type: "mouseMove", x: 2, y: 2 });
   win.webContents.send(
     "mini:state",
     JSON.stringify({ status: "playing", theme: "dark", liked: true, cover: COVER, lyric: "把耳机调到最大声", tr: "Turn it up all the way", lit: 5 }),
   );
   await sleep(500);
-  const dark = await win.webContents.capturePage();
-  fs.writeFileSync("docs/assets/page-mini-window-dark.png", dark.toPNG());
+  await snap("page-mini-window-dark.png");
 
   // 空态：没选歌、没封面、没词时镜子也要说得清楚
   win.webContents.send(
@@ -103,8 +114,7 @@ app.whenReady().then(async () => {
     }),
   );
   await sleep(500);
-  const empty = await win.webContents.capturePage();
-  fs.writeFileSync("docs/assets/page-mini-window-empty.png", empty.toPNG());
+  await snap("page-mini-window-empty.png");
 
   console.log("shot → docs/assets/page-mini-window[-hover|-dark|-empty].png");
   app.quit();

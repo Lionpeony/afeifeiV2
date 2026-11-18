@@ -111,8 +111,13 @@ export function startMiniBridge(services: Services, opts: { onLike?: () => void 
     attributeFilter: ["data-theme", "data-motion"],
   });
 
-  // 迷你窗就绪 → 立刻补推（暂停下开窗不再挂"未在播放"，2026-11-10）
-  api.onMiniHello(push);
+  // 迷你窗就绪 → 立刻补推（暂停下开窗不再挂"未在播放"，2026-11-10）。
+  // 封面缓存也要一起清：窗口没开时 push 照样跑，sentCover 早已记成"发过"，
+  // 但那时没人接收 —— 不清就会首开没封面，切歌后才补上（2026-11-18 修）。
+  api.onMiniHello(() => {
+    sentCover = undefined;
+    push();
+  });
 
   /* 位置与歌词不能只靠主窗的帧循环（P0-27 修「最小化后歌词冻住」）：
      主窗最小化 = rAF 停了，音频照播，小窗就定在上一句。

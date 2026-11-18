@@ -100,6 +100,12 @@ const ALLOWED = new Set([
   "like", // 账号：红心写入（POST /user/song/like）
   "userPlaylists", // 账号：我的歌单清单（/user/playlist）
   "ownedPlaylist", // 账号：某张歌单的曲目（/user/playlist-detail?tid=）
+  "recommendPlaylists", // 首页：推荐歌单（/recommend/playlists）
+  "newSongs", // 首页：新歌速递（/recommend/new-songs）
+  "radar", // 首页：刷歌雷达（/recommend/radar）
+  "songListDetail", // 首页推荐歌单下钻（公开歌单详情 /getSongListDetail/:disstid）
+  "artistSongs", // 点歌手名：歌手热门曲目（/getSingerHotsong）
+  "albumSongs", // 点专辑名：专辑曲目（/getAlbumInfo）
 ]);
 
 export async function callQq(method: string, params: Record<string, unknown> = {}): Promise<unknown> {
@@ -139,6 +145,18 @@ export async function callQq(method: string, params: Record<string, unknown> = {
       return qqOwnedPlaylist(params);
     case "songInfo":
       return qqSongInfo(params);
+    case "recommendPlaylists":
+      return qqRecommendPlaylists(params);
+    case "newSongs":
+      return qqNewSongs(params);
+    case "radar":
+      return qqRadar(params);
+    case "songListDetail":
+      return qqSongListDetail(params);
+    case "artistSongs":
+      return qqArtistSongs(params);
+    case "albumSongs":
+      return qqAlbumSongs(params);
     case "like":
       return qqLike(params);
     default:
@@ -343,6 +361,46 @@ async function qqOwnedPlaylist(params: Record<string, unknown>): Promise<unknown
   const offset = Math.max(0, Math.floor(Number(params.offset ?? 0) || 0));
   const limit = Math.min(100, Math.max(1, Math.floor(Number(params.limit ?? 100) || 100)));
   return callApi<QqSongsBody>(`/user/playlist-detail?tid=${tid}&offset=${offset}&limit=${limit}`);
+}
+
+/* ---------- 首页（推荐歌单 / 新歌 / 雷达 / 公开歌单下钻） ---------- */
+
+async function qqRecommendPlaylists(params: Record<string, unknown>): Promise<unknown> {
+  const limit = Math.min(60, Math.max(1, Math.floor(Number(params.limit ?? 12) || 12)));
+  return callApi(`/recommend/playlists?limit=${limit}`);
+}
+
+async function qqNewSongs(params: Record<string, unknown>): Promise<unknown> {
+  const area = Math.max(1, Math.floor(Number(params.area ?? 5) || 5));
+  return callApi(`/recommend/new-songs?area=${area}`);
+}
+
+async function qqRadar(params: Record<string, unknown>): Promise<unknown> {
+  const page = Math.max(1, Math.floor(Number(params.page ?? 1) || 1));
+  return callApi(`/recommend/radar?page=${page}`);
+}
+
+async function qqSongListDetail(params: Record<string, unknown>): Promise<unknown> {
+  const id = String(params.id ?? "");
+  if (!/^\d{1,15}$/.test(id)) throw new Error("QQ 歌单 id 不合法");
+  return callApi(`/getSongListDetail/${id}`);
+}
+
+async function qqArtistSongs(params: Record<string, unknown>): Promise<unknown> {
+  const mid = String(params.singermid ?? "");
+  if (!/^[0-9A-Za-z]{4,20}$/.test(mid)) throw new Error("QQ 歌手 id 不合法");
+  const limit = Math.min(50, Math.max(1, Math.floor(Number(params.limit ?? 50) || 50)));
+  const page = Math.max(0, Math.floor(Number(params.page ?? 0) || 0));
+  // 路由从 query 读 singermid；上游 page 从 1 开始，旧实现的 page=0 会让 sin 变成负数
+  return callApi(
+    `/getSingerHotsong?singermid=${encodeURIComponent(mid)}&limit=${limit}&page=${page + 1}`,
+  );
+}
+
+async function qqAlbumSongs(params: Record<string, unknown>): Promise<unknown> {
+  const mid = String(params.albummid ?? "");
+  if (!/^[0-9A-Za-z]{4,20}$/.test(mid)) throw new Error("QQ 专辑 id 不合法");
+  return callApi(`/getAlbumInfo?albummid=${encodeURIComponent(mid)}`);
 }
 
 /** 红心写入要「数字 songId + songmid + type:0」三件套；mid 拿不到数字 id 就不写。 */

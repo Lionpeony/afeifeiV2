@@ -58,6 +58,10 @@ export interface RemoteTrack {
   album: string;
   durationMs: number;
   coverUrl?: string;
+  /** 首个歌手的音源 id：点歌手名进歌手页用；拿不到就不渲染入口 */
+  artistId?: string;
+  /** 专辑的音源 id：点专辑名进专辑页用 */
+  albumId?: string;
 }
 
 export interface SearchResult {
@@ -86,6 +90,30 @@ export interface Toplist {
   name: string;
   count: number;
   coverUrl?: string;
+}
+
+/**
+ * 首页区块（发现页）：音源把自家首页的栏目映射成同一套积木，
+ * 前端按 layout 渲染，**不为每家写一套页面**。
+ * 只收两类可落地内容：歌单一类（点进去取曲目）、单曲一类（直接可播）。
+ */
+export type HomeItem =
+  | {
+      kind: "playlist";
+      id: string;
+      title: string;
+      subtitle?: string;
+      coverUrl?: string;
+      playCount?: number;
+    }
+  | { kind: "track"; track: RemoteTrack };
+
+export interface HomeSection {
+  id: string;
+  title: string;
+  subtitle?: string;
+  layout: "cards" | "tracks";
+  items: HomeItem[];
 }
 
 /**
@@ -164,6 +192,8 @@ export interface SourceProvider {
   favorite?(sourceId: string, liked: boolean): Promise<void>;
   /** 榜单列表（A-14）。下钻用 getPlaylist(榜 id)。 */
   listToplists?(): Promise<Toplist[]>;
+  /** 首页栏目（发现页）。数据驱动：有几块显示几块，取不到就少几块。 */
+  home?(): Promise<HomeSection[]>;
 }
 
 /** 上游错误统一收敛到这里，UI 只认码（50 §10）。 */

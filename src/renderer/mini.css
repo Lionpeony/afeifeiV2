@@ -1,7 +1,7 @@
-/* 迷你 / 悬浮窗（2026-11-18 重做）· 横向小条
-   440×120 透明无边框窗。左边圆形贴纸封面压在卡片外沿，右边曲名/歌手/词，
-   底部一条细进度线，右侧心、关闭与上一首/播放/下一首。
-   颜色全部来自 tokens（mini.html 同时加载 app.css）。 */
+/* 迷你 / 悬浮窗（2026-11-18 重做）· 横向便签
+   440×132 透明无边框窗。圆形贴纸封面压在卡片外沿，右边曲名/歌手/词，
+   底部一条细进度线；悬停文字淡出、心/上一首/播放/下一首与关闭翻出。
+   颜色全部来自 tokens（mini.html 只加载 mini-base.css + 本文件）。 */
 * { box-sizing: border-box; }
 html,
 body {
@@ -32,26 +32,12 @@ body {
   box-shadow: 0 12px 30px color-mix(in srgb, var(--text) 22%, transparent);
 }
 
-/* 卡片上沿的胶带：让它是「贴上去的一张便签」，不是系统卡片 */
-.mini__tape {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  width: 56px;
-  height: 14px;
-  margin-left: -28px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, rgba(255, 214, 225, 0.92), rgba(255, 236, 241, 0.85), rgba(255, 214, 225, 0.92));
-  transform: rotate(-2.5deg);
-  box-shadow: 0 1px 3px rgba(214, 51, 132, 0.16);
-  pointer-events: none;
-}
-
-/* 播出状态小签 */
+/* 播出状态小签：收进卡片右上角；标题用 padding-right 给它让位，
+   两者永远不会叠在一起（2026-11-18 用户截图：标题被状态签压住）。 */
 .mini__onair {
   position: absolute;
-  left: 82px;
-  top: -8px;
+  right: 12px;
+  top: 9px;
   z-index: 3;
   display: inline-flex;
   align-items: center;
@@ -67,7 +53,9 @@ body {
   color: var(--text-3);
   box-shadow: 0 2px 6px color-mix(in srgb, var(--text) 8%, transparent);
   pointer-events: none;
+  transition: opacity 160ms var(--ease);
 }
+.mini:hover .mini__onair { opacity: 0; }
 .mini__onair i {
   width: 5px;
   height: 5px;
@@ -127,32 +115,40 @@ body {
   border-color: rgba(255, 255, 255, 0.72);
 }
 
-/* 文字区 */
+/* 文字区：安静时看歌名/歌手/词，鼠标上来整片淡出给走带让位。
+   只淡出不上移——上移会让标题从状态小签底下穿过去（用户截图里的「被挡住」）。 */
 .mini__body {
   position: absolute;
-  left: 82px;
-  right: 116px;
-  top: 16px;
-  bottom: 12px;
+  left: 88px;
+  right: 14px;
+  top: 12px;
+  bottom: 30px;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: opacity 140ms var(--ease);
+}
+.mini:hover .mini__body {
+  opacity: 0;
+  pointer-events: none;
 }
 .mini__title {
   margin: 0;
+  padding-right: 84px;
   font-family: var(--font-display);
-  font-size: 16px;
-  line-height: 1.2;
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.25;
   letter-spacing: 0.01em;
   color: var(--text);
 }
 .mini__sub {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  font-size: 10.5px;
+  font-size: 11.5px;
   color: var(--text-2);
 }
 .mini__src {
@@ -161,32 +157,35 @@ body {
   border: 1px solid color-mix(in srgb, var(--pink-600) 25%, transparent);
   border-radius: 999px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  line-height: 14px;
+  font-size: 9.5px;
+  line-height: 15px;
   color: var(--pink-700);
 }
 .mini__lyric {
   margin: 4px 0 0;
-  font-family: var(--font-hand);
-  font-size: 10.5px;
-  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
   white-space: nowrap;
 }
 .mini__lyric-on { color: var(--pink-700); }
 .mini__lyric-off { color: var(--text-3); }
 
-/* 进度 */
+/* 进度：压在最底下那条细线，安静态也在（不然悬停淡出时没法拖） */
 .mini__progress {
+  position: absolute;
+  left: 88px;
+  right: 14px;
+  bottom: 10px;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: auto;
-  padding-bottom: 1px;
 }
 .mini__time {
   flex: none;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
@@ -230,14 +229,23 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* 右上红心 / 关闭 */
+/* 右上关闭：安静时收起，悬停才浮出 */
 .mini__topact {
   position: absolute;
   right: 10px;
   top: 8px;
   display: flex;
   gap: 2px;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
   -webkit-app-region: no-drag;
+  transition: opacity 180ms var(--ease), transform 240ms var(--ease-out-soft);
+}
+.mini:hover .mini__topact {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
 }
 .mini__icon {
   width: 26px;
@@ -255,17 +263,41 @@ body {
 .mini__like.is-on { color: var(--coral); }
 .mini__close:hover { color: var(--coral); }
 
-/* 右下走带 */
+/* 走带：安静时藏起来，鼠标移上来按住位翻出（QQ 音乐节奏）。
+   每颗按钮再错开 30ms 起跳，像推子一排排抬起来。 */
 .mini__controls {
   position: absolute;
-  right: 8px;
-  bottom: 10px;
+  left: 88px;
+  right: 14px;
+  top: 50%;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(calc(-50% + 8px));
+  pointer-events: none;
   -webkit-app-region: no-drag;
+  transition: opacity 200ms var(--ease), transform 300ms var(--ease-out-soft);
 }
-.mini__skip { width: 26px; height: 26px; color: var(--text-2); }
+.mini:hover .mini__controls {
+  opacity: 1;
+  transform: translateY(-50%);
+  pointer-events: auto;
+  /* 等标题先退场再出走带，避免文字和控制键在半透明里叠成一团 */
+  transition-delay: 80ms;
+}
+.mini__controls > button {
+  opacity: 0;
+  transform: translateY(7px) scale(0.9);
+  transition: opacity 180ms var(--ease), transform 260ms var(--ease-spring);
+}
+.mini:hover .mini__controls > button { opacity: 1; transform: none; }
+.mini:hover .mini__controls > button:nth-child(2) { transition-delay: 30ms; }
+.mini:hover .mini__controls > button:nth-child(3) { transition-delay: 60ms; }
+.mini:hover .mini__controls > button:nth-child(4) { transition-delay: 90ms; }
+.mini__controls .mini__icon svg { width: 17px; height: 17px; }
+.mini__skip { width: 28px; height: 28px; color: var(--text-2); }
 .mini__play {
   width: 36px;
   height: 36px;
@@ -305,6 +337,13 @@ body {
   50% { box-shadow: 0 5px 20px rgba(214, 51, 132, 0.5); }
 }
 
+:root[data-motion="off"] .mini__body,
+:root[data-motion="off"] .mini__controls,
+:root[data-motion="off"] .mini__controls > button,
+:root[data-motion="off"] .mini__onair,
+:root[data-motion="off"] .mini__topact {
+  transition: none;
+}
 :root[data-motion="light"] .mini.is-playing .mini__play,
 :root[data-motion="light"] .mini.is-playing .mini__art-ring,
 :root[data-motion="light"] .mini__onair.is-on i,

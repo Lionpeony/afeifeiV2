@@ -74,6 +74,10 @@ const NETEASE_ALLOWED = new Set([
   "user_playlist",
   // 账号级数据（R1）：每日推荐 / 账号红心 / 收藏 / 听歌排行 / 个人 FM
   "recommend_songs",
+  "personalized", // 首页：推荐歌单
+  "personalized_newsong", // 首页：新歌速递
+  "artist_songs", // 点歌手名：歌手热门曲目
+  "album", // 点专辑名：专辑曲目
   "likelist",
   "like",
   "user_record",

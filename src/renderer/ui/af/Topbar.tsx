@@ -6,7 +6,7 @@ import { sourceShort, sourceTone } from "./data.js";
 import { PillWipe } from "./SourceSwap.js";
 import { TrackArt } from "./art.js";
 import { Tape } from "./ui.js";
-import { GuitarFigure, IconArrowRight, IconMax, IconMin, IconSearch, IconX } from "./icons.js";
+import { GuitarFigure, IconArrowRight, IconMax, IconMini, IconMin, IconSearch, IconX } from "./icons.js";
 
 /** 最大化后的“还原”图标：两个错位的方框，和 Windows 的含义一致 */
 const RestoreGlyph = () => (
@@ -286,6 +286,15 @@ export function Topbar() {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className="topbar__mini"
+          title="迷你小窗（K）"
+          aria-label="迷你小窗"
+          onClick={() => void window.api.toggleMini()}
+        >
+          <IconMini size={16} />
+        </button>
         <div className="win-ctrl" aria-label="窗口控制">
           <button type="button" title="最小化" aria-label="最小化" onClick={() => void window.api.minimizeWindow()}>
             <IconMin size={14} />

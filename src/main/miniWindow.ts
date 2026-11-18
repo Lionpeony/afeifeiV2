@@ -10,6 +10,10 @@ import path from "node:path";
 import { BrowserWindow, ipcMain } from "electron";
 import { readKey, writeKey } from "./fs/kv.js";
 
+/* 卡片小窗：圆形贴纸封面 + 歌名/歌手/歌词 + 细进度，悬停出控制。
+   132 高给圆封面和两行字留呼吸，阴影占外围 12px。 */
+const CARD_SIZE = { width: 440, height: 132 };
+
 let mini: BrowserWindow | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -49,10 +53,7 @@ export function registerMiniIpc(): void {
       /* 坏档当没有 */
     }
     mini = new BrowserWindow({
-      width: 440,
-      // 2026-11-18 重做：横向小条（圆形贴纸封面 + 曲名/歌手/词 + 细进度 + 走带）。
-      // 320×140 的「化妆镜」版不再使用；高度 120 给卡片阴影留 12px。
-      height: 120,
+      ...CARD_SIZE,
       ...(x !== undefined && y !== undefined ? { x, y } : {}),
       frame: false,
       transparent: true,
@@ -80,7 +81,7 @@ export function registerMiniIpc(): void {
     void mini.loadURL("app://afeifei/mini.html");
   };
 
-  ipcMain.handle("mini:open", openMiniWindow);
+  ipcMain.handle("mini:open", () => openMiniWindow());
   ipcMain.handle("mini:toggle", () => {
     if (mini && !mini.isDestroyed()) mini.close();
     else void openMiniWindow();

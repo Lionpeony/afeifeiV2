@@ -793,6 +793,36 @@ export async function bootstrap(): Promise<Services> {
       }
     },
 
+    async home(sourceId) {
+      const provider = getProvider(sourceId);
+      if (!provider?.home) return [];
+      try {
+        return await provider.home();
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    async artistTracks(sourceId, artistId, page = 0) {
+      const provider = getProvider(sourceId);
+      if (!provider?.getArtist) throw humanize({ code: "capability-missing" });
+      try {
+        return await provider.getArtist(artistId, page);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
+    async albumTracks(sourceId, albumId, page = 0) {
+      const provider = getProvider(sourceId);
+      if (!provider?.getAlbum) throw humanize({ code: "capability-missing" });
+      try {
+        return await provider.getAlbum(albumId, page);
+      } catch (err) {
+        throw humanize(err);
+      }
+    },
+
     async listToplists(sourceId) {
       const provider = getProvider(sourceId);
       if (!provider?.capabilities.canGetToplist || !provider.listToplists) {

@@ -182,15 +182,40 @@
 :root[data-theme="dark"] .play-big:hover{background:rgba(255,133,176,.26)}
 :root[data-theme="dark"] .play-big.is-playing::after{border-color:rgba(255,133,176,.3)}
 
-.vol{display:flex;align-items:center;gap:3px;padding:0 4px}
-.vol__pick{
-  width:11px;height:14px;color:var(--line-strong);
-  transition:color .2s var(--ease),transform .2s var(--ease-spring);
+.vol{display:flex;align-items:center;padding:0 4px}
+/* 音量：连续滑杆（原来 5 档圆片，用户反馈不能细调） */
+.vol__range{
+  -webkit-appearance:none;
+  appearance:none;
+  width:92px;
+  height:18px;
+  margin:0;
+  background:transparent;
   cursor:pointer;
 }
-.vol__pick.is-lit{color:var(--pink-600)}
-:root[data-theme="dark"] .vol__pick.is-lit{color:var(--pink-400)}
-.vol__pick:hover{transform:translateY(-2px) scale(1.15)}
+.vol__range::-webkit-slider-runnable-track{
+  height:4px;
+  border-radius:99px;
+  background:linear-gradient(
+    90deg,
+    var(--pink-600) 0 var(--fill, 60%),
+    var(--line-strong) var(--fill, 60%) 100%
+  );
+}
+.vol__range::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:12px;
+  height:12px;
+  margin-top:-4px;
+  border-radius:50%;
+  background:var(--card);
+  border:2px solid var(--pink-600);
+  box-shadow:0 1px 3px color-mix(in srgb, var(--text) 30%, transparent);
+  transition:transform var(--dur-tap) var(--ease-spring);
+}
+.vol__range:active::-webkit-slider-thumb{transform:scale(1.15)}
+.vol__range:focus-visible{outline:2px solid var(--pink-600);outline-offset:4px;border-radius:99px}
+:root[data-theme="dark"] .vol__range::-webkit-slider-thumb{border-color:var(--pink-400)}
 
 /* liked pick badge */
 .like-btn{position:relative}
