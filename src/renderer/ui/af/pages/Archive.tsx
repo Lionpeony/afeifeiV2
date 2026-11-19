@@ -104,7 +104,7 @@ export function ArchivePage() {
         <div className="archive-grid">
           <div style={{ position: "relative" }}>
             <div className="poster">
-              <span className="poster__art" style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg,#FF9EBB,#B8A9E8 62%,#9A8FD6)" }} />
+              <span className="poster__art" style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg,var(--pastel-pink),var(--pastel-lav) 62%,var(--pastel-iris))" }} />
               <div className="poster__vert"><span>本日ノ出演</span><span>セットリスト</span></div>
               <div className="poster__overlay">
                 <span className="poster__no">ARCHIVE NO. 001</span>

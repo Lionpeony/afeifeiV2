@@ -62,7 +62,7 @@ function EqBand({ value, label, onChange }: { value: number; label: string; onCh
         }}
       >
         <span className="eqband__mid"></span>
-        {val >= 0 ? <span className="eqband__fill" style={{ bottom: "50%", height: pct / 2 + "%" }}></span> : <span className="eqband__fill" style={{ top: "50%", height: (100 - pct) / 2 + "%" }}></span>}
+        {val >= 0 ? <span className="eqband__fill" style={{ top: 0, height: "50%", transformOrigin: "bottom", transform: `scaleY(${pct / 100})` }}></span> : <span className="eqband__fill" style={{ top: "50%", height: "50%", transformOrigin: "top", transform: `scaleY(${(100 - pct) / 100})` }}></span>}
         <span className="eqband__knob" style={{ top: 100 - pct + "%" }}></span>
       </div>
       <span className="eqband__label">{label}</span>

@@ -135,10 +135,28 @@ export async function launch({ port, profile, extraArgs = [], reloadFirst = true
     return Buffer.from(msg.result.data, "base64");
   };
 
+  /**
+   * 派发一颗「受信任」的 Shift keydown（CDP Input 域）。
+   * Runtime.evaluate 里的 `.click()` 不产生 user activation —— 应用有启动交互门
+   * （恢复只 cue 不播，页面拿到真实激活前一律按回暂停），冒烟要先过这扇门。
+   * 裸 Shift 在 keymap 里无语义（resolveKey 返回 null），不会误触别的功能。
+   */
+  const tapKey = async () => {
+    const base = {
+      key: "Shift",
+      code: "ShiftLeft",
+      windowsVirtualKeyCode: 16,
+      nativeVirtualKeyCode: 16,
+    };
+    await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...base });
+    await client.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
+  };
+
   return {
     evaluate,
     waitFor,
     screenshot,
+    tapKey,
     events: () => client.events,
     log: () => log,
     async close({ hard = false } = {}) {

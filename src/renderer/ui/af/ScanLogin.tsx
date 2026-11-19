@@ -44,14 +44,14 @@ function QRCode({ seed = "afeifei", size = 196 }: { seed?: string; size?: number
   const Finder = ({ fx, fy }: { fx: number; fy: number }) => (
     <g>
       <rect x={fx} y={fy} width="7" height="7" rx="1.6" />
-      <rect x={fx + 1} y={fy + 1} width="5" height="5" fill="#fff" />
+      <rect x={fx + 1} y={fy + 1} width="5" height="5" fill="var(--white)" />
       <rect x={fx + 2} y={fy + 2} width="3" height="3" />
     </g>
   );
   return (
     <svg className="qr" width={size} height={size} viewBox="-2 -2 25 25" role="img" aria-label="登录二维码">
-      <rect x="-2" y="-2" width="25" height="25" fill="#fff" />
-      <g fill="#2E2028">
+      <rect x="-2" y="-2" width="25" height="25" fill="var(--white)" />
+      <g fill="var(--scan-ink)">
         {cells.map(([x, y], i) => <rect key={i} x={x} y={y} width="1" height="1" />)}
         <Finder fx={0} fy={0} />
         <Finder fx={n - 7} fy={0} />

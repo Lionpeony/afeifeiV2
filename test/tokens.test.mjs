@@ -133,6 +133,26 @@ test("暗色「熄灯」正文与按钮对比度 ≥ 4.5:1", () => {
   );
 });
 
+/* 元信息三级文字（--text-3）也承担可读性（时间戳、歌手行、meta）。
+   2026-11-20 审计：暗色基座 3.8:1、mygo 亮 4.48 / 暗 3.79、gbc 暗 4.29、btr 亮 4.42，
+   全部提亮到卡面 ≥4.5:1；这条守住不回退。 */
+test("元信息文字（--text-3）基座与三只包、亮暗各档卡面上 ≥ 4.5:1", () => {
+  const cases = [
+    ["基座亮色", root],
+    ["基座暗色", dark],
+    ["mygo 亮色", block(':root[data-palette="mygo"]')],
+    ["mygo 暗色", block(':root[data-theme="dark"][data-palette="mygo"]')],
+    ["gbc 亮色", block(':root[data-palette="gbc"]')],
+    ["gbc 暗色", block(':root[data-theme="dark"][data-palette="gbc"]')],
+    ["btr 亮色", block(':root[data-palette="btr"]')],
+    ["btr 暗色", block(':root[data-theme="dark"][data-palette="btr"]')],
+  ];
+  for (const [label, scope] of cases) {
+    const bg = color("--card", scope);
+    assert.ok(contrast(color("--text-3", scope), bg) >= 4.5, `${label} 的 --text-3 对卡面不到 4.5:1`);
+  }
+});
+
 test("布局与字阶是规范值：200 / 60 / 72、8-16-24-32、16/999/4", () => {
   assert.equal(raw("--nav-w", root), "200px");
   assert.equal(raw("--topbar-h", root), "60px");

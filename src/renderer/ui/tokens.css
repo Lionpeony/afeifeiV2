@@ -124,6 +124,100 @@
   --state-success:#2E7D5B;
   --state-warning:var(--coral);
 
+  /* ---- 固定白 / 蒙版墨（不随主题翻色：二维码底、径向高光、mask 渐变） ---- */
+  --white:#FFFFFF;
+  --mask-ink:#000000;
+
+  /* ---- 粉彩渐变家族（上面注释提到的 --pink-400 → 粉彩一族；固定值，不随主题包） ---- */
+  --pastel-pink:#FF9EBB;
+  --pastel-lav:#B8A9E8;
+  --pastel-iris:#9A8FD6;
+  --pastel-iris-light:#C8B6F0;
+
+  /* ---- 便签 / 拟物场景固定色 ---- */
+  --note-paper:#FFFDF4;
+  --note-ink:#4A3A3F;
+  --note-yellow-bg:#FFF7DC;
+  --note-pink-bg:#FFEFF4;
+  --note-mint-bg:#E7F6FA;
+  --note-dark-bg:#4A4160;
+  --note-pink-dark:#4E3F58;
+  --note-mint-dark:#39485B;
+  --onoma-ink:#4A3524;
+  --onoma-ink-deep:#3B2A1C;
+  --lamp-glow:#FFC66E;
+  --tone-fallback:#8A7A88;
+  --highlight-ink:#FFF1CF;
+  --scan-ink:#2E2028;
+
+  /* ---- 桌面歌词条固定色 ---- */
+  --lyricbar-ink:#FF9EC0;
+  --lyricbar-ink-dark:#FFB6D2;
+  --lyricbar-ink-glow:#FFC2DA;
+
+  /* ---- 启动画面固定色板（不随主题） ---- */
+  --splash-bg:#FDF7F3;
+  --splash-bg-dark:#1D1721;
+  --splash-dim:#A08B99;
+  --splash-line:#D9C6D2;
+  --splash-line-dark:#3E3242;
+  --splash-accent:#E2478F;
+  --splash-spark:#FF8FAE;
+  --splash-bar:#F0E2EA;
+  --splash-bar-dark:#382C3D;
+
+  /* ---- 点歌分享：平台品牌底色 + 点歌条纸面（不随主题） ---- */
+  --share-qq:#12B7F5;
+  --share-qzone:#FDBE3B;
+  --share-wechat:#07C160;
+  --share-weibo:#E6162D;
+  --share-paper:#FFF9F0;
+  --share-sticker:#FFFDF9;
+
+  /* ---- af 层序刻度（42 档，全局唯一事实源；af 内 z-index 只准引用，见 lint 规则 7） ---- */
+  --z-base:0;            /* 行内底层：行背景、路径 */
+  --z-row:1;             /* 行内浮层：序号、内层 span */
+  --z-tape:2;            /* 贴纸 / 角标 / 蒙版 */
+  --z-card-top:3;        /* 卡片顶部：竖排字、胶带、时间线 */
+  --z-lift:4;            /* hover 提升 */
+  --z-auth-page:5;
+  --z-swap:6;
+  --z-ink:7;
+  --z-hint:8;
+  --z-bar:30;
+  --z-search-panel:40;
+  --z-mascot:62; /* walking mascot 已退场；刻度保留备用 */
+  --z-idle-veil:66;
+  --z-np:70;
+  --z-lyricbar:72;
+  --z-corner:78;
+  --z-chrome:80;
+  --z-curtain:85;
+  --z-dock:86;
+  --z-flash:87;
+  --z-scrim:88;
+  --z-studio:89;
+  --z-qp-mask:90;
+  --z-rowmenu:92;
+  --z-panel:94;
+  --z-pop:95;
+  --z-overlay:96;
+  --z-scan:98;
+  --z-dlg-mask:108;
+  --z-dlg:109;
+  --z-keys-mask:110;
+  --z-keys:111;
+  --z-toast:120;
+  --z-onoma:124;
+  --z-hud:130;
+  --z-celebrate:150;
+  --z-bloom:190;
+  --z-dialog:280;
+  --z-auth:290;
+  --z-splash:300;
+  --z-share:320;
+  --z-grain:400;
+
   /* 布局（旧代码仍读这两个名字） */
   --nav-w:200px;
   --topbar-h:60px;
@@ -159,7 +253,7 @@
   --card:#3D3554;
   --text:#F4EAF2;
   --text-2:#B8ABC7;
-  --text-3:#9C8FB0;
+  --text-3:#ABA0C2;
   --pink-400:#FF85B0;
   --pink-600:#E06A9E;
   --pink-650:#F0A0C2;
@@ -190,6 +284,10 @@
   --tag-vip:#D4A943;
   --state-success:#7FD3AE;
   --brass:#D4A943;
+
+  /* 点歌条的夜后台纸面 / 贴纸描边 */
+  --share-paper:#2B2331;
+  --share-sticker:#43374B;
 }
 
 /* 限定色板 · E12
@@ -198,7 +296,7 @@
    选择器多一档 data-theme 以保证在熄灯下也生效（基座暗色块是同权重的 :root[data-theme="dark"]）。 */
 :root[data-palette="mygo"]{
   --bg:#F7F6FF; --bg-sub:#ECEBFB; --card:#FFFFFF;
-  --text:#2E2A3A; --text-2:#625C74; --text-3:#7A7390;
+  --text:#2E2A3A; --text-2:#625C74; --text-3:#716A88;
   --pink-400:#9B8FD4;              /* 装饰：雨夜浅紫，禁作交互 */
   --pink-600:#5E49B8;              /* 交互：雨夜紫 */
   --pink-650:#4A379B; --pink-700:#3F2F84;
@@ -218,7 +316,7 @@
 }
 :root[data-theme="dark"][data-palette="mygo"]{
   --bg:#211E2E; --bg-sub:#2A2740; --card:#332F4C;
-  --text:#F0EDF6; --text-2:#ACA5C2; --text-3:#8F88A8;
+  --text:#F0EDF6; --text-2:#ACA5C2; --text-3:#A5A0C4;
   --pink-400:#B9A7F0; --pink-600:#9B8FD4; --pink-650:#B9A7F0; --pink-700:#B9A7F0;
   --lav:#B9A7F0; --mint:#8FDCEE;
   --coral:#FF8A9B; --coral-deco:#FF8A9B;
@@ -254,7 +352,7 @@
 }
 :root[data-theme="dark"][data-palette="gbc"]{
   --bg:#0F1318; --bg-sub:#161C23; --card:#1D242C;
-  --text:#E9EBEE; --text-2:#9BA3AD; --text-3:#7D8791;
+  --text:#E9EBEE; --text-2:#9BA3AD; --text-3:#8C96A0;
   --pink-400:#FF7A86; --pink-600:#FF4256; --pink-650:#FF6B77; --pink-700:#FF6B77;
   --lav:#7FA3D9; --mint:#7FA3D9;
   --coral:#FF8A9B; --coral-deco:#FF4256;
@@ -271,7 +369,7 @@
 /* KADO 主题包（墙角英雄 · 孤独摇滚气质）：暖米纸 × 墙角粉 × 火焰黄 × 运动服青。 */
 :root[data-palette="btr"]{
   --bg:#F7F3EC; --bg-sub:#EFE8DD; --card:#FFFDF8;
-  --text:#3A2E33; --text-2:#6E5D66; --text-3:#84727B;
+  --text:#3A2E33; --text-2:#6E5D66; --text-3:#7A6871;
   --pink-400:#F1789F;              /* 装饰：舞台粉，禁作交互 */
   /* AA 回炉：原 #E75C8D 配白字只有 3.3:1，整档下压一档（色相不变） */
   --pink-600:#C43F70;              /* 交互：墙角粉 */
@@ -293,7 +391,7 @@
 }
 :root[data-theme="dark"][data-palette="btr"]{
   --bg:#191419; --bg-sub:#211B21; --card:#2A222A;
-  --text:#F3ECF0; --text-2:#B5A6AE; --text-3:#97868F;
+  --text:#F3ECF0; --text-2:#B5A6AE; --text-3:#A2929B;
   --pink-400:#F1789F; --pink-600:#F1789F; --pink-650:#F492B2; --pink-700:#F492B2;
   --lav:#8FCFDD; --mint:#6FC4DC;
   --coral:#FF8A9B; --coral-deco:#F1789F;

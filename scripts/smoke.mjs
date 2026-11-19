@@ -48,7 +48,18 @@ const btnBy = (names) =>
   `[...document.querySelectorAll("button")].find((b) => ${JSON.stringify(names)}.includes((b.textContent || "").trim() || b.getAttribute("aria-label")))`;
 
 const NEXT_BUTTON = btnBy(["下一首"]);
-const PLAY_BUTTON = btnBy(["播放", "暂停"]);
+
+/** 把播放位置拨回 0：走 `.bar__range` 的原生 input 事件（React onChange 会接）。
+ *  测试库是 5.57s 的系统短音频，慢机上一次 CDP 往返就要上百毫秒，
+ *  不归零的话曲子会在迭代间隙自然播完 → 播完暂停，污染「切歌后必须在播」的断言。 */
+const SEEK_ZERO = `(() => {
+  const r = document.querySelector(".bar__range");
+  if (!r) return false;
+  const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+  set.call(r, "0");
+  r.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+})()`;
 
 async function waitTarget(getLog, timeoutMs = 20000) {
   const started = Date.now();
@@ -174,9 +185,27 @@ async function launch(extraArgs = [], reloadFirst = true) {
     return false;
   };
 
+  /**
+   * 派发一颗「受信任」的 Shift keydown（CDP Input 域）。
+   * Runtime.evaluate 里的 `.click()` 不产生 user activation —— 应用有启动交互门
+   * （恢复只 cue 不播，页面拿到真实激活前一律按回暂停），冒烟要先过这扇门。
+   * 裸 Shift 在 keymap 里无语义（resolveKey 返回 null），不会误触别的功能。
+   */
+  const tapKey = async () => {
+    const base = {
+      key: "Shift",
+      code: "ShiftLeft",
+      windowsVirtualKeyCode: 16,
+      nativeVirtualKeyCode: 16,
+    };
+    await client.send("Input.dispatchKeyEvent", { type: "keyDown", ...base });
+    await client.send("Input.dispatchKeyEvent", { type: "keyUp", ...base });
+  };
+
   return {
     evaluate,
     waitFor,
+    tapKey,
     events: () => client.events,
     log: () => log,
     async close({ hard = false } = {}) {
@@ -421,9 +450,29 @@ async function main() {
     assert.ok(positionOk, `位置应恢复成 2000±1000ms，实际 ${position}`);
     console.log("  重启恢复 OK：曲目 / 位置 / 音量 / 暂停态");
 
-    // 先真播起来，再连切 —— 暂停态切歌测不到"边播边切"
-    await app2.evaluate(`${PLAY_BUTTON}.click()`);
-    await sleep(600);
+    const diag = () =>
+      app2.evaluate(
+        `(() => ({ label: document.querySelector(".bar__play")?.getAttribute("aria-label") ?? "", v: Number(document.querySelector(".bar__range")?.value ?? -1), m: Number(document.querySelector(".bar__range")?.max ?? -1), t: document.querySelector(".bar__title")?.textContent ?? "", st: document.querySelector(".status")?.textContent ?? "" }))()`,
+      );
+
+    // 先真播起来，再连切 —— 暂停态切歌测不到"边播边切"。
+    // 应用有「启动交互门」（bootstrap 的 startup guard，2026-11-19）：恢复只 cue 不播，
+    // 页面拿到真实 user activation 之前，任何播放态都会被 subscribe 按回暂停。
+    // CDP evaluate 里的 .click() 不产生 activation，先发一颗受信任的 Shift keydown
+    // 把门打开，再点 .bar__play（btnBy(["播放"]) 会撞到页面里别的同名按钮，不能用于点击）。
+    await app2.tapKey();
+    await app2.evaluate(`document.querySelector(".bar__play")?.click()`);
+    const playLabel1 = await app2.waitFor(
+      `document.querySelector(".bar__play")?.getAttribute("aria-label") === "暂停"`,
+      5000,
+    );
+    if (!playLabel1) {
+      console.log(`  [诊断] 点播放后没进播放态：${JSON.stringify(await diag())}`);
+    }
+    assert.ok(playLabel1, `点播放后应进入播放态（主按钮应为「暂停」）`);
+    // 恢复点在 2000ms，距短音频曲尾余量不足，归零再开跑（SEEK_ZERO 注释有量化）
+    assert.ok(await app2.evaluate(SEEK_ZERO), "找不到进度条，无法归零");
+    await sleep(400);
 
     // 预取（P0-08）与淡入淡出（P0-07）**这里不测**：两个 <audio> 是 `new Audio()` 建的，
     // 不进 DOM（`querySelectorAll("audio")` 恒为 []），属性嗅探只会得到"空数组全通过"的假绿。
@@ -432,6 +481,9 @@ async function main() {
     const seen = new Set();
     for (let i = 1; i <= 20; i += 1) {
       const before = await app2.evaluate(`document.querySelector(".bar__title")?.textContent ?? ""`);
+      // 每次切歌前先归零：一次迭代要过 6 次 CDP 往返（慢机 1-2s），
+      // 不归零短音频会中途自然播完 → 播完暂停，和真 bug 混在一起没法判
+      await app2.evaluate(SEEK_ZERO);
       await app2.evaluate(`${NEXT_BUTTON}.click()`);
       await sleep(200);
       const errored = await app2.evaluate(`document.querySelector(".status")?.textContent ?? ""`);
@@ -444,8 +496,10 @@ async function main() {
       assert.ok(bar.v <= bar.m + 1000, `第 ${i} 次切歌后进度条越界：${bar.v} > ${bar.m}`);
       // 切歌就是要播：主按钮读「暂停」= store 在 playing。
       // 唯一允许不播的情况是已经走到队尾（没切歌，标题不变）——那时是正常的「播完了」
+      // （迭代前已归零，正常路径下不会再有「自然播完」来碰瓷这条断言）
       const label = await app2.evaluate(`document.querySelector(".bar__play")?.getAttribute("aria-label") ?? ""`);
       if (label !== "暂停") {
+        console.log(`  [诊断] 第 ${i} 次切歌后：${JSON.stringify(await diag())}`);
         assert.equal(track, before, `第 ${i} 次切歌后停在暂停态，但曲子已经换了（${before} → ${track}）`);
       }
     }

@@ -103,7 +103,7 @@ export function LyricWall() {
         </div>
 
         <div className="lw__foot">
-          <span className="lw__foot-progress"><i style={{ width: ((cur + p / 100) / Math.max(1, lines.length)) * 100 + "%" }}></i></span>
+          <span className="lw__foot-progress"><i style={{ ["--p" as string]: String((cur + p / 100) / Math.max(1, lines.length)) }}></i></span>
           <span className="lw__foot-num num">{cur + 1} / {lines.length}</span>
           <span className="hand lw__foot-hint">点一行就跳到那句</span>
         </div>

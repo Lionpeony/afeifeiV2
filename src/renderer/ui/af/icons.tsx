@@ -209,7 +209,7 @@ export const IconPickOutline = ({ size = 20, ...rest }: SVGProps<SVGSVGElement> 
 export const LogoMark = ({ size = 40, tone = "var(--pink-600)" }: { size?: number; tone?: string }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
     <path d="M24 4.6c8 0 15.2 6.4 15.2 14.3 0 8.8-8.2 16.4-12.9 20.7-1.3 1.2-3.3 1.2-4.6 0C17 35.3 8.8 27.7 8.8 18.9 8.8 11 16 4.6 24 4.6z" fill={tone} />
-    <path d="M24 4.6c8 0 15.2 6.4 15.2 14.3 0 2.2-.5 4.3-1.5 6.2C33.9 18 29.4 12.7 24 4.6z" fill="#fff" opacity=".22" />
+    <path d="M24 4.6c8 0 15.2 6.4 15.2 14.3 0 2.2-.5 4.3-1.5 6.2C33.9 18 29.4 12.7 24 4.6z" fill="var(--white)" opacity=".22" />
     <g fill="var(--bg)" opacity=".95">
       <rect x="26.8" y="16" width="2.4" height="10.4" rx="1.2" />
       <circle cx="24.2" cy="26.8" r="4.1" />

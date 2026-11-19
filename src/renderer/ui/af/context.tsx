@@ -17,6 +17,9 @@ export interface AfRemote {
   sourceId: string;
   songId: string;
   coverUrl?: string;
+  /** 有 id 才能从播放页 / 行菜单跳进艺人、专辑详情页 */
+  artistId?: string;
+  albumId?: string;
 }
 
 export interface AfTrack {
@@ -72,6 +75,15 @@ export interface AfListEditor {
   tracks: string[];
 }
 
+/** 搜索入口要跳的发现页详情（艺人 / 专辑）；at 是跳转信号，Discover 靠它识别新的一次跳转。 */
+export interface AfDetailSeek {
+  kind: "artist" | "album";
+  id: string;
+  name: string;
+  coverUrl?: string;
+  at: number;
+}
+
 export interface AfApi {
   /* 导航 */
   page: string;
@@ -81,6 +93,9 @@ export interface AfApi {
   mineTab: "liked" | "recent" | "stats";
   setMineTab(t: "liked" | "recent" | "stats"): void;
   searchOnline(keyword: string): Promise<{ items: unknown[] }>;
+  /** 搜索浮层 → 发现页艺人 / 专辑详情页（无 id 的源由调用方回落直播行为） */
+  openDiscoverDetail(ref: Omit<AfDetailSeek, "at">): void;
+  discoverDetail: AfDetailSeek | null;
   /* 当前曲 */
   track: AfTrack;
   currentId: string;
@@ -127,6 +142,8 @@ export interface AfApi {
   logout(id: string): void;
   /* 反馈 */
   toast(text: string, opts?: AfToastOpts): void;
+  /** 用系统浏览器打开外链（点歌分享；主进程有白名单） */
+  openExternal(url: string): void;
   onoma(text: string, opts?: { tone?: string; x?: number; y?: number }): void;
   onomaAt(el: HTMLElement | null, text: string, tone?: string): void;
   focus(): void;

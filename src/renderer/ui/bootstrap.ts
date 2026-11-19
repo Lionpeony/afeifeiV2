@@ -487,6 +487,8 @@ export async function bootstrap(): Promise<Services> {
           artist: track.artist,
           coverUrl: track.coverUrl,
           durationMs: track.durationMs,
+          artistId: track.artistId,
+          albumId: track.albumId,
         };
       }
       if (items.length === 0) return;

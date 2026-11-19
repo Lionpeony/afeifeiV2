@@ -6,7 +6,7 @@
 
 /* ---- E09 凌晨河边 ---- */
 .river{
-  position:fixed;inset:0;z-index:88;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-scrim);pointer-events:none;
   animation:fadeIn .9s var(--ease-out-soft) both, riverOut 1s var(--ease-out-soft) 6s both;
   background:
     radial-gradient(900px 500px at 78% 74%,rgba(255,198,110,.16),transparent 62%),
@@ -15,11 +15,11 @@
 .river::after{
   content:"";position:absolute;left:0;right:0;bottom:0;height:44%;
   background:linear-gradient(180deg,transparent,rgba(126,200,227,.16));
-  mask-image:linear-gradient(180deg,transparent,#000);
+  mask-image:linear-gradient(180deg,transparent,var(--mask-ink));
 }
 .river__light{
   position:absolute;border-radius:50%;
-  background:#FFC66E;box-shadow:0 0 22px 6px rgba(255,198,110,.5);
+  background:var(--lamp-glow);box-shadow:0 0 22px 6px rgba(255,198,110,.5);
   animation:lightOn 700ms var(--ease-out-soft) both, lantern 4s ease-in-out infinite;
   animation-delay:var(--d, 800ms), calc(var(--d, 800ms) + 700ms);
 }
@@ -39,7 +39,7 @@
 
 /* ---- E11 秘密 live ---- */
 .live{
-  position:fixed;inset:0;z-index:95;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-pop);pointer-events:none;
   background:radial-gradient(800px 500px at 50% 20%,rgba(42,36,56,.72),rgba(42,36,56,.9));
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   animation:fadeIn .3s var(--ease-out-soft) both, fadeOut .4s var(--ease-out-soft) 1.4s both;
@@ -58,25 +58,25 @@
 .live__beam--2{background:linear-gradient(180deg,rgba(184,169,232,.75),transparent 88%);animation-delay:.17s}
 .live__beam--3{background:linear-gradient(180deg,rgba(126,200,227,.7),transparent 88%);transform:rotate(13deg);animation-delay:.32s}
 @keyframes beamOn{from{opacity:0;transform:scaleY(.12)}to{opacity:.85;transform:scaleY(1)}}
-.live__stage{display:flex;align-items:flex-end;gap:58px;position:relative;z-index:2;margin-top:60px}
+.live__stage{display:flex;align-items:flex-end;gap:58px;position:relative;z-index:var(--z-tape);margin-top:60px}
 .live__inst{color:rgba(20,16,26,.85);animation:fadeUp .45s var(--ease-out-soft) both;animation-delay:.42s;display:flex;flex-direction:column;align-items:center;gap:10px}
 .live__inst span{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:rgba(244,234,242,.45)}
 .live__floor{
   position:absolute;left:50%;bottom:14%;transform:translateX(-50%);
   width:420px;height:2px;border-radius:99px;
   background:linear-gradient(90deg,transparent,rgba(244,234,242,.5),transparent);
-  z-index:1;
+  z-index:var(--z-row);
 }
 
 /* ---- E10 写词 ---- */
 .lyric{
-  position:fixed;inset:0;z-index:96;display:grid;place-items:center;
+  position:fixed;inset:0;z-index:var(--z-overlay);display:grid;place-items:center;
   background:rgba(42,36,56,.4);backdrop-filter:blur(3px);
   cursor:pointer; /* 盖住了整个应用，必须点得走 */
   animation:fadeIn .3s var(--ease) both;
 }
 .lyric__note{
-  width:min(420px,84vw);background:#FFFDF4;border-radius:6px 6px 18px 6px;
+  width:min(420px,84vw);background:var(--note-paper);border-radius:6px 6px 18px 6px;
   padding:30px 30px 24px;position:relative;
   box-shadow:0 30px 60px rgba(42,36,56,.4);
   transform:rotate(-1.4deg);
@@ -95,7 +95,7 @@
 .lyric__line:nth-child(2){width:82%}
 .lyric__line:nth-child(4){width:64%}
 .lyric__text{
-  font-family:var(--font-hand);font-size:16px;color:#3D2B39;letter-spacing:.04em;
+  font-family:var(--font-hand);font-size:16px;color:var(--text);letter-spacing:.04em;
   display:inline-block;overflow:hidden;white-space:nowrap;
   border-right:2px solid rgba(214,51,132,.5);
   animation:writeIn 800ms steps(14) 750ms both, caret 900ms step-end infinite;
@@ -108,14 +108,14 @@
   background:rgba(255,107,157,.5);transform:rotate(-4deg);border-radius:4px;
   animation:strikeIn .4s var(--ease) 1.3s both;transform-origin:left;
 }
-:root[data-theme="dark"] .lyric__note{background:#4A4160;color:#F4EAF2}
-:root[data-theme="dark"] .lyric__text{color:#F4EAF2}
+:root[data-theme="dark"] .lyric__note{background:var(--note-dark-bg);color:var(--text)}
+:root[data-theme="dark"] .lyric__text{color:var(--text)}
 :root[data-theme="dark"] .lyric__meta{color:rgba(244,234,242,.45)}
 :root[data-theme="dark"] .lyric__line{background:repeating-linear-gradient(90deg,rgba(244,234,242,.2) 0 8px,transparent 8px 13px)}
 
 /* ---- E14 妄想待机 ---- */
 .idle-veil{
-  position:fixed;inset:0;z-index:66;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-idle-veil);pointer-events:none;
   background:radial-gradient(760px 520px at 50% 46%,rgba(20,16,26,0),rgba(20,16,26,.72));
   animation:fadeIn 1.5s var(--ease-out-soft) both;
   transition:opacity .4s var(--ease-out-soft);
@@ -133,12 +133,12 @@
 
 /* ---- E13 角落小背影 ---- */
 .corner-figure{
-  position:fixed;right:26px;bottom:96px;z-index:78;
+  position:fixed;right:26px;bottom:96px;z-index:var(--z-corner);
   color:var(--text-3);pointer-events:none;
   animation:cornerIn 2.8s var(--ease) both;
 }
 .corner-figure__copy{
-  position:fixed;right:96px;bottom:132px;z-index:78;
+  position:fixed;right:96px;bottom:132px;z-index:var(--z-corner);
   font-family:var(--font-hand);font-size:13px;color:var(--text-2);
   background:var(--card);padding:8px 13px;border-radius:12px;
   box-shadow:var(--shadow-soft);pointer-events:none;
@@ -166,7 +166,7 @@
 
 /* ---- E12 暗号开箱：礼盒落下 → 摇晃 → 盖飞 → 色点爆开；颜色全走 token，开盒即新包换装 ---- */
 .unbox{
-  position:fixed;inset:0;z-index:150;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-celebrate);pointer-events:none;
   background:radial-gradient(680px 460px at 50% 44%,rgba(20,16,26,0),rgba(20,16,26,.55));
   animation:fadeIn .25s var(--ease-out-soft) both, fadeOut .5s var(--ease-out-soft) 2.3s both;
 }
@@ -214,7 +214,7 @@
 @keyframes dotPop{0%{transform:scale(0)}100%{transform:scale(1)}}
 .unbox__copy{
   position:absolute;left:0;right:0;top:calc(44% + 62px);
-  font-family:var(--font-hand);font-size:17px;letter-spacing:.1em;color:var(--text);
+  font-family:var(--font-hand);font-size:16px;letter-spacing:.1em;color:var(--text);
   text-align:center;
   animation:fadeUp .5s var(--ease-out-soft) 1.15s both;
 }
@@ -235,7 +235,7 @@
 /* E18 包 FX（RAW/gbc）：无滤镜世代的破音——画面四边细噪点撕裂一拍，松手即回。
    颜色走 --text 派生（不落 hex），动效关时跟 .bar 一起不出场。 */
 :root[data-palette="gbc"].vol-max:not([data-motion="off"])::after{
-  content:"";position:fixed;inset:0;z-index:96;pointer-events:none;
+  content:"";position:fixed;inset:0;z-index:var(--z-overlay);pointer-events:none;
   mix-blend-mode:overlay;
   background:
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 26%, transparent) 0 2px, transparent 2px 7px) left / 3px 100% no-repeat,
@@ -256,7 +256,7 @@
 
 /* ---- 换包过渡：每包一个专属动画，颜色全走 token（换包瞬间整站已换色，动画盖住切换） ---- */
 .packfx{
-  position:fixed;inset:0;z-index:150;pointer-events:none;overflow:hidden;
+  position:fixed;inset:0;z-index:var(--z-celebrate);pointer-events:none;overflow:hidden;
   animation:fadeOut .35s var(--ease-out-soft) 1.15s both;
 }
 .packfx__copy{
@@ -308,7 +308,7 @@
 
 /* ---- 演示面板 ---- */
 .demo{
-  position:fixed;inset:0;z-index:150;display:grid;place-items:center;
+  position:fixed;inset:0;z-index:var(--z-celebrate);display:grid;place-items:center;
   background:rgba(42,36,56,.42);backdrop-filter:blur(4px);
   animation:fadeIn .2s var(--ease) both;
 }
@@ -353,27 +353,101 @@
     radial-gradient(760px 520px at 50% 46%,rgba(20,16,26,0),rgba(20,16,26,.78));
 }
 
-/* ---- 分享卡片：把「正在听」做成一张包皮肤的卡，截图带走 ---- */
+/* ---- 点歌分享：后台的「点歌条」——胶带钉住的票根。
+     功能保持：四个官方端点 + 真实歌曲链接；贴纸圆钮随手贴、悬浮被按平 ---- */
 .share-veil{
-  position:fixed;inset:0;z-index:320;display:grid;place-items:center;
+  position:fixed;inset:0;z-index:var(--z-share);display:grid;place-items:center;
   background:rgba(20,16,26,.5);animation:fadeIn 240ms var(--ease-out-soft) both;
 }
 .share-card{
-  width:min(420px,86vw);padding:30px 30px 22px;
-  background:var(--card);border-radius:var(--radius-sheet);
+  position:relative;width:min(440px,86vw);padding:26px 26px 20px;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,0) 46px),
+    var(--share-paper);
+  border-radius:10px;
   border:1px var(--card-border-style, solid) var(--line);
   box-shadow:var(--shadow-pop);
-  display:flex;flex-direction:column;gap:8px;
+  display:flex;flex-direction:column;
   animation:fadeUp 320ms var(--ease-out-soft) both;
 }
-.share-card__quote{font-size:15px;color:var(--pink-600);letter-spacing:.08em}
-.share-card__title{font-size:22px;color:var(--text);line-height:1.3}
-.share-card__artist{font-size:13px;color:var(--text-2)}
-.share-card__foot{
-  display:flex;align-items:center;gap:8px;margin-top:10px;
-  font-size:11px;color:var(--text-3);letter-spacing:.06em;
+:root[data-theme="dark"] .share-card{
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 46px),var(--share-paper);
 }
-.share-card__foot em{font-style:normal;margin-left:auto;color:var(--pink-600)}
-.share-card__dot{width:8px;height:8px;border-radius:50%;flex:none}
-.share-card__acts{display:flex;gap:8px;margin-top:6px}
-.share-card__hint{align-self:flex-end;font-size:11px;color:var(--text-3);opacity:.7}
+/* 票面抬头：小字钢印 + 手写大字 */
+.share-card__eyebrow{
+  font-size:10px;letter-spacing:.3em;color:var(--pink-600);
+  font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
+}
+:root[data-theme="dark"] .share-card__eyebrow{color:var(--pink-400)}
+.share-card__title{
+  margin-top:6px;font-family:var(--font-hand);font-size:22px;
+  letter-spacing:.08em;color:var(--text);
+}
+/* 票面曲目行：像写好的演出传单 */
+.share-card__track{margin-top:10px;display:flex;align-items:baseline;gap:10px;min-width:0}
+.share-card__song{
+  font-size:15px;font-weight:700;color:var(--text);letter-spacing:.02em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.share-card__artist{font-size:12px;color:var(--text-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.share-card__x{
+  position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:50%;flex:none;
+  display:grid;place-items:center;color:var(--text-3);background:transparent;
+  transition:background 160ms var(--ease),color 160ms var(--ease);
+}
+.share-card__x:hover{background:var(--wash);color:var(--text)}
+/* 平台行：四张随手贴的贴纸（各自歪着），悬浮被按平、浮起 */
+.share-card__grid{display:flex;justify-content:space-between;margin:22px 6px 4px}
+.share-app{
+  display:flex;flex-direction:column;align-items:center;gap:9px;
+  background:none;border:0;padding:0;cursor:pointer;
+}
+.share-app__disc{
+  width:54px;height:54px;border-radius:50%;display:grid;place-items:center;color:var(--white);
+  box-shadow:0 0 0 3px var(--share-sticker),0 6px 16px rgba(20,16,26,.16);
+  transition:transform 200ms var(--ease-out-soft),box-shadow 200ms var(--ease-out-soft);
+}
+.share-app:nth-child(1) .share-app__disc{transform:rotate(-3deg)}
+.share-app:nth-child(2) .share-app__disc{transform:rotate(2deg)}
+.share-app:nth-child(3) .share-app__disc{transform:rotate(-2deg)}
+.share-app:nth-child(4) .share-app__disc{transform:rotate(3deg)}
+.share-app:hover .share-app__disc{
+  transform:rotate(0) translateY(-3px);
+  box-shadow:0 0 0 3px var(--share-sticker),0 12px 24px rgba(20,16,26,.22);
+}
+.share-app:active .share-app__disc{transform:rotate(0) translateY(-1px) scale(.96)}
+.share-app__disc svg{display:block}
+.share-app__label{font-size:11px;color:var(--text-2);letter-spacing:.03em}
+/* 本地曲目没有公开链接：平台分享不可用（不造假入口） */
+.share-app.is-off{cursor:default}
+.share-app.is-off .share-app__disc{opacity:.38;box-shadow:0 0 0 3px var(--share-sticker);transform:rotate(0)}
+.share-app.is-off:hover .share-app__disc{transform:rotate(0)}
+.share-app.is-off .share-app__label{opacity:.6}
+/* 撕线链接行：票根的虚线 + 等宽链接 + 手写「复制」 */
+.share-card__link{
+  margin-top:18px;padding-top:14px;
+  border-top:2px dashed var(--line);
+  display:flex;align-items:center;gap:10px;
+}
+.share-card__url{
+  flex:1;min-width:0;font-size:11px;color:var(--text-3);
+  font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.share-card__copy{
+  flex:none;background:none;border:0;padding:2px 0;cursor:pointer;
+  font-size:12px;letter-spacing:.06em;color:var(--pink-700);
+  border-bottom:1px dashed var(--pink-600);
+  transition:color 160ms var(--ease),border-color 160ms var(--ease);
+}
+:root[data-theme="dark"] .share-card__copy{color:var(--pink-400);border-color:var(--pink-400)}
+.share-card__copy:hover{color:var(--pink-600)}
+.share-card__copy.is-done{color:var(--pink-600);border-bottom-style:solid}
+.share-card__none{margin-top:18px;font-size:12px;color:var(--text-3);letter-spacing:.04em}
+/* 手写落款：右下角一句，随文案包换口气 */
+.share-card__note{
+  margin-top:16px;text-align:right;
+  font-family:var(--font-hand);font-size:12px;letter-spacing:.04em;
+  color:var(--text-3);
+}
+:root[data-theme="dark"] .share-card__note{color:var(--pink-400)}

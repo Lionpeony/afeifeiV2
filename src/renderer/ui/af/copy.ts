@@ -39,6 +39,8 @@ interface PackCopy {
   pack(label: string): string;
   /* ---- 氛围彩蛋（F 区余量） ---- */
   lateNight: string;
+  /** 点歌分享卡右下角的手写落款 */
+  shareNote: string;
   repeatThree(n: number): string;
   sameArtist(n: number): string;
   /* ---- 服务层字符串的包文案对应（svcText 收敛翻译用） ---- */
@@ -81,6 +83,7 @@ const BELLE: PackCopy = {
   quality: (label: string): string => `音质切到「${label}」了。`,
   pack: (label: string): string => `主题切到「${label}」。`,
   lateNight: "还没睡？给耳朵放个假吧。",
+  shareNote: "今晚也想把这首递给你。",
   repeatThree: (n: number): string => `这首已经放第 ${n} 遍了。`,
   sameArtist: (n: number): string => `连着听了 ${n} 首这位艺人。`,
   downloadStart: "已加入下载队列。",
@@ -122,6 +125,7 @@ const MAIGO: PackCopy = {
   quality: (_label: string): string => "现在的声音更清楚一点了。",
   pack: (_label: string): string => "灯光换了一种。",
   lateNight: "这个点还醒着…听点安静的。",
+  shareNote: "这首歌…想交给谁呢。",
   repeatThree: (n: number): string => `又要演奏一遍吗？…好呀，第 ${n} 遍了。`,
   sameArtist: (_n: number): string => "你和 TA 很合拍呢。",
   downloadStart: "出发去取了。",
@@ -163,6 +167,7 @@ const RAW: PackCopy = {
   quality: (label: string): string => `音质切到 ${label}。`,
   pack: (label: string): string => `主题切到 ${label}。`,
   lateNight: "还没睡？音量自觉。",
+  shareNote: "拿去。别弄丢了。",
   repeatThree: (n: number): string => `这首播了 ${n} 遍。真喜欢还是懒得切。`,
   sameArtist: (n: number): string => `连着听了 ${n} 首这个艺人。`,
   downloadStart: "开始下。",
@@ -204,6 +209,7 @@ const KADO: PackCopy = {
   quality: (_label: string): string => "声音变好了…耳朵好幸福。",
   pack: (_label: string): string => "换了身衣服…好看吗。",
   lateNight: "深夜的 live，观众只有你。",
+  shareNote: "给、给你……要听完哦。",
   repeatThree: (n: number): string => `被发现了，这是第 ${n} 遍了吧。`,
   sameArtist: (_n: number): string => "呜…你们感情真好。",
   downloadStart: "出门去带了！",
@@ -289,8 +295,9 @@ const SVC_RULES: { match: RegExp; key: "downloadStart" | "downloadFail" | "noLyr
 export function svcText(raw: string): string {
   if (activePalette === "default" || !raw) return raw;
   for (const r of SVC_RULES) {
+    if (!r.match.test(raw)) continue;
     const v: string | string[] = packCopy(activePalette)[r.key];
-    return Array.isArray(v) ? v[0] : v; // goneSong 现在是递进池，服务层报错取第一句
+    return Array.isArray(v) ? v[0] : v;
   }
   return raw;
 }
@@ -315,7 +322,7 @@ export function packLineCopy(
   key:
     | "emptyLibrary" | "emptySearch" | "emptyDownloads" | "playlistsEmpty" | "emptyLoggedOut"
     | "guide" | "confirmClear" | "enqueue" | "queueEmpty"
-    | "loadingSkeleton" | "loadingScan" | "loadingDaily",
+    | "loadingSkeleton" | "loadingScan" | "loadingDaily" | "shareNote",
 ): string {
   return packCopy(palette)[key];
 }

@@ -22,10 +22,10 @@
 }
 .brand-word span {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size:10px;
   letter-spacing: 0.06em;
 }
-.nav-item { font-size: 13.5px; }
+.nav-item { font-size:13px; }
 .nav-item.is-active { font-weight: 600; }
 .nav-item__count {
   font-family: var(--font-body);

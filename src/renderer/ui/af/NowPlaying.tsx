@@ -2,7 +2,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 
 import { useAf } from "./context.js";
-import { TrackArt } from "./art.js";
+import { TrackArt, artPaletteOf } from "./art.js";
 import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX } from "./icons.js";
 import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
@@ -36,6 +36,7 @@ export function NowPlaying() {
     palette,
     closePlayer,
     playerClosing,
+    openDiscoverDetail,
     chorusAt,
     markChorus,
     struckId,
@@ -57,6 +58,10 @@ export function NowPlaying() {
   const [dragging, setDragging] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const liked = isLiked(track);
+
+  /* 红心飞出：点喜欢（或长按盖火焰时顺手点亮）就从按钮上方飘一颗心 */
+  const [heartSeq, setHeartSeq] = useState(0);
+  const flyHeart = (): void => setHeartSeq((s) => s + 1);
 
   /* E19 长按红心：按住 1 秒触发火焰，之后的那次 click 作废；文案递进池按次数 */
   const likeHold = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,6 +108,11 @@ export function NowPlaying() {
   }, [queue]);
 
   const totalDur = queue.reduce((s, t) => s + t.dur, 0);
+  /* 散场倒计时要活的：前面几首放完的 + 当前这首已播的，从总时长里扣，
+     播满一分钟少一分钟（ceil：52:31 显示还剩 53，跨过整分才跳） */
+  const playedDur =
+    queue.slice(0, queueIndex).reduce((s, t) => s + t.dur, 0) + Math.min(pos, track.dur || dur || 0);
+  const remainMin = Math.max(0, Math.ceil((totalDur - playedDur) / 60));
 
   return (
     <div className={"np" + (playerClosing ? " np--closing" : "") + (lyricsFull && lyricsOn ? " np--lyrics-full" : "")} data-screen-label="播放页" role="dialog" aria-label="播放页">
@@ -134,7 +144,7 @@ export function NowPlaying() {
         )}
         <button className="np__keysbtn" onClick={() => setShareOpen(true)} title="把这首做成分享卡片">卡片</button>
         <button className="np__keysbtn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单">快捷键 <kbd>?</kbd></button>
-        <span className="meta hand" style={{ fontSize: 12 }}>{Math.round(totalDur / 60)} 分钟就散场</span>
+        <span className="meta hand" style={{ fontSize: 12 }}>还剩 {remainMin} 分钟就散场</span>
       </div>
 
       <div className="np__main">
@@ -146,6 +156,11 @@ export function NowPlaying() {
               <img key={track.id} className="np__art-img" src={track.cover} alt="" referrerPolicy="no-referrer" />
             ) : (
               <span className="np__art-img" style={{ display: "block", overflow: "hidden" }}>
+                <span
+                  className="np__art-glow"
+                  style={{ background: `radial-gradient(closest-side, ${artPaletteOf(track.id)[2]}, transparent 72%)` }}
+                  aria-hidden="true"
+                />
                 <TrackArt id={track.id} size={352} radius={20} />
               </span>
             )}
@@ -165,9 +180,36 @@ export function NowPlaying() {
             <h1 key={track.id} className="np__title">{track.title}</h1>
             <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
             <div className="np__band jp">
-              <span>{track.artist}</span>
+              {track.remote?.artistId ? (
+                <button
+                  className="np__band-link"
+                  title={`去看 ${track.artist} 的艺人页`}
+                  onClick={() => {
+                    openDiscoverDetail({ kind: "artist", id: track.remote!.artistId!, name: track.artist, coverUrl: track.cover ?? undefined });
+                    closePlayer();
+                  }}
+                >
+                  {track.artist}
+                </button>
+              ) : (
+                <span>{track.artist}</span>
+              )}
               <i></i>
-              <span style={{ color: "var(--text-3)" }}>{track.album}</span>
+              {track.remote?.albumId ? (
+                <button
+                  className="np__band-link"
+                  style={{ color: "var(--text-3)" }}
+                  title={`去看《${track.album}》的专辑页`}
+                  onClick={() => {
+                    openDiscoverDetail({ kind: "album", id: track.remote!.albumId!, name: track.album, coverUrl: track.cover ?? undefined });
+                    closePlayer();
+                  }}
+                >
+                  {track.album}
+                </button>
+              ) : (
+                <span style={{ color: "var(--text-3)" }}>{track.album}</span>
+              )}
             </div>
 
             <div className="np__progress-wrap">
@@ -186,14 +228,14 @@ export function NowPlaying() {
                 }}
                 title="点击跳转，长按标记副歌点"
               >
-                <div className="np__progress-track">
-                  <div className="np__progress-fill" style={{ width: pct + "%" }}></div>
+                <div className="np__progress-track" style={{ ["--p" as string]: String(pct / 100) }}>
+                  <div className="np__progress-fill"></div>
                   {chorusPct != null && (
                     <span className="np__chorus-mark" style={{ left: chorusPct + "%" }}>
                       <IconPick size={13} />
                     </span>
                   )}
-                  <span className="np__progress-knob" style={{ left: pct + "%" }}></span>
+                  <span className="np__progress-knob" aria-hidden="true"></span>
                 </div>
               </div>
               <div className="np__times">
@@ -224,6 +266,7 @@ export function NowPlaying() {
                 onClick={(e) => {
                   if (likeFired.current) { likeFired.current = false; return; }
                   onomaAt(e.currentTarget, "ポンッ", "coral");
+                  if (!liked) flyHeart();
                   toggleLike(track);
                 }}
                 onPointerDown={(e) => {
@@ -233,7 +276,7 @@ export function NowPlaying() {
                     likeFired.current = true;
                     likeCount.current += 1;
                     onomaAt(btn, "燃——", "coral");
-                    if (!liked) toggleLike(track);
+                    if (!liked) { toggleLike(track); flyHeart(); }
                     discover("E19");
                     toast(eggText(palette, "longPressLike", likeCount.current), { hand: true });
                   }, 1000);
@@ -244,6 +287,16 @@ export function NowPlaying() {
                 title="喜欢（盖一枚拨片）· 长按 1 秒是火焰"
               >
                 {liked ? <IconPick size={19} /> : <IconPickOutline size={19} />}
+                {heartSeq > 0 ? (
+                  <span key={heartSeq} className="np-heart-fly" aria-hidden="true">
+                    <svg viewBox="0 0 20 18" width="16" height="15">
+                      <path
+                        d="M10 17C4 12.6.8 9.4.8 6.1.8 3.3 3 1.2 5.7 1.2c1.7 0 3.3.8 4.3 2.2 1-1.4 2.6-2.2 4.3-2.2 2.7 0 4.9 2.1 4.9 4.9 0 3.3-3.2 6.5-9.2 10.9z"
+                        fill="var(--coral)"
+                      />
+                    </svg>
+                  </span>
+                ) : null}
               </button>
               <button className={"np__ctrl" + (lyricsOn ? " is-on" : "")} onClick={() => setLyricsOn(!lyricsOn)} title="歌词字幕（ED 风）" aria-pressed={lyricsOn}>
                 <IconNote size={18} />

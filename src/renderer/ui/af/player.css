@@ -2,7 +2,7 @@
    Full player · 舞台 / 幕布 / setlist 队列 / 演出时间线
    ============================================================ */
 .np{
-  position:fixed;inset:0;z-index:70;
+  position:fixed;inset:0;z-index:var(--z-np);
   background:var(--bg);overflow:hidden;
   display:grid;grid-template-rows:auto minmax(0,1fr) auto;
   animation:fadeIn .2s var(--ease) both;
@@ -19,11 +19,11 @@
     radial-gradient(560px 380px at 84% 84%,rgba(123,95,201,.22),transparent 72%);
 }
 .np__top{
-  display:flex;align-items:center;gap:14px;padding:22px 40px 0;position:relative;z-index:3;
+  display:flex;align-items:center;gap:14px;padding:22px 40px 0;position:relative;z-index:var(--z-card-top);
 }
 .np__top-label{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;color:var(--text-3)}
 .np__main{
-  position:relative;z-index:3;
+  position:relative;z-index:var(--z-card-top);
   display:grid;grid-template-columns:minmax(0,1fr) 348px;
   gap:56px;align-items:center;
   padding:0 40px 0 44px;min-height:0;
@@ -53,9 +53,16 @@
 .np__art-badge b{font-family:var(--font-mono);font-size:10px;color:var(--text-3);display:block;text-align:center;line-height:1}
 
 /* 曲目信息 */
-.np__kicker{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.np__title{font-family:var(--font-display);font-size:clamp(28px,2.9vw,40px);line-height:1.18;letter-spacing:.01em;text-wrap:balance}
-.np__band{margin-top:10px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-2)}
+.np__kicker{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0;max-width:100%}
+.np__kicker .eyebrow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np__title{font-family:var(--font-display);font-size:clamp(28px,2.9vw,36px);line-height:1.18;letter-spacing:.01em;text-wrap:balance}
+.np__band{margin-top:10px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-2);max-width:100%;min-width:0}
+.np__band > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np__band > span:first-child{flex:0 1 auto}
+.np__band > span:last-child{flex:none}
+.np__band > button.np__band-link{flex:0 1 auto}
+.np__band-link{padding:0;border:0;background:none;font:inherit;color:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.np__band-link:hover,.np__band-link:focus-visible{text-decoration:underline;text-decoration-color:var(--pink-600);text-underline-offset:4px}
 .np__band i{width:3px;height:3px;border-radius:50%;background:var(--text-3);display:block}
 
 /* 进度 */
@@ -75,25 +82,26 @@
 }
 .np__progress-track{
   height:4px;width:100%;border-radius:99px;background:var(--line-strong);
-  position:relative;overflow:visible;
+  position:relative;overflow:visible;container-type:inline-size;
 }
 .np__progress-fill{
-  position:absolute;left:0;top:0;height:100%;border-radius:99px;
+  position:absolute;inset:0;border-radius:99px;
   background:linear-gradient(90deg,var(--pink-400),var(--lav));
-  transition:width .22s linear;
+  transform:scaleX(var(--p,0));transform-origin:0 50%;
+  transition:transform .22s linear;
 }
+.np__progress.is-dragging .np__progress-fill{transition:none}
 .np__progress-knob{
-  position:absolute;top:50%;width:11px;height:11px;border-radius:50%;
+  position:absolute;top:50%;left:0;width:11px;height:11px;border-radius:50%;
   background:var(--card);border:2px solid var(--pink-600);
-  transform:translate(-50%,-50%);box-shadow:0 2px 6px rgba(61,43,57,.2);
-  transition:width .18s var(--ease),height .18s var(--ease),left .22s linear;
+  translate:calc(var(--p,0)*100cqi) -50%;box-shadow:0 2px 6px rgba(61,43,57,.2);
+  transition:translate .22s linear,scale var(--dur-fast) var(--ease-spring),box-shadow var(--dur-fast) var(--ease-out-soft);
 }
-.np__progress:hover .np__progress-knob{width:14px;height:14px}
+.np__progress:hover .np__progress-knob{scale:1.27}
 .np__progress.is-dragging .np__progress-knob{
-  width:16px;height:16px;
+  scale:1.45;transition:none;
   box-shadow:0 0 0 4px rgba(255,209,102,.55),0 2px 8px rgba(61,43,57,.22);
 }
-.np__progress-knob{transition:width var(--dur-fast) var(--ease-spring),height var(--dur-fast) var(--ease-spring),left .18s linear,box-shadow var(--dur-fast) var(--ease-out-soft)}
 .np__chorus-mark{
   position:absolute;top:50%;transform:translate(-50%,-50%) rotate(-8deg);
   color:var(--coral);pointer-events:none;
@@ -156,21 +164,21 @@
 }
 .qrow{overflow:hidden}
 .qrow::before{
-  content:"";position:absolute;inset:0;border-radius:9px;z-index:0;
+  content:"";position:absolute;inset:0;border-radius:9px;z-index:var(--z-base);
   background:var(--wash);transform:scaleX(0);transform-origin:left center;
   transition:transform 150ms var(--ease-out-soft);
 }
 .qrow:hover::before{transform:scaleX(1)}
-.qrow > span{position:relative;z-index:1}
+.qrow > span{position:relative;z-index:var(--z-row)}
 .qrow:hover::after{
   content:"";position:absolute;left:-3px;top:8px;width:8px;height:8px;
   background:rgba(255,209,102,.9);border-radius:1.5px;transform:rotate(-12deg);
-  z-index:2;animation:fadeIn 150ms var(--ease-out-soft) both;
+  z-index:var(--z-tape);animation:fadeIn 150ms var(--ease-out-soft) both;
 }
 .qrow.is-current::after{
   content:"";position:absolute;left:2px;top:50%;margin-top:-4px;width:8px;height:8px;
   background:var(--pink-600);border-radius:2px 2px 4px 4px;transform:rotate(-8deg);
-  z-index:2;animation:pickSlide 220ms var(--ease-spring) both;
+  z-index:var(--z-tape);animation:pickSlide 220ms var(--ease-spring) both;
 }
 @keyframes pickSlide{from{opacity:0;transform:rotate(-8deg) translateX(-6px)}to{opacity:1;transform:rotate(-8deg) translateX(0)}}
 .qrow__no{font-family:var(--font-mono);font-size:10px;color:var(--text-3)}
@@ -199,7 +207,7 @@
 .act-sep__bar--3{background:linear-gradient(90deg,var(--mint),transparent)}
 
 /* 绕路路径 E07 */
-.qpath{position:absolute;left:1px;top:0;bottom:0;width:18px;height:100%;pointer-events:none;z-index:0;overflow:visible}
+.qpath{position:absolute;left:1px;top:0;bottom:0;width:18px;height:100%;pointer-events:none;z-index:var(--z-base);overflow:visible}
 .qpath path{
   fill:none;stroke-linecap:round;
   transition:opacity .4s var(--ease),stroke-dashoffset .8s var(--ease),d .6s var(--ease);
@@ -210,7 +218,7 @@
 
 /* 演出时间线 */
 .np__timeline{
-  position:relative;z-index:3;
+  position:relative;z-index:var(--z-card-top);
   padding:16px 44px 24px;display:flex;align-items:center;gap:14px;
 }
 .np__timeline-label{font-family:var(--font-hand);font-size:11px;color:var(--text-3);flex:none}
@@ -226,10 +234,10 @@
 
 /* 幕布 E08 */
 .curtain{
-  position:fixed;top:0;bottom:0;width:51%;z-index:85;pointer-events:none;
+  position:fixed;top:0;bottom:0;width:51%;z-index:var(--z-curtain);pointer-events:none;
   background:
     repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 2px,transparent 2px 26px),
-    linear-gradient(160deg,#FF9EBB,#B8A9E8 62%,#9A8FD6);
+    linear-gradient(160deg,var(--pastel-pink),var(--pastel-lav) 62%,var(--pastel-iris));
   box-shadow:0 0 40px rgba(61,43,57,.18);
   will-change:transform;
 }
@@ -255,7 +263,7 @@
 
 /* 切歌纱帘 E06 常规巧思 */
 .sheer{
-  position:absolute;inset:0;pointer-events:none;z-index:4;border-radius:20px;
+  position:absolute;inset:0;pointer-events:none;z-index:var(--z-lift);border-radius:20px;
   opacity:0;overflow:hidden;
 }
 .sheer--l{background:linear-gradient(90deg,rgba(255,107,157,.12),rgba(123,95,201,.12) 55%,transparent 82%)}
@@ -267,7 +275,7 @@
 
 /* 拨片盖章 E05 */
 .stamp-mark{
-  position:absolute;left:50%;top:50%;pointer-events:none;z-index:8;
+  position:absolute;left:50%;top:50%;pointer-events:none;z-index:var(--z-hint);
   transform:translate(-50%,-50%);
   animation:stampDown 420ms var(--ease-spring) both;
   color:var(--coral);
@@ -280,7 +288,7 @@
   100%{opacity:0;transform:translate(-50%,-50%) rotate(-8deg) scale(1)}
 }
 .ink-spread{
-  position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:7;
+  position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:var(--z-ink);
   border:2px solid rgba(198,42,63,.4);
   animation:inkSpread .5s var(--ease) both;
 }
@@ -320,7 +328,7 @@
     radial-gradient(560px 380px at 84% 84%,color-mix(in srgb, var(--lav) 22%, transparent),transparent 72%);
 }
 :root[data-palette="mygo"] .np::after{
-  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  content:"";position:absolute;inset:0;z-index:var(--z-row);pointer-events:none;
   background:
     /* 远处城市光斑 */
     radial-gradient(14px 10px at 16% 26%,color-mix(in srgb, var(--mint) 34%, transparent),transparent 70%),
@@ -344,7 +352,7 @@
    RAW 主题包 · 播放页舞台皮肤「手机直播框」：取景框四角 + REC 角标
    ============================================================ */
 :root[data-palette="gbc"] .np::after{
-  content:"";position:absolute;inset:26px;z-index:1;pointer-events:none;background-repeat:no-repeat;
+  content:"";position:absolute;inset:26px;z-index:var(--z-row);pointer-events:none;background-repeat:no-repeat;
   background-image:
     linear-gradient(color-mix(in srgb, var(--pink-600) 72%, transparent),color-mix(in srgb, var(--pink-600) 72%, transparent)),
     linear-gradient(color-mix(in srgb, var(--pink-600) 72%, transparent),color-mix(in srgb, var(--pink-600) 72%, transparent)),
@@ -383,7 +391,7 @@
     color-mix(in srgb, var(--bg) 90%, var(--pink-600) 10%);
 }
 :root[data-palette="btr"] .np::after{
-  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen;
+  content:"";position:absolute;inset:0;z-index:var(--z-row);pointer-events:none;mix-blend-mode:screen;
   background:radial-gradient(540px 640px at 50% -6%,rgba(255,197,61,.26),rgba(255,197,61,.09) 52%,transparent 74%);
 }
 

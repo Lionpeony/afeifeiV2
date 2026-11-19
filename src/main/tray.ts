@@ -32,7 +32,7 @@ let state: TrayState = { playing: false, title: null };
 function trayIcon() {
   const img = nativeImage.createEmpty();
   const rep = (scaleFactor: number): Electron.NativeImage => {
-    const file = path.join(__dirname, "..", "renderer", "assets", scaleFactor === 1 ? "tray-pick@1x.png" : "tray-pick@2x.png");
+    const file = path.join(__dirname, "renderer", "assets", scaleFactor === 1 ? "tray-pick@1x.png" : "tray-pick@2x.png");
     return nativeImage.createFromPath(file);
   };
   for (const sf of [1, 2]) {

@@ -10,7 +10,14 @@ const SRC = "src";
 const LAYERS = ["kernel", "domain", "capability", "projection", "ui"];
 const AUDIO_GRAPH = "src/renderer/capability/audio/graph.ts";
 const COMPOSITOR = "src/renderer/ui/compositor.ts";
-const HEX_WHITELIST = ["src/renderer/ui/tokens.css", "src/renderer/ui/theme/presets/", "src/renderer/ui/af/"];
+/* 规则 5 白名单：tokens.css 是唯一色值事实源；theme/presets 与 af 的 art/Local 是
+   生成式占位色板数据表（2026-11-20 收敛后仅剩这两处 tsx 例外，组件颜色一律走 token）。 */
+const HEX_WHITELIST = [
+  "src/renderer/ui/tokens.css",
+  "src/renderer/ui/theme/presets/",
+  "src/renderer/ui/af/art.tsx",
+  "src/renderer/ui/af/pages/Local.tsx",
+];
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
@@ -154,14 +161,21 @@ for (const file of mainFiles) {
   // 400 行文件上限已解除（2026-11-03 用户决定）：按域拆分仍是习惯，但不再做门禁。
 }
 
-/* ---------- 规则 7：z-index 全集 + !important 零容忍（00 §9.2/§9.3，gate: 2026-11-03） ---------- */
+/* ---------- 规则 7：z-index 全集 + !important 零容忍（00 §9.2/§9.3，gate: 2026-11-03） ----------
+   旧仓库层走 0-60 八档白名单；af 层（2026-11-20 起）只准引用 tokens.css 的 --z-* 层序刻度，
+   不许再写裸数值 —— 层序是设计系统事实源，不是各文件自留地。 */
 const ALLOWED_Z = new Set([0, 1, 2, 3, 4, 20, 40, 50, 60]);
 for (const file of styled) {
   const n = norm(file);
-  // 新设计层 af/ 直接来自 v4.2/v5.6 原型，层序与 !important 自成一套；
-  // 它的色值/层序由设计系统规范约束，不套旧仓库的 00 §9 规则。
-  if (n.includes("/ui/af/")) continue;
   const src = stripComments(read(file)); // 跳过注释——注释里提到这些词不算违规（2026-11-03 审计教训）
+  if (n.includes("/ui/af/")) {
+    for (const m of src.matchAll(/z-index:\s*([^;}]+)/g)) {
+      if (!m[1].includes("var(--z-")) {
+        fail(`${n}: z-index ${m[1].trim()} 不在 --z-* 层序刻度上（af 层只准引用 tokens.css 的 --z-*）`);
+      }
+    }
+    continue;
+  }
   for (const m of src.matchAll(/z-index:\s*(-?\d+)/g)) {
     if (!ALLOWED_Z.has(Number(m[1]))) {
       fail(`${n}: z-index ${m[1]} 不在全局层序（0 1 2 3 4 20 40 50 60，00 §9.2）`);
@@ -172,19 +186,23 @@ for (const file of styled) {
   }
 }
 
-/* ---------- 规则 8：舞台字号只取阶梯 token（2026-11-10 VI 收敛） ----------
-   49 处 font-size 里曾有 6 个 .5px 值、4 套标题各写各的 —— 用户看到的是
-   "同一首歌在四个皮肤里的音量不同"。这条把字号变成机器可校验的阶梯。 */
-const STAGE_SKIN_CSS = "src/renderer/ui/views/stage/stage-skins.css";
-if (fs.existsSync(STAGE_SKIN_CSS)) {
-  const src = stripComments(read(STAGE_SKIN_CSS));
-  for (const m of src.matchAll(/font-size:[ \t]*([^;]+);/g)) {
+/* ---------- 规则 8：af 层字号只取阶梯（2026-11-20 排版收敛） ----------
+   阶梯 = DESIGN.md「Hierarchy」节：正文 10/11/12/13/14/15/16/18/20/22/26 + 展示 28/30/36/44/128。
+   字号声明只准是：阶梯 px、var(--fs-*)、calc()/clamp()。小数档与越阶值一律打回。 */
+const AF_LADDER = new Set(["10", "11", "12", "13", "14", "15", "16", "18", "20", "22", "26", "28", "30", "36", "44", "128"]);
+for (const file of styled) {
+  const n = norm(file);
+  if (!n.includes("/ui/af/")) continue;
+  const src = stripComments(read(file));
+  for (const m of src.matchAll(/font-size:\s*([^;}]+)/g)) {
     const v = m[1].trim();
-    if (!v.startsWith("var(--sk-type-") && !v.startsWith("calc(var(--sk-type-")) {
-      fail(`${STAGE_SKIN_CSS}: font-size ${v} 不在阶梯上（只允许 --sk-type-*，见文件顶部 token 块）`);
-    }
+    const px = v.match(/^(\d+(?:\.\d+)?)px$/);
+    const ok = (px && AF_LADDER.has(px[1])) || v.startsWith("var(--fs-") || v.startsWith("calc(") || v.startsWith("clamp(");
+    if (!ok) fail(`${n}: font-size ${v} 不在阶梯上（10-16/18/20/22/26 + 28/30/36/44/128，或 var(--fs-*)）`);
   }
 }
+
+/* ---------- 规则 8（原「舞台字号阶梯」）已随 views/stage 死样式层删除（2026-11-20） ---------- */
 
 /* ---------- 规则 9：源文件禁止 UTF-8 BOM（2026-11-19 事故复盘，docs/30 §11） ----------
    PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM；build.mjs 拼接 css 时

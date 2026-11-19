@@ -13,7 +13,7 @@ import { Sound } from "./sound.js";
 import { likeToastCopy, eggText, packToastCopy, packEventCopy, setActivePalette } from "./copy.js";
 import { SECRET_CODES, PALETTES, EGGS } from "./data.js";
 import { usePref, useVisibilityHidden } from "./prefs.js";
-import type { AfApi, AfDensity, AfEqState, AfListEditor, AfMotion, AfMyList, AfOverlay, AfSleep, AfSource, AfThemePref, AfTrack } from "./context.js";
+import type { AfApi, AfDensity, AfDetailSeek, AfEqState, AfListEditor, AfMotion, AfMyList, AfOverlay, AfSleep, AfSource, AfThemePref, AfTrack } from "./context.js";
 import type { OnomaItem } from "./layers.js";
 
 /** E23 副歌现场：各包进场拟声 + 应援色（onoma tone）。 */
@@ -53,11 +53,16 @@ export interface AfUiInput {
   logout(id: string): void;
   loginSrc: string | null;
   searchOnline(q: string): Promise<{ items: unknown[] }>;
+  /** 搜索浮层发起的详情跳转（状态在 index 持有，Discover 读它开门） */
+  discoverDetail: AfDetailSeek | null;
+  openDiscoverDetail(ref: Omit<AfDetailSeek, "at">): void;
   playRemote(sourceId: string, track: unknown, list: unknown[], origin: string): void;
   playIds(ids: string[], startAt?: number): void;
   toAfTrack(id: string): AfTrack;
   currentTrack: AfTrack;
   notify(text: string, kind?: "ok" | "info" | "bad"): void;
+  /** 用系统浏览器打开外链（点歌分享；主进程有白名单） */
+  openExternal(url: string): void;
   profileOf(id: string): { nick: string | null; avatarUrl: string | null } | null;
   lastRoom: string;
 }
@@ -66,8 +71,6 @@ export interface AfUiResult {
   api: AfApi;
   onomas: OnomaItem[];
   focusKey: number;
-  mascot: boolean;
-  setMascot(v: boolean): void;
   boot: boolean;
 }
 
@@ -97,7 +100,6 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [sheerSide, setSheerSide] = useState<"l" | "r" | null>(null);
   const [onomas, setOnomas] = useState<OnomaItem[]>([]);
   const [focusKey, setFocusKey] = useState(0);
-  const [mascot, setMascot] = useState(false);
   const [boot, setBoot] = useState(true);
   const [srcSwap, setSrcSwap] = useState<{ id: string; phase: "close" | "hold" | "open"; scope?: "pill" } | null>(null);
   const swapTimers = useRef<number[]>([]);
@@ -652,8 +654,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
         openPlayer();
         break;
       case "E17":
+        /* walking mascot 已退场：E17 只保留「顺手起播」这一半 */
         setPlaying(true);
-        setMascot(true);
         break;
       case "E23":
         chorusFired.current = null;
@@ -680,7 +682,6 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     const t1 = setTimeout(() => Sound.pluck(), 500);
     const t2 = setTimeout(() => {
       discover("E01", { silent: true });
-      toast("今晚的 setlist 还空着两行。", { hand: true, ms: 3200 });
     }, 1100);
     /* E24 深夜档：22 点–凌晨 2 点启动播放时的问候（2–4 点归 E09 河边） */
     const hour = new Date().getHours();
@@ -767,20 +768,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentId]);
 
-  const mascotSeen = useRef<number[]>([]);
-  useEffect(() => {
-    if (!playing || mascot) return;
-    if (mascotSeen.current.length >= 2) return;
-    const last = mascotSeen.current[mascotSeen.current.length - 1] ?? 0;
-    const wait = last ? Math.max(9000, 30 * 60 * 1000 - (Date.now() - last)) : 26000 + Math.random() * 24000;
-    const t = setTimeout(() => {
-      mascotSeen.current.push(Date.now());
-      setMascot(true);
-      discover("E17");
-    }, wait);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, mascot]);
+  /* walking mascot 及其登场/随机路过调度已随角色退场一并移除（2026-11-20） */
 
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -834,6 +822,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     mineTab: input.mineTab,
     setMineTab: input.setMineTab,
     searchOnline: input.searchOnline,
+    discoverDetail: input.discoverDetail,
+    openDiscoverDetail: input.openDiscoverDetail,
     track,
     currentId,
     resolveTrack: input.toAfTrack,
@@ -872,6 +862,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     loginFor: input.loginFor,
     logout: input.logout,
     toast,
+    openExternal: input.openExternal,
     onoma,
     onomaAt,
     focus,
@@ -954,5 +945,5 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     toggleMute,
   };
 
-  return { api, onomas, focusKey, mascot, setMascot, boot };
+  return { api, onomas, focusKey, boot };
 }

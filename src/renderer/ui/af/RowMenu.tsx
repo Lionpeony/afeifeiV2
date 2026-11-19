@@ -9,7 +9,7 @@ import { packLineCopy } from "./copy.js";
 
 export function RowMenu() {
   const api = useAf();
-  const { rowMenu, closeRowMenu, resolveTrack, isLiked, toggleLike, goTo, playNext, addDownload, toast, palette } = api;
+  const { rowMenu, closeRowMenu, resolveTrack, isLiked, toggleLike, goTo, playNext, addDownload, toast, palette, openDiscoverDetail } = api;
   const ref = useRef<HTMLDivElement>(null);
   const [sub, setSub] = useState(false);
 
@@ -63,8 +63,22 @@ export function RowMenu() {
       </div>
 
       <div className="rowmenu__group">
-        <Item icon={IconDisc} onClick={() => { toast(`《${t.album}》的专辑页还在路上。`, { hand: true }); closeRowMenu(); }}>查看专辑</Item>
-        <Item icon={IconUser} onClick={() => { toast(`${t.artist} 的艺人页还在路上。`, { hand: true }); closeRowMenu(); }}>查看艺人</Item>
+        <Item
+          icon={IconDisc}
+          onClick={() => {
+            closeRowMenu();
+            if (t.remote?.albumId) openDiscoverDetail({ kind: "album", id: t.remote.albumId, name: t.album, coverUrl: t.cover ?? undefined });
+            else toast(`《${t.album}》的专辑页还在路上。`, { hand: true });
+          }}
+        >查看专辑</Item>
+        <Item
+          icon={IconUser}
+          onClick={() => {
+            closeRowMenu();
+            if (t.remote?.artistId) openDiscoverDetail({ kind: "artist", id: t.remote.artistId, name: t.artist, coverUrl: t.cover ?? undefined });
+            else toast(`${t.artist} 的艺人页还在路上。`, { hand: true });
+          }}
+        >查看艺人</Item>
       </div>
       {sub ? <AddToListPanel trackId={t.id} onDone={closeRowMenu} /> : null}
     </div>

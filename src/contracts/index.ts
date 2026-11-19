@@ -85,6 +85,9 @@ export interface RemoteTrackMeta {
   coverUrl?: string;
   /** 队列面板要显示时长；在线曲目拿不到就留空，显示 --:--（不编数据） */
   durationMs?: number;
+  /** 音源内的艺人 / 专辑 id（有才能从播放页跳进发现页详情；拿不到就留空不造假入口） */
+  artistId?: string;
+  albumId?: string;
 }
 
 export interface QueueState {

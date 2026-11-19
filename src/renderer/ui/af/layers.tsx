@@ -1,5 +1,5 @@
 /* AFEIFEI 二次元表现层与独立窗口组件
-   OnomaLayer / FocusLines / MascotWalk / EggLayer / DemoPanel / Auth
+   OnomaLayer / FocusLines / EggLayer / DemoPanel / Auth
    从 offline_single/js/anime.jsx、Eggs.jsx、Extras.jsx、Auth.jsx 移植。 */
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -50,40 +50,8 @@ export const OnomaLayer = ({ items }: { items: OnomaItem[] }) => (
 
 export const FocusLines = () => <div className="focus-lines" aria-hidden="true"></div>;
 
-export const MascotWalk = ({ onEnd }: { onEnd: () => void }) => {
-  useEffect(() => {
-    const t = setTimeout(onEnd, 9000);
-    return () => clearTimeout(t);
-  }, [onEnd]);
-  return (
-    <div className="mascot" aria-hidden="true">
-      <div className="mascot__fig" title="好像有人路过">
-        <svg viewBox="0 0 130 132" width="130" height="132">
-          <ellipse className="mascot__shadow" cx="64" cy="124" rx="30" ry="5" />
-          <g className="mascot__legs">
-            <rect className="mascot__leg mascot__leg--a" x="54" y="96" width="7" height="24" rx="3.5" />
-            <rect className="mascot__leg mascot__leg--b" x="66" y="96" width="7" height="24" rx="3.5" />
-          </g>
-          <path className="mascot__body" d="M48 76c0-8 7-14 16-14s16 6 16 14v16c0 6-5 10-11 10H59c-6 0-11-4-11-10z" />
-          <g className="mascot__arm">
-            <rect x="41" y="80" width="6" height="20" rx="3" transform="rotate(14 44 90)" />
-          </g>
-          <g className="mascot__head">
-            <circle cx="65" cy="46" r="19" />
-            <path d="M46 43c1-11 9-18 19-18s18 7 19 18c-4-4-9-6-14-6-6 0-10 2-14 6-3 3-6 4-10 3z" />
-            <path d="M47 40c-4 1-7 6-8 12 3 1 6 0 8-2z" />
-          </g>
-          <g className="mascot__guitar">
-            <path d="M92 62c7 0 12 5 12 11s-5 11-12 11-12-5-12-11 5-11 12-11z" />
-            <rect x="96" y="34" width="5" height="30" rx="2.5" transform="rotate(17 98 49)" />
-            <rect x="100" y="28" width="9" height="7" rx="2" transform="rotate(17 104 31)" />
-          </g>
-        </svg>
-      </div>
-      <span className="mascot__tag hand">…路过</span>
-    </div>
-  );
-};
+/* walking mascot（MascotWalk）已按 2026-11-20 的决定整体退场：角色太突兀。
+   角落剪影（E13 告辞 / E27 断网探头）保留——那是 2.9s 的事件反馈，不是巡游。 */
 
 /* ---------- 歌词：订阅真实歌词源 ---------- */
 export function useLyricLines(): { text: string; startMs: number }[] {

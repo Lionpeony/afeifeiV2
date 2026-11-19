@@ -32,48 +32,13 @@ const FORBIDDEN = [
 
 const STAGE_DIR = "../src/renderer/ui/views/stage/";
 
-/** 剪掉唯一允许的重映射块（结构层 → 场景层）。 */
-function stripScope(css) {
-  return css.replace(/\/\* stage-scope:begin \*\/[\s\S]*?\/\* stage-scope:end \*\//, "");
-}
-
-const STAGE_FILES = [
-  "../src/renderer/ui/views/stage/stage.css",
-  "../src/renderer/ui/views/stage/stage-panels.css",
-];
-
-test("stage 样式（拆分后的每个文件）只用场景层变量（剪掉 stage-scope 块后不得出现结构层/材质层）", () => {
-  for (const file of STAGE_FILES) {
-    const css = stripScope(readSrc(file));
-    for (const name of FORBIDDEN) {
-      assert.ok(!css.includes(`var(${name})`), `${file.slice(file.indexOf("stage/") + 6)} 直接读了 ${name}：切夜间会把播放页一起翻黑`);
-    }
-  }
-});
+/* views/stage 的 stage.css / stage-panels.css 已随死样式层删除（2026-11-20）：
+   原「stage 样式只用场景层变量」与「stage-scope 块」两条守门测试随之移除。 */
 
 test("stage 组件内联样式也不许碰结构层", () => {
   const src = readSrc(`${STAGE_DIR}index.tsx`);
   for (const name of FORBIDDEN) {
     assert.ok(!src.includes(`var(${name})`), `stage/index.tsx 里出现 var(${name})`);
-  }
-});
-
-test("stage-scope 块存在且把 8 个结构层变量指向场景层（嵌套组件靠它拿纸面色）", () => {
-  const css = readSrc(`${STAGE_DIR}stage.css`);
-  const block = css.match(/\/\* stage-scope:begin \*\/([\s\S]*?)\/\* stage-scope:end \*\//);
-  assert.ok(block, "找不到 stage-scope 块：PageHead 的朱砂句号会跟着主题变");
-  for (const pair of [
-    ["--bg", "--stage-bg"],
-    ["--fg", "--stage-fg"],
-    ["--fg-dim", "--stage-fg-dim"],
-    ["--line", "--stage-line"],
-    ["--line-soft", "--stage-line-soft"],
-    ["--accent", "--stage-accent"],
-  ]) {
-    assert.ok(
-      block[1].includes(`${pair[0]}: var(${pair[1]})`),
-      `stage-scope 缺 ${pair[0]} → ${pair[1]} 的重映射`,
-    );
   }
 });
 

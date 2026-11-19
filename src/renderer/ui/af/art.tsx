@@ -11,7 +11,7 @@ export function hashStr(str: string): number {
   return h >>> 0;
 }
 
-const ART_BG = [
+const ART_BG: [string, string, string][] = [
   ["#FFE3EC", "#FFC2D6", "#D9CDF6"],
   ["#E6F0FF", "#C9DDF7", "#BFE8E0"],
   ["#FFF3D6", "#FFD9A8", "#F7C7D8"],
@@ -50,6 +50,69 @@ const ART_MOTIF: Record<string, ReactNode> = {
 
 const ART_KEYS = ["guitar", "pick", "star", "note", "tape"];
 
+/* ---------- 立绘场景（大尺寸兜底）：小尺寸的「图案贴纸」撑不起播放页舞台，
+   ≥100px 时给一幅完整的氛围场景——bloom + 散落音符（角色的位置留给真封面）。
+   音符漂浮只动 transform/opacity；角色已按 2026-11-20 的决定整体退场。 */
+const SCENE_INK = "#3D2B39";
+
+/** 大尺寸兜底场景。无角色、无钩子，表格里的小贴纸与这里互不影响。 */
+const TrackArtScene = memo(function TrackArtScene({
+  id,
+  size,
+  radius,
+  className,
+}: {
+  id: string;
+  size: number;
+  radius: number;
+  className: string;
+}) {
+  const h = hashStr(id || "x");
+  const bg = ART_BG[h % ART_BG.length];
+  const nid = "as" + (h % 9973);
+  const fx = [22 + (h % 14), 78 + ((h >>> 4) % 16), 48 + ((h >>> 8) % 22)];
+  const fy = [30 + ((h >>> 2) % 10), 20 + ((h >>> 6) % 12), 38 + ((h >>> 9) % 10)];
+  return (
+    <svg
+      className={"trk-art art-scene " + className}
+      width={size}
+      height={size}
+      viewBox="0 0 120 120"
+      style={{ borderRadius: radius }}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={nid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={bg[0]} />
+          <stop offset="58%" stopColor={bg[1]} />
+          <stop offset="100%" stopColor={bg[2]} />
+        </linearGradient>
+      </defs>
+      <rect width="120" height="120" fill={"url(#" + nid + ")"} />
+      <circle cx="60" cy="52" r="40" fill="#fff" opacity=".16" />
+      <circle cx="60" cy="50" r="26" fill="#fff" opacity=".32" />
+      {fx.map((x, i) => (
+        <g
+          key={i}
+          className={"art-scene__float--" + "abc"[i]}
+          transform={"translate(" + x + " " + fy[i] + ") scale(" + (0.3 + (i % 2) * 0.08) + ")"}
+          fill={SCENE_INK}
+          opacity=".38"
+        >
+          {ART_MOTIF[i % 2 ? "note" : "star"]}
+        </g>
+      ))}
+      <circle cx="106" cy="16" r="3.2" fill="#fff" opacity=".55" />
+      <circle cx="14" cy="98" r="2.2" fill="#fff" opacity=".45" />
+    </svg>
+  );
+});
+
+/** 曲目专属色板（立绘场景的底色三连）：舞台的柔光、队列指示这类「这条歌自己的颜色」都从这里取 */
+export function artPaletteOf(id: string): [string, string, string] {
+  return ART_BG[hashStr(id || "x") % ART_BG.length];
+}
+
 export const TrackArt = memo(function TrackArt({
   id,
   size = 40,
@@ -64,6 +127,9 @@ export const TrackArt = memo(function TrackArt({
   const h = hashStr(id || "x");
   const bg = ART_BG[h % ART_BG.length];
   const gid = "ag" + (h % 9973);
+  if (size >= 100) {
+    return <TrackArtScene id={id} size={size} radius={radius} className={className} />;
+  }
   const a = ART_KEYS[(h >>> 3) % 5];
   const b = ART_KEYS[(h >>> 7) % 5];
   const rot = ((h >> 5) % 40) - 20;

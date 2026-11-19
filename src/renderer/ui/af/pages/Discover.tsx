@@ -205,6 +205,15 @@ export function DiscoverPage(props: DiscoverPageProps) {
     }, 0);
   };
 
+  /* 搜索浮层 / 搜索表发起的艺人 / 专辑跳转：at 变化即开门（详情系统在页内，通路是 af.discoverDetail） */
+  const detailSeekAt = af.discoverDetail?.at ?? 0;
+  useEffect(() => {
+    const ref = af.discoverDetail;
+    if (!ref) return;
+    openDetail({ kind: ref.kind, id: ref.id, name: ref.name, coverUrl: ref.coverUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailSeekAt]);
+
   const [keyword, setKeyword] = useState("");
   const [rows, setRows] = useState<RemoteTrack[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -549,8 +558,40 @@ export function DiscoverPage(props: DiscoverPageProps) {
                   {t.coverUrl ? <img className="tbl__cover" src={t.coverUrl} alt="" referrerPolicy="no-referrer" /> : <TrackArt id={t.sourceId} size={34} radius={4} />}
                   <span className="tbl__title-text"><span className="tbl__name truncate">{t.title}</span></span>
                 </span>
-                <span className="tbl__c-artist truncate">{t.artist}</span>
-                <span className="tbl__c-album truncate">{t.album}</span>
+                <span className="tbl__c-artist truncate">
+                  {t.artistId ? (
+                    <button
+                      type="button"
+                      className="tbl__link"
+                      title={`查看歌手 ${t.artist}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail({ id: t.artistId!, name: t.artist, coverUrl: t.coverUrl, kind: "artist" });
+                      }}
+                    >
+                      {t.artist}
+                    </button>
+                  ) : (
+                    t.artist
+                  )}
+                </span>
+                <span className="tbl__c-album truncate">
+                  {t.albumId ? (
+                    <button
+                      type="button"
+                      className="tbl__link"
+                      title={`查看专辑 ${t.album}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail({ id: t.albumId!, name: t.album, coverUrl: t.coverUrl, kind: "album" });
+                      }}
+                    >
+                      {t.album}
+                    </button>
+                  ) : (
+                    t.album
+                  )}
+                </span>
                 <span className="tbl__c-time">
                   {currentSource?.canDownload ? (
                     <button className="tbl__heart" title="下载" onClick={(e) => { e.stopPropagation(); void download(t); }}><IconDownload size={14} /></button>

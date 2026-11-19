@@ -23,14 +23,14 @@
 
 /* ---------------- 2. 排练室抽屉 ---------------- */
 .studio-mask{
-  position:fixed;inset:var(--topbar-h) 0 72px 0;z-index:88;
+  position:fixed;inset:var(--topbar-h) 0 72px 0;z-index:var(--z-scrim);
   background:rgba(61,43,57,.16);
   animation:fadeIn 180ms var(--ease) both;
 }
 :root[data-theme="dark"] .studio-mask{background:rgba(12,8,18,.42)}
 
 .studio{
-  position:fixed;z-index:89;right:0;top:var(--topbar-h);bottom:72px;width:396px;
+  position:fixed;z-index:var(--z-studio);right:0;top:var(--topbar-h);bottom:72px;width:396px;
   display:flex;flex-direction:column;
   background:var(--card);border-left:1px solid var(--line);
   box-shadow:-18px 0 48px rgba(61,43,57,.16);
@@ -80,7 +80,7 @@
 }
 .sleep-now__ring::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--card)}
 .sleep-now__ring b{
-  position:relative;z-index:1;font-family:var(--font-mono);font-size:13px;color:var(--pink-700);
+  position:relative;z-index:var(--z-row);font-family:var(--font-mono);font-size:13px;color:var(--pink-700);
   font-variant-numeric:tabular-nums;
 }
 .sleep-now__text b{display:block;font-size:var(--fs-body);font-weight:600}
@@ -145,14 +145,13 @@
 .eqband__fill{
   position:absolute;left:6px;right:6px;border-radius:5px;
   background:linear-gradient(180deg,var(--pink-400),var(--pink-600));
-  transition:top 90ms linear,height 90ms linear,bottom 90ms linear;
+  will-change:transform;
 }
 .eqband__knob{
   position:absolute;left:50%;width:18px;height:6px;border-radius:3px;
   background:var(--card);border:1px solid var(--pink-600);
   transform:translate(-50%,-50%);
   box-shadow:0 2px 6px rgba(214,51,132,.28);
-  transition:top 90ms linear;
 }
 .eqband__label{font-family:var(--font-mono);font-size:10px;color:var(--text-3);letter-spacing:.02em}
 .eqband__val{font-family:var(--font-mono);font-size:10px;color:var(--text-2);font-variant-numeric:tabular-nums}
@@ -172,7 +171,7 @@
 
 /* ---------------- 3. 媒体键悬浮控制 ---------------- */
 .dock{
-  position:fixed;right:22px;bottom:88px;z-index:86;width:308px;
+  position:fixed;right:22px;bottom:88px;z-index:var(--z-dock);width:308px;
   background:color-mix(in srgb,var(--card) 92%,transparent);
   backdrop-filter:blur(20px) saturate(1.15);
   border:1px solid var(--line);border-radius:18px;
@@ -212,9 +211,9 @@
 .dock__hint{font-size:var(--fs-micro);color:var(--text-3);margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:.04em}
 
 /* ---------------- 4. 快捷键面板 ---------------- */
-.keys-mask{position:fixed;inset:0;z-index:110;background:rgba(61,43,57,.28);animation:fadeIn 180ms var(--ease) both}
+.keys-mask{position:fixed;inset:0;z-index:var(--z-keys-mask);background:rgba(61,43,57,.28);animation:fadeIn 180ms var(--ease) both}
 .keys{
-  position:fixed;z-index:111;left:50%;top:50%;transform:translate(-50%,-50%);
+  position:fixed;z-index:var(--z-keys);left:50%;top:50%;transform:translate(-50%,-50%);
   width:min(720px,calc(100vw - 80px));max-height:76vh;overflow-y:auto;
   background:var(--card);border-radius:20px;padding:26px 28px;
   box-shadow:0 24px 60px rgba(61,43,57,.26);border:1px solid var(--line);
@@ -237,9 +236,9 @@
 }
 
 /* ---------------- 5. 歌单编辑对话框 ---------------- */
-.dlg-mask{position:fixed;inset:0;z-index:108;background:rgba(61,43,57,.3);animation:fadeIn 160ms var(--ease) both}
+.dlg-mask{position:fixed;inset:0;z-index:var(--z-dlg-mask);background:rgba(61,43,57,.3);animation:fadeIn 160ms var(--ease) both}
 .dlg{
-  position:fixed;z-index:109;left:50%;top:50%;transform:translate(-50%,-50%);
+  position:fixed;z-index:var(--z-dlg);left:50%;top:50%;transform:translate(-50%,-50%);
   width:min(470px,calc(100vw - 60px));background:var(--card);border-radius:20px;
   padding:24px 26px 22px;box-shadow:0 24px 60px rgba(61,43,57,.26);border:1px solid var(--line);
   animation:keysIn 240ms var(--ease-spring) both;
@@ -347,7 +346,7 @@
 }
 .lyricbar__tools{display:flex;align-items:center;gap:2px}
 .lyricbar__tools button{
-  width:22px;height:22px;border-radius:6px;display:grid;place-items:center;
+  width:24px;height:24px;border-radius:6px;display:grid;place-items:center;
   color:var(--text-3);font-size:11px;
   transition:color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease);
 }
@@ -381,9 +380,9 @@
 .np__lyric-base{position:relative;display:inline-block;max-width:100%}
 .np__lyric-line.is-cur .np__lyric-fill{
   position:absolute;left:0;top:0;white-space:nowrap;
-  color:#FF9EC0;
+  color:var(--lyricbar-ink);
 }
-:root[data-theme="dark"] .np__lyric-line.is-cur .np__lyric-fill{color:#FFB6D2}
+:root[data-theme="dark"] .np__lyric-line.is-cur .np__lyric-fill{color:var(--lyricbar-ink-dark)}
 .np__lyric-line.is-cur{padding-bottom:2px}
 .np__tr{
   font-family:var(--font-body);font-size:11px;line-height:1.5;
@@ -394,7 +393,7 @@
 .lyricbar__cur{position:relative;display:inline-block;max-width:100%}
 .lyricbar__fill{
   position:absolute;left:0;top:0;white-space:nowrap;
-  color:#FFC2DA;text-shadow:0 0 20px rgba(255,107,157,.8);
+  color:var(--lyricbar-ink-glow);text-shadow:0 0 20px rgba(255,107,157,.8);
 }
 .lyricbar__tr{
   font-family:var(--font-body);font-size:11px;letter-spacing:.03em;
@@ -408,9 +407,9 @@
   color:rgba(255,255,255,.55);
   transition:color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease);
 }
-.lyricbar__tools button:hover{color:#fff;background:rgba(255,255,255,.12)}
+.lyricbar__tools button:hover{color:var(--on-gradient);background:rgba(255,255,255,.12)}
 .lyricbar__close{flex:none;color:rgba(255,255,255,.6);width:24px;height:24px;display:grid;place-items:center;border-radius:6px}
-.lyricbar__close:hover{color:#fff;background:rgba(255,255,255,.12)}
+.lyricbar__close:hover{color:var(--on-gradient);background:rgba(255,255,255,.12)}
 
 /* ---------------- 11. 歌单页新增件 ---------------- */
 .pl-row__img{width:100%;height:100%;object-fit:cover;border-radius:8px}

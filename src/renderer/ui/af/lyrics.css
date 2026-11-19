@@ -64,8 +64,8 @@
 /* 歌词视口 */
 .lw__view{
   position:relative;height:272px;min-height:0;overflow:hidden;
-  -webkit-mask-image:linear-gradient(180deg,transparent,#000 16%,#000 82%,transparent);
-  mask-image:linear-gradient(180deg,transparent,#000 16%,#000 82%,transparent);
+  -webkit-mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 16%,var(--mask-ink) 82%,transparent);
+  mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 16%,var(--mask-ink) 82%,transparent);
 }
 .lw__spot{
   position:absolute;left:0;right:0;top:50%;height:120px;transform:translateY(-50%);
@@ -95,7 +95,8 @@
   position:relative;display:inline-block;max-width:100%;
   font-family:var(--font-jp),var(--font-body);font-size:15px;line-height:1.35;
   letter-spacing:.03em;color:var(--text-2);
-  transition:font-size var(--dur-base) var(--ease-out-soft),color var(--dur-fast) var(--ease);
+  /* 字号变化不走 transition（动画 font-size 每帧 reflow），颜色仍淡入 */
+  transition:color var(--dur-fast) var(--ease);
 }
 .lw-line__tr{
   font-family:var(--font-body);font-size:11px;line-height:1.4;letter-spacing:.02em;
@@ -127,7 +128,7 @@
 }
 @keyframes markNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(-3px)}}
 
-.lw__mask{position:absolute;left:0;right:0;height:22px;pointer-events:none;z-index:2}
+.lw__mask{position:absolute;left:0;right:0;height:22px;pointer-events:none;z-index:var(--z-tape)}
 .lw__mask--top{top:0;background:linear-gradient(180deg,rgba(255,252,250,.92),transparent)}
 .lw__mask--bottom{bottom:0;background:linear-gradient(0deg,rgba(255,252,250,.92),transparent)}
 :root[data-theme="dark"] .lw__mask--top{background:linear-gradient(180deg,rgba(56,48,76,.92),transparent)}
@@ -135,7 +136,7 @@
 
 .lw__foot{display:flex;align-items:center;gap:8px}
 .lw__foot-progress{flex:1;height:2px;border-radius:2px;background:var(--line);overflow:hidden}
-.lw__foot-progress i{display:block;height:100%;background:var(--pink-600);border-radius:2px;transition:width 220ms linear}
+.lw__foot-progress i{display:block;width:100%;height:100%;background:var(--pink-600);border-radius:2px;transform:scaleX(var(--p,0));transform-origin:0 50%;transition:transform 220ms linear}
 .lw__foot-num{font-size:10px;color:var(--text-3);font-family:var(--font-mono)}
 .lw__foot-hint{font-size:11px;color:var(--text-3)}
 
@@ -165,7 +166,7 @@
    3. 首次进播放页的快捷键提示
    ============================================================ */
 .np-hint{
-  position:absolute;left:44px;top:50px;z-index:8;
+  position:absolute;left:44px;top:50px;z-index:var(--z-hint);
   display:flex;align-items:center;gap:10px;
   padding:9px 10px 9px 14px;border-radius:12px;
   background:rgba(255,255,255,.94);border:1px dashed rgba(214,51,132,.42);
@@ -187,8 +188,8 @@
   height:24px;padding:0 10px;border-radius:999px;font-size:10px;font-weight:600;
   color:var(--on-accent);background:var(--pink-600);white-space:nowrap;
 }
-.np-hint__go:hover{background:#C72D78}
-.np-hint__close{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--text-3)}
+.np-hint__go:hover{background:var(--pink-650)}
+.np-hint__close{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--text-3)}
 .np-hint__close:hover{color:var(--text);background:var(--wash)}
 
 .np__keysbtn{
@@ -226,8 +227,8 @@
 .lw__fullhead-text span{font-size:11px;color:var(--text-3);letter-spacing:.06em}
 .lw__fullhead-hint{margin-left:auto;font-size:12px;color:var(--text-3)}
 .np--lyrics-full .lw__view{
-  -webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
-  mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
+  -webkit-mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 88%,transparent);
+  mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 88%,transparent);
 }
 
 /* ---- 主题包 · 歌词墙的「字」：每包自己的字（token 管不了字重的性格，包级覆盖） ---- */

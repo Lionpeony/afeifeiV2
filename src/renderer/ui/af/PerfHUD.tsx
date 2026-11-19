@@ -56,7 +56,7 @@ export function PerfHUD() {
   }, [open]);
 
   if (!open) return null;
-  const tone = stat.fps >= 55 ? "#1E8E5A" : stat.fps >= 40 ? "#B8860B" : "#C62A3F";
+  const tone = stat.fps >= 55 ? "var(--state-success)" : stat.fps >= 40 ? "var(--tag-vip)" : "var(--coral)";
   return (
     <div className="perfhud" role="status" aria-live="off">
       <span className="perfhud__fps" style={{ color: tone }}>{stat.fps}<i>fps</i></span>

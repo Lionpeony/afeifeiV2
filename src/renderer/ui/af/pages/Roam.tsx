@@ -1,6 +1,6 @@
 /* 迷路漫游 · 原型 .wander（当前曲大封面 + 接下来三首） */
 import { useAf } from "../context.js";
-import { TrackArt } from "../art.js";
+import { TrackArt, artPaletteOf } from "../art.js";
 import { roamCopies } from "../copy.js";
 import { IconPause, IconPick, IconPlay, IconRefresh, IconSkip } from "../icons.js";
 import { Tape } from "../ui.js";
@@ -38,7 +38,12 @@ export function RoamPage() {
           {track.cover ? (
             <img key={track.id} className="wander__cover" src={track.cover} alt="" referrerPolicy="no-referrer" style={{ animation: "artIn .5s var(--ease) both" }} />
           ) : (
-            <span className="wander__cover" style={{ display: "block", overflow: "hidden", animation: "artIn .5s var(--ease) both" }}>
+            <span className="wander__cover" style={{ display: "block", overflow: "hidden", animation: "artIn .5s var(--ease) both", position: "relative" }}>
+              <span
+                className="np__art-glow"
+                style={{ background: `radial-gradient(closest-side, ${artPaletteOf(track.id || "wander")[2]}, transparent 72%)` }}
+                aria-hidden="true"
+              />
               <TrackArt id={track.id || "wander"} size={264} radius={18} />
             </span>
           )}

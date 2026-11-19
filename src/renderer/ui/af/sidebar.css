@@ -19,7 +19,7 @@
   background: none;
   box-shadow: none;
   font-family: var(--font-hand);
-  font-size: 10.5px;
+  font-size:10px;
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 1.4;
@@ -44,7 +44,7 @@
   border-radius: 12px;
   background: transparent;
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size:12px;
   box-shadow: none;
   transition: background 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease);
 }
@@ -84,7 +84,7 @@
   color: var(--text-3);
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
-  font-size: 10.5px;
+  font-size:10px;
   line-height: 16px;
 }
 
@@ -157,7 +157,7 @@
   overflow: hidden;
   color: var(--text-3);
   font-style: normal;
-  font-size: 9px;
+  font-size:10px;
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 100%;
@@ -172,7 +172,7 @@
   border-radius: 7px;
   background: var(--card);
   color: var(--text);
-  font-size: 9px;
+  font-size:10px;
   line-height: 1.4;
   box-shadow: 2px 2px 0 color-mix(in srgb, var(--text) 12%, transparent);
 }
@@ -208,7 +208,7 @@
   overflow: hidden;
   color: var(--text-3);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size:10px;
   line-height: 1.4;
   letter-spacing: 0.04em;
   white-space: nowrap;

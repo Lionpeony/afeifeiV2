@@ -24,6 +24,8 @@ interface RemoteItem {
   album: string;
   durationMs: number;
   coverUrl?: string;
+  artistId?: string;
+  albumId?: string;
 }
 
 function fmt(ms: number): string {
@@ -46,7 +48,7 @@ function Mark({ text, q }: { text: string; q: string }) {
 }
 
 function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
-  const { searchOnline, playRemote, source, sources, setPage, openList, myLists, palette } = useAf();
+  const { searchOnline, playRemote, source, sources, setPage, openList, myLists, palette, openDiscoverDetail } = useAf();
 
   const [tab, setTab] = useState<"track" | "artist" | "album" | "list">("track");
   const [busy, setBusy] = useState(false);
@@ -153,27 +155,55 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
             <div className="sr-artists">
               {artists.map((a) => {
                 const own = items.filter((t) => t.artist === a);
+                const first = own[0];
                 return (
-                  <button key={a} className="sr-artist" onClick={() => { if (own[0]) playRemote(source, own[0], own, "搜索 · 艺人"); onClose(); }}>
+                  <button
+                    key={a}
+                    className="sr-artist"
+                    onClick={() => {
+                      onClose();
+                      /* 有艺人 id 就进艺人详情页（像 QQ 搜索的歌手栏）；没有的源回落直播 */
+                      if (first?.artistId) {
+                        openDiscoverDetail({ kind: "artist", id: first.artistId, name: a, coverUrl: first.coverUrl });
+                        return;
+                      }
+                      if (first) playRemote(source, first, own, "搜索 · 艺人");
+                    }}
+                  >
                     <span className="sr-artist__avatar">{a.slice(0, 1)}</span>
                     <span className="sr-artist__name truncate"><Mark text={a} q={q} /></span>
-                    <span className="meta">{own.length} 首 · {own[0]?.album ?? "—"}</span>
+                    <span className="meta">{own.length} 首 · {first?.album ?? "—"}</span>
                   </button>
                 );
               })}
             </div>
           ) : tab === "album" ? (
             <div className="sr-list">
-              {albums.map((al) => (
-                <button key={al.name} className="sr-row" onClick={() => { if (al.items[0]) playRemote(source, al.items[0], al.items, "搜索 · 专辑"); onClose(); }}>
-                  {al.items[0]?.coverUrl ? <img className="sr-row__art" src={al.items[0].coverUrl} alt="" referrerPolicy="no-referrer" /> : <span className="sr-row__art sr-row__art--art"><TrackArt id={al.name} size={40} radius={9} /></span>}
-                  <span className="sr-row__main">
-                    <span className="sr-row__title truncate"><Mark text={al.name} q={q} /></span>
-                    <span className="sr-row__sub truncate">{al.items[0]?.artist ?? "—"} · {al.items.length} 首</span>
-                  </span>
-                  <span className="sr-row__tag">{al.items.length} 首</span>
-                </button>
-              ))}
+              {albums.map((al) => {
+                const first = al.items[0];
+                return (
+                  <button
+                    key={al.name}
+                    className="sr-row"
+                    onClick={() => {
+                      onClose();
+                      /* 有专辑 id 就进专辑详情页；没有的源回落直播 */
+                      if (first?.albumId) {
+                        openDiscoverDetail({ kind: "album", id: first.albumId, name: al.name, coverUrl: first.coverUrl });
+                        return;
+                      }
+                      if (first) playRemote(source, first, al.items, "搜索 · 专辑");
+                    }}
+                  >
+                    {first?.coverUrl ? <img className="sr-row__art" src={first.coverUrl} alt="" referrerPolicy="no-referrer" /> : <span className="sr-row__art sr-row__art--art"><TrackArt id={al.name} size={40} radius={9} /></span>}
+                    <span className="sr-row__main">
+                      <span className="sr-row__title truncate"><Mark text={al.name} q={q} /></span>
+                      <span className="sr-row__sub truncate">{first?.artist ?? "—"} · {al.items.length} 首</span>
+                    </span>
+                    <span className="sr-row__tag">{al.items.length} 首</span>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="sr-list">

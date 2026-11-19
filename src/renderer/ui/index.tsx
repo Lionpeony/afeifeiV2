@@ -79,11 +79,11 @@ import { useAccountLikes, type AccountKind } from "./hooks/use-account-likes.js"
 import type { ShortcutStatus } from "./shortcuts.js";
 import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/index.js";
 import { Console } from "./Console.js";
-import { AfContext, type AfSource, type AfTrack } from "./af/context.js";
+import { AfContext, type AfDetailSeek, type AfSource, type AfTrack } from "./af/context.js";
 import { useAfUi } from "./af/use-af.js";
 import { eggText, svcText } from "./af/copy.js";
 import { NowPlaying } from "./af/NowPlaying.js";
-import { Auth, DemoPanel, EggLayer, FocusLines, MascotWalk, OnomaLayer } from "./af/layers.js";
+import { Auth, DemoPanel, EggLayer, FocusLines, OnomaLayer } from "./af/layers.js";
 import { ScanLogin } from "./af/ScanLogin.js";
 import { RowMenu } from "./af/RowMenu.js";
 import { useSystemReduce, loadPref } from "./af/prefs.js";
@@ -122,6 +122,8 @@ function App() {
   /* 顶栏搜索提交的一次性请求：at 变化即重新执行。
      搜索结果不是独立页面：有关键词时发现页整页切成结果态，清空即回推荐与榜单。 */
   const [searchSeek, setSearchSeek] = useState<{ text: string; at: number } | null>(null);
+  /* 搜索浮层点艺人 / 专辑发起的详情跳转：at 变化即开门（发现页的详情系统在页内，通路走这里）。 */
+  const [discoverDetail, setDiscoverDetail] = useState<AfDetailSeek | null>(null);
   /* 我的页内的三个视角：喜欢（默认）/ 最近 / 统计 */
   const [mineTab, setMineTab] = useState<"liked" | "recent" | "stats">("liked");
   const lastRoom = useRef<PageId>("online");
@@ -229,8 +231,8 @@ function App() {
   };
 
   useEffect(() => {
-    // 启动层在 index.html 里，App 挂载后通知它退场
-    (window as unknown as { __bootDone?: () => void }).__bootDone?.();
+    // 启动层进度线：React 已挂载（30%）。真正的退场信号等首屏数据就绪再发
+    (window as unknown as { __splashStage?: (n: number) => void }).__splashStage?.(1);
   }, []);
 
   useEffect(() => {
@@ -266,6 +268,8 @@ function App() {
       const bootAndPrefetch = async (): Promise<void> => {
         const s = await bootstrap();
         if (!alive) return;
+        // 启动层进度线：装配完成（70%）
+        (window as unknown as { __splashStage?: (n: number) => void }).__splashStage?.(2);
         services.current = s;
         resolveServices.current?.(s);
         setSources(s.sources());
@@ -335,7 +339,12 @@ function App() {
       void Promise.race([bootAndPrefetch(), new Promise<void>((r) => setTimeout(r, 12_000))])
         .catch(() => undefined)
         .finally(() => {
-          if (alive) setBootReady(true);
+          if (!alive) return;
+          // 启动层：首屏就绪（100%），即刻退场
+          const w = window as unknown as { __splashStage?: (n: number) => void; __bootDone?: () => void };
+          w.__splashStage?.(3);
+          w.__bootDone?.();
+          setBootReady(true);
         });
     };
     offFrame = onFrame(() => {
@@ -693,6 +702,8 @@ function App() {
         artist: t.artist,
         coverUrl: t.coverUrl,
         durationMs: t.durationMs,
+        artistId: t.artistId,
+        albumId: t.albumId,
       };
     }
     const at = items.indexOf(remoteTrackId(sourceId, track.sourceId));
@@ -974,7 +985,13 @@ function App() {
         album: meta.artist,
         cover: meta.coverUrl ?? null,
         dur: (meta.durationMs ?? 0) / 1000,
-        remote: { sourceId: meta.sourceId, songId: meta.songId, coverUrl: meta.coverUrl },
+        remote: {
+          sourceId: meta.sourceId,
+          songId: meta.songId,
+          coverUrl: meta.coverUrl,
+          artistId: meta.artistId,
+          albumId: meta.albumId,
+        },
       };
     }
     const t = trackById(id);
@@ -1036,7 +1053,7 @@ function App() {
     }
   };
 
-  const { api: afApi, onomas, focusKey, mascot, setMascot, boot } = useAfUi({
+  const { api: afApi, onomas, focusKey, boot } = useAfUi({
     page,
     setPage: (p) => setPage(p as PageId),
     localTab,
@@ -1076,12 +1093,18 @@ function App() {
       const svc = services.current;
       return svc ? svc.searchOnline(getActiveSource(), q) : Promise.resolve({ items: [] });
     },
+    discoverDetail,
+    openDiscoverDetail: (ref) => {
+      setDiscoverDetail({ ...ref, at: Date.now() });
+      setPage("online");
+    },
     playRemote: (sourceId, track, list, origin) =>
       playRemoteSafe(sourceId, track as RemoteTrack, list as RemoteTrack[], false, origin),
     playIds,
     toAfTrack,
     currentTrack,
     notify: (text, kind) => toast(svcText(text), kind ?? "info"),
+    openExternal: (url) => void services.current?.openExternal(url),
     profileOf: (id) => {
       const p = accountProfiles[id];
       return p ? { nick: p.nick ?? null, avatarUrl: p.avatarUrl ?? null } : null;
@@ -1301,7 +1324,6 @@ function App() {
       {afApi.demoOpen ? <DemoPanel /> : null}
       <OnomaLayer items={onomas} />
       {focusKey > 0 ? <FocusLines key={focusKey} /> : null}
-      {mascot ? <MascotWalk onEnd={() => setMascot(false)} /> : null}
 
       {paletteOpen ? (
         <CommandPalette

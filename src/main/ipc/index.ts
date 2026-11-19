@@ -361,10 +361,13 @@ export function registerIpc(): void {
   ipcMain.handle("app:markCrashSeen", (_e, file: unknown) => {
     if (typeof file === "string") markCrashSeen(file);
   });
-  // 外链白名单（00 §11）：只放行我们的发布页域，其余一律拒绝
+  // 外链白名单（00 §11）：我们的发布页 + 点歌分享的四个官方端点，其余一律拒绝
   ipcMain.handle("app:openExternal", (_e, url: unknown) => {
-    if (typeof url !== "string" || !/^https:\/\/github\.com\//i.test(url)) {
-      throw new Error("只允许打开 GitHub 上的发布页");
+    if (
+      typeof url !== "string" ||
+      !/^https:\/\/(github\.com\/|connect\.qq\.com\/|sns\.qzone\.qq\.com\/|service\.weibo\.com\/)/i.test(url)
+    ) {
+      throw new Error("只允许打开发布页或点歌分享的官方端点");
     }
     return shell.openExternal(url);
   });
