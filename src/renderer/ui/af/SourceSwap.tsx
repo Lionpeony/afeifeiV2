@@ -10,14 +10,14 @@ export function SourceSwap() {
     <div className={"swap swap--" + phase} aria-hidden="true">
       <span className="swap__half swap__half--l"></span>
       <span className="swap__half swap__half--r"></span>
-      <span className="swap__lines"></span>
+
       <div className="swap__caption">
         <span className="swap__eyebrow">幕间 · INTERLUDE</span>
         <span className="swap__name">
           <i style={{ background: s?.tone ?? "var(--pink-600)" }}></i>
           {s?.name ?? srcSwap.id}
         </span>
-        <span className="swap__state">{phase === "open" ? "已经换到这边了" : "换台中…"}</span>
+        <span className="swap__state">{phase === "close" ? "换台中…" : "已经换到这边了"}</span>
       </div>
       {(phase === "hold" || phase === "open") && <span className="swap__stamp">切り替え</span>}
     </div>

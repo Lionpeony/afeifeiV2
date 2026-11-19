@@ -1,5 +1,5 @@
 /* 侧栏 · 原型 .sidebar 结构（200px） */
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { useAf } from "./context.js";
 import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconMoon, IconSettings, IconSparkle, IconSun, LogoMark } from "./icons.js";
@@ -9,7 +9,7 @@ import { Tape } from "./ui.js";
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
 
 export function Sidebar() {
-  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf } = useAf();
+  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf, track, playing } = useAf();
   const likedCount = useSyncExternalStore(subscribeLikes, () => getLikes().size, () => 0);
 
   const nav: { id: NavId; label: string; icon: typeof IconCompass }[] = [
@@ -39,14 +39,6 @@ export function Sidebar() {
                   ? "history"
                   : "discover";
 
-  const itemRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const [mark, setMark] = useState({ top: 0, ready: false });
-  useLayoutEffect(() => {
-    const el = itemRefs.current[activeId];
-    if (!el) return;
-    setMark({ top: el.offsetTop + el.offsetHeight / 2 - 9, ready: true });
-  }, [activeId, sources.length]);
-
   const go = (id: NavId): void => {
     if (id === "discover") setPage("online");
     else if (id === "roam") setPage("roam");
@@ -67,6 +59,25 @@ export function Sidebar() {
   const profile = profileOf(source) ?? (linkedId ? profileOf(linkedId) : null);
   const avatarUrl = profile?.avatarUrl ?? null;
   const nick = profile?.nick ?? null;
+  const hasTrack = Boolean(track.id);
+
+  const navButton = (n: { id: NavId; label: string; icon: typeof IconCompass }): React.JSX.Element => {
+    const Ico = n.icon;
+    const dataPage = n.id === "discover" ? "online" : n.id === "likes" ? "mine" : n.id;
+    return (
+      <button
+        key={n.id}
+        className={"nav-item side-item" + (activeId === n.id ? " is-active on" : "")}
+        data-page={dataPage}
+        onClick={() => go(n.id)}
+        title={n.label}
+      >
+        <span className="nav-ico"><Ico size={18} /></span>
+        <span>{n.label}</span>
+        {n.id === "likes" && likedCount > 0 ? <span className="num nav-item__count">{likedCount}</span> : null}
+      </button>
+    );
+  };
 
   return (
     <aside className="sidebar">
@@ -79,27 +90,38 @@ export function Sidebar() {
       </div>
 
       <nav className="nav">
-        <div className="nav__label eyebrow">曲库</div>
-        {mark.ready && <span className="nav__marker" style={{ transform: `translateY(${mark.top}px)` }} aria-hidden="true" />}
-        {nav.map((n) => {
-          const Ico = n.icon;
-          const dataPage = n.id === "discover" ? "online" : n.id === "likes" ? "mine" : n.id;
-          return (
-            <button
-              key={n.id}
-              ref={(el) => { itemRefs.current[n.id] = el; }}
-              className={"nav-item side-item" + (activeId === n.id ? " is-active on" : "")}
-              data-page={dataPage}
-              onClick={() => go(n.id)}
-              title={n.label}
-            >
-              <span className="nav-ico"><Ico size={18} /></span>
-              <span>{n.label}</span>
-              {n.id === "likes" && likedCount > 0 ? <span className="num nav-item__count">{likedCount}</span> : null}
-            </button>
-          );
-        })}
+        <div className="nav__label">曲库</div>
+        {nav.slice(0, 4).map(navButton)}
+        <div className="nav__label nav__label--sub">我的</div>
+        {nav.slice(4).map(navButton)}
       </nav>
+
+      {/* 漫画格：当前封面当成「本日公演」的一格；没有封面就是一张字海报 */}
+      <button
+        type="button"
+        className="side-hero"
+        onClick={() => setPage("stage")}
+        title="展开播放页"
+        aria-label="展开播放页"
+      >
+        <span className="side-hero__panel">
+          {hasTrack && track.cover ? (
+            <img className="side-hero__img" src={track.cover} alt="" referrerPolicy="no-referrer" />
+          ) : (
+            <span className="side-hero__blank">
+              <b>{hasTrack ? track.title : "本日の公演"}</b>
+              <em>{hasTrack ? track.artist || "未知歌手" : "等待开场"}</em>
+            </span>
+          )}
+          <span className="side-hero__sfx hand" aria-hidden="true">ザッ</span>
+          <span className="side-hero__bubble hand">
+            {hasTrack ? (playing ? "今晚也唱到散场。" : "先歇一会儿。") : "把第一首丢进队列。"}
+          </span>
+        </span>
+        <span className="side-hero__cap">
+          {hasTrack ? `${track.title} · ${track.artist}` : "本日の公演 · 待开场"}
+        </span>
+      </button>
 
       <div className="sidebar__next">
         <div className="side-card">
@@ -128,7 +150,7 @@ export function Sidebar() {
           </span>
           <span className="side-user__meta">
             <b>{nick ?? src?.name ?? "后台值班"}</b>
-            <span className="num">{linked}/{sources.length} 个音源已登录</span>
+            <span className="side-user__stat">{linked}/{sources.length} 音源</span>
           </span>
           <button className="icon-btn" title="设置" data-page="settings" onClick={() => setPage("settings")} style={{ marginLeft: "auto" }}>
             <IconSettings size={16} />
@@ -136,7 +158,7 @@ export function Sidebar() {
         </div>
 
         <div className="sidebar__foot">
-          <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 9 }}>彩蛋 {eggs.length}/17</span>
+          <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 10 }}>彩蛋 {eggs.length}/17</span>
           <div className="row gap6">
             <button className={"icon-btn" + (themePref === "light" ? " is-on" : "")} onClick={() => setThemePref("light")} title="明亮 · 排练室" aria-label="明亮主题">
               <IconSun size={16} />

@@ -742,7 +742,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
             <>
               <div className="disc__sect">
                 <h2 className="sect-title">今日再听<span>HOT TRACKS</span></h2>
-                <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>从{hotOrigin}里挑的几首</span>
+                <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>从{hotOrigin}里挑的几首</span>
               </div>
               <div className="hot-cards">
                 {hot.slice(0, 2).map((t, i) => (
@@ -803,7 +803,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
 
           <div className="row gap8" style={{ marginTop: 24 }}>
             <IconSparkle size={13} style={{ color: "var(--pink-400)" }} />
-            <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>推荐与榜单都由账号那边的数据算，这里只负责摆得好看。</span>
+            <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>推荐与榜单都由账号那边的数据算，这里只负责摆得好看。</span>
           </div>
         </>
       )}

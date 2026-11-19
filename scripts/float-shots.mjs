@@ -49,8 +49,8 @@ app.whenReady().then(async () => {
   /* ---------- 迷你窗 ---------- */
   // 假封面：真封面是 dataURL/URL，这里在页面里现画一张（同源 canvas → dataURL）
   const mini = new BrowserWindow({
-    width: 320,
-    height: 140,
+    width: 440,
+    height: 132,
     frame: false,
     resizable: false,
     alwaysOnTop: true,

@@ -1,0 +1,215 @@
+/* 侧栏 · 漫画分镜（2026-11-19）
+ *
+ * 只借漫画的「读法」，不搬整页：分镜格描边、网点激活、字幕框、一个封面格 + 一句台词。
+ * 底色、字体、纸卡、日期条、账号行仍是 v4.2 排练室，不做“第 01 话 / 本格完”那类舞台腔，
+ * 这样它和主内容区是同一套世界，只是左栏被画成了漫画。
+ */
+
+.sidebar .nav { gap: 3px; }
+
+/* 分组 = 漫画字幕框 */
+.sidebar .nav__label {
+  align-self: flex-start;
+  margin: 8px 0 4px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--text) 42%, transparent);
+  border-radius: 1px;
+  background: var(--card);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--text) 10%, transparent);
+  font-family: var(--font-hand);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  min-height: 18px;
+  text-transform: none;
+  color: var(--text-2);
+}
+.sidebar .nav__label--sub { margin-top: 12px; }
+
+/* 导航 = 分镜格；静面是纸，当前格是网点 */
+.sidebar .nav-item {
+  height: 38px;
+  padding: 0 9px;
+  border: 1.5px solid color-mix(in srgb, var(--text) 72%, transparent);
+  border-radius: 2px;
+  background: var(--card);
+  color: var(--text-2);
+  font-size: 12.5px;
+  box-shadow: none;
+}
+.sidebar .nav-item:hover {
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-sub));
+  color: var(--text);
+}
+.sidebar .nav-item.is-active {
+  border-color: var(--text);
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--pink-400) 55%, transparent) 1px, transparent 1.3px) 0 0 / 5px 5px,
+    color-mix(in srgb, var(--card) 56%, var(--pink-400) 16%);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: none;
+}
+.sidebar .nav-item.is-active .nav-ico { color: var(--pink-700); }
+.sidebar .nav-item__count {
+  margin-left: auto;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+/* 旧的滑动标记与漫画格重复，停用 */
+.sidebar .nav__marker { display: none; }
+
+/* 封面格：当前封面就是本日公演的一格 */
+.side-hero {
+  flex: 1 1 auto;
+  width: 100%;
+  align-self: stretch;
+  min-height: 140px;
+  max-height: 250px;
+  margin: 12px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.side-hero__panel {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+  border: 2px solid var(--text);
+  border-radius: 1px;
+  background: var(--bg-sub);
+}
+.side-hero__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 38%;
+  filter: saturate(0.94) contrast(0.99);
+}
+.side-hero__blank {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 12px;
+  text-align: center;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--text) 14%, transparent) 1px, transparent 1.4px) 0 0 / 7px 7px,
+    color-mix(in srgb, var(--bg-sub) 82%, var(--card));
+}
+.side-hero__blank b {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+.side-hero__blank em {
+  overflow: hidden;
+  color: var(--text-3);
+  font-style: normal;
+  font-size: 9px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.side-hero__bubble {
+  position: absolute;
+  right: 5px;
+  top: 6px;
+  max-width: 108px;
+  padding: 3px 6px;
+  border: 1.5px solid var(--text);
+  border-radius: 7px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 9px;
+  line-height: 1.4;
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--text) 12%, transparent);
+}
+.side-hero__bubble::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  bottom: -6px;
+  width: 8px;
+  height: 8px;
+  background: var(--card);
+  border-left: 1.5px solid var(--text);
+  border-bottom: 1.5px solid var(--text);
+  transform: skew(12deg, 12deg) rotate(-45deg);
+}
+.side-hero__sfx {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--card);
+  text-shadow:
+    1px 1px 0 var(--text),
+    -1px -1px 0 var(--text),
+    1px -1px 0 var(--text),
+    -1px 1px 0 var(--text);
+  transform: rotate(-8deg);
+}
+.side-hero__cap {
+  display: block;
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 高度不够时封面格先缩，不到 760 才整格舍弃，不让导航被挤出去 */
+@media (max-height: 820px) {
+  .side-hero {
+    min-height: 80px;
+    max-height: 110px;
+    margin: 8px 0 4px;
+  }
+  .sidebar .nav-item { height: 36px; }
+}
+@media (max-height: 760px) {
+  .side-hero { display: none; }
+}
+
+/* 窄窗侧栏：回到图标条，漫画格让位 */
+@media (max-width: 1120px) {
+  .side-hero { display: none; }
+  .sidebar .nav__label { display: none; }
+  .sidebar .nav-item {
+    height: 40px;
+    justify-content: center;
+    padding: 0;
+    border-color: transparent;
+    background: none;
+  }
+  .sidebar .nav-item.is-active { background: var(--card); border-color: transparent; }
+}

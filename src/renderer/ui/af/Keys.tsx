@@ -32,7 +32,7 @@ export function KeysSheet() {
       <div className="keys-mask" onClick={() => setKeysOpen(false)}></div>
       <div className="keys" role="dialog" aria-modal="true" aria-label="键盘快捷键">
         <div className="keys__head">
-          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 24 }}>键盘也弹得了</h2>
+          <h2 style={{ fontFamily: "var(--font-display)", fontSize: 26 }}>键盘也弹得了</h2>
           <span className="eyebrow" style={{ marginBottom: 6 }}>KEYBOARD · 不用离开琴键</span>
           <button className="icon-btn" style={{ marginLeft: "auto" }} onClick={() => setKeysOpen(false)} title="关闭" aria-label="关闭快捷键面板"><IconX size={15} /></button>
         </div>

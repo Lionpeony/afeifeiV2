@@ -207,7 +207,6 @@ await build({
 /* v4.2 整站还原：按 offline_single 原型的顺序拼接。
    tokens 先落地，af/* 是唯一视觉层；旧覆盖层已移除。 */
 const cssFiles = [
-  "src/renderer/ui/fonts.css",
   "src/renderer/ui/fonts-v42.css",
   "src/renderer/ui/tokens.css",
   "src/renderer/ui/af/base.css",
@@ -222,6 +221,8 @@ const cssFiles = [
   "src/renderer/ui/af/account.css",
   "src/renderer/ui/af/studio.css",
   "src/renderer/ui/af/lyrics.css",
+  "src/renderer/ui/af/typography.css",
+  "src/renderer/ui/af/sidebar.css",
   "src/renderer/ui/af/splash.css",
   "src/renderer/ui/af/responsive.css",
 ];
@@ -232,7 +233,6 @@ fs.writeFileSync(path.join(OUT, "renderer", "app.css"), css);
 /* 迷你窗只要 tokens + 基础层 + 字体：不再加载整个主应用外壳 CSS，
    否则 shell.css 里的旧 `.mini{display:flex;height:82px}` 会把新小条挤扁。 */
 const miniBaseCss = [
-  "src/renderer/ui/fonts.css",
   "src/renderer/ui/fonts-v42.css",
   "src/renderer/ui/tokens.css",
   "src/renderer/ui/af/base.css",

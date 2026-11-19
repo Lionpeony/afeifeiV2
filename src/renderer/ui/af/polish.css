@@ -24,7 +24,7 @@ body{letter-spacing:.008em}
   font-size:var(--fs-display);line-height:var(--lh-display);
   letter-spacing:.015em;text-wrap:balance;
 }
-.page .display{font-size:32px;line-height:1.22}
+.page .display{font-size:30px;line-height:1.22}
 .h1{font-size:var(--fs-display);line-height:var(--lh-display)}
 .h2{font-size:var(--fs-heading);line-height:var(--lh-heading)}
 .h3{font-size:var(--fs-body);line-height:1.45}
@@ -78,7 +78,7 @@ body{letter-spacing:.008em}
 .mix-row__no,.mix-row__dur,.top-card__count,.dl-row__pct{
   font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
 }
-.tbl__name{font-size:13.5px;line-height:1.35}
+.tbl__name{font-size:13px;line-height:1.35}
 .tbl__c-artist,.tbl__c-album{font-size:var(--fs-caption);color:var(--text-2)}
 .tbl__cover{
   width:34px;height:34px;border-radius:4px;
@@ -102,7 +102,7 @@ body{letter-spacing:.008em}
 /* ---------------- 5. 发现页权重重排 ---------------- */
 .disc__head{margin-bottom:22px}
 .mix{padding:22px;border-radius:20px}
-.mix__title{font-size:32px;line-height:1.16}
+.mix__title{font-size:30px;line-height:1.16}
 .top-card__art{aspect-ratio:1/1;height:auto;border-radius:12px}
 .top-card__art::before{transition:opacity .28s var(--ease)}
 .top-card__art::after{transition:border-color .28s var(--ease),inset .28s var(--ease)}
@@ -128,7 +128,7 @@ body{letter-spacing:.008em}
   box-shadow:0 -6px 24px rgba(255,107,157,.06);
 }
 .bar__cover-btn{width:44px;height:44px;border-radius:4px}
-.bar__title{font-size:13.5px}
+.bar__title{font-size:13px}
 .search-overlay{left:calc(var(--sidebar-w) + 34px);width:min(720px,calc(100vw - var(--sidebar-w) - 60px))}
 .bar__time{font-size:var(--fs-micro)}
 .bar__seek-track{height:3px}
@@ -227,13 +227,13 @@ body{letter-spacing:.008em}
 
 /* ---------------- 13. 侧栏 200px 下的收口 ---------------- */
 .side-card{padding:11px 11px 10px}
-.side-card__meta{font-size:10.5px}
-.side-card__note{font-size:10.5px}
+.side-card__meta{font-size:11px}
+.side-card__note{font-size:11px}
 .side-user{padding:6px 8px;gap:8px}
-.side-user__meta b{font-size:11.5px;white-space:nowrap}
-.side-user__meta span{font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-user__meta b{font-size:12px;white-space:nowrap}
+.side-user__meta span{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sidebar__foot{flex-wrap:nowrap;gap:6px;padding:8px 4px 0}
-.sidebar__foot .eyebrow{font-size:9px;letter-spacing:.06em;white-space:nowrap}
+.sidebar__foot .eyebrow{font-size:10px;letter-spacing:.06em;white-space:nowrap}
 .sidebar__foot .icon-btn{width:28px;height:28px}
 .sidebar__foot .row{gap:2px}
 .nav__marker{left:-8px;border-radius:0 3px 3px 0}

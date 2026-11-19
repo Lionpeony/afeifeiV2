@@ -110,7 +110,9 @@ function App() {
         : "light"
       : themePref;
   const effectiveMotion = motionPref === "system" ? (systemReduce ? "off" : "full") : motionPref;
-  const reduce = effectiveMotion === "off";
+  /* 完整 = 用户明确要动效：覆盖系统 reduced-motion（系统档仍尊重系统）。
+     轻档去掉循环与大幅位移（幕布、播放页幕间也不播），只留状态切换。 */
+  const reduce = effectiveMotion !== "full";
   // 外壳只有一种：边栏 + 内容 + 控制台
   const [page, setPage] = useState<PageId>("online");
   const [localTab, setLocalTab] = useState<"library" | "downloads" | "radio">("library");

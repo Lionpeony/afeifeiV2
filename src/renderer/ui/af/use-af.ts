@@ -90,6 +90,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [boot, setBoot] = useState(true);
   const [srcSwap, setSrcSwap] = useState<{ id: string; phase: "close" | "hold" | "open"; scope?: "pill" } | null>(null);
   const swapTimers = useRef<number[]>([]);
+  /** 换源序号：连续换源时，旧定时器即使漏清也不许再改相位或弹 toast。 */
+  const swapSeq = useRef(0);
   useEffect(() => () => swapTimers.current.forEach((t) => clearTimeout(t)), []);
 
   useVisibilityHidden();
@@ -264,33 +266,48 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     }
     swapTimers.current.forEach((t) => clearTimeout(t));
     swapTimers.current = [];
+    const seq = (swapSeq.current += 1);
+    const live = (): boolean => seq === swapSeq.current;
     if (opts.scope === "pill") {
       setSrcSwap({ id, phase: "close", scope: "pill" });
       swapTimers.current.push(
         window.setTimeout(() => {
+          if (!live()) return;
           input.setSource(id);
           setSrcSwap({ id, phase: "open", scope: "pill" });
           Sound.paper();
         }, 170),
       );
-      swapTimers.current.push(window.setTimeout(() => setSrcSwap(null), 400));
+      swapTimers.current.push(
+        window.setTimeout(() => {
+          if (live()) setSrcSwap(null);
+        }, 400),
+      );
       return;
     }
     setSrcSwap({ id, phase: "close" });
     onoma("ザッ…", { tone: "mint", x: window.innerWidth / 2, y: window.innerHeight * 0.34 });
+    /* 390 合拢 → 640 拉开（hold 250ms）→ 1060 收尾。
+       原来 hold 510ms、总 1320ms，视觉上像卡住；幕布本身 380/400ms 不变。 */
     swapTimers.current.push(
       window.setTimeout(() => {
+        if (!live()) return;
         input.setSource(id);
         setSrcSwap({ id, phase: "hold" });
         Sound.paper();
       }, 390),
     );
-    swapTimers.current.push(window.setTimeout(() => setSrcSwap({ id, phase: "open" }), 900));
     swapTimers.current.push(
       window.setTimeout(() => {
+        if (live()) setSrcSwap({ id, phase: "open" });
+      }, 640),
+    );
+    swapTimers.current.push(
+      window.setTimeout(() => {
+        if (!live()) return;
         setSrcSwap(null);
         toast(`幕拉开了，现在放的是 ${name}`, { hand: true });
-      }, 1320),
+      }, 1060),
     );
   };
   const openScan = (id: string): void => input.loginFor(id);
@@ -726,6 +743,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     setThemePref: input.setThemePref,
     resolvedTheme,
     motion: input.motionPref === "system" ? (reduce ? "off" : "full") : input.motionPref,
+    motionPref: input.motionPref,
     setMotion: (m) => input.setMotionPref(m),
     reduce,
     density,

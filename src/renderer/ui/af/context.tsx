@@ -142,6 +142,8 @@ export interface AfApi {
   setThemePref(p: AfThemePref): void;
   resolvedTheme: "light" | "dark";
   motion: AfMotion;
+  /** 用户选择：完整 / 轻 / 关闭 / 跟随系统（不同于已解析的 motion） */
+  motionPref: AfMotion | "system";
   setMotion(m: AfMotion): void;
   reduce: boolean;
   density: AfDensity;

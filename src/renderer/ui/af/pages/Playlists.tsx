@@ -226,7 +226,7 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
       </div>
 
       <div className="row gap8" style={{ marginTop: 20 }}>
-        <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>歌单来自你在 {srcName} 的账号；本地只缓存列表，不存音频文件。</span>
+        <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>歌单来自你在 {srcName} 的账号；本地只缓存列表，不存音频文件。</span>
       </div>
     </div>
   );

@@ -150,7 +150,7 @@
 .np__lyrics-tag{display:flex;align-items:center;gap:6px}
 .np__lyrics-tag::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--pink-400);opacity:.85}
 .np__lyrics-tag{
-  position:absolute;left:16px;bottom:8px;font-size:8.5px;letter-spacing:.2em;
+  position:absolute;left:16px;bottom:8px;font-size:10px;letter-spacing:.2em;
   color:rgba(255,255,255,.42);text-transform:uppercase;
 }
 
@@ -171,7 +171,7 @@
   position:absolute;left:12px;top:14px;z-index:3;
   display:flex;flex-direction:row;gap:9px;
   writing-mode:vertical-rl;text-orientation:upright;
-  font-family:var(--font-hand);font-size:10.5px;letter-spacing:.32em;
+  font-family:var(--font-hand);font-size:11px;letter-spacing:.32em;
   color:rgba(255,255,255,.8);text-shadow:0 1px 5px rgba(30,20,30,.45);
   pointer-events:none;
 }

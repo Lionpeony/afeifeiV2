@@ -135,7 +135,7 @@ export function LocalPage({
           </div>
           <div className="row gap8" style={{ marginTop: 18 }}>
             <IconNote size={13} style={{ color: "var(--text-3)" }} />
-            <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>本地文件不进「我喜欢的音乐」，除非你手动点红心。</span>
+            <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>本地文件不进「我喜欢的音乐」，除非你手动点红心。</span>
           </div>
         </>
       ) : (
@@ -143,7 +143,7 @@ export function LocalPage({
           {downloads}
           <div className="row gap8" style={{ marginTop: 18 }}>
             <IconDownload size={13} style={{ color: "var(--text-3)" }} />
-            <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>进度条上的拨片走到头，这首就落地了。</span>
+            <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>进度条上的拨片走到头，这首就落地了。</span>
           </div>
         </>
       )}

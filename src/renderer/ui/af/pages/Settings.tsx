@@ -22,7 +22,7 @@ import {
 
 export function SettingsPage() {
   const af = useAf();
-  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, sfx, setSfx, motion, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
+  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, sfx, setSfx, motionPref, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
   const [code, setCode] = useState("");
   const sleepEndsAt = getState().sleep.endsAt;
   const allEmpty = sources.every((s) => !accounts[s.id]);
@@ -137,12 +137,22 @@ export function SettingsPage() {
           <div className="set-line">
             <div>
               <div className="set-line__label">动效档位</div>
-              <div className="set-line__hint">{af.reduce ? "系统已开启减弱动效，装饰动画已暂停。" : "完整含呼吸与幕布，轻档只留状态切换。"}</div>
+              <div className="set-line__hint">
+                {motionPref === "system" && af.reduce
+                  ? "系统已开启减弱动效；选「完整」可覆盖系统。"
+                  : motionPref === "system"
+                    ? "跟随系统：当前系统允许动效。"
+                    : motionPref === "off"
+                      ? "动效已关闭；选「完整」恢复幕布与呼吸。"
+                      : motionPref === "light"
+                        ? "轻档去掉循环与大幅位移，只留状态切换。"
+                        : "完整含呼吸与幕布，轻档只留状态切换。"}
+              </div>
             </div>
             <div className="segmented" role="group" aria-label="动效档位">
-              <button className={motion === "full" ? "is-on" : ""} onClick={() => setMotion("full")}>完整</button>
-              <button className={motion === "light" ? "is-on" : ""} onClick={() => setMotion("light")}>轻</button>
-              <button className={motion === "off" ? "is-on" : ""} onClick={() => setMotion("off")}>关闭</button>
+              <button className={motionPref === "full" ? "is-on" : ""} onClick={() => setMotion("full")}>完整</button>
+              <button className={motionPref === "light" ? "is-on" : ""} onClick={() => setMotion("light")}>轻</button>
+              <button className={motionPref === "off" ? "is-on" : ""} onClick={() => setMotion("off")}>关闭</button>
             </div>
           </div>
           <div className="set-line">
@@ -211,7 +221,7 @@ export function SettingsPage() {
                   {found ? (
                     <span className="stamp-cell__pick">
                       <IconPick size={30} />
-                      <span style={{ position: "absolute", fontFamily: "var(--font-mono)", fontSize: 9.5, color: "var(--coral)" }}>{e.id.slice(1)}</span>
+                      <span style={{ position: "absolute", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--coral)" }}>{e.id.slice(1)}</span>
                     </span>
                   ) : <span>??</span>}
                   <span className="stamp-cell__name">{found ? e.name : ""}</span>
@@ -220,7 +230,7 @@ export function SettingsPage() {
             })}
           </div>
           <div className="stamp-foot">
-            <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>不写触发方式，留着自己撞。</span>
+            <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>不写触发方式，留着自己撞。</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setDemoOpen(true)}>原型演示 · 全部彩蛋</button>
           </div>
         </div>

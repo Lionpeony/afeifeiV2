@@ -113,7 +113,7 @@ export function ArchivePage() {
               </div>
             </div>
             <div className="row gap8" style={{ marginTop: 18, justifyContent: "space-between" }}>
-              <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>这张海报是事后补画的</span>
+              <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>这张海报是事后补画的</span>
               <button className="icon-btn" onClick={() => groups[0] && af.playIds(groups[0].ids)} title="播放这一场"><IconPlay size={16} /></button>
             </div>
           </div>

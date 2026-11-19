@@ -267,8 +267,12 @@ async function main() {
     labels.includes("播放") || labels.includes("暂停"),
     `缺播放按钮，实际：${labels.join("/")}`,
   );
-  // 新底栏音量是 5 枚拨片：0.8 应对应 4 枚点亮
-  assert.equal(Number(await app.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`)), 4, "音量初始值");
+  // 新底栏音量是滑杆 0–1：0.8 应对应 80%
+  assert.equal(
+    Number(await app.evaluate(`Math.round(Number(document.querySelector(".vol__range")?.value ?? -1) * 100)`)),
+    80,
+    "音量初始值",
+  );
   assert.ok((await app.evaluate(`document.styleSheets.length`)) >= 1, "样式表没加载");
 
   const badToken = await app.evaluate(
@@ -399,7 +403,11 @@ async function main() {
       throw new Error(`重启后没恢复出上次的曲目。界面显示 ${shown}；存档 ${raw}`);
     }
 
-    assert.equal(Number(await app2.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`)), 2, "音量应恢复成 30%（2/5 拨片）");
+    assert.equal(
+      Number(await app2.evaluate(`Math.round(Number(document.querySelector(".vol__range")?.value ?? -1) * 100)`)),
+      30,
+      "音量应恢复成 30%",
+    );
     // 播放器状态读取口 = 底栏主按钮的 aria-label（「暂停」= 在播 /「播放」= 停着）。
     // 顶栏不再常驻状态徽标（只出不出的错误提示），别再拿它当状态源。
     const playLabel0 = await app2.evaluate(`document.querySelector(".bar__play")?.getAttribute("aria-label") ?? ""`);
@@ -461,14 +469,15 @@ async function main() {
 
     /* 键位表（P0-22）：挑两个 DOM 上直接看得见的键 —— ↑/↓ 音量、M 静音 */
     const press = (k) => app2.evaluate(`window.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)} }))`);
-    const litCount = () => app2.evaluate(`document.querySelectorAll(".vol__pick.is-lit").length`);
-    const vol0 = Number(await litCount());
+    const volValue = () =>
+      app2.evaluate(`Math.round(Number(document.querySelector(".vol__range")?.value ?? -1) * 100)`);
+    const vol0 = Number(await volValue());
     await press("ArrowUp");
-    const vol1 = Number(await litCount());
-    assert.ok(vol1 >= vol0, `↑ 应加大音量：${vol0} → ${vol1}`);
+    const vol1 = Number(await volValue());
+    assert.ok(vol1 > vol0, `↑ 应加大音量：${vol0} → ${vol1}`);
     await press("ArrowDown");
-    const vol2 = Number(await litCount());
-    assert.ok(vol2 <= vol1, `↓ 应减小音量：${vol1} → ${vol2}`);
+    const vol2 = Number(await volValue());
+    assert.ok(vol2 < vol1, `↓ 应减小音量：${vol1} → ${vol2}`);
     const muteSel = `.bar__right button[aria-label="静音"], .bar__right button[aria-label="取消静音"]`;
     const muted0 = await app2.evaluate(`document.querySelector(${JSON.stringify(muteSel)})?.getAttribute("aria-label") ?? ""`);
     await press("m");
@@ -514,32 +523,30 @@ async function main() {
     assert.ok(phaseText.length > 0, "播放条的阶段文案不能是空");
     console.log(`  三态 OK：刻纹占位 + 阶段「${phaseText}」`);
 
-    /* 迷你窗（P0-27）：化妆镜 / 拍立得封面 / 可拖进度 / 走带 */
+    /* 迷你窗（P0-27）：圆形贴纸封面 / 可拖进度 / 悬停走带 */
     await app2.evaluate(`window.api.openMini()`);
     const miniWin = await evaluateInWindow(
       "mini.html",
       `({
-        seek: !!document.querySelector(".mirror__range"),
-        art: !!document.querySelector(".mirror__photo"),
-        btns: document.querySelectorAll(".mirror__ops button").length,
-        close: !!document.querySelector(".mirror__close"),
-        setlist: !!document.querySelector(".mirror__setlist"),
-        bulbs: document.querySelectorAll(".mirror__bulb").length,
+        seek: !!document.querySelector(".mini__range"),
+        art: !!document.querySelector(".mini__art"),
+        btns: document.querySelectorAll(".mini__controls button").length,
+        close: !!document.querySelector(".mini__close"),
+        onair: !!document.querySelector(".mini__onair"),
       })`,
     );
     assert.ok(miniWin?.seek, "迷你窗应有可拖进度条（P0-27）");
-    assert.ok(miniWin?.art, "迷你窗应有封面位（拍立得）");
-    assert.ok(miniWin?.btns >= 6, `迷你窗走带应有 6 个键，实际 ${miniWin?.btns}`);
+    assert.ok(miniWin?.art, "迷你窗应有封面位（圆形贴纸）");
+    assert.ok(miniWin?.btns >= 4, `迷你窗走带应有 4 个键，实际 ${miniWin?.btns}`);
     assert.ok(miniWin?.close, "迷你窗应有独立关闭键");
-    assert.ok(miniWin?.setlist, "迷你窗应显示 SETLIST / 状态行");
-    assert.equal(miniWin?.bulbs, 10, `化妆镜应有一圈 10 颗灯泡，实际 ${miniWin?.bulbs}`);
-    console.log("  迷你窗 OK：化妆镜 + 拍立得 + 可拖进度 + 走带");
+    assert.ok(miniWin?.onair, "迷你窗应显示播出状态签（ON AIR / STANDBY）");
+    console.log("  迷你窗 OK：圆形封面 + 可拖进度 + 悬停走带");
 
     /* 迷你窗红心要真的落到主窗：桥只发意图，写者仍是 store / 红心域 */
     const likedBefore = await app2.evaluate(`document.querySelector(".bar__heart")?.classList.contains("is-on") ?? null`);
     const likeClicked = await evaluateInWindow(
       "mini.html",
-      `(() => { const b = document.querySelector(".mirror__like"); if (!b) return false; b.click(); return true; })()`,
+      `(() => { const b = document.querySelector(".mini__like"); if (!b) return false; b.click(); return true; })()`,
     );
     assert.ok(likeClicked, "迷你窗应有红心键");
     await sleep(500);

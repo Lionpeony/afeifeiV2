@@ -130,7 +130,7 @@ export function LikedPage(props: LikedPageProps) {
 
       <div className="likes__foot row gap8">
         <IconPickOutline size={13} style={{ color: "var(--coral)" }} />
-        <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>红心和底部播放栏是连在一起的，取消就真的取消了。</span>
+        <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>红心和底部播放栏是连在一起的，取消就真的取消了。</span>
       </div>
     </div>
   );

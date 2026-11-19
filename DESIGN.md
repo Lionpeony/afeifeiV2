@@ -88,16 +88,31 @@ spacing:
 **Display:** ZCOOL XiaoWei（拉丁回落到 Yozai / PingFang SC）；**Body:** PingFang SC / Source Han Sans SC / 微软雅黑；
 **Hand:** ZCOOL KuaiLe（仅拟声词、便签、批注、印章，≤16px）；**Mono:** JetBrains Mono。
 
+### 字体角色（2026-11-19 收口）
+一屏最多四套字，且各有唯一职责；装饰性英文标签不再用等宽。
+
+- **display**：页面标题、品牌、大日期、播放页歌名。只有 400 字重，禁止合成加粗。
+- **body**：一切可读文字——导航、正文、歌词、按钮、空态、分组名。眉标也用正文 + 字距，不用等宽。
+- **hand**：每屏至多一处批注——侧栏便签、印章、彩蛋、Toast。
+- **mono**：只给数字、时间、编号、kbd、代码、诊断台。
+- **侧栏**：品牌 display 15/400，导航 body 13.5/500，计数 body tabular-nums，便签 hand；一列只有三套字。
+- `fonts.css`（Instrument Serif / Manrope / Noto Serif SC）已不参与构建，构建只拼 `fonts-v42.css`。
+
 ### Hierarchy（六层，唯一字号来源）
-- **Display** (28/36, 700): 页面标题、播放页歌名。
+- **Display** (28/36, 400): 页面标题、播放页歌名。
 - **Title** (20/28, 600): 区块标题、弹层标题。
 - **Heading** (16/24, 600): 卡片标题、列表组头。
 - **Body** (14/22, 400): 正文、曲名、按钮。
 - **Caption** (12/18, 400): 艺人、说明、次级信息。
 - **Micro** (11/16, 500): 计数、标签、eyebrow。
 
+**光学档（2026-11-19）**：密集界面允许 10 / 13 / 15 / 18 / 22 / 26 这几档做视觉微调，
+展示层允许 30 / 36 / 44 / 128；除此之外不再新增字号。小数（8.5 / 9.5 / 10.5 / 11.5 / 12.5 / 13.5）
+与 17 / 19 / 21 / 23 / 25 / 27 / 32 / 34 / 38 已归并，af 层 163 处字号收敛到 15 档。
+
 ### Named Rules
 **The Mono-For-Numbers Rule.** 时长、索引、计数一律 tabular-nums；中文正文不用等宽。
+**The One Hand Rule.** 手写体是批注，不是第二套正文：每个视图最多一处。
 
 ## Layout
 

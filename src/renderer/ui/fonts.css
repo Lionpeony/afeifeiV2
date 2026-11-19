@@ -1,5 +1,6 @@
 /* 本地打包字体（fontsource 提取，OFL）：Instrument Serif / Manrope / Noto Serif SC。
-   woff2 在 ui/fonts/，构建时复制到 dist/renderer/fonts；CSP 'self' 下经 app:// 加载。 */
+   2026-11-19 起**不再参与构建**：视觉层已不用这三套，构建只拼 fonts-v42.css
+   （ZCOOL XiaoWei / ZCOOL KuaiLe / JetBrains Mono）。保留文件仅为历史参考。 */
 
 /* instrument-serif-latin-400-normal */
 @font-face {

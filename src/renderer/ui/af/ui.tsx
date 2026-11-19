@@ -9,7 +9,7 @@ export const Tape = ({ style, w = 64, rot = -2 }: { style?: CSSProperties; w?: n
 export const SectionHead = ({ children, right, note }: { children: ReactNode; right?: ReactNode; note?: string }) => (
   <div className="section-head">
     <h2 className="h2">{children}</h2>
-    {note ? <span className="hand" style={{ fontSize: 11.5, color: "var(--text-3)" }}>{note}</span> : null}
+    {note ? <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>{note}</span> : null}
     <span className="section-head__line" />
     {right}
   </div>

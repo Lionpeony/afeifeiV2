@@ -48,9 +48,12 @@
   --fs-caption:12px;  --lh-caption:18px;
   --fs-micro:11px;    --lh-micro:16px;
 
-  --font-display:"ZCOOL XiaoWei","Yozai","Songti SC","PingFang SC",serif;
-  --font-body:"Noto Sans SC","PingFang SC","Source Han Sans SC","Microsoft YaHei",sans-serif;
-  --font-hand:"ZCOOL KuaiLe","Long Cang","Yozai",cursive;
+  /* 字体角色（2026-11-19）：display 标题/品牌、body 可读文字、hand 批注、mono 数字。
+     正文不再写未打包的 Noto Sans SC：Windows 优先雅黑，避免「装了就用、没装就回退」的不一致。
+     display/hand 在字形缺失时落到雅黑，宁可换风格也不出豆腐块。 */
+  --font-display:"ZCOOL XiaoWei","Yozai","Songti SC","Microsoft YaHei",serif;
+  --font-body:"Microsoft YaHei","PingFang SC","Source Han Sans SC",sans-serif;
+  --font-hand:"ZCOOL KuaiLe","Long Cang","Yozai","Microsoft YaHei",cursive;
   --font-jp:"Yu Gothic","Hiragino Maru Gothic ProN","Microsoft YaHei",sans-serif;
   --font-mono:"JetBrains Mono","SF Mono",ui-monospace,Consolas,monospace;
 

@@ -62,16 +62,19 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     const al = (song.al ?? song.album ?? {}) as { id?: unknown };
     const ar = (song.ar ?? song.artists) as { id?: unknown }[] | undefined;
     const artistId = ar?.[0]?.id;
-    return {
+    const track: RemoteTrack = {
       sourceId: String(id),
       title: typeof song.name === "string" && song.name ? song.name : "未知曲目",
       artist: pickArtists(song),
       album: album.name,
       durationMs: pickDuration(song),
       coverUrl: album.cover,
-      artistId: artistId === undefined || artistId === null ? undefined : String(artistId),
-      albumId: al.id === undefined || al.id === null ? undefined : String(al.id),
     };
+    /* 可选 id 只在真拿得到时挂上：无脑写 `artistId: undefined` 会让
+       deep-equal 的判据多出两个键（2026-11-19 修）。 */
+    if (artistId !== undefined && artistId !== null) track.artistId = String(artistId);
+    if (al.id !== undefined && al.id !== null) track.albumId = String(al.id);
+    return track;
   }
 
   /* ---------- 账号身份 ---------- */

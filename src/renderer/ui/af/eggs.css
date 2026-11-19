@@ -27,7 +27,7 @@
 @keyframes lantern{0%,100%{opacity:.55}50%{opacity:1}}
 .river__copy{
   position:absolute;left:50%;bottom:16%;transform:translateX(-50%);
-  font-family:var(--font-hand);font-size:17px;color:rgba(244,234,242,.85);
+  font-family:var(--font-hand);font-size:16px;color:rgba(244,234,242,.85);
   letter-spacing:.08em;text-align:center;
   animation:fadeUp .8s var(--ease) .5s both;
 }
@@ -60,7 +60,7 @@
 @keyframes beamOn{from{opacity:0;transform:scaleY(.12)}to{opacity:.85;transform:scaleY(1)}}
 .live__stage{display:flex;align-items:flex-end;gap:58px;position:relative;z-index:2;margin-top:60px}
 .live__inst{color:rgba(20,16,26,.85);animation:fadeUp .45s var(--ease-out-soft) both;animation-delay:.42s;display:flex;flex-direction:column;align-items:center;gap:10px}
-.live__inst span{font-family:var(--font-mono);font-size:9px;letter-spacing:.2em;color:rgba(244,234,242,.45)}
+.live__inst span{font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;color:rgba(244,234,242,.45)}
 .live__floor{
   position:absolute;left:50%;bottom:14%;transform:translateX(-50%);
   width:420px;height:2px;border-radius:99px;
@@ -94,7 +94,7 @@
 .lyric__line:nth-child(2){width:82%}
 .lyric__line:nth-child(4){width:64%}
 .lyric__text{
-  font-family:var(--font-hand);font-size:17px;color:#3D2B39;letter-spacing:.04em;
+  font-family:var(--font-hand);font-size:16px;color:#3D2B39;letter-spacing:.04em;
   display:inline-block;overflow:hidden;white-space:nowrap;
   border-right:2px solid rgba(214,51,132,.5);
   animation:writeIn 800ms steps(14) 750ms both, caret 900ms step-end infinite;
@@ -138,7 +138,7 @@
 }
 .corner-figure__copy{
   position:fixed;right:96px;bottom:132px;z-index:78;
-  font-family:var(--font-hand);font-size:13.5px;color:var(--text-2);
+  font-family:var(--font-hand);font-size:13px;color:var(--text-2);
   background:var(--card);padding:8px 13px;border-radius:12px;
   box-shadow:var(--shadow-soft);pointer-events:none;
   animation:cornerIn 2.8s var(--ease) both;
@@ -163,7 +163,7 @@
   animation:fadeUp .3s var(--ease) both;
 }
 .demo__head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
-.demo__sub{font-size:11.5px;color:var(--text-3);margin-bottom:18px;max-width:520px;line-height:1.7}
+.demo__sub{font-size:12px;color:var(--text-3);margin-bottom:18px;max-width:520px;line-height:1.7}
 .demo__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .demo__item{
   display:flex;align-items:center;gap:10px;text-align:left;
