@@ -186,6 +186,18 @@ if (fs.existsSync(STAGE_SKIN_CSS)) {
   }
 }
 
+/* ---------- 规则 9：源文件禁止 UTF-8 BOM（2026-11-19 事故复盘，docs/30 §11） ----------
+   PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM；build.mjs 拼接 css 时
+   文件中部的 U+FEFF 会吞掉下一条规则（shell.css 的 .app{display:grid} 曾被整条吃掉）。
+   docs/ 一并扫：30 号文档自己也中过招。 */
+const bomTargets = [...walk(SRC), ...walk("docs").map((f) => f)].filter((f) => /\.(css|ts|tsx|html|json|md)$/.test(f));
+for (const file of bomTargets) {
+  const head = fs.readFileSync(file).subarray(0, 3);
+  if (head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) {
+    fail(`${norm(file)}: 文件头带 UTF-8 BOM（批量改文件禁用 Set-Content -Encoding UTF8）`);
+  }
+}
+
 /* ---------- 结果 ---------- */
 if (problems.length) {
   console.log(`✗ lint 失败 ${problems.length} 处：`);
@@ -193,4 +205,4 @@ if (problems.length) {
   console.log("\n规则见 docs/51 §2.4（新仓库里的 docs/01）");
   process.exit(1);
 }
-console.log(`LINT PASS：${code.length} 个源文件，8 条规则无违规`);
+console.log(`LINT PASS：${code.length} 个源文件，9 条规则无违规`);

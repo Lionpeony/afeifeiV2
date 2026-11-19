@@ -1,12 +1,14 @@
 /* 全屏播放页 · 原型 .np（幕布 / 舞台 / 分幕队列 / 演出时间线 / 歌词字幕） */
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 
 import { useAf } from "./context.js";
 import { TrackArt } from "./art.js";
 import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX } from "./icons.js";
 import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
+import { ShareCard } from "./ShareCard.js";
 import { usePosition } from "./use-position.js";
+import { eggText } from "./copy.js";
 
 function fmt(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -29,6 +31,9 @@ export function NowPlaying() {
     cycleRepeat,
     isLiked,
     toggleLike,
+    discover,
+    toast,
+    palette,
     closePlayer,
     playerClosing,
     chorusAt,
@@ -50,7 +55,17 @@ export function NowPlaying() {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const liked = isLiked(track);
+
+  /* E19 长按红心：按住 1 秒触发火焰，之后的那次 click 作废；文案递进池按次数 */
+  const likeHold = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const likeFired = useRef(false);
+  const likeCount = useRef(0);
+  const cancelLikeHold = (): void => {
+    if (likeHold.current) { clearTimeout(likeHold.current); likeHold.current = null; }
+  };
+  useEffect(() => cancelLikeHold, []);
 
   const ratioFromEvent = (e: React.PointerEvent): number => {
     const r = barRef.current?.getBoundingClientRect();
@@ -114,6 +129,10 @@ export function NowPlaying() {
           正在演出 · SETLIST {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}
         </span>
         <span className="spacer"></span>
+        {palette === "gbc" && (
+          <span className="np__rec" aria-hidden="true"><i></i>REC</span>
+        )}
+        <button className="np__keysbtn" onClick={() => setShareOpen(true)} title="把这首做成分享卡片">卡片</button>
         <button className="np__keysbtn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单">快捷键 <kbd>?</kbd></button>
         <span className="meta hand" style={{ fontSize: 12 }}>{Math.round(totalDur / 60)} 分钟就散场</span>
       </div>
@@ -202,8 +221,27 @@ export function NowPlaying() {
               <span className="np__ctrl-sep"></span>
               <button
                 className={"np__ctrl like-btn" + (liked ? " is-liked" : "")}
-                onClick={(e) => { onomaAt(e.currentTarget, "ポンッ", "coral"); toggleLike(track); }}
-                title="喜欢（盖一枚拨片）"
+                onClick={(e) => {
+                  if (likeFired.current) { likeFired.current = false; return; }
+                  onomaAt(e.currentTarget, "ポンッ", "coral");
+                  toggleLike(track);
+                }}
+                onPointerDown={(e) => {
+                  likeFired.current = false;
+                  const btn = e.currentTarget;
+                  likeHold.current = setTimeout(() => {
+                    likeFired.current = true;
+                    likeCount.current += 1;
+                    onomaAt(btn, "燃——", "coral");
+                    if (!liked) toggleLike(track);
+                    discover("E19");
+                    toast(eggText(palette, "longPressLike", likeCount.current), { hand: true });
+                  }, 1000);
+                }}
+                onPointerUp={cancelLikeHold}
+                onPointerLeave={cancelLikeHold}
+                onPointerCancel={cancelLikeHold}
+                title="喜欢（盖一枚拨片）· 长按 1 秒是火焰"
               >
                 {liked ? <IconPick size={19} /> : <IconPickOutline size={19} />}
               </button>
@@ -300,6 +338,8 @@ export function NowPlaying() {
         </div>
         <span className="np__timeline-time">{fmt(pos)} / {fmt(total)}</span>
       </div>
+
+      {shareOpen ? <ShareCard onClose={() => setShareOpen(false)} /> : null}
     </div>
   );
 }

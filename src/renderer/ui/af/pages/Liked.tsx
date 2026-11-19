@@ -7,6 +7,7 @@ import { getLikes, subscribe as subscribeLikes, toggleLike } from "../../../doma
 import { getAccountLikes, isAccountLiked, subscribe as subscribeAccountLikes } from "../../../domain/account-likes/index.js";
 import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { useAf } from "../context.js";
+import { likedEmptyCopy } from "../copy.js";
 import { TrackArt } from "../art.js";
 import { IconHeart, IconHeartFill, IconPickOutline, IconPlay } from "../icons.js";
 import { EmptySetlist, Tape } from "../ui.js";
@@ -62,7 +63,7 @@ export function LikedPage(props: LikedPageProps) {
 
       {total === 0 && !acct.loading ? (
         <div style={{ maxWidth: 520, marginTop: 8 }}>
-          <EmptySetlist title="还没有留下印记的歌。" sub="听到喜欢的那首，点一下红心，它就住在这儿了。" cta="去发现找一首" onGo={() => af.setPage("online")} />
+          <EmptySetlist title={likedEmptyCopy(af.palette).title} sub={likedEmptyCopy(af.palette).sub} cta={likedEmptyCopy(af.palette).cta} onGo={() => af.setPage("online")} />
         </div>
       ) : (
         <div className="paper likes__sheet">

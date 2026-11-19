@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { app, BrowserWindow, ipcMain, protocol, screen } from "electron";
 import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
@@ -200,6 +201,11 @@ if (!locked) {
       // titleBarStyle hidden 保留系统 resize / 阴影；不再启用 titleBarOverlay。
       titleBarStyle: "hidden",
       backgroundColor: "#FFF8F5",
+      // 窗口/任务栏图标：源 build/icon.ico（scripts/render-icon.mjs 从 icon.svg 生成）。
+      // 打包后 exe 图标由 electron-builder 从同一文件取，build/ 不进 asar；文件缺失就交给系统默认。
+      icon: fs.existsSync(path.join(__dirname, "..", "build", "icon.ico"))
+        ? path.join(__dirname, "..", "build", "icon.ico")
+        : undefined,
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
         contextIsolation: true,

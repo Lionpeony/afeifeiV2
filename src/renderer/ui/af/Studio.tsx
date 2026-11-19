@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
 import { IconCheck, IconCloud, IconMoon, IconRefresh, IconVolume, IconX } from "./icons.js";
+import { packSlotCopy } from "./copy.js";
 
 export const QUALITY_LEVELS = [
   { id: "standard", short: "标准", label: "标准音质", spec: "128 kbps · MP3", note: "流量省着点，排练室里也够用" },
@@ -143,7 +144,7 @@ export function StudioDrawer() {
               <div className="studio__label">播放音质 · {srcName}</div>
               <div className="q-list">
                 {QUALITY_LEVELS.map((q) => (
-                  <button key={q.id} className={"q-opt" + (quality === q.id ? " is-on" : "")} onClick={() => { setQuality(q.id); af.toast(`音质切到「${q.label}」`, { icon: "check" }); }}>
+                  <button key={q.id} className={"q-opt" + (quality === q.id ? " is-on" : "")} onClick={() => { setQuality(q.id); af.toast(packSlotCopy(af.palette, "quality", q.label), { icon: "check" }); }}>
                     <span className="q-opt__badge">{q.short}</span>
                     <span className="q-opt__text"><b>{q.label}</b><span>{q.spec} · {q.note}</span></span>
                     {quality === q.id ? <IconCheck size={15} className="q-opt__tick" /> : null}

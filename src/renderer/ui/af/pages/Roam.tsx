@@ -1,6 +1,7 @@
 /* 迷路漫游 · 原型 .wander（当前曲大封面 + 接下来三首） */
 import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
+import { roamCopies } from "../copy.js";
 import { IconPause, IconPick, IconPlay, IconRefresh, IconSkip } from "../icons.js";
 import { Tape } from "../ui.js";
 
@@ -12,12 +13,12 @@ const fmt = (sec: number): string => {
 
 export function RoamPage() {
   const af = useAf();
-  const { track, queue, queueIndex, playing, setPlaying, userSkip, isLiked, toggleLike, goTo, shuffle, toggleShuffle, reportDislike } = af;
+  const { track, queue, queueIndex, playing, setPlaying, userSkip, isLiked, toggleLike, goTo, shuffle, toggleShuffle, reportDislike, palette } = af;
   const upcoming = [1, 2, 3]
     .map((k) => queue[(queueIndex + k) % Math.max(1, queue.length)])
     .filter(Boolean) as typeof queue;
   const liked = isLiked(track);
-  const copies = ["还在找今晚的那首歌？♡", "不知道听什么的话，就让它自己走。", "切歌也算一种走路方式。"];
+  const copies = roamCopies(palette);
   const copy = copies[queueIndex % copies.length];
 
   return (

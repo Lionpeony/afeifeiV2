@@ -81,6 +81,7 @@ import { DEFAULT_BINDINGS, type ShortcutBinding } from "../domain/shortcuts/inde
 import { Console } from "./Console.js";
 import { AfContext, type AfSource, type AfTrack } from "./af/context.js";
 import { useAfUi } from "./af/use-af.js";
+import { eggText, svcText } from "./af/copy.js";
 import { NowPlaying } from "./af/NowPlaying.js";
 import { Auth, DemoPanel, EggLayer, FocusLines, MascotWalk, OnomaLayer } from "./af/layers.js";
 import { ScanLogin } from "./af/ScanLogin.js";
@@ -137,6 +138,13 @@ function App() {
     flashTimer.current = window.setTimeout(() => setTuneFlash(0), 600);
     return () => window.clearTimeout(flashTimer.current);
   }, [tuneFlash]);
+  /* key={page} 换页 remount 会丢滚动位置：每页各记一份 scrollTop，
+     换页后立刻还原（列表滚到一半返回再进来，不从头开始）。 */
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const pageScrolls = useRef<Partial<Record<PageId, number>>>({});
+  useEffect(() => {
+    if (pageRef.current) pageRef.current.scrollTop = pageScrolls.current[page] ?? 0;
+  }, [page]);
 
   /** 读所有可登录源的头像/昵称（站尺账号区 + 面板共用）。 */
   const refreshAccountProfiles = (): void => {
@@ -769,7 +777,7 @@ function App() {
   /* 账号红心（底栏 + 喜欢页取消红心 + 绑定生命周期）：hooks/use-account-likes.ts */
   const { accountSource, ensureAccount, unlikeAccount, toggleCurrentLike, likeActionRef } = useAccountLikes({
     services,
-    notify: (text, kind) => toast(text, kind ?? "info"),
+    notify: (text, kind) => toast(svcText(text), kind ?? "info"),
     resolveAccountSource,
   });
 
@@ -1073,13 +1081,28 @@ function App() {
     playIds,
     toAfTrack,
     currentTrack,
-    notify: (text, kind) => toast(text, kind ?? "info"),
+    notify: (text, kind) => toast(svcText(text), kind ?? "info"),
     profileOf: (id) => {
       const p = accountProfiles[id];
       return p ? { nick: p.nick ?? null, avatarUrl: p.avatarUrl ?? null } : null;
     },
     lastRoom: lastRoom.current,
   });
+
+  /* E22 先不下楼：断网瞬间登记彩蛋 + 一声雨幕拟声；横幅照旧（保持 P0-25 的「不用 toast」决定）。
+     递进池用在横幅首句：第几次断网，横幅开头换成第几句（离线恢复后重置为 0）。 */
+  const offlineCount = useRef(0);
+  useEffect(() => {
+    if (!offline) {
+      if (offlineCount.current > 0) afApi.triggerEgg("E27"); // E27 恢复沿：从墙角探个头
+      offlineCount.current = 0;
+      return;
+    }
+    offlineCount.current += 1;
+    afApi.discover("E22");
+    afApi.onoma("ざあ…", { tone: "mint", x: window.innerWidth - 230, y: window.innerHeight - 190 });
+    if (afApi.palette !== "default") afApi.toast(eggText(afApi.palette, "offlineNet", offlineCount.current), { hand: true });
+  }, [offline, afApi]);
 
   return (
     <AfContext.Provider value={afApi}>
@@ -1158,7 +1181,12 @@ function App() {
         <div className="tune-flash" key={tuneFlash} aria-hidden="true" onAnimationEnd={() => setTuneFlash(0)} />
       ) : null}
 
-          <div className="main__page scroll live-room" key={page}>
+          <div
+            className="main__page scroll live-room"
+            key={page}
+            ref={pageRef}
+            onScroll={(e) => { pageScrolls.current[page] = e.currentTarget.scrollTop; }}
+          >
           {notice ? (
             /* 常驻提示（新版本 / 上次异常退出）必须能关：这类不自动消退，
                没有 × 就只能等下次覆盖或重启（2026-11-12 用户："一直显示不会消失"）。 */

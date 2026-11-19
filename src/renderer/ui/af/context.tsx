@@ -41,7 +41,7 @@ export interface AfToastOpts {
   ms?: number;
 }
 
-export type AfOverlay = "river" | "live" | "lyric" | "idle" | null;
+export type AfOverlay = "river" | "live" | "lyric" | "idle" | "unbox" | null;
 
 export interface AfMyList {
   id: string;
@@ -132,9 +132,13 @@ export interface AfApi {
   focus(): void;
   /* 彩蛋 / 色板 */
   eggs: string[];
+  /** 各包独立收集的彩蛋进度：palette → 该包内首次拾到的 egg id */
+  packEggs: Record<string, string[]>;
   discover(id: string, opts?: { silent?: boolean }): void;
   palette: string;
   setPalette(p: string): void;
+  /** 换包过渡动画当前播放的包 id（空 = 没在播） */
+  packFx: string | null;
   unlocked: string[];
   tryCode(code: string): boolean;
   /* 偏好 */
@@ -166,7 +170,8 @@ export interface AfApi {
   setDemoOpen(v: boolean): void;
   overlay: AfOverlay;
   setOverlay(v: AfOverlay): void;
-  corner: boolean;
+  /** 角落小人：bye=背影离开，peek=探头回来（E27 断网恢复） */
+  corner: null | "bye" | "peek";
   /* 彩蛋状态 */
   struckId: string | null;
   sheerSide: "l" | "r" | null;

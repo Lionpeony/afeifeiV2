@@ -7,6 +7,7 @@ import { useAf } from "../context.js";
 import { hashStr, TrackArt } from "../art.js";
 import { GuitarFigure, IconDownload, IconFolder, IconNote, IconPlay, IconRefresh } from "../icons.js";
 import { Tape } from "../ui.js";
+import { packLineCopy } from "../copy.js";
 
 const ROW_H = 56;const fmt = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -108,7 +109,7 @@ export function LocalPage({
           {scanning ? (
             <div className="scan-loading">
               <span className="scan-loading__guitar"><GuitarFigure w={120} h={58} /></span>
-              <span className="hand">正在数文件夹里的音轨……</span>
+              <span className="hand">{packLineCopy(af.palette, "loadingScan")}</span>
             </div>
           ) : null}
 
@@ -119,7 +120,7 @@ export function LocalPage({
               <span className="meta">共 {tracks.length} 首</span>
             </div>
             {tracks.length === 0 ? (
-              <p className="lib-empty">曲库还是空的。点上面的「扫描本地文件夹」把硬盘里的音乐收进来。</p>
+              <p className="lib-empty">{packLineCopy(af.palette, "emptyLibrary")}</p>
             ) : (
               <div className="loc-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)} style={{ position: "relative", maxHeight: "calc(100vh - 320px)", overflowY: "auto" }}>
                 <div style={{ position: "relative", height: win.totalHeight }}>

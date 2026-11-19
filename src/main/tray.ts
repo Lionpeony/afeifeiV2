@@ -7,6 +7,7 @@
  * 主进程不认识"这首歌是不是已经播完"，只照抄那一行字。
  */
 import { BrowserWindow, Menu, Tray, ipcMain, nativeImage, type MenuItemConstructorOptions } from "electron";
+import path from "node:path";
 import { trayItems, trayTitle, type TrayState } from "./trayMenu.js";
 import type { PlaybackCommand } from "./mediaKeys.js";
 
@@ -24,28 +25,21 @@ let deps: TrayDeps | null = null;
 let state: TrayState = { playing: false, title: null };
 
 /**
- * 图标：16×16 的朱砂圆片，中间留一个小孔（唱片感）。
- * 用代码画而不是塞一个 .ico —— 仓库里不放二进制资源，打包器也不用处理 asset。
- * Windows 的 createFromBitmap 是 BGRA，其他平台是 RGBA，所以红蓝两通道按平台换位。
+ * 图标：与应用图标同一套拨片视觉（build/icon.svg 由 scripts/render-icon.mjs 渲染出的
+ * tray-pick@1x/@2x.png，已随 renderer 资源进 dist）。16/32 双档按 DPI 装载，
+ * 托盘小图只留拨片剪影（无投影，投影在小尺寸是糊的）。
  */
 function trayIcon() {
-  const size = 16;
-  const buf = Buffer.alloc(size * size * 4);
-  const c = (size - 1) / 2;
-  const bgra = process.platform === "win32";
-  const [r, g, b] = [0xc0, 0x2f, 0x26];
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const d2 = (x - c) ** 2 + (y - c) ** 2;
-      if (d2 > 49 || d2 < 2) continue; // 半径 7，中心 1.4 留孔
-      const i = (y * size + x) * 4;
-      buf[i] = bgra ? b : r;
-      buf[i + 1] = g;
-      buf[i + 2] = bgra ? r : b;
-      buf[i + 3] = 0xff;
-    }
+  const img = nativeImage.createEmpty();
+  const rep = (scaleFactor: number): Electron.NativeImage => {
+    const file = path.join(__dirname, "..", "renderer", "assets", scaleFactor === 1 ? "tray-pick@1x.png" : "tray-pick@2x.png");
+    return nativeImage.createFromPath(file);
+  };
+  for (const sf of [1, 2]) {
+    const src = rep(sf);
+    if (!src.isEmpty()) img.addRepresentation({ scaleFactor: sf, buffer: src.toPNG() });
   }
-  return nativeImage.createFromBitmap(buf, { width: size, height: size });
+  return img;
 }
 
 function showWindow(): void {

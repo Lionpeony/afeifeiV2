@@ -5,10 +5,11 @@ import { useAf } from "./context.js";
 import { TrackArt } from "./art.js";
 import { AddToListPanel } from "./ListEditor.js";
 import { IconDisc, IconDownload, IconHeart, IconHeartFill, IconPlay, IconPlus, IconQueue, IconUser } from "./icons.js";
+import { packLineCopy } from "./copy.js";
 
 export function RowMenu() {
   const api = useAf();
-  const { rowMenu, closeRowMenu, resolveTrack, isLiked, toggleLike, goTo, playNext, addDownload, toast } = api;
+  const { rowMenu, closeRowMenu, resolveTrack, isLiked, toggleLike, goTo, playNext, addDownload, toast, palette } = api;
   const ref = useRef<HTMLDivElement>(null);
   const [sub, setSub] = useState(false);
 
@@ -50,7 +51,7 @@ export function RowMenu() {
 
       <div className="rowmenu__group">
         <Item icon={IconPlay} onClick={() => { goTo(t.id); closeRowMenu(); }}>立即播放</Item>
-        <Item icon={IconQueue} onClick={() => { playNext(t.id); closeRowMenu(); }}>下一首播放</Item>
+        <Item icon={IconQueue} onClick={() => { playNext(t.id); toast(packLineCopy(palette, "enqueue"), { icon: "check" }); closeRowMenu(); }}>下一首播放</Item>
       </div>
 
       <div className="rowmenu__group">

@@ -7,11 +7,9 @@ import { useAccountBundle, type AccountBundle } from "../../account-data.js";
 import { toast } from "../../toast.js";
 import { useActiveSource } from "../../use-active-source.js";
 import { LoginDialog } from "../../views/discover/LoginDialog.js";
-import { remoteTrackId } from "../../../kernel/index.js";
 import { useAf } from "../context.js";
-import type { AfTrack } from "../context.js";
+import { svcText } from "../copy.js";
 import { TrackArt } from "../art.js";
-import { AfTrackTable } from "../TrackTable.js";
 import { IconArrowRight, IconBack, IconPlay, IconRefresh, IconSparkle, IconDownload } from "../icons.js";
 import { Tape } from "../ui.js";
 
@@ -70,15 +68,6 @@ interface DetailRef {
 export function DiscoverPage(props: DiscoverPageProps) {
   const af = useAf();
   const [sourceId] = useActiveSource(props.sources);
-  const toAf = (t: RemoteTrack): AfTrack => ({
-    id: remoteTrackId(sourceId, t.sourceId),
-    title: t.title,
-    artist: t.artist,
-    album: t.album,
-    cover: t.coverUrl ?? null,
-    dur: t.durationMs / 1000,
-    remote: { sourceId, songId: t.sourceId, coverUrl: t.coverUrl },
-  });
   const currentSource = props.sources.find((s) => s.id === sourceId);
   const sourceName = currentSource?.name ?? sourceId;
   const canLogin = currentSource?.canAuth === true;
@@ -277,7 +266,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
   const download = async (track: RemoteTrack): Promise<void> => {
     setNote("");
     try {
-      toast(await props.onDownload(sourceId, track));
+      toast(svcText(await props.onDownload(sourceId, track)));
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
     }
@@ -297,7 +286,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
     if (picked.length === 0) return;
     setNote("");
     try {
-      toast(await props.onDownloadMany(sourceId, picked));
+        toast(svcText(await props.onDownloadMany(sourceId, picked)));
       setSelected(new Set());
     } catch (err) {
       setNote(err instanceof Error ? err.message : String(err));
@@ -367,7 +356,6 @@ export function DiscoverPage(props: DiscoverPageProps) {
               {detailTracks.length > 0 ? `${detailTracks.length} 首 · ${loadedMin} 分` : "…"}
             </span>
             <span className="setlist-spine__stamp">本番</span>
-            <span className="setlist-spine__mascot" aria-hidden="true" />
           </aside>
 
           <div className="setlist-body">
@@ -604,6 +592,9 @@ export function DiscoverPage(props: DiscoverPageProps) {
                 {acct.songs.slice(0, 4).map((t, i) => (
                   <button key={`${t.sourceId}-${i}`} className="mix-row" onClick={() => { void props.onPlay(acct.sourceId, t, acct.songs, "每日推荐"); af.openPlayer(); }}>
                     <span className="mix-row__no num">{pad(i + 1)}</span>
+                    <span className="mix-row__art" aria-hidden="true">
+                      {t.coverUrl ? <img src={t.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <TrackArt id={t.sourceId} size={26} radius={5} />}
+                    </span>
                     <span className="mix-row__title truncate">{t.title}</span>
                     <span className="mix-row__artist truncate">{t.artist}</span>
                     <span className="mix-row__dur num">{fmtDur(t.durationMs)}</span>
@@ -717,9 +708,38 @@ export function DiscoverPage(props: DiscoverPageProps) {
           {listNote ? <p className="lib-note" role="status">{listNote}</p> : null}
 
           {canCharts && lists.length > 0 ? (
-            <>
-              <div className="chart-board" role="list" aria-label="榜单目录">
-                {lists.map((list, i) => (
+            <div role="list" aria-label="榜单目录">
+              {/* 前 3 榜给封面特写（有图用图，无图用首字），做视觉锚点 */}
+              <div className="chart-feat-row">
+                {lists.slice(0, 3).map((list, i) => (
+                  <button
+                    key={list.id}
+                    role="listitem"
+                    className="chart-feat"
+                    onClick={() => openDetail({ id: list.id, name: list.name, coverUrl: list.coverUrl, kind: "chart" })}
+                    title={list.name}
+                  >
+                    <span className="chart-feat__art">
+                      {list.coverUrl ? (
+                        <img src={list.coverUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="chart-feat__initial" aria-hidden="true">{list.name.trim().slice(0, 1)}</span>
+                      )}
+                      <span className="chart-feat__no num">NO.{pad(i + 1)}</span>
+                    </span>
+                    <span className="chart-feat__body">
+                      <span className="chart-feat__name truncate">{list.name}</span>
+                      <span className="chart-feat__meta num">
+                        {list.count > 0 ? `${list.count} 首` : "本周更新"}
+                        <IconArrowRight size={13} />
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {/* 其余榜单：三列单据行，大序号给节奏，不再 24 行平铺同权重 */}
+              <div className="chart-grid">
+                {lists.slice(3).map((list, i) => (
                   <button
                     key={list.id}
                     role="listitem"
@@ -727,15 +747,14 @@ export function DiscoverPage(props: DiscoverPageProps) {
                     onClick={() => openDetail({ id: list.id, name: list.name, coverUrl: list.coverUrl, kind: "chart" })}
                     title={list.name}
                   >
-                    <span className="chart-row__no">{pad(i + 1)}</span>
+                    <span className="chart-row__no">{pad(i + 4)}</span>
                     <span className="chart-row__name truncate">{list.name}</span>
                     <span className="chart-row__count num">{list.count > 0 ? `${list.count} 首` : "—"}</span>
                     <IconArrowRight size={13} className="chart-row__go" />
                   </button>
                 ))}
               </div>
-
-            </>
+            </div>
           ) : null}
 
           {hot.length > 0 ? (
@@ -744,25 +763,20 @@ export function DiscoverPage(props: DiscoverPageProps) {
                 <h2 className="sect-title">今日再听<span>HOT TRACKS</span></h2>
                 <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>从{hotOrigin}里挑的几首</span>
               </div>
+              {/* 卡片即列表：不再在卡片下面重复摆同一批歌的表格 */}
               <div className="hot-cards">
-                {hot.slice(0, 2).map((t, i) => (
+                {hot.slice(0, 4).map((t, i) => (
                   <button key={t.sourceId + i} className="hot-card" onClick={() => { void props.onPlay(sourceId, t, hot, hotOrigin); af.openPlayer(); }}>
                     {t.coverUrl ? <img className="hot-card__img" src={t.coverUrl} alt="" referrerPolicy="no-referrer" /> : <span className="hot-card__img" style={{ display: "grid", placeItems: "center" }}><TrackArt id={t.sourceId} size={62} radius={10} /></span>}
                     <span className="hot-card__body">
                       <span className="hot-card__kicker">HOT · {pad(i + 1)}</span>
                       <span className="hot-card__title truncate">{t.title}</span>
-                      <span className="hot-card__meta truncate">{t.artist} · {t.album}</span>
+                      <span className="hot-card__meta truncate">{t.artist} · {fmtDur(t.durationMs)}</span>
                     </span>
                     <span className="hot-card__play"><IconPlay size={14} /></span>
                   </button>
                 ))}
               </div>
-
-              <AfTrackTable
-                items={hot.map(toAf)}
-                onPlay={(i) => { const t = hot[i]; if (t) { void props.onPlay(sourceId, t, hot, hotOrigin); af.openPlayer(); } }}
-                sourceLabel={sourceName}
-              />
             </>
           ) : null}
 

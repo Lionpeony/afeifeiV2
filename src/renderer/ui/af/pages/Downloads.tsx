@@ -6,6 +6,7 @@ import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
 import { IconDownload, IconPause, IconPlay, IconRefresh, IconX } from "../icons.js";
 import { EmptySetlist, Tape } from "../ui.js";
+import { packLineCopy } from "../copy.js";
 
 const fmtSize = (bytes: number): string => {
   if (!bytes || bytes <= 0) return "—";
@@ -94,7 +95,7 @@ export function DownloadsPage() {
       <div className="paper loc__sheet">
         <Tape w={64} rot={-1.6} style={{ top: -9, left: 28 }} />
         {done.length === 0 ? (
-          <p className="lib-empty">还没有下完的歌。下载完成后会落在这里。</p>
+          <p className="lib-empty">{packLineCopy(af.palette, "emptyDownloads")}</p>
         ) : (
           done.map((d) => (
             <div key={d.id} className="loc-row" role="button" tabIndex={0} onClick={() => { af.goTo(d.destPath); af.openPlayer(); }} onKeyDown={(e) => { if (e.key === "Enter") { af.goTo(d.destPath); af.openPlayer(); } }}>

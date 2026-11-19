@@ -1,4 +1,4 @@
-/* AFEIFEI 界面静态数据：17 彩蛋、色板、暗号、音源色。
+/* AFEIFEI 界面静态数据：26 彩蛋、色板、暗号、音源色。
    全部为原创虚构命名；不引用原作台词/曲名。 */
 
 export const EGGS = [
@@ -19,6 +19,16 @@ export const EGGS = [
   { id: "E15", name: "安可集章" },
   { id: "E16", name: "分幕" },
   { id: "E17", name: "路过的人" },
+  { id: "E18", name: "音量破音" },
+  { id: "E19", name: "按住的火" },
+  { id: "E20", name: "又迷路了" },
+  { id: "E21", name: "不在了" },
+  { id: "E22", name: "先不下楼" },
+  { id: "E23", name: "副歌现场" },
+  { id: "E24", name: "深夜档" },
+  { id: "E25", name: "又一遍" },
+  { id: "E26", name: "合拍" },
+  { id: "E27", name: "回来了" },
 ];
 
 export const DEMO_INFO: Record<string, string> = {
@@ -39,19 +49,29 @@ export const DEMO_INFO: Record<string, string> = {
   E15: "设置页安可集章卡，每发现一枚盖个章",
   E16: "队列超过 12 首，自动按 4 首分幕",
   E17: "播放中偶尔有人抱着琴从页面底下路过",
+  E18: "音量拉到 95% 以上，播放条破音抖一下",
+  E19: "播放页长按红心 1 秒，火焰燃起并顺手记下",
+  E20: "60 秒内连跳 3 首，被温柔地问一句",
+  E21: "在线曲目播放失败，「这首歌…已经不在了」",
+  E22: "断网瞬间，社恐式撤退提示",
+  E23: "副歌进场瞬间，全场应援光 + 各包自己的拟声",
+  E24: "22 点到凌晨 2 点启动播放，深夜档问候",
+  E25: "同一首歌累计放到第 3 遍，被点破",
+  E26: "连着听同一位艺人 5 首",
+  E27: "断网恢复的瞬间，从墙角探个头",
 };
 
 export const PALETTES = [
-  { id: "default", label: "默认 · 奶油粉白", dot: "#D63384", locked: false },
-  { id: "mygo", label: "迷子 · 蓝紫", dot: "#5E49B8", locked: true },
-  { id: "gbc", label: "暖橙 · 河边", dot: "#B7500F", locked: true },
-  { id: "btr", label: "粉白 · 强化", dot: "#C2185B", locked: true },
+  { id: "default", label: "默认 · 奶油粉白", dot: "#D63384", locked: false, origin: "" },
+  { id: "mygo", label: "迷子 · 雨夜", dot: "#5E49B8", locked: true, origin: "《BanG Dream! It's MyGO!!!!!》（迷途之子！！！）" },
+  { id: "gbc", label: "无滤镜 · 冷灰", dot: "#D92534", locked: true, origin: "《GIRLS BAND CRY》（少女乐队的呐喊）" },
+  { id: "btr", label: "墙角 · 暖米", dot: "#E75C8D", locked: true, origin: "《ぼっち・ざ・ろっく！》（孤独摇滚！）" },
 ];
 
 export const SECRET_CODES: Record<string, { palette: string; label: string }> = {
-  "迷子": { palette: "mygo", label: "MyGO 蓝紫" },
-  "深夜の練習室": { palette: "gbc", label: "GBC 暖橙" },
-  "アンコール": { palette: "btr", label: "BTR 粉白" },
+  "迷子": { palette: "mygo", label: "MyGO 雨夜" },
+  "深夜の練習室": { palette: "gbc", label: "GBC 无滤镜" },
+  "アンコール": { palette: "btr", label: "BTR 墙角" },
 };
 
 /** 音源色：与 design.md 的 --src-* 一致。 */

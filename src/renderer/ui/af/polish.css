@@ -15,7 +15,6 @@
   --sidebar-w:200px;
   --row-h:48px;
   --row-h-compact:40px;
-  --dur-page:300ms;
 }
 
 body{letter-spacing:.008em}
@@ -24,7 +23,6 @@ body{letter-spacing:.008em}
   font-size:var(--fs-display);line-height:var(--lh-display);
   letter-spacing:.015em;text-wrap:balance;
 }
-.page .display{font-size:30px;line-height:1.22}
 .h1{font-size:var(--fs-display);line-height:var(--lh-display)}
 .h2{font-size:var(--fs-heading);line-height:var(--lh-heading)}
 .h3{font-size:var(--fs-body);line-height:1.45}
@@ -102,7 +100,7 @@ body{letter-spacing:.008em}
 /* ---------------- 5. 发现页权重重排 ---------------- */
 .disc__head{margin-bottom:22px}
 .mix{padding:22px;border-radius:20px}
-.mix__title{font-size:30px;line-height:1.16}
+.mix__title{font-size:var(--fs-display);line-height:1.16}
 .top-card__art{aspect-ratio:1/1;height:auto;border-radius:12px}
 .top-card__art::before{transition:opacity .28s var(--ease)}
 .top-card__art::after{transition:border-color .28s var(--ease),inset .28s var(--ease)}
@@ -163,13 +161,8 @@ body{letter-spacing:.008em}
 .toasts{bottom:88px}
 
 /* ---------------- 7. 页面转场 ---------------- */
-.page{
-  animation:pageIn var(--dur-page) var(--ease-out-soft) both;
-}
-@keyframes pageIn{
-  from{opacity:0;transform:translateY(8px)}
-  to{opacity:1;transform:none}
-}
+/* 页面入场统一走 shell.css 的 .main__page pageIn（吃 --dur-base，随包节奏），
+   这里不再对 .page 重复定义，避免双层嵌套动画叠加。 */
 
 /* ---------------- 8. 自定义滚动条 ---------------- */
 .main__page{scrollbar-width:thin;scrollbar-color:rgba(214,51,132,.3) rgba(255,248,245,.7)}
@@ -217,6 +210,50 @@ body{letter-spacing:.008em}
 @media (prefers-reduced-motion:reduce){
   .empty-sheet,.search-empty-note.loop,.bar__seek-buffer{animation:none !important}
 }
+
+/* ---------------- 11.5 列表进场 stagger ----------------
+   曲库/榜单行逐项浮入：30ms/项，前 14 行封顶（之后的行直出，
+   长表不等最后一行）。nth-child 从 2 数起，1 是表头。
+   reduced-motion 由 motion.ts 映射成 data-motion="off" 直出终态。 */
+:root:not([data-motion="off"]) .tbl .tbl__row{
+  animation:rowIn 200ms var(--ease-out-soft) both;
+}
+:root:not([data-motion="off"]) .tbl .tbl__row:nth-child(n+16){animation:none}
+.tbl .tbl__row:nth-child(3){animation-delay:30ms}
+.tbl .tbl__row:nth-child(4){animation-delay:60ms}
+.tbl .tbl__row:nth-child(5){animation-delay:90ms}
+.tbl .tbl__row:nth-child(6){animation-delay:120ms}
+.tbl .tbl__row:nth-child(7){animation-delay:150ms}
+.tbl .tbl__row:nth-child(8){animation-delay:180ms}
+.tbl .tbl__row:nth-child(9){animation-delay:210ms}
+.tbl .tbl__row:nth-child(10){animation-delay:240ms}
+.tbl .tbl__row:nth-child(11){animation-delay:270ms}
+.tbl .tbl__row:nth-child(12){animation-delay:300ms}
+.tbl .tbl__row:nth-child(13){animation-delay:330ms}
+.tbl .tbl__row:nth-child(14){animation-delay:360ms}
+.tbl .tbl__row:nth-child(15){animation-delay:390ms}
+@keyframes rowIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+  .tbl .tbl__row{animation:none !important}
+}
+
+/* 详情页曲目单（.tracklist--setlist）同款 stagger：30ms/项，前 15 行封顶。
+   SIDE B 分隔条占一个 nth-child，15 行之后的行不延迟直出。 */
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(2){animation-delay:30ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(3){animation-delay:60ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(4){animation-delay:90ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(5){animation-delay:120ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(6){animation-delay:150ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(7){animation-delay:180ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(8){animation-delay:210ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(9){animation-delay:240ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(10){animation-delay:270ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(11){animation-delay:300ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(12){animation-delay:330ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(13){animation-delay:360ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(14){animation-delay:390ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(15){animation-delay:420ms}
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row:nth-child(n+16){animation-delay:0ms}
 
 /* ---------------- 12. 窄屏收敛 ---------------- */
 @media (max-width:1200px){

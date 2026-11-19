@@ -10,10 +10,19 @@ import { getHistory, subscribe as subscribeHistory, clearHistory as clearHistory
 import type { AccountKind } from "../hooks/use-account-likes.js";
 import type { Services } from "../services.js";
 import { Sound } from "./sound.js";
-import { SECRET_CODES } from "./data.js";
+import { likeToastCopy, eggText, packToastCopy, packEventCopy, setActivePalette } from "./copy.js";
+import { SECRET_CODES, PALETTES, EGGS } from "./data.js";
 import { usePref, useVisibilityHidden } from "./prefs.js";
 import type { AfApi, AfDensity, AfEqState, AfListEditor, AfMotion, AfMyList, AfOverlay, AfSleep, AfSource, AfThemePref, AfTrack } from "./context.js";
 import type { OnomaItem } from "./layers.js";
+
+/** E23 副歌现场：各包进场拟声 + 应援色（onoma tone）。 */
+const CHORUS_FX: Record<string, { say: string; tone: string }> = {
+  default: { say: "キラッ", tone: "coral" },
+  mygo: { say: "ヒカリ…", tone: "mint" },
+  gbc: { say: "ウォー!!", tone: "coral" },
+  btr: { say: "バン!!", tone: "yellow" },
+};
 
 export interface AfUiInput {
   page: string;
@@ -69,6 +78,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
 
   /* ---------- 偏好 / 浮层 ---------- */
   const [eggs, setEggs] = usePref<string[]>("eggs", []);
+  const [packEggs, setPackEggs] = usePref<Record<string, string[]>>("packEggs", {});
   const [palette, setPalette] = usePref<string>("palette", "default");
   const [unlocked, setUnlocked] = usePref<string[]>("unlocked", ["default"]);
   const [chorus, setChorus] = usePref<Record<string, number>>("chorus", {});
@@ -81,7 +91,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [rowMenu, setRowMenu] = useState<{ trackId: string; x: number; y: number } | null>(null);
   const [demoOpen, setDemoOpen] = useState(false);
   const [overlay, setOverlay] = useState<AfOverlay>(null);
-  const [corner, setCorner] = useState(false);
+  /** 角落小人：bye=背影离开（E13/E20 五连），peek=探头回来（E27 断网恢复） */
+  const [corner, setCorner] = useState<null | "bye" | "peek">(null);
   const [struckId, setStruckId] = useState<string | null>(null);
   const [sheerSide, setSheerSide] = useState<"l" | "r" | null>(null);
   const [onomas, setOnomas] = useState<OnomaItem[]>([]);
@@ -99,7 +110,22 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   /* 色板 / 动效档位落 DOM；主题由 theme.ts 管 */
   useEffect(() => {
     document.documentElement.dataset.palette = palette;
+    setActivePalette(palette); // 服务层字符串的收敛翻译点跟着换包
+    Sound.setPack(palette); // UI 音色跟着包换气质（btr 小声 / mygo 闷柔 / gbc 干硬）
   }, [palette]);
+
+  /* 世界随时间走：时段落 DOM（stage / 歌词墙按时段微调，纯 CSS 静态变化，不吃动效档位）
+     用 setTimeout 链对表（I1：ui 层不用 setInterval） */
+  useEffect(() => {
+    let timer = 0;
+    const apply = (): void => {
+      const h = new Date().getHours();
+      document.documentElement.dataset.hour = h >= 22 || h < 5 ? "night" : h >= 17 ? "dusk" : "day";
+      timer = window.setTimeout(apply, 60_000);
+    };
+    apply();
+    return () => window.clearTimeout(timer);
+  }, []);
   useEffect(() => {
     Sound.setEnabled(sfx && !reduce);
   }, [sfx, reduce]);
@@ -236,9 +262,16 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     discovered.current.add(id);
     const next = Array.from(discovered.current);
     setEggs(next);
+    if (palette !== "default") {
+      // 累积感：首次拾到时归档到当时的包，各包进度分开算
+      setPackEggs((prev) => {
+        const mine = prev[palette] ?? [];
+        return mine.includes(id) ? prev : { ...prev, [palette]: [...mine, id] };
+      });
+    }
     if (!opts?.silent) {
       Sound.ding();
-      toast(`拾到一枚拨片 · ${next.length}/17`, { icon: "pick" });
+      toast(`拾到一枚拨片 · ${next.length}/${EGGS.length}`, { icon: "pick" });
     }
   };
 
@@ -326,14 +359,23 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   };
 
   const skipStamps = useRef<number[]>([]);
+  const skipToastCount = useRef(0);
+  const chorusFired = useRef<string | null>(null);
+  const artistStreak = useRef<{ name: string; n: number }>({ name: "", n: 0 });
   const userSkip = (kind: "next" | "prev"): void => {
     const now = Date.now();
     skipStamps.current = skipStamps.current.filter((t) => now - t < 60_000);
     skipStamps.current.push(now);
+    if (skipStamps.current.length === 3) {
+      /* E20 三连迷路：先温柔地问一句，5 连还有角落小背影（E13）兜底 */
+      skipToastCount.current += 1;
+      discover("E20", { silent: true });
+      toast(eggText(palette, "lostSkip", skipToastCount.current), { hand: true });
+    }
     if (skipStamps.current.length >= 5) {
       skipStamps.current = [];
-      setCorner(true);
-      setTimeout(() => setCorner(false), 2900);
+      setCorner("bye");
+      setTimeout(() => setCorner(null), 2900);
       discover("E13");
       onoma("タッタッ…", { tone: "mint", x: window.innerWidth - 150, y: window.innerHeight - 150 });
     }
@@ -352,6 +394,37 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   };
 
   const shuffle = state.queue.mode === "shuffle";
+
+  /* E18 音量拉满：越过 95% 触发一次破音抖动 + 手写小字；降回去才重新武装。
+     文案递进池：第几次触发说第几句（copy.ts eggText n）。 */
+  const volArmed = useRef(true);
+  const volCount = useRef(0);
+  const setVolume = (v: number): void => {
+    dispatch({ type: "player/setVolume", volume: v });
+    if (v >= 0.95 && volArmed.current) {
+      volArmed.current = false;
+      volCount.current += 1;
+      discover("E18");
+      toast(eggText(palette, "volMax", volCount.current), { hand: true });
+      document.documentElement.classList.add("vol-max");
+      setTimeout(() => document.documentElement.classList.remove("vol-max"), 1200);
+    }
+    if (v < 0.95) volArmed.current = true;
+  };
+
+  /* E21 播放失败：这首歌…已经不在了（内核 player/error 会自动跳下一首，这里只补一句氛围） */
+  const wasPlayErr = useRef(false);
+  const playErrCount = useRef(0);
+  useEffect(() => {
+    const isErr = state.player.status === "error";
+    if (isErr && !wasPlayErr.current) {
+      playErrCount.current += 1;
+      discover("E21", { silent: true });
+      toast(eggText(palette, "goneSong", playErrCount.current), { hand: true });
+    }
+    wasPlayErr.current = isErr;
+  }, [state.player.status]);
+
   const toggleShuffle = (): void => {
     if (!shuffle) {
       discover("E07");
@@ -397,7 +470,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
       const wanted = !isAccountLiked(remote.songId);
       try {
         await pressAccountLike(port, remote.songId, wanted);
-        toast(wanted ? "已加入账号红心" : "已从账号红心移除", { icon: "check" });
+        toast(likeToastCopy(palette, wanted), { icon: "check" });
         if (wanted) discover("E05");
       } catch (err) {
         toast(err instanceof Error ? err.message : "红心没改成", { hand: true });
@@ -459,12 +532,29 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     const hit = SECRET_CODES[code];
     if (!hit) return false;
     Sound.unlock();
+    Sound.unbox();
     setPalette(hit.palette);
     setUnlocked((u) => (u.includes(hit.palette) ? u : [...u, hit.palette]));
     discover("E12");
     focus();
-    toast("这是今晚的秘密 setlist。♡", { hand: true, ms: 3400 });
+    setOverlay("unbox");
+    setTimeout(() => setOverlay((o) => (o === "unbox" ? null : o)), 2800);
+    setTimeout(() => toast("这是今晚的秘密 setlist。♡", { hand: true, ms: 3400 }), 1000);
     return true;
+  };
+
+  /* 换包过渡：每个包有专属的开场动画（eggs.css packfx--*），换包瞬间整站换色被动画盖住 */
+  const [packFx, setPackFx] = useState<string | null>(null);
+  const packFxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const switchPalette = (id: string): void => {
+    if (id === palette) return;
+    setPalette(id);
+    Sound.tap();
+    const label = PALETTES.find((p) => p.id === id)?.label ?? id;
+    toast(packToastCopy(palette, label), { icon: "check" });
+    setPackFx(id);
+    if (packFxTimer.current) clearTimeout(packFxTimer.current);
+    packFxTimer.current = setTimeout(() => setPackFx(null), 1500);
   };
 
   const logoClicks = useRef<number[]>([]);
@@ -538,6 +628,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
         break;
       case "E10":
         setOverlay("lyric");
+        setTimeout(() => setOverlay((o) => (o === "lyric" ? null : o)), 4600);
         break;
       case "E11":
         setOverlay("live");
@@ -548,8 +639,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
         input.setPage("settings");
         break;
       case "E13":
-        setCorner(true);
-        setTimeout(() => setCorner(false), 2900);
+        setCorner("bye");
+        setTimeout(() => setCorner(null), 2900);
         break;
       case "E14":
         setOverlay("idle");
@@ -564,6 +655,20 @@ export function useAfUi(input: AfUiInput): AfUiResult {
         setPlaying(true);
         setMascot(true);
         break;
+      case "E23":
+        chorusFired.current = null;
+        markChorus(Math.max(1, positionMs() / 1000));
+        setPlaying(true);
+        break;
+      case "E24":
+        toast(eggText(palette, "lateNight"), { hand: true, ms: 3600 });
+        break;
+      case "E27":
+        /* 断网恢复：从墙角探个头（真实触发在 index.tsx 的 offline 恢复沿；这里也是演示面板入口） */
+        setCorner("peek");
+        setTimeout(() => setCorner(null), 2900);
+        toast(eggText(palette, "netBack"), { hand: true });
+        break;
       default:
         break;
     }
@@ -577,9 +682,18 @@ export function useAfUi(input: AfUiInput): AfUiResult {
       discover("E01", { silent: true });
       toast("今晚的 setlist 还空着两行。", { hand: true, ms: 3200 });
     }, 1100);
+    /* E24 深夜档：22 点–凌晨 2 点启动播放时的问候（2–4 点归 E09 河边） */
+    const hour = new Date().getHours();
+    const t3 = setTimeout(() => {
+      if (hour >= 22 || hour < 2) {
+        discover("E24", { silent: true });
+        toast(eggText(palette, "lateNight"), { hand: true, ms: 3600 });
+      }
+    }, 2600);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -605,6 +719,15 @@ export function useAfUi(input: AfUiInput): AfUiResult {
       if (chorusAt != null) {
         const pos = positionMs() / 1000;
         if (pos >= chorusAt - 8 && pos < chorusAt) discover("E04", { silent: true });
+        /* E23 副歌现场：进场瞬间全场应援光一涨 + 各包自己的拟声；每首歌每次会话一次 */
+        if (pos >= chorusAt && pos < chorusAt + 6 && chorusFired.current !== currentId) {
+          chorusFired.current = currentId;
+          discover("E23", { silent: true });
+          const fx = CHORUS_FX[palette] ?? CHORUS_FX.default;
+          onoma(fx.say, { tone: fx.tone, x: window.innerWidth * 0.5, y: window.innerHeight * 0.3 });
+          document.documentElement.classList.add("chorus-live");
+          setTimeout(() => document.documentElement.classList.remove("chorus-live"), 2400);
+        }
       }
       timer = window.setTimeout(loop, 1000);
     }, 1000);
@@ -614,12 +737,29 @@ export function useAfUi(input: AfUiInput): AfUiResult {
 
   useEffect(() => {
     if (!currentId) return;
+    /* E25 又一遍 / E26 合拍：累计第 3 遍点破；同艺人连听 5 首点破（toast 各一次） */
+    if ((plays[currentId] ?? 0) + 1 === 3) {
+      setTimeout(() => toast(packEventCopy(palette, "repeatThree", (plays[currentId] ?? 0) + 1), { hand: true }), 800);
+      discover("E25");
+    }
+    const artist = track?.artist ?? "";
+    if (artist && artist === artistStreak.current.name) {
+      artistStreak.current = { name: artist, n: artistStreak.current.n + 1 };
+      if (artistStreak.current.n === 5) {
+        setTimeout(() => toast(packEventCopy(palette, "sameArtist", 5), { hand: true }), 1600);
+        discover("E26");
+      }
+    } else {
+      artistStreak.current = { name: artist, n: artist ? 1 : 0 };
+    }
     setPlays((p) => {
       const count = (p[currentId] ?? 0) + 1;
       if (count === 10) {
         setTimeout(() => {
           setOverlay("lyric");
           discover("E10");
+          /* 写词卡会盖住整个应用（z-96 + 毛玻璃），不放着不管：4.6s 自动收，点一下也能收 */
+          setTimeout(() => setOverlay((o) => (o === "lyric" ? null : o)), 4600);
         }, 700);
       }
       return { ...p, [currentId]: count };
@@ -666,11 +806,13 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   useEffect(() => {
     const fn = (e: KeyboardEvent): void => {
       if (e.key === "Escape" && playerOpen) closePlayer();
+      /* Esc 也能收掉盖住应用的氛围浮层（写词卡等） */
+      if (e.key === "Escape" && overlay) setOverlay(null);
     };
     window.addEventListener("keydown", fn);
     return () => window.removeEventListener("keydown", fn);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerOpen, reduce]);
+  }, [playerOpen, overlay, reduce]);
 
   /* ---------- 组装 ---------- */
   const queue = state.queue.items.map((id) => toAfTrack(id));
@@ -715,7 +857,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     toggleLike,
     reportDislike,
     volume: state.player.volume,
-    setVolume: (v) => dispatch({ type: "player/setVolume", volume: v }),
+    setVolume,
     source,
     sources,
     setSource: input.setSource,
@@ -734,9 +876,11 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     onomaAt,
     focus,
     eggs,
+    packEggs,
     discover,
     palette,
-    setPalette,
+    setPalette: switchPalette,
+    packFx,
     unlocked,
     tryCode,
     themePref: input.themePref,

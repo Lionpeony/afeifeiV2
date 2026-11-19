@@ -22,7 +22,7 @@ import {
 
 export function SettingsPage() {
   const af = useAf();
-  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, sfx, setSfx, motionPref, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
+  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, packEggs, sfx, setSfx, motionPref, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
   const [code, setCode] = useState("");
   const sleepEndsAt = getState().sleep.endsAt;
   const allEmpty = sources.every((s) => !accounts[s.id]);
@@ -108,20 +108,29 @@ export function SettingsPage() {
           <div className="set-line" style={{ marginTop: 6 }}>
             <div>
               <div className="set-line__label">限定色调</div>
-              <div className="set-line__hint">有些颜色要自己找出来。</div>
+              <div className="set-line__hint">有些颜色要自己找出来——锁着的色调，去顶部搜索框输暗号解锁。</div>
             </div>
           </div>
           <div className="palette-row">
             {PALETTES.map((p) => {
               const isUnlocked = !p.locked || unlocked.includes(p.id);
               return (
-                <button key={p.id} className={"palette-chip" + (palette === p.id ? " is-on" : "") + (isUnlocked ? "" : " is-locked")} onClick={() => { if (!isUnlocked) { toast("这个还锁着。", { hand: true }); return; } setPalette(p.id); }}>
+                <button key={p.id} className={"palette-chip" + (palette === p.id ? " is-on" : "") + (isUnlocked ? "" : " is-locked")} onClick={() => { if (!isUnlocked) { toast("这个还锁着。去顶部搜索框输个暗号试试。", { hand: true }); return; } setPalette(p.id); }}>
                   <span className="palette-chip__dot" style={{ background: isUnlocked ? p.dot : "var(--line-strong)" }}></span>
                   {isUnlocked ? p.label : "???"}
                 </button>
               );
             })}
           </div>
+          {palette !== "default" && unlocked.includes(palette) ? (
+            <>
+              {(() => {
+                const origin = PALETTES.find((p) => p.id === palette)?.origin;
+                return origin ? <div className="set-line__hint">灵感来自 {origin}。</div> : null;
+              })()}
+              <div className="set-line__hint">这只包里拾到了 {packEggs[palette]?.length ?? 0}/{EGGS.length} 枚拨片——每个包的收集是分开的。</div>
+            </>
+          ) : null}
         </div>
 
         <div className="set-card">
@@ -208,11 +217,11 @@ export function SettingsPage() {
               <p className="set-card__desc" style={{ marginBottom: 12 }}>每发现一个小彩蛋，这里就盖一枚拨片。盖满会怎样，我也不知道。</p>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div className="stamp-progress">{eggs.length} / 17</div>
+              <div className="stamp-progress">{eggs.length} / {EGGS.length}</div>
               <div className="meta" style={{ marginTop: 2 }}>已盖 {eggs.length} 枚</div>
             </div>
           </div>
-          <div className="stamp-bar"><i style={{ width: (eggs.length / 17) * 100 + "%" }}></i></div>
+          <div className="stamp-bar"><i style={{ width: (eggs.length / EGGS.length) * 100 + "%" }}></i></div>
           <div className="stamp-grid">
             {EGGS.map((e) => {
               const found = eggs.includes(e.id);

@@ -2,6 +2,8 @@
 import { useSyncExternalStore } from "react";
 
 import { useAf } from "./context.js";
+import { packLineCopy } from "./copy.js";
+import { EGGS } from "./data.js";
 import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconMoon, IconSettings, IconSparkle, IconSun, LogoMark } from "./icons.js";
 import { getLikes, subscribe as subscribeLikes } from "../../domain/likes/index.js";
 import { Tape } from "./ui.js";
@@ -9,7 +11,7 @@ import { Tape } from "./ui.js";
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
 
 export function Sidebar() {
-  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf, track, playing } = useAf();
+  const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf, track, playing, palette } = useAf();
   const likedCount = useSyncExternalStore(subscribeLikes, () => getLikes().size, () => 0);
 
   const nav: { id: NavId; label: string; icon: typeof IconCompass }[] = [
@@ -115,7 +117,7 @@ export function Sidebar() {
           )}
           <span className="side-hero__sfx hand" aria-hidden="true">ザッ</span>
           <span className="side-hero__bubble hand">
-            {hasTrack ? (playing ? "今晚也唱到散场。" : "先歇一会儿。") : "把第一首丢进队列。"}
+            {hasTrack ? (playing ? "今晚也唱到散场。" : "先歇一会儿。") : packLineCopy(palette, "queueEmpty")}
           </span>
         </span>
         <span className="side-hero__cap">
@@ -158,7 +160,7 @@ export function Sidebar() {
         </div>
 
         <div className="sidebar__foot">
-          <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 10 }}>彩蛋 {eggs.length}/17</span>
+          <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 10 }}>彩蛋 {eggs.length}/{EGGS.length}</span>
           <div className="row gap6">
             <button className={"icon-btn" + (themePref === "light" ? " is-on" : "")} onClick={() => setThemePref("light")} title="明亮 · 排练室" aria-label="明亮主题">
               <IconSun size={16} />

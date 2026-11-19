@@ -697,6 +697,32 @@ export async function bootstrap(): Promise<Services> {
     }
   }
 
+  /* 启动一律暂停（2026-11-19）：恢复只 cue 不播；系统媒体面板/内核补发的 play
+     也一并挡掉。用户第一次点窗口/按键前，任何“自己响起来”都按回暂停。 */
+  let startupGuardDone = false;
+  let unsubStartupGuard: (() => void) | null = null;
+  const finishStartupGuard = (): void => {
+    if (startupGuardDone) return;
+    startupGuardDone = true;
+    document.removeEventListener("pointerdown", finishStartupGuard, true);
+    document.removeEventListener("keydown", finishStartupGuard, true);
+    unsubStartupGuard?.();
+  };
+  unsubStartupGuard = subscribe(() => {
+    if (startupGuardDone) return;
+    const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
+    if (ua?.hasBeenActive) {
+      finishStartupGuard();
+      return;
+    }
+    if (getState().player.status === "playing") {
+      dispatch({ type: "player/pause" });
+      console.warn("[startup] 启动自动播放已拦下（用户尚未交互）");
+    }
+  });
+  document.addEventListener("pointerdown", finishStartupGuard, true);
+  document.addEventListener("keydown", finishStartupGuard, true);
+
   window.addEventListener("beforeunload", () => {
     void persister.flush(getState, () => clock.t(performance.now()));
   });

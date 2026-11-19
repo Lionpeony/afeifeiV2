@@ -5,6 +5,7 @@ import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
 import { IconPlay } from "../icons.js";
 import { EmptySetlist } from "../ui.js";
+import { eggText, packLineCopy, historyEmptyCopy } from "../copy.js";
 
 const dayStart = (t: number): number => {
   const d = new Date(t);
@@ -60,7 +61,7 @@ export function HistoryPage() {
               className={"btn btn-sm " + (confirmClear ? "btn-primary" : "btn-ghost")}
               onClick={() => {
                 if (!rows.length) { af.toast("还没有记录可以清", { hand: true }); return; }
-                if (!confirmClear) { setConfirmClear(true); setTimeout(() => setConfirmClear(false), 3600); return; }
+                if (!confirmClear) { setConfirmClear(true); setTimeout(() => setConfirmClear(false), 3600); af.toast(packLineCopy(af.palette, "confirmClear"), { hand: true }); return; }
                 af.clearHistory();
                 setConfirmClear(false);
                 af.toast("历史清空了，歌单不受影响", { hand: true });
@@ -80,7 +81,7 @@ export function HistoryPage() {
       </div>
 
       {rows.length === 0 ? (
-        <EmptySetlist title="还没有人开过口。" sub="从发现页随便点一首，这里就开始记账了。" cta="去听一首" onGo={() => af.setPage("online")} />
+        <EmptySetlist title={historyEmptyCopy(af.palette).title} sub={historyEmptyCopy(af.palette).sub} cta="去听一首" onGo={() => af.setPage("online")} />
       ) : (
         groups.map((g) => (
           <section className="hist__group" key={g.key}>

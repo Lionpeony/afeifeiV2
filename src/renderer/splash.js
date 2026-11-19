@@ -31,7 +31,8 @@
   var hid = false;
 
   function hide(target, started) {
-    var wait = Math.max(0, 1650 - (performance.now() - started));
+    /* 开场编排到第三个音符飘完约 3.6s（splash.css），到点再退场 */
+    var wait = Math.max(0, 3550 - (performance.now() - started));
     setTimeout(function () {
       target.classList.add("is-done");
       setTimeout(function () {
@@ -62,5 +63,5 @@
     return;
   }
   /* 兜底：App 挂载异常也不能让启动层永远盖着 */
-  setTimeout(window.__bootDone, 4200);
+  setTimeout(window.__bootDone, 5300);
 })();

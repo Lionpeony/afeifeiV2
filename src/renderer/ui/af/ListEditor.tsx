@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAf } from "./context.js";
 import { TrackArt } from "./art.js";
 import { IconCheck, IconPlus, IconX } from "./icons.js";
+import { packLineCopy, packSlotCopy } from "./copy.js";
 import type { AfMyList } from "./context.js";
 
 const COVER_KEYS = ["amp", "rain", "river", "dark", "curtain", "store", "moon", "paper"];
@@ -13,7 +14,7 @@ const COVER_NAMES: Record<string, string> = {
 
 export function ListEditor() {
   const af = useAf();
-  const { listEditor, setListEditor, myLists, setMyLists, openList, toast, setPage } = af;
+  const { listEditor, setListEditor, myLists, setMyLists, openList, toast, setPage, palette } = af;
   const editing = listEditor?.list ?? null;
   const [name, setName] = useState(editing?.name ?? "");
   const [note, setNote] = useState(editing?.note ?? "");
@@ -57,7 +58,7 @@ export function ListEditor() {
 
   const remove = (): void => {
     if (!editing) return;
-    if (!confirmDel) { setConfirmDel(true); return; }
+    if (!confirmDel) { setConfirmDel(true); toast(packSlotCopy(palette, "confirmDelete", editing.name), { hand: true }); return; }
     setMyLists(myLists.filter((l) => l.id !== editing.id));
     toast("歌单删掉了，歌还在库里", { hand: true });
     setListEditor(null);
@@ -113,7 +114,7 @@ export function AddToListPanel({ trackId, onDone }: { trackId: string; onDone():
   return (
     <div className="rowmenu__sub">
       <div className="rowmenu__sub-title eyebrow">加入我的歌单</div>
-      {af.myLists.length === 0 ? <div className="rowmenu__empty">还没有自己建过歌单</div> : null}
+      {af.myLists.length === 0 ? <div className="rowmenu__empty">{packLineCopy(af.palette, "playlistsEmpty")}</div> : null}
       {af.myLists.map((l: AfMyList) => (
         <button key={l.id} className="rowmenu__sublist" onClick={() => { af.addToMyList(l.id, trackId); af.toast(`已加入「${l.name}」`, { icon: "check" }); onDone(); }}>
           <TrackArt id={"cover-" + l.cover} size={22} radius={6} />

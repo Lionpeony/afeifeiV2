@@ -4,6 +4,16 @@
 let ctx: AudioContext | null = null;
 let enabled = true;
 
+/* 包音色：同一套音效，换包时跟着换气质（anime-theme-packs.html §02「UI 音色」落点）
+   rate=频率倍率（低=闷），gainMul=音量倍率（小=社恐）。 */
+const PACK_SFX: Record<string, { rate: number; gainMul: number }> = {
+  default: { rate: 1, gainMul: 1 },
+  mygo: { rate: 0.82, gainMul: 0.85 }, // 雨夜·闷柔
+  gbc: { rate: 1.14, gainMul: 1.2 },   // 干硬·顶
+  btr: { rate: 1, gainMul: 0.5 },      // 墙角·小声，怕吵到人
+};
+let sfxPack = PACK_SFX.default;
+
 function ac(): AudioContext | null {
   if (!enabled) return null;
   try {
@@ -47,9 +57,9 @@ function tone({
   const o = a.createOscillator();
   const g = a.createGain();
   o.type = type;
-  o.frequency.setValueAtTime(freq, t0);
-  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t0 + dur);
-  env(g, t0, 0.008, dur, gain);
+  o.frequency.setValueAtTime(freq * sfxPack.rate, t0);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq * sfxPack.rate + slide), t0 + dur);
+  env(g, t0, 0.008, dur, gain * sfxPack.gainMul);
   o.connect(g).connect(a.destination);
   o.start(t0);
   o.stop(t0 + dur + 0.05);
@@ -79,10 +89,10 @@ function noise({
   src.buffer = buf;
   const bp = a.createBiquadFilter();
   bp.type = "bandpass";
-  bp.frequency.value = freq;
+  bp.frequency.value = freq * sfxPack.rate;
   bp.Q.value = q;
   const g = a.createGain();
-  env(g, t0, 0.01, dur, gain);
+  env(g, t0, 0.01, dur, gain * sfxPack.gainMul);
   src.connect(bp).connect(g).connect(a.destination);
   src.start(t0);
 }
@@ -90,6 +100,10 @@ function noise({
 export const Sound = {
   setEnabled(v: boolean): void {
     enabled = v;
+  },
+  /** 换包时同步 UI 音色（use-af 的 palette effect 调） */
+  setPack(p: string): void {
+    sfxPack = PACK_SFX[p] ?? PACK_SFX.default;
   },
   /** E01 / E03 拨弦 */
   pluck(): void {
@@ -118,5 +132,11 @@ export const Sound = {
   /** 暗号解锁 */
   unlock(): void {
     [523, 659, 784, 1046].forEach((f, i) => tone({ freq: f, type: "sine", dur: 0.2, gain: 0.038, delay: i * 0.075 }));
+  },
+  /** E12 开箱：盒盖弹开的闷响 + 彩屑闪；节拍对齐动画（盖飞 0.95s、彩屑 1.02s） */
+  unbox(): void {
+    tone({ freq: 200, type: "triangle", dur: 0.14, gain: 0.06, slide: -110, delay: 0.9 });
+    noise({ dur: 0.1, gain: 0.04, freq: 1000, q: 1.4, delay: 0.92 });
+    [1175, 1568, 2093].forEach((f, i) => tone({ freq: f, type: "sine", dur: 0.12, gain: 0.026, delay: 1.02 + i * 0.06 }));
   },
 };

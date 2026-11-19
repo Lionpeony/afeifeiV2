@@ -185,7 +185,7 @@
 }
 .np-hint__go{
   height:24px;padding:0 10px;border-radius:999px;font-size:10px;font-weight:600;
-  color:#fff;background:var(--pink-600);white-space:nowrap;
+  color:var(--on-accent);background:var(--pink-600);white-space:nowrap;
 }
 .np-hint__go:hover{background:#C72D78}
 .np-hint__close{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--text-3)}
@@ -229,3 +229,10 @@
   -webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
   mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);
 }
+
+/* ---- 主题包 · 歌词墙的「字」：每包自己的字（token 管不了字重的性格，包级覆盖） ---- */
+:root[data-palette="mygo"] .lw-line__jp{font-style:italic;letter-spacing:.05em}
+:root[data-palette="gbc"] .lw-line__jp{font-weight:800;text-shadow:0 0 .6px currentColor,.8px 0 0 currentColor,-.8px 0 0 currentColor}
+:root[data-palette="gbc"] .lw-line.is-cur .lw-line__jp{letter-spacing:.01em}
+:root[data-palette="btr"] .lw-line__jp{letter-spacing:.12em}
+:root[data-palette="btr"] .lw-line.is-cur .lw-line__jp{letter-spacing:.14em}

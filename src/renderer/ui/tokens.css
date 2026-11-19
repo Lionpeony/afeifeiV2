@@ -110,6 +110,7 @@
   --accent-ink:var(--on-accent);
   --on-accent:#FFFFFF;
   --on-gradient:#FFFFFF;
+  --ink-on-pastel:#3D2530;         /* 粉彩渐变（--pink-400→#C8B6F0 一族）上的墨，白字不达 AA */
   --scrim:rgba(32,20,28,.46);
   --marker-line:rgba(255,209,102,.55);
   --focus-ring:0 0 0 3px rgba(214,51,132,.35);
@@ -191,21 +192,118 @@
   --brass:#D4A943;
 }
 
-/* 限定色板 · E12 */
+/* 限定色板 · E12
+   MAIGO 主题包（迷子 · 雨夜）：完整 token 覆盖，方案见 Design Files anime-theme-packs.html。
+   结构 token（间距/布局/字体角色）不覆盖，仍走基座；暗色块必须放在亮色块之后，
+   选择器多一档 data-theme 以保证在熄灯下也生效（基座暗色块是同权重的 :root[data-theme="dark"]）。 */
 :root[data-palette="mygo"]{
-  --bg:#F7F6FF; --bg-sub:#ECEBFB;
-  --pink-600:#5E49B8; --pink-650:#4A379B; --pink-700:#4A379B;
-  --lav:#5E49B8; --pink-400:#9B8FD4;
-  --wash:rgba(123,95,201,.09);
+  --bg:#F7F6FF; --bg-sub:#ECEBFB; --card:#FFFFFF;
+  --text:#2E2A3A; --text-2:#625C74; --text-3:#7A7390;
+  --pink-400:#9B8FD4;              /* 装饰：雨夜浅紫，禁作交互 */
+  --pink-600:#5E49B8;              /* 交互：雨夜紫 */
+  --pink-650:#4A379B; --pink-700:#3F2F84;
+  --lav:#5E49B8; --mint:#4FA3E3;
+  --coral:#C2426E; --coral-deco:#E8618C;
+  --line:rgba(46,42,58,.12); --line-strong:rgba(46,42,58,.22);
+  --wash:rgba(94,73,184,.09);
+  --shadow:0 4px 20px rgba(94,73,184,.14);
+  --shadow-soft:0 2px 10px rgba(46,42,58,.06);
+  --shadow-lift:0 14px 34px rgba(94,73,184,.20);
+  --shadow-pop:0 8px 32px rgba(46,42,58,.18);
+  --gradient-tri:linear-gradient(90deg,#4FA3E3,#8C6FD9,#E8618C);
+  --focus-ring:0 0 0 3px rgba(94,73,184,.35);
+  --radius-card:12px; --radius-sheet:16px; --radius-btn:999px;  /* 形状语言：手绘圆角 */
+  --card-border-style:dashed;                                    /* 迷路的手绘虚线 */
+  --dur-fast:275ms; --dur-base:475ms;                            /* 节奏：温柔慢半拍 */
 }
+:root[data-theme="dark"][data-palette="mygo"]{
+  --bg:#211E2E; --bg-sub:#2A2740; --card:#332F4C;
+  --text:#F0EDF6; --text-2:#ACA5C2; --text-3:#8F88A8;
+  --pink-400:#B9A7F0; --pink-600:#9B8FD4; --pink-650:#B9A7F0; --pink-700:#B9A7F0;
+  --lav:#B9A7F0; --mint:#8FDCEE;
+  --coral:#FF8A9B; --coral-deco:#FF8A9B;
+  --line:rgba(240,237,246,.12); --line-strong:rgba(240,237,246,.22);
+  --wash:rgba(185,167,240,.10);
+  --shadow:0 4px 22px rgba(0,0,0,.28);
+  --shadow-soft:0 2px 10px rgba(0,0,0,.22);
+  --shadow-lift:0 16px 36px rgba(0,0,0,.4);
+  --shadow-pop:0 8px 32px rgba(0,0,0,.42);
+  --focus-ring:0 0 0 3px rgba(185,167,240,.4);
+  --dur-fast:275ms; --dur-base:475ms;                            /* 节奏：温柔慢半拍 */
+}
+/* RAW 主题包（无滤镜 · GBC 气质）：冷灰纸 × 嘶吼红 × 夜港蓝，方角示人。
+   方案见 Design Files anime-theme-packs.html；结构 token 不覆盖。 */
 :root[data-palette="gbc"]{
-  --bg:#FFF8EE; --bg-sub:#FFEBD4;
-  --pink-600:#B7500F; --pink-650:#93400B; --pink-700:#93400B;
-  --pink-400:#E89050; --lav:#B7500F;
-  --mint:#7FB7B0; --wash:rgba(232,144,80,.10);
+  --bg:#F3F2F0; --bg-sub:#E7E5E2; --card:#FFFFFF;
+  --text:#211E24; --text-2:#57525C; --text-3:#6E6874;
+  --pink-400:#EE7A86;              /* 装饰：褪色红，禁作交互 */
+  --pink-600:#D92534;              /* 交互：嘶吼红 */
+  --pink-650:#B91D2B; --pink-700:#9E1824;
+  --lav:#2C55A8; --mint:#2C55A8;
+  --coral:#C62A3F; --coral-deco:#D92534;
+  --line:rgba(33,30,36,.12); --line-strong:rgba(33,30,36,.22);
+  --wash:rgba(217,37,52,.08);
+  --shadow:0 4px 18px rgba(33,30,36,.14);
+  --shadow-soft:0 2px 10px rgba(33,30,36,.06);
+  --shadow-lift:0 14px 30px rgba(33,30,36,.20);
+  --shadow-pop:0 8px 32px rgba(33,30,36,.18);
+  --gradient-tri:linear-gradient(90deg,#D92534,#2C55A8);
+  --focus-ring:0 0 0 3px rgba(217,37,52,.35);
+  --radius-card:10px; --radius-sheet:14px; --radius-btn:10px;   /* 形状语言：印刷方角 */
+  --grain-opacity:.5;
 }
+:root[data-theme="dark"][data-palette="gbc"]{
+  --bg:#0F1318; --bg-sub:#161C23; --card:#1D242C;
+  --text:#E9EBEE; --text-2:#9BA3AD; --text-3:#7D8791;
+  --pink-400:#FF7A86; --pink-600:#FF4256; --pink-650:#FF6B77; --pink-700:#FF6B77;
+  --lav:#7FA3D9; --mint:#7FA3D9;
+  --coral:#FF8A9B; --coral-deco:#FF4256;
+  --line:rgba(233,235,238,.12); --line-strong:rgba(233,235,238,.22);
+  --wash:rgba(255,66,86,.10);
+  --shadow:0 4px 22px rgba(0,0,0,.28);
+  --shadow-soft:0 2px 10px rgba(0,0,0,.22);
+  --shadow-lift:0 16px 36px rgba(0,0,0,.4);
+  --shadow-pop:0 8px 32px rgba(0,0,0,.42);
+  --focus-ring:0 0 0 3px rgba(255,66,86,.4);
+  --grain-opacity:.65; --grain-blend:overlay;
+  --dur-fast:140ms; --dur-base:250ms; --ease:var(--ease-curtain); /* 节奏：短促硬切，不废话 */
+}
+/* KADO 主题包（墙角英雄 · 孤独摇滚气质）：暖米纸 × 墙角粉 × 火焰黄 × 运动服青。 */
 :root[data-palette="btr"]{
-  --bg:#FFF5F8; --bg-sub:#FFDFE7;
-  --pink-600:#C2185B; --pink-650:#9E1149; --pink-700:#9E1149;
-  --pink-400:#FF6B9D; --wash:rgba(255,107,157,.12);
+  --bg:#F7F3EC; --bg-sub:#EFE8DD; --card:#FFFDF8;
+  --text:#3A2E33; --text-2:#6E5D66; --text-3:#84727B;
+  --pink-400:#F1789F;              /* 装饰：舞台粉，禁作交互 */
+  /* AA 回炉：原 #E75C8D 配白字只有 3.3:1，整档下压一档（色相不变） */
+  --pink-600:#C43F70;              /* 交互：墙角粉 */
+  --pink-650:#B93B6A; --pink-700:#A83360;
+  --lav:#2E7A99; --mint:#4EA8C9;
+  --coral:#C62A3F; --coral-deco:#E75C8D;
+  --line:rgba(58,46,51,.12); --line-strong:rgba(58,46,51,.22);
+  --wash:rgba(231,92,141,.09);
+  --shadow:0 4px 18px rgba(58,46,51,.12);
+  --shadow-soft:0 2px 10px rgba(58,46,51,.06);
+  --shadow-lift:0 14px 30px rgba(58,46,51,.18);
+  --shadow-pop:0 8px 32px rgba(58,46,51,.18);
+  --gradient-tri:linear-gradient(90deg,#FFC53D,#E75C8D,#4EA8C9);
+  --focus-ring:0 0 0 3px rgba(231,92,141,.35);
+  --radius-card:14px; --radius-sheet:18px; --radius-btn:999px;  /* 形状语言：软软的圆 */
+  --grain-opacity:.25;
+  --ink-on-pastel:#3D2530;         /* 粉彩渐变上的墨（白字在粉彩上不达 AA） */
+  --ease:var(--ease-spring);       /* 节奏：软软回弹，怯懦里带一点弹 */
+}
+:root[data-theme="dark"][data-palette="btr"]{
+  --bg:#191419; --bg-sub:#211B21; --card:#2A222A;
+  --text:#F3ECF0; --text-2:#B5A6AE; --text-3:#97868F;
+  --pink-400:#F1789F; --pink-600:#F1789F; --pink-650:#F492B2; --pink-700:#F492B2;
+  --lav:#8FCFDD; --mint:#6FC4DC;
+  --coral:#FF8A9B; --coral-deco:#F1789F;
+  --line:rgba(243,236,240,.12); --line-strong:rgba(243,236,240,.22);
+  --wash:rgba(241,120,159,.10);
+  --shadow:0 4px 22px rgba(0,0,0,.28);
+  --shadow-soft:0 2px 10px rgba(0,0,0,.22);
+  --shadow-lift:0 16px 36px rgba(0,0,0,.4);
+  --shadow-pop:0 8px 32px rgba(0,0,0,.42);
+  --focus-ring:0 0 0 3px rgba(241,120,159,.4);
+  --grain-opacity:.2; --grain-blend:overlay;
+  --ease:var(--ease-spring);       /* 节奏：软软回弹，怯懦里带一点弹 */
 }

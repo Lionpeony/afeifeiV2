@@ -4,7 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
-import { EGGS, DEMO_INFO, sourceShort, sourceTone } from "./data.js";
+import { EGGS, DEMO_INFO, PALETTES, sourceShort, sourceTone } from "./data.js";
+import { eggText, packLineCopy } from "./copy.js";
 import {
   GuitarFigure,
   IconArrowRight,
@@ -93,7 +94,7 @@ export function useLyricLines(): { text: string; startMs: number }[] {
 
 /* ---------- 彩蛋层 ---------- */
 export function EggLayer() {
-  const { overlay, corner } = useAf();
+  const { overlay, corner, palette, packFx, setOverlay } = useAf();
   return (
     <>
       {overlay === "river" && (
@@ -128,7 +129,7 @@ export function EggLayer() {
       )}
 
       {overlay === "lyric" && (
-        <div className="lyric">
+        <div className="lyric" role="button" title="点一下收起来" onClick={() => setOverlay(null)}>
           <div className="lyric__note">
             <Tape w={72} rot={-2} style={{ top: -11, left: "50%", marginLeft: -36 }} />
             <div className="eyebrow" style={{ color: "rgba(61,43,57,.45)" }}>练习本 · 第 43 页</div>
@@ -152,10 +153,57 @@ export function EggLayer() {
         </div>
       )}
 
+      {overlay === "unbox" && (
+        <div className="unbox" aria-hidden="true">
+          <div className="unbox__burst">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <i key={i} style={{ ["--a" as string]: `${i * 45}deg`, ["--j" as string]: `${0.82 + (i % 3) * 0.18}` }}></i>
+            ))}
+          </div>
+          <div className="unbox__box">
+            <span className="unbox__ribbon"></span>
+            <span className="unbox__dot"></span>
+            <span className="unbox__lid"></span>
+          </div>
+          <div className="unbox__copy">{(PALETTES.find((p) => p.id === palette) ?? PALETTES[0]).label}</div>
+          <div className="unbox__meta">THEME UNBOXED</div>
+        </div>
+      )}
+
+      {packFx && (
+        <div className={"packfx packfx--" + packFx} key={packFx} aria-hidden="true">
+          {packFx === "mygo" && (
+            <>
+              <div className="packfx__rain"></div>
+              <span className="packfx__ripple"></span>
+              <div className="packfx__copy">雨停了。</div>
+            </>
+          )}
+          {packFx === "gbc" && (
+            <>
+              <div className="packfx__flash"></div>
+              <div className="packfx__frame"></div>
+              <div className="packfx__copy">无滤镜，直出。</div>
+            </>
+          )}
+          {packFx === "btr" && (
+            <>
+              <div className="packfx__spot"></div>
+              <div className="packfx__copy">灯，亮了。</div>
+            </>
+          )}
+          {packFx === "default" && <span className="packfx__ripple"></span>}
+        </div>
+      )}
+
       {corner && (
         <>
-          <div className="corner-figure"><Silhouette w={66} h={82} /></div>
-          <div className="corner-figure__copy">……我先回去练琴了。</div>
+          <div className="corner-figure">
+            <Silhouette w={66} h={82} pose={corner === "peek" ? "peek" : "wave"} />
+          </div>
+          <div className="corner-figure__copy">
+            {corner === "peek" ? eggText(palette, "netBack") : "……我先回去练琴了。"}
+          </div>
         </>
       )}
     </>
@@ -177,7 +225,7 @@ export function DemoPanel() {
         <div className="demo__head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 6 }}>原型演示</div>
-            <h2 className="h1">17 个彩蛋，随手点一个</h2>
+            <h2 className="h1">{EGGS.length} 个彩蛋，随手点一个</h2>
           </div>
           <button className="icon-btn" onClick={() => setDemoOpen(false)} aria-label="关闭"><IconX size={18} /></button>
         </div>
@@ -200,7 +248,7 @@ export function DemoPanel() {
           ))}
         </div>
         <div className="demo__foot">
-          <span className="meta">已发现 {eggs.length} / 17 · 记录保存在本地</span>
+          <span className="meta">已发现 {eggs.length} / {EGGS.length} · 记录保存在本地</span>
           <span className="meta">按 Esc 或点空白关闭</span>
         </div>
       </div>
@@ -243,7 +291,7 @@ function FakeQR({ seed = "afeifei", size = 96 }: { seed?: string; size?: number 
 }
 
 export function Auth() {
-  const { sources, accounts, loggedIn, loginFor, toast } = useAf();
+  const { sources, accounts, loggedIn, loginFor, toast, palette } = useAf();
   const [entered, setEntered] = usePref("entered", false);
   if (entered || loggedIn) return null;
   const linkedAny = Object.values(accounts).some(Boolean);
@@ -303,13 +351,13 @@ export function Auth() {
             onClick={() => {
               setEntered(true);
               Sound.paper();
-              toast("幕布拉开了，今晚的自助。", { hand: true, ms: 2600 });
+              toast(packLineCopy(palette, "guide"), { hand: true, ms: 2600 });
             }}
           >
             {linkedAny ? "拉开幕布，进后台" : "先登记一个账号"}
             <IconArrowRight size={15} />
           </button>
-          <button className="auth__skip hand" onClick={() => { setEntered(true); toast("没登录也能逛，只是没有歌单数据。", { hand: true }); }}>
+          <button className="auth__skip hand" onClick={() => { setEntered(true); toast(packLineCopy(palette, "emptyLoggedOut"), { hand: true }); }}>
             先随便逛逛（不要账号）
           </button>
         </div>

@@ -16,49 +16,118 @@
 
 .splash__inner{width:min(520px,70vw);text-align:center}
 
+/* 拨片 logo：从天上掉下来带一次落地弹跳（ui-ux-pro-max：入场用 expo-out 式缓动） */
+.splash__pick{
+  display:block;margin:0 auto;
+  will-change:transform,opacity;
+  animation:splashPick .62s cubic-bezier(.2,.9,.25,1.15) both;
+}
 .splash__logo{
   display:flex;flex-direction:column;align-items:center;
-  animation:splashFade .4s cubic-bezier(.22,.61,.36,1) both;
 }
 .splash__word{
   margin-top:12px;
   font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
-  font-size:15px;letter-spacing:.42em;padding-left:.42em;
-  color:#3D2B39;
+  font-size:15px;letter-spacing:.42em;color:#3D2B39;
 }
+/* 字母逐个跳起（stagger 40ms，符合技能给的小步进建议） */
+.splash__word i{
+  font-style:normal;display:inline-block;
+  opacity:0;transform:translate3d(0,14px,0);
+  will-change:transform,opacity;
+  animation:splashLetter .38s cubic-bezier(.22,.61,.36,1) both;
+}
+.splash__word i:nth-child(1){animation-delay:300ms}
+.splash__word i:nth-child(2){animation-delay:340ms}
+.splash__word i:nth-child(3){animation-delay:380ms}
+.splash__word i:nth-child(4){animation-delay:420ms}
+.splash__word i:nth-child(5){animation-delay:460ms}
+.splash__word i:nth-child(6){animation-delay:500ms}
+.splash__word i:nth-child(7){animation-delay:540ms}
 :root[data-theme="dark"] .splash__word{color:#F3E9EF}
 .splash__sub{
   margin-top:6px;
   font-family:var(--font-hand,"ZCOOL KuaiLe",cursive);
   font-size:11px;letter-spacing:.2em;
   color:#A08B99;
+  opacity:0;will-change:transform,opacity;
+  animation:splashLetter .4s cubic-bezier(.22,.61,.36,1) 640ms both;
 }
 
+/* 轨道虚线画在 ::after 上做 clip-path 揭示（画在 rail 本体会把火花/音符一起裁掉） */
 .splash__rail{
-  position:relative;height:56px;margin-top:34px;
-  border-bottom:1.5px dashed #D9C6D2;
+  position:relative;height:64px;margin-top:34px;
 }
-:root[data-theme="dark"] .splash__rail{border-bottom-color:#3E3242}
+.splash__rail::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;
+  border-bottom:1.5px dashed #D9C6D2;
+  clip-path:inset(0 100% 0 0);
+  animation:splashRail .5s cubic-bezier(.22,.61,.36,1) 480ms both;
+}
+:root[data-theme="dark"] .splash__rail::after{border-bottom-color:#3E3242}
 
-/* 整条轨道平移（= 吉他手滑过），只动 transform */
+/* 吉他滑入→带一点回弹地停在右半场，只动 transform；一段主缓动，不抖方向 */
 .splash__slide{
   position:absolute;left:0;right:0;top:0;bottom:0;
-  transform:translate3d(-12%,0,0);
+  transform:translate3d(-34%,0,0);
   will-change:transform;
-  animation:splashSlide 1050ms cubic-bezier(.65,0,.35,1) 100ms both;
+  animation:splashSlide 1380ms cubic-bezier(.3,.6,.18,1) 620ms both;
 }
 .splash__guitar{
-  position:absolute;left:0;bottom:3px;color:#E2478F;
-  transform-origin:50% 55%;
+  position:absolute;left:0;bottom:-12px;color:#E2478F;
+  transform-origin:42% 60%;
   will-change:transform;
-  animation:splashTilt 1050ms cubic-bezier(.65,0,.35,1) 100ms both;
+  animation:splashTilt 1380ms cubic-bezier(.3,.6,.18,1) 620ms both;
 }
 .splash__guitar svg{display:block}
 
+/* 速度残影：跟吉他同路线慢半拍的两条拖影，卖出速度感 */
+.splash__ghost{
+  position:absolute;left:6px;bottom:2px;width:96px;height:26px;border-radius:99px;
+  background:#E2478F;filter:blur(9px);opacity:0;
+  will-change:transform,opacity;
+  animation:splashSlide 1380ms cubic-bezier(.3,.6,.18,1) 700ms both, splashGhost 1380ms linear 700ms both;
+}
+.splash__ghost--2{
+  left:-14px;width:120px;height:18px;bottom:6px;
+  animation-delay:760ms,760ms;
+}
+
+/* 落点火花：吉他停稳后在琴头处迸三粒，一前一后 */
 .splash__spark{
-  position:absolute;bottom:-2px;left:56%;width:5px;height:5px;border-radius:50%;
+  position:absolute;bottom:-2px;left:66%;width:5px;height:5px;border-radius:50%;
   background:#FFD166;opacity:0;will-change:transform,opacity;
-  animation:splashSpark .5s cubic-bezier(.22,.61,.36,1) 1020ms both;
+  animation:splashSpark .55s cubic-bezier(.22,.61,.36,1) 1830ms both;
+}
+.splash__spark--2{
+  left:70%;width:4px;height:4px;background:#FF8FAE;
+  animation-delay:1920ms;animation-duration:.6s;
+}
+.splash__spark--3{
+  left:63%;width:3px;height:3px;background:#B8A9E8;
+  animation-delay:1990ms;animation-duration:.5s;
+}
+
+/* 冲击波圈：落地一圈涟漪扩散 */
+.splash__ring{
+  position:absolute;bottom:-14px;left:68%;width:14px;height:14px;border-radius:50%;
+  border:2px solid #FFD166;opacity:0;will-change:transform,opacity;
+  animation:splashRing .7s cubic-bezier(.22,.61,.36,1) 1860ms both;
+}
+
+/* 停稳后从琴头飘出三个音符（transform+opacity，合成器跑） */
+.splash__note{
+  position:absolute;bottom:26px;left:66%;
+  font-size:15px;color:#B8A9E8;opacity:0;will-change:transform,opacity;
+  animation:splashNote 1.15s cubic-bezier(.22,.61,.36,1) 2100ms both;
+}
+.splash__note--2{
+  left:71%;font-size:12px;color:#7EC8E3;
+  animation-delay:2260ms;animation-duration:1.25s;
+}
+.splash__note--3{
+  left:61%;font-size:11px;color:#FF8FAE;
+  animation-delay:2420ms;animation-duration:1.2s;
 }
 
 .splash__bar{
@@ -76,27 +145,53 @@
   position:absolute;inset:0;display:block;background:#F0E2EA;
   will-change:transform;
   transform:translate3d(0,0,0);
-  animation:splashBar 1150ms cubic-bezier(.22,.61,.36,1) 100ms both;
+  animation:splashBar 1500ms cubic-bezier(.22,.61,.36,1) 620ms both;
 }
 :root[data-theme="dark"] .splash__bar b{background:#382C3D}
 
 @keyframes splashFade{from{opacity:0}to{opacity:1}}
-@keyframes splashSlide{
-  0%{transform:translate3d(-12%,0,0)}
-  62%{transform:translate3d(48%,0,0)}
-  78%{transform:translate3d(52%,0,0)}
-  100%{transform:translate3d(56%,0,0)}
+/* 拨片落地：掉下来 → 压扁回弹 → 站稳 */
+@keyframes splashPick{
+  0%{opacity:0;transform:translate3d(0,-30px,0) scale(1.12)}
+  55%{opacity:1;transform:translate3d(0,0,0) scale(.94,1.06)}
+  75%{transform:translate3d(0,-5px,0) scale(1.02,.98)}
+  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
+@keyframes splashLetter{from{opacity:0;transform:translate3d(0,14px,0)}to{opacity:1;transform:translate3d(0,0,0)}}
+@keyframes splashRail{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+/* 一段主滑动 + 末端 3% 的回弹落定，方向不再来回抖 */
+@keyframes splashSlide{
+  0%{transform:translate3d(-34%,0,0)}
+  84%{transform:translate3d(55%,0,0)}
+  100%{transform:translate3d(52%,0,0)}
+}
+/* 滑行时琴头微微昂着，落定时摆正带一点余韵 */
 @keyframes splashTilt{
-  0%{transform:rotate(-16deg)}
-  62%{transform:rotate(-4deg)}
-  78%{transform:rotate(2deg)}
-  100%{transform:rotate(-2deg)}
+  0%{transform:rotate(-14deg)}
+  70%{transform:rotate(3deg)}
+  86%{transform:rotate(-3deg)}
+  100%{transform:rotate(-1deg)}
+}
+/* 残影只负责淡入淡出（位移复用 splashSlide） */
+@keyframes splashGhost{
+  0%{opacity:0}
+  30%{opacity:.34}
+  90%{opacity:.08}
+  100%{opacity:0}
 }
 @keyframes splashSpark{
   0%{opacity:0;transform:scale(.2)}
   45%{opacity:1;transform:scale(1.8)}
-  100%{opacity:0;transform:scale(.6) translateY(-16px)}
+  100%{opacity:0;transform:scale(.6) translateY(-18px)}
+}
+@keyframes splashRing{
+  0%{opacity:.85;transform:scale(.4)}
+  100%{opacity:0;transform:scale(3.4)}
+}
+@keyframes splashNote{
+  0%{opacity:0;transform:translate3d(0,6px,0) rotate(-8deg)}
+  22%{opacity:.9}
+  100%{opacity:0;transform:translate3d(14px,-34px,0) rotate(10deg)}
 }
 @keyframes splashBar{
   from{transform:translate3d(0,0,0)}
@@ -104,18 +199,37 @@
 }
 
 /* 动效关闭 / 系统减少动效：直接给出终点状态 */
+:root[data-motion="off"] .splash__pick,
+:root[data-motion="off"] .splash__word i,
+:root[data-motion="off"] .splash__sub,
+:root[data-motion="off"] .splash__rail,
 :root[data-motion="off"] .splash__slide,
 :root[data-motion="off"] .splash__guitar,
+:root[data-motion="off"] .splash__ghost,
 :root[data-motion="off"] .splash__spark,
-:root[data-motion="off"] .splash__bar b{animation:none;transform:translate3d(101%,0,0)}
-:root[data-motion="off"] .splash__slide{transform:translate3d(56%,0,0)}
-:root[data-motion="off"] .splash__guitar{transform:rotate(-2deg)}
+:root[data-motion="off"] .splash__ring,
+:root[data-motion="off"] .splash__note,
+:root[data-motion="off"] .splash__bar b{animation:none}
+:root[data-motion="off"] .splash__pick,
+:root[data-motion="off"] .splash__word i,
+:root[data-motion="off"] .splash__sub{opacity:1;transform:none}
+:root[data-motion="off"] .splash__rail::after{clip-path:none}
+:root[data-motion="off"] .splash__slide{transform:translate3d(52%,0,0)}
+:root[data-motion="off"] .splash__guitar{transform:rotate(-1deg)}
+:root[data-motion="off"] .splash__ghost,
+:root[data-motion="off"] .splash__spark,
+:root[data-motion="off"] .splash__ring,
+:root[data-motion="off"] .splash__note{opacity:0}
+:root[data-motion="off"] .splash__bar b{transform:translate3d(101%,0,0)}
 :root[data-motion="off"] .splash__bar i{clip-path:none}
 
 @media (prefers-reduced-motion:reduce){
-  .splash__slide,.splash__guitar,.splash__spark,.splash__bar b{animation:none}
-  .splash__slide{transform:translate3d(56%,0,0)}
-  .splash__guitar{transform:rotate(-2deg)}
+  .splash__pick,.splash__word i,.splash__sub,.splash__rail,.splash__slide,.splash__guitar,.splash__ghost,.splash__spark,.splash__ring,.splash__note,.splash__bar b{animation:none}
+  .splash__pick,.splash__word i,.splash__sub{opacity:1;transform:none}
+  .splash__rail::after{clip-path:none}
+  .splash__slide{transform:translate3d(52%,0,0)}
+  .splash__guitar{transform:rotate(-1deg)}
+  .splash__ghost,.splash__spark,.splash__ring,.splash__note{opacity:0}
   .splash__bar b{transform:translate3d(101%,0,0)}
   #splash{transition:none}
 }

@@ -53,6 +53,7 @@ function readableError(err: unknown): string {
 /** 允许渲染层调用的网易云接口白名单。加接口要在这里登记。 */
 const NETEASE_ALLOWED = new Set([
   "cloudsearch",
+  "song_url",
   "song_url_v1",
   "song_detail",
   "lyric",

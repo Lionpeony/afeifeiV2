@@ -219,34 +219,49 @@ export const LogoMark = ({ size = 40, tone = "var(--pink-600)" }: { size?: numbe
 );
 
 /* 吉他剪影（启动动画用） */
-export const GuitarFigure = ({ w = 116, h = 60, ...rest }: SVGProps<SVGSVGElement> & { w?: number; h?: number }) => (
-  <svg viewBox="0 0 116 60" width={w} height={h} fill="currentColor" aria-hidden="true" {...rest}>
-    <g>
-      <circle cx="34" cy="34" r="16" />
-      <circle cx="19" cy="42" r="11" />
-      <rect x="44" y="28.6" width="58" height="6.6" rx="3.3" transform="rotate(-7 44 32)" />
-      <rect x="98" y="20" width="14" height="12" rx="3.4" transform="rotate(-7 105 26)" />
+export const GuitarFigure = ({ w = 132, h = 68, ...rest }: SVGProps<SVGSVGElement> & { w?: number; h?: number }) => (
+  <svg viewBox="0 0 140 72" width={w} height={h} fill="currentColor" aria-hidden="true" {...rest}>
+    {/* 琴身是单条路径（真正的凹腰轮廓），琴颈/琴头同组一起转，永不散架 */}
+    <g transform="rotate(-6 60 36)">
+      <path d="M 71 33 C 69 24, 60 19, 54 19.5 C 49 20, 46.5 22, 44.5 23.5 C 41.5 19.5, 35 16, 27.5 16.5 C 16.5 17, 8.5 25, 9 36 C 9.5 47, 17.5 55, 27.5 55.5 C 35 56, 41.5 52.5, 44.5 48.5 C 46.5 50, 49 52, 54 52.5 C 60 53, 69 48, 71 39 Z" />
+      <rect x="68" y="33" width="46" height="6" rx="2.5" />
+      <rect x="112" y="28.5" width="17" height="15" rx="3.5" />
+      <rect x="115.5" y="31.5" width="2.6" height="2.6" rx="1.3" fill="var(--bg)" opacity=".85" />
+      <rect x="120.5" y="31.5" width="2.6" height="2.6" rx="1.3" fill="var(--bg)" opacity=".85" />
+      <rect x="76" y="35" width="3" height="2.4" rx="1.2" fill="var(--bg)" opacity=".8" />
+      <rect x="85" y="35" width="3" height="2.4" rx="1.2" fill="var(--bg)" opacity=".8" />
+      <rect x="94" y="35" width="3" height="2.4" rx="1.2" fill="var(--bg)" opacity=".8" />
     </g>
-    <circle cx="33" cy="34" r="5.6" fill="var(--bg)" />
-    <rect x="53" y="30" width="3" height="3" rx="1.2" fill="var(--bg)" opacity=".8" />
-    <rect x="62" y="30" width="3" height="3" rx="1.2" fill="var(--bg)" opacity=".8" />
+    <circle cx="29" cy="36" r="6.5" fill="var(--bg)" />
+    <rect x="41" y="34.6" width="4" height="2.8" rx="1.2" fill="var(--bg)" opacity=".9" />
   </svg>
 );
 
-/* Q 版抱琴小剪影（无五官） */
-export const Silhouette = ({ w = 78, h = 96, ...rest }: SVGProps<SVGSVGElement> & { w?: number; h?: number }) => (
+/* Q 版抱琴小剪影（无五官）。
+   pose：idle=抱琴站立（启动页）；wave=举起一只手挥别（E13/E20 背影离开）；
+   peek=整体前倾 + 扶边张望（E27 断网恢复探头）。 */
+export const Silhouette = ({ w = 78, h = 96, pose = "idle", ...rest }: SVGProps<SVGSVGElement> & { w?: number; h?: number; pose?: "idle" | "wave" | "peek" }) => (
   <svg viewBox="0 0 84 104" width={w} height={h} fill="currentColor" aria-hidden="true" {...rest}>
-    <path d="M31 5c8.6 0 14.6 6.2 14.6 14.2S39.6 33 31 33s-14.4-5.8-14.4-13.8S22.4 5 31 5z" />
-    <path d="M15.6 9.4C19 3.6 26 1.2 32.4 2.4c6.4 1.2 11 6 12 12-6 1.8-11 .8-15-1.2-4.6-2.4-9.4-2.8-13.8-3.8z" />
-    <path d="M44.8 17.4c3.4 5.6 2.4 12-2 16.4-.9.9-.2 2.4 1 2.2 5.6-1.6 9-8 8-14.4z" />
-    <path d="M29.6 34c10.4 0 16.6 6.2 17.6 16.6l3.8 26.2c.9 6-3 10.6-9 10.6H16.8c-6 0-9.9-4.6-9-10.6l3.8-26.2C12.6 40.2 18.8 34 29.6 34z" />
-    <path d="M13.4 46.4c-4 6.6-5.8 14.4-4.8 22.2.2 3 2 4.6 4.2 4.4 2-.2 3.4-2 3.2-4.4-.8-7 .4-13 3.4-18.8z" />
-    <path d="M45 48.6c4 5.4 6 12.2 6 19.4 0 3 1.8 4.6 4 4.4 2-.2 3.2-2.2 3-4.4-.4-9-3.6-17-8.6-23.4z" />
-    <path d="M24.6 84.4 21 101.6h5.4l4-15z" />
-    <path d="M36.4 84.4 33 101.6h5.4l4-15z" />
-    <g>
-      <ellipse cx="50" cy="72" rx="14.6" ry="11.4" transform="rotate(-20 50 72)" />
-      <rect x="55" y="38" width="4" height="32" rx="2" transform="rotate(22 57 54)" />
+    <g transform={pose === "peek" ? "rotate(-12 30 102)" : undefined}>
+      <path d="M31 5c8.6 0 14.6 6.2 14.6 14.2S39.6 33 31 33s-14.4-5.8-14.4-13.8S22.4 5 31 5z" />
+      <path d="M15.6 9.4C19 3.6 26 1.2 32.4 2.4c6.4 1.2 11 6 12 12-6 1.8-11 .8-15-1.2-4.6-2.4-9.4-2.8-13.8-3.8z" />
+      <path d="M44.8 17.4c3.4 5.6 2.4 12-2 16.4-.9.9-.2 2.4 1 2.2 5.6-1.6 9-8 8-14.4z" />
+      <path d="M29.6 34c10.4 0 16.6 6.2 17.6 16.6l3.8 26.2c.9 6-3 10.6-9 10.6H16.8c-6 0-9.9-4.6-9-10.6l3.8-26.2C12.6 40.2 18.8 34 29.6 34z" />
+      <path d="M13.4 46.4c-4 6.6-5.8 14.4-4.8 22.2.2 3 2 4.6 4.2 4.4 2-.2 3.4-2 3.2-4.4-.8-7 .4-13 3.4-18.8z" />
+      {pose === "idle" && <path d="M45 48.6c4 5.4 6 12.2 6 19.4 0 3 1.8 4.6 4 4.4 2-.2 3.2-2.2 3-4.4-.4-9-3.6-17-8.6-23.4z" />}
+      {(pose === "wave" || pose === "peek") && (
+        /* 举起的手臂：胶囊 + 手掌，wave 时由 eggs.css 绕肩摆动 */
+        <g className={pose === "wave" ? "af-wave-arm" : undefined}>
+          <rect x="43" y="22" width="6.4" height="28" rx="3.2" transform="rotate(16 46 50)" />
+          <circle cx="56" cy="23.5" r="4" />
+        </g>
+      )}
+      <path d="M24.6 84.4 21 101.6h5.4l4-15z" />
+      <path d="M36.4 84.4 33 101.6h5.4l4-15z" />
+      <g>
+        <ellipse cx="50" cy="72" rx="14.6" ry="11.4" transform="rotate(-20 50 72)" />
+        <rect x="55" y="38" width="4" height="32" rx="2" transform="rotate(22 57 54)" />
+      </g>
     </g>
   </svg>
 );

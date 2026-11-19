@@ -124,20 +124,10 @@ body,
 }
 .btn.primary:hover,
 .library .primary:hover { background: var(--pink-700); }
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 14px;
-  border-radius: var(--radius-btn);
-  border: 1.2px solid var(--line-strong);
-  color: var(--text-2);
-  font-size: 12px;
-  transition: all 0.18s var(--ease);
-}
-.btn:hover { color: var(--text); border-color: var(--pink-400); background: var(--wash); }
+/* .btn 家族（含变体配色）由 base.css 单一事实源负责——
+   这里曾重复声明 .btn{color:var(--text-2)} 与 .btn:hover{background:var(--wash)}，
+   同权重后加载，把 .btn-primary/--soft 的字色和 hover 全局压掉
+   （mygo 亮色紫底灰字 ≈1.6:1，2026-11-19 用户实拍）。已删，几何与配色回归 base。 */
 .search {
   display: flex;
   align-items: center;
@@ -440,7 +430,7 @@ body,
   display: grid;
   place-items: center;
   background: linear-gradient(150deg, var(--pink-400), #c8b6f0);
-  color: #fff;
+  color: var(--ink-on-pastel);
   font-family: var(--font-mono);
   font-size: 12px;
 }
@@ -472,7 +462,7 @@ body,
 .login-src { font-size: 11px; color: var(--text-3); }
 .login-tabs { display: flex; gap: 4px; }
 .login-tabs button { height: 28px; padding: 0 12px; border-radius: 999px; font-size: 11.5px; color: var(--text-2); }
-.login-tabs button.on { background: var(--pink-600); color: #fff; }
+.login-tabs button.on { background: var(--pink-600); color: var(--on-accent); }
 .login-field { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--text-3); }
 .login-field input { height: 34px; border-radius: 9px; border: 1.2px solid var(--line-strong); background: var(--bg); color: var(--text); padding: 0 11px; }
 .login-ops { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -894,7 +884,7 @@ body,
 .fx-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 12px; }
 .fx-presets { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .fx-presets button { height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--line-strong); font-size: 11px; }
-.fx-presets button[aria-pressed="true"] { background: var(--pink-600); border-color: var(--pink-600); color: #fff; }
+.fx-presets button[aria-pressed="true"] { background: var(--pink-600); border-color: var(--pink-600); color: var(--on-accent); }
 .fx-bands { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 10px; }
 .fx-band { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; color: var(--text-3); }
 .fx-band input { width: 100%; accent-color: var(--pink-600); }
@@ -1241,8 +1231,8 @@ body,
 .home-sec .sect-title { margin-bottom: 14px; }
 .home-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 14px;
 }
 .home-card {
   display: flex;
@@ -1312,7 +1302,7 @@ body,
 }
 .home-card__sub { display: none; }
 
-/* 新歌 / 雷达：并排双列速览，不再各占一整行表格 */
+/* 新歌 / 雷达：并排双列速览，装进两张「单页」纸卡，和曲目表格拉开层级 */
 .home-pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
@@ -1320,13 +1310,20 @@ body,
   margin-bottom: 26px;
 }
 .home-pair .home-sec { margin-bottom: 0; }
+.home-sec--list {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px 18px 10px;
+  box-shadow: var(--shadow-soft);
+}
 .home-rows { display: flex; flex-direction: column; }
 .home-trow {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 6px 4px;
+  padding: 7px 6px;
   text-align: left;
   border-bottom: 1px dashed var(--line);
   transition: background 0.16s var(--ease);
@@ -1342,16 +1339,16 @@ body,
 }
 .home-trow__art {
   flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
+  width: 38px;
+  height: 38px;
+  border-radius: 7px;
   overflow: hidden;
   background: var(--wash);
 }
 .home-trow__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .home-trow__meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.home-trow__title { font-size: 12.5px; color: var(--text); }
-.home-trow__artist { font-size: 10.5px; color: var(--text-3); }
+.home-trow__title { font-size: 13px; color: var(--text); }
+.home-trow__artist { font-size: 11px; color: var(--text-3); }
 .home-trow__dur {
   flex: none;
   font-family: var(--font-mono);
@@ -1360,18 +1357,95 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
-/* 榜单：后台演出单（setlist board），不再是 24 个同款封面 */
-.chart-board {
+/* 榜单：前 3 张封面特写打头阵，其余进三列单据行——
+   大序号给阅读节奏，不再 24 行同权重平铺 */
+.chart-feat-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  gap: 0 28px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.chart-feat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.2s var(--ease-spring), box-shadow 0.2s var(--ease);
+}
+.chart-feat:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(255, 107, 157, 0.14); }
+.chart-feat__art {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: var(--wash);
+  overflow: hidden;
+}
+.chart-feat__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s var(--ease);
+}
+.chart-feat:hover .chart-feat__art img { transform: scale(1.04); }
+.chart-feat__initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 44px;
+  color: var(--pink-400);
+  opacity: 0.55;
+}
+.chart-feat__no {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: #fff;
+  background: rgba(32, 20, 28, 0.5);
+  backdrop-filter: blur(6px);
+}
+.chart-feat__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 13px;
+}
+.chart-feat__name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--text);
+}
+.chart-feat__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+.chart-feat__meta svg { margin-left: auto; color: var(--pink-600); }
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 0 30px;
   padding: 2px 2px 8px;
 }
 .chart-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 6px;
+  padding: 10px 6px;
   border-bottom: 1px dashed var(--line);
   text-align: left;
   transition: background 0.16s var(--ease);
@@ -1379,11 +1453,12 @@ body,
 .chart-row:hover { background: var(--wash); }
 .chart-row__no {
   flex: none;
-  width: 30px;
+  width: 34px;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 21px;
   line-height: 1;
   color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 .chart-row__name { flex: 1; min-width: 0; font-size: 13px; color: var(--text); }
 .chart-row__count {
@@ -1484,14 +1559,6 @@ body,
   letter-spacing: 0.04em;
   transform: rotate(-9deg);
   opacity: 0.85;
-}
-
-.setlist-spine__mascot {
-  width: 100%;
-  height: 168px;
-  margin-top: auto;
-  background: url("assets/setlist-girl.png") bottom center / contain no-repeat;
-  pointer-events: none;
 }
 
 .setlist-body { min-width: 0; }
@@ -1602,8 +1669,14 @@ body,
   padding: 8px;
   border-bottom: 1px dashed var(--line);
   border-radius: 10px;
-  animation: setRowIn 240ms var(--ease-out-soft) both;
   transition: background 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+/* 入场 stagger 与动效档位：同 polish 的 tbl 约定，off/减少动态时直出 */
+:root:not([data-motion="off"]) .tracklist--setlist .tracklist__row {
+  animation: setRowIn 240ms var(--ease-out-soft) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tracklist--setlist .tracklist__row { animation: none !important; }
 }
 .tracklist--setlist .tracklist__row:hover {
   background: var(--wash);
@@ -1643,7 +1716,7 @@ body,
 }
 .tracklist__art:hover .tracklist__artplay,
 .tracklist__art:focus-visible .tracklist__artplay { opacity: 1; }
-.tracklist--setlist .tracklist__main { display: flex; flex-direction: column; min-width: 0; flex: none; max-width: 52%; }
+.tracklist--setlist .tracklist__main { display: flex; flex-direction: column; min-width: 0; flex: 0 0 52%; max-width: 52%; }
 .tracklist--setlist .tracklist__title {
   max-width: 100%;
   padding: 0;

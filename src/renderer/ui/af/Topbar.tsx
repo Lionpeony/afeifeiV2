@@ -6,6 +6,7 @@ import { sourceShort, sourceTone } from "./data.js";
 import { PillWipe } from "./SourceSwap.js";
 import { TrackArt } from "./art.js";
 import { Tape } from "./ui.js";
+import { packLineCopy } from "./copy.js";
 import { GuitarFigure, IconArrowRight, IconMax, IconMini, IconMin, IconSearch, IconX } from "./icons.js";
 
 /** 最大化后的“还原”图标：两个错位的方框，和 Windows 的含义一致 */
@@ -45,7 +46,8 @@ function Mark({ text, q }: { text: string; q: string }) {
 }
 
 function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
-  const { searchOnline, playRemote, source, sources, setPage, openList, myLists } = useAf();
+  const { searchOnline, playRemote, source, sources, setPage, openList, myLists, palette } = useAf();
+
   const [tab, setTab] = useState<"track" | "artist" | "album" | "list">("track");
   const [busy, setBusy] = useState(false);
   const [items, setItems] = useState<RemoteItem[]>([]);
@@ -122,12 +124,12 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
           {busy ? (
             <div className="search-busy">
               <span className="search-busy__guitar" aria-hidden="true"><GuitarFigure w={110} h={52} /></span>
-              <span className="hand">在翻曲库……</span>
+              <span className="hand">{packLineCopy(palette, "loadingSkeleton")}</span>
             </div>
           ) : total === 0 ? (
             <div className="search-empty-note loop">
               <Tape w={60} rot={-2.5} style={{ top: -9, left: "50%", marginLeft: -30 }} />
-              <p>这家 live house 没找到这首曲子。</p>
+              <p>{packLineCopy(palette, "emptySearch")}</p>
               <span className="hand">换个词试试，或者去漫游随便听听。</span>
               <button className="btn btn-soft btn-sm" onClick={() => { onClose(); setPage("roam"); }}>
                 去迷路漫游<IconArrowRight size={14} />

@@ -208,7 +208,7 @@
 }
 .scan__step.is-done .scan__step-no{background:rgba(30,142,90,.12);border-color:rgba(30,142,90,.4);color:#1E8E5A}
 .scan__step.is-now .scan__step-no{
-  position:relative;background:var(--pink-600);border-color:var(--pink-600);color:#fff;
+  position:relative;background:var(--pink-600);border-color:var(--pink-600);color:var(--on-accent);
 }
 /* 呼吸环用 transform+opacity，避免逐帧重绘 box-shadow */
 .scan__step.is-now .scan__step-no::after{

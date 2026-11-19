@@ -72,6 +72,7 @@
 .lyric{
   position:fixed;inset:0;z-index:96;display:grid;place-items:center;
   background:rgba(42,36,56,.4);backdrop-filter:blur(3px);
+  cursor:pointer; /* 盖住了整个应用，必须点得走 */
   animation:fadeIn .3s var(--ease) both;
 }
 .lyric__note{
@@ -149,6 +150,161 @@
   82%{opacity:1;transform:none}
   100%{opacity:0;transform:translateX(16px)}
 }
+/* 挥别的手：绕肩摆两下（SVG 内部组，fill-box 定锚到肩点） */
+.af-wave-arm{
+  transform-box:fill-box;transform-origin:30% 100%;
+  animation:afWave 1.2s var(--ease) .4s 2 both;
+}
+@keyframes afWave{
+  0%,100%{transform:rotate(0)}
+  30%{transform:rotate(14deg)}
+  70%{transform:rotate(-9deg)}
+}
+@media (prefers-reduced-motion: reduce){
+  .af-wave-arm{animation:none}
+}
+
+/* ---- E12 暗号开箱：礼盒落下 → 摇晃 → 盖飞 → 色点爆开；颜色全走 token，开盒即新包换装 ---- */
+.unbox{
+  position:fixed;inset:0;z-index:150;pointer-events:none;
+  background:radial-gradient(680px 460px at 50% 44%,rgba(20,16,26,0),rgba(20,16,26,.55));
+  animation:fadeIn .25s var(--ease-out-soft) both, fadeOut .5s var(--ease-out-soft) 2.3s both;
+}
+.unbox__burst{position:absolute;left:50%;top:44%;width:0;height:0}
+.unbox__burst i{
+  position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;
+  background:var(--pink-400);opacity:0;
+  animation:confFly .62s var(--ease-out-soft) 1s both;
+}
+.unbox__burst i:nth-child(odd){background:var(--lav)}
+@keyframes confFly{
+  0%{opacity:0;transform:rotate(var(--a)) translateY(14px) scale(.5)}
+  18%{opacity:1}
+  100%{opacity:0;transform:rotate(var(--a)) translateY(calc(-104px * var(--j))) scale(1)}
+}
+.unbox__box{
+  position:absolute;left:50%;top:44%;width:92px;height:92px;margin:-46px 0 0 -46px;
+  background:var(--card);border:1px solid var(--line-strong);border-radius:18px;
+  box-shadow:var(--shadow-lift);
+  animation:boxIn .5s var(--ease-spring) .05s both, boxWiggle .42s ease-in-out .55s 2 both;
+}
+.unbox__ribbon,.unbox__ribbon::after{
+  content:"";position:absolute;background:var(--pink-400);border-radius:3px;
+}
+.unbox__ribbon{left:50%;top:8px;bottom:8px;width:12px;margin-left:-6px}
+.unbox__ribbon::after{left:50%;top:50%;width:76px;height:12px;margin:-6px 0 0 -38px}
+@keyframes boxIn{from{opacity:0;transform:translateY(34px) scale(.8)}to{opacity:1;transform:none}}
+@keyframes boxWiggle{0%,100%{transform:rotate(0)}30%{transform:rotate(-4deg)}70%{transform:rotate(4deg)}}
+.unbox__lid{
+  position:absolute;left:-7px;right:-7px;top:-13px;height:26px;
+  background:var(--pink-600);border-radius:9px;
+  box-shadow:0 3px 10px rgba(20,16,26,.22);
+  animation:lidFly .55s var(--ease-out-soft) .95s both;
+}
+@keyframes lidFly{
+  0%{opacity:1;transform:translateY(0) rotate(0)}
+  100%{opacity:0;transform:translateY(-84px) rotate(-16deg)}
+}
+.unbox__dot{
+  position:absolute;left:50%;top:50%;width:36px;height:36px;margin:-18px 0 0 -18px;
+  border-radius:50%;background:var(--pink-600);
+  box-shadow:0 0 0 6px var(--wash);
+  animation:dotPop .5s var(--ease-spring) 1.02s both;
+}
+@keyframes dotPop{0%{transform:scale(0)}100%{transform:scale(1)}}
+.unbox__copy{
+  position:absolute;left:0;right:0;top:calc(44% + 62px);
+  font-family:var(--font-hand);font-size:17px;letter-spacing:.1em;color:var(--text);
+  text-align:center;
+  animation:fadeUp .5s var(--ease-out-soft) 1.15s both;
+}
+.unbox__meta{
+  position:absolute;left:0;right:0;top:calc(44% + 96px);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.26em;color:var(--text-3);
+  text-align:center;
+  animation:fadeUp .5s var(--ease-out-soft) 1.32s both;
+}
+
+/* ---- E18 音量拉满：播放条破音抖动（动效关时只留 toast） ---- */
+:root.vol-max:not([data-motion="off"]) .bar{animation:volBuzz .12s linear 10 both}
+@keyframes volBuzz{
+  0%,100%{transform:translateY(0)}
+  25%{transform:translateY(-1px) rotate(-.15deg)}
+  75%{transform:translateY(1px) rotate(.15deg)}
+}
+/* E18 包 FX（RAW/gbc）：无滤镜世代的破音——画面四边细噪点撕裂一拍，松手即回。
+   颜色走 --text 派生（不落 hex），动效关时跟 .bar 一起不出场。 */
+:root[data-palette="gbc"].vol-max:not([data-motion="off"])::after{
+  content:"";position:fixed;inset:0;z-index:96;pointer-events:none;
+  mix-blend-mode:overlay;
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 26%, transparent) 0 2px, transparent 2px 7px) left / 3px 100% no-repeat,
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 22%, transparent) 0 1px, transparent 1px 11px) right / 4px 100% no-repeat,
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--text) 20%, transparent) 0 1px, transparent 1px 9px) top / 100% 3px no-repeat,
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--text) 24%, transparent) 0 2px, transparent 2px 13px) bottom / 100% 4px no-repeat;
+  animation:volTear .12s linear 10 both;
+}
+@keyframes volTear{0%,100%{opacity:.75}50%{opacity:.2}}
+
+/* ---- E23 副歌现场：进场瞬间播放条像 live 地板一样亮一下（颜色随包 token 走） ---- */
+:root.chorus-live:not([data-motion="off"]) .bar{animation:chorusGlow 2.4s var(--ease-out-soft) both}
+@keyframes chorusGlow{
+  0%{box-shadow:0 0 0 0 transparent}
+  22%{box-shadow:0 -16px 46px color-mix(in srgb, var(--pink-400) 26%, transparent)}
+  100%{box-shadow:0 0 0 0 transparent}
+}
+
+/* ---- 换包过渡：每包一个专属动画，颜色全走 token（换包瞬间整站已换色，动画盖住切换） ---- */
+.packfx{
+  position:fixed;inset:0;z-index:150;pointer-events:none;overflow:hidden;
+  animation:fadeOut .35s var(--ease-out-soft) 1.15s both;
+}
+.packfx__copy{
+  position:absolute;left:0;right:0;top:58%;text-align:center;
+  font-family:var(--font-hand);font-size:15px;letter-spacing:.14em;color:var(--text);
+  animation:fadeIn .3s var(--ease-out-soft) .25s both, fadeOut .4s var(--ease-out-soft) .85s both;
+}
+/* MAIGO 迷子：雨丝落下 + 水洼涟漪 */
+.packfx--mygo{background:color-mix(in srgb, var(--lav) 9%, transparent)}
+.packfx__rain{
+  position:absolute;inset:-30% -10%;
+  background-image:repeating-linear-gradient(78deg,transparent 0 30px,color-mix(in srgb, var(--lav) 34%, transparent) 30px 31.5px,transparent 31.5px 68px);
+  animation:rainFall .5s linear 0s 2 both, fadeOut .35s linear 1.1s both;
+}
+@keyframes rainFall{to{background-position:-88px 320px}}
+/* RAW 无滤镜：快门双闪 + 取景框 */
+.packfx__flash{position:absolute;inset:0;background:rgba(255,255,255,.92);animation:shutter .9s linear both}
+@keyframes shutter{0%{opacity:0}7%{opacity:.95}16%{opacity:.06}28%{opacity:.72}44%{opacity:0}100%{opacity:0}}
+.packfx__frame{
+  position:absolute;left:50%;top:50%;width:min(64vw,520px);height:min(38vh,300px);
+  transform:translate(-50%,-50%);
+  border:2px solid var(--pink-600);border-radius:6px;
+  animation:frameIn .95s var(--ease-out-soft) .08s both, fadeOut .35s linear 1s both;
+}
+@keyframes frameIn{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(1.12)}
+  14%{opacity:.9}
+  100%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+/* KADO 墙角英雄：聚光灯从顶上打亮 */
+.packfx__spot{
+  position:absolute;inset:0;mix-blend-mode:screen;
+  background:radial-gradient(560px 660px at 50% -10%,rgba(255,197,61,.34),rgba(255,197,61,.1) 55%,transparent 76%);
+  animation:spotIn 1s var(--ease-out-soft) both, fadeOut .4s linear 1s both;
+}
+@keyframes spotIn{
+  0%{opacity:0;transform:translateY(-46px) scale(1.05)}
+  48%{opacity:1}
+  100%{opacity:1;transform:none}
+}
+/* 通用涟漪（MAIGO 水洼 / DEFAULT 回归基座） */
+.packfx__ripple{
+  position:absolute;left:50%;top:50%;width:60px;height:60px;margin:-30px 0 0 -30px;
+  border-radius:50%;border:2px solid color-mix(in srgb, var(--lav) 55%, transparent);
+  animation:rippleOut 1s var(--ease-out-soft) .15s both;
+}
+.packfx--default .packfx__ripple{border-color:color-mix(in srgb, var(--pink-400) 55%, transparent)}
+@keyframes rippleOut{0%{opacity:.7;transform:scale(.4)}100%{opacity:0;transform:scale(9)}}
 
 /* ---- 演示面板 ---- */
 .demo{
@@ -176,3 +332,48 @@
 .demo__go{font-size:10px;color:var(--pink-700);opacity:.7}
 :root[data-theme="dark"] .demo__go{color:var(--pink-400)}
 .demo__foot{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px dashed var(--line)}
+
+/* ---- 包的待机房间（E14 idle 换房间不换贴纸）：每包自己的场景，纯静态渐变 ---- */
+:root[data-palette="mygo"] .idle-veil{
+  background:
+    repeating-linear-gradient(96deg,transparent 0 40px,rgba(143,220,238,.05) 40px 41px,transparent 41px 84px),
+    radial-gradient(460px 280px at 20% 26%,rgba(79,163,227,.16),transparent 70%),
+    radial-gradient(760px 520px at 50% 46%,rgba(20,16,26,0),rgba(20,16,26,.78));
+}
+:root[data-palette="gbc"] .idle-veil{
+  background:
+    repeating-linear-gradient(0deg,transparent 0 3px,rgba(217,37,52,.04) 3px 4px),
+    radial-gradient(500px 320px at 78% 30%,rgba(44,85,168,.14),transparent 72%),
+    radial-gradient(760px 520px at 50% 46%,rgba(20,16,26,0),rgba(20,16,26,.78));
+}
+:root[data-palette="btr"] .idle-veil{
+  background:
+    radial-gradient(560px 660px at 50% -8%,rgba(255,197,61,.16),rgba(255,197,61,.05) 52%,transparent 76%),
+    repeating-linear-gradient(0deg,transparent 0 30px,rgba(241,120,159,.05) 30px 31px),
+    radial-gradient(760px 520px at 50% 46%,rgba(20,16,26,0),rgba(20,16,26,.78));
+}
+
+/* ---- 分享卡片：把「正在听」做成一张包皮肤的卡，截图带走 ---- */
+.share-veil{
+  position:fixed;inset:0;z-index:320;display:grid;place-items:center;
+  background:rgba(20,16,26,.5);animation:fadeIn 240ms var(--ease-out-soft) both;
+}
+.share-card{
+  width:min(420px,86vw);padding:30px 30px 22px;
+  background:var(--card);border-radius:var(--radius-sheet);
+  border:1px var(--card-border-style, solid) var(--line);
+  box-shadow:var(--shadow-pop);
+  display:flex;flex-direction:column;gap:8px;
+  animation:fadeUp 320ms var(--ease-out-soft) both;
+}
+.share-card__quote{font-size:15px;color:var(--pink-600);letter-spacing:.08em}
+.share-card__title{font-size:22px;color:var(--text);line-height:1.3}
+.share-card__artist{font-size:13px;color:var(--text-2)}
+.share-card__foot{
+  display:flex;align-items:center;gap:8px;margin-top:10px;
+  font-size:11px;color:var(--text-3);letter-spacing:.06em;
+}
+.share-card__foot em{font-style:normal;margin-left:auto;color:var(--pink-600)}
+.share-card__dot{width:8px;height:8px;border-radius:50%;flex:none}
+.share-card__acts{display:flex;gap:8px;margin-top:6px}
+.share-card__hint{align-self:flex-end;font-size:11px;color:var(--text-3);opacity:.7}
