@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, Notification } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Notification } from "electron";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/index.js";
@@ -20,6 +20,7 @@ import { fetchQqQrc } from "../net/qqQrc.js";
 import { callUserSource, installUserSource } from "../sandbox/index.js";
 import { cancelFetch, dirUsage, fetchToFile } from "../fs/fetchToFile.js";
 import { lastCrash, markCrashSeen } from "../crash.js";
+import { saveDiagnostics } from "../diagnostics.js";
 import { shell } from "electron";
 import { dataDir } from "../paths.js";
 import {
@@ -358,6 +359,8 @@ export function registerIpc(): void {
   /* ---------- 崩溃记录与外链（M8） ---------- */
 
   ipcMain.handle("app:lastCrash", () => lastCrash());
+  // 诊断包（P0 #4）：纯文本，含白名单设置 + 日志尾部 + 崩溃记录，凭据先遮罩
+  ipcMain.handle("app:diagnostics", (e) => saveDiagnostics(BrowserWindow.fromWebContents(e.sender)));
   ipcMain.handle("app:markCrashSeen", (_e, file: unknown) => {
     if (typeof file === "string") markCrashSeen(file);
   });

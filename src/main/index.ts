@@ -5,7 +5,7 @@ import { dataDir } from "./paths.js";
 import { initLog, log, error } from "./log/index.js";
 import { registerIpc } from "./ipc/index.js";
 import { registerWindowIpc } from "./ipc/window.js";
-import { startQqBackend } from "./net/qqBackend.js";
+import { ensureQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
 import { registerLyricIpc } from "./lyricWindow.js";
 import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProtocol } from "./media/protocol.js";
@@ -183,7 +183,7 @@ if (!locked) {
     registerMiniIpc();
     registerLyricIpc();
     registerWindowIpc(() => mainWin);
-    startQqBackend(); // M6.1 P1：本地拉起 QQ 音乐 API 服务（失败只降级 QQ 功能，不阻塞窗口）
+    // QQ 本地服务与网易云接口包都改为按需载入：窗口先出来，当前音源在首屏之后再预热。
 
     // 默认窗口按工作区自适应：大屏 1440×900，小屏占满可用区域但不小于布局下限。
     const work = screen.getPrimaryDisplay().workAreaSize;
@@ -267,6 +267,16 @@ if (!locked) {
     log("main", "window ready");
     startUpdateCheck(win.webContents); // M8：启动 30s 后查一次新版本（非静默安装，只提示）
 
+    /* 当前音源预热：窗口已出来再跑，冷启动路径不付这笔钱。
+       QQ 的本地服务只为 QQ 用户启动；网易云按路由懒载，不需要预热。 */
+    setTimeout(() => {
+      void readKey("active-source")
+        .then((src) => {
+          if (src === "qq") ensureQqBackend();
+        })
+        .catch(() => undefined);
+    }, 1500);
+
     // A-24 + A-25：媒体键与托盘共用同一条「命令名」通道，播放语义只在渲染层有一份
     const send = (cmd: PlaybackCommand): void => {
       if (!mainWin || mainWin.isDestroyed()) return;
@@ -274,7 +284,8 @@ if (!locked) {
     };
     sendPlaybackCommand = send;
     // 媒体键**不在这里注册**：等渲染层上报 MediaSession 能力后再定（见文件顶部）
-    createTray({ send, window: () => mainWin, quit: () => app.quit() });
+    // 托盘延后一拍：窗口创建先返回，让首帧先画出来（托盘图标读取不抢启动路径）。
+    setTimeout(() => createTray({ send, window: () => mainWin, quit: () => app.quit() }), 0);
 
     // 冷启动：argv 里带协议 URL（第二次实例走 second-instance，这里管第一次）
     const coldUrl = schemeFromArgv(process.argv);

@@ -46,8 +46,10 @@
   color: var(--text-2);
   font-size:12px;
   box-shadow: none;
-  transition: background 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease);
+  transition: background 0.18s var(--ease), color 0.18s var(--ease), box-shadow 0.18s var(--ease),
+    transform 0.28s var(--ease-spring);
 }
+.sidebar .nav-item:active { transform: scale(var(--press-scale)); transition-duration: 80ms; }
 .sidebar .nav-item::before {
   content: "";
   position: absolute;

@@ -18,6 +18,8 @@ export interface SourceOption {
   canPlaylists: boolean;
   /** 能力驱动（A-14）：canGetToplist 才进榜单区 */
   canToplists: boolean;
+  /** 上游支持的最高音质档（P0 #7）：设置里据此置灰不可用档位 */
+  qualities: string[];
 }
 
 export interface DiscoverViewProps {

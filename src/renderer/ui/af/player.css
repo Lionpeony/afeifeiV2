@@ -20,7 +20,12 @@
 }
 .np__top{
   display:flex;align-items:center;gap:14px;padding:22px 40px 0;position:relative;z-index:var(--z-card-top);
+  -webkit-app-region:drag;   /* 播放页盖住了顶栏，这条顶带兼任标题栏拖拽区 */
 }
+.np__top button,.np__top kbd{-webkit-app-region:no-drag}
+.np__windiv{width:1px;height:16px;background:var(--line-strong);opacity:.7}
+.np__winbtn{width:28px;height:28px;border-radius:8px}
+.np__winclose:hover{color:var(--white);background:var(--coral)}
 .np__top-label{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.16em;color:var(--text-3)}
 .np__main{
   position:relative;z-index:var(--z-card-top);
@@ -55,7 +60,7 @@
 /* 曲目信息 */
 .np__kicker{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-width:0;max-width:100%}
 .np__kicker .eyebrow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np__title{font-family:var(--font-display);font-size:clamp(28px,2.9vw,36px);line-height:1.18;letter-spacing:.01em;text-wrap:balance}
+.np__title{font-family:var(--font-display);font-size:var(--fs-hero);line-height:var(--lh-hero);letter-spacing:.01em;text-wrap:balance}
 .np__band{margin-top:10px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-2);max-width:100%;min-width:0}
 .np__band > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np__band > span:first-child{flex:0 1 auto}
@@ -261,6 +266,24 @@
 .np__timeline{animation:fadeUp 420ms var(--ease-out-soft) 320ms both}
 @keyframes stageBreathe{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
 
+/* ---------------- 全屏播放模式（docs/30 §22；body[data-fs] 由 NowPlaying 挂） ----------------
+   对齐 QQ/网易全屏语法：画面为主、chrome 隐退——鼠标静止 2.8s 顶带淡出、封面放大，
+   时间线常驻（底部管歌那一层在全屏里也不许消失）；Esc 退出。 */
+body[data-fs] .np__top{transition:opacity .32s var(--ease-out-soft)}
+body[data-fs].np-idle .np__top{opacity:0;pointer-events:none}
+/* 高度预算：封面 44vh + 歌词墙限高 + 台侧备注让位，保证列高 ≤ 中排 1fr，不再压进时间线 */
+body[data-fs] .np__art{width:min(44vh,408px)}
+body[data-fs] .np__stage-note{display:none}
+body[data-fs] .lw__view{height:clamp(120px,22vh,240px)}
+body[data-fs] .np__stage{gap:56px;align-content:center}
+body[data-fs] .np__info{max-width:560px}
+body[data-fs] .np__title{font-size:var(--fs-hero-xl)}
+body[data-fs].np-idle .np__main{cursor:none}
+body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
+@media (prefers-reduced-motion:reduce){
+  body[data-fs] .np__top{transition:none}
+}
+
 /* 切歌纱帘 E06 常规巧思 */
 .sheer{
   position:absolute;inset:0;pointer-events:none;z-index:var(--z-lift);border-radius:20px;
@@ -303,6 +326,7 @@
   padding:13px 6px 5px;border-top:1px dashed var(--line);margin-top:8px;
 }
 .np__queue-foot .hand{font-size:12px;color:var(--text-3);line-height:1.9}
+.np__stagecall{display:inline-flex;align-items:center;gap:8px}
 
 .np__stage-note{display:flex;align-items:center;gap:12px;margin-top:44px;width:100%}
 .np__stage-note .hand{font-size:12px;color:var(--text-3);letter-spacing:.06em;white-space:nowrap}

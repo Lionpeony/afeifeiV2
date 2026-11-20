@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { startTransition, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
 import type { AppState, RemoteTrackMeta } from "../../contracts/index.js";
 import { getFiltered, searchTracks } from "../domain/library/state.js";
+import { findLocalMatch } from "../domain/library/match.js";
 import { EQ_BANDS, EQ_DEFAULT, EQ_PRESETS, PREAMP_DEFAULT, sameGains } from "../capability/audio/eq.js";
 import { dispatch, getState, remoteTrackId, subscribe } from "../kernel/index.js";
 import { bootstrap } from "./bootstrap.js";
@@ -86,7 +87,8 @@ import { NowPlaying } from "./af/NowPlaying.js";
 import { Auth, DemoPanel, EggLayer, FocusLines, OnomaLayer } from "./af/layers.js";
 import { ScanLogin } from "./af/ScanLogin.js";
 import { RowMenu } from "./af/RowMenu.js";
-import { useSystemReduce, loadPref } from "./af/prefs.js";
+import { useSystemReduce } from "./af/prefs.js";
+import { activeQuality } from "./quality-pref.js";
 import { sourceShort, sourceTone } from "./af/data.js";
 
 function baseName(p: string | null): string {
@@ -115,9 +117,13 @@ function App() {
      轻档去掉循环与大幅位移（幕布、播放页幕间也不播），只留状态切换。 */
   const reduce = effectiveMotion !== "full";
   // 外壳只有一种：边栏 + 内容 + 控制台
-  const [page, setPage] = useState<PageId>("online");
+  const [page, setPageState] = useState<PageId>("online");
+  /* 切页走 transition：新页渲染让位给点击/滚动/动画，重页面不再卡住输入那一下 */
+  const setPage = (p: PageId): void => {
+    startTransition(() => setPageState(p));
+  };
   const [localTab, setLocalTab] = useState<"library" | "downloads" | "radio">("library");
-  // 首屏联网预取完成（或超时兜底）前先停在加载页，不把半空的内容页亮给用户
+  // 启动层只盖首屏：本地装配完成即放行，联网数据在后台补（见 bootAndPrefetch）
   const [bootReady, setBootReady] = useState(false);
   /* 顶栏搜索提交的一次性请求：at 变化即重新执行。
      搜索结果不是独立页面：有关键词时发现页整页切成结果态，清空即回推荐与榜单。 */
@@ -265,6 +271,18 @@ function App() {
       offFrame?.();
       offFrame = null;
 
+      let bootReleased = false;
+      let bootSafety = 0;
+      const releaseBoot = (): void => {
+        if (!alive || bootReleased) return;
+        bootReleased = true;
+        clearTimeout(bootSafety);
+        const w = window as unknown as { __splashStage?: (n: number) => void; __bootDone?: () => void };
+        w.__splashStage?.(3);
+        w.__bootDone?.();
+        setBootReady(true);
+      };
+
       const bootAndPrefetch = async (): Promise<void> => {
         const s = await bootstrap();
         if (!alive) return;
@@ -277,6 +295,10 @@ function App() {
         syncPosition();
         startMiniBridge(s, { onLike: () => likeActionRef.current() });
         startLyricBridge(s);
+
+        // 首屏就绪：本地装配完成就放行，联网预取在后台继续。
+        // 旧实现要等每日/红心/FM 三份数据（或 12 秒超时）才退场，弱网下整页空白十几秒。
+        releaseBoot();
 
         // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
         // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
@@ -307,7 +329,7 @@ function App() {
 
         // 首屏联网预取：账号一确定就并发拉每日推荐 / 账号红心 / 个人 FM。
         // 结果落进 domain/net-cache，之后每次切页都直接命中；
-        // 单个源失败不影响其它数据，也不挡放行（外层还有 12 秒总超时）。
+        // 单个源失败不影响其它数据，也不挡放行（首屏已在上面放行）。
         const { id } = await resolveAccountSource().catch(() => ({ id: null as string | null }));
         if (alive && id) {
           ensureAccount(id);
@@ -335,17 +357,9 @@ function App() {
         });
       };
 
-      // 加载页从挂载起最多停 12 秒：任何一个联网源卡住都不能把用户关在门外
-      void Promise.race([bootAndPrefetch(), new Promise<void>((r) => setTimeout(r, 12_000))])
-        .catch(() => undefined)
-        .finally(() => {
-          if (!alive) return;
-          // 启动层：首屏就绪（100%），即刻退场
-          const w = window as unknown as { __splashStage?: (n: number) => void; __bootDone?: () => void };
-          w.__splashStage?.(3);
-          w.__bootDone?.();
-          setBootReady(true);
-        });
+      // 装配本身卡住（IPC 不回流）时也不能把人关在门外：6 秒兜底放行。
+      bootSafety = window.setTimeout(releaseBoot, 6000);
+      void bootAndPrefetch().catch(() => releaseBoot());
     };
     offFrame = onFrame(() => {
       frames += 1;
@@ -677,6 +691,9 @@ function App() {
    * 真正起播前由 engine 的解析器换成新地址（`AudioEngine.setResolver`）。
    * 但仍先解析这一首 —— 未登录 / 无版权要在点的一瞬间就说，不能入队后才逐首失败。
    */
+  /** 播放请求代次：换歌/切源很快时，慢返回的旧请求不许覆盖新选择 */
+  const playSeq = useRef(0);
+
   const playRemote = async (
     sourceId: string,
     track: RemoteTrack,
@@ -687,9 +704,25 @@ function App() {
   ): Promise<void> => {
     const svc = services.current;
     if (!svc) return;
-    const q = loadPref<string>("quality", "hq");
-    const level = q === "standard" ? "128k" : q === "lossless" || q === "hires" ? "flac" : "320k";
-    await svc.resolveOnlineUrl(sourceId, track.sourceId, level);
+    const seq = ++playSeq.current;
+    const level = activeQuality();
+    try {
+      await svc.resolveOnlineUrl(sourceId, track.sourceId, level);
+    } catch (err) {
+      if (seq !== playSeq.current) return;
+      /* 降级链（P0 #3）：在线取流失败时，先找已下载/本地同曲，别让这一下变成「点了没反应」。 */
+      const local = findLocalMatch(getTracks(), {
+        title: track.title,
+        artist: track.artist,
+        durationMs: track.durationMs,
+      });
+      if (!local) throw err;
+      toast(`在线地址不可用，改播本地《${local.title}》`, "info");
+      dispatch({ type: "queue/set", items: [local.id], startAt: 0 });
+      dispatch({ type: "player/play" });
+      return;
+    }
+    if (seq !== playSeq.current) return; // 期间又点了别的歌：这个结果作废
 
     const tracks = list && list.length > 0 ? list : [track];
     const items = tracks.map((t) => remoteTrackId(sourceId, t.sourceId));
@@ -778,12 +811,11 @@ function App() {
     list?: RemoteTrack[],
     stream = false,
     origin?: string,
-  ): void => {
-    void playRemote(sourceId, track, list, stream, origin).catch((err: unknown) => {
+  ): Promise<void> =>
+    playRemote(sourceId, track, list, stream, origin).catch((err: unknown) => {
       // 播放失败是瞬态反馈：4.2 秒后自清，不再挂成顶部常驻条
       toast(err instanceof Error ? err.message : "这首歌暂时播不了", "bad");
     });
-  };
 
   /* 账号红心（底栏 + 喜欢页取消红心 + 绑定生命周期）：hooks/use-account-likes.ts */
   const { accountSource, ensureAccount, unlikeAccount, toggleCurrentLike, likeActionRef } = useAccountLikes({
@@ -870,7 +902,7 @@ function App() {
                 ? svc.playlistTracks(sourceId, playlistId, page)
                 : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
-            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
+            onPlay={(sourceId, track, list, origin) => playRemoteSafe(sourceId, track, list, false, origin)}
             onlinePlaylists={() => services.current?.onlinePlaylists() ?? Promise.resolve([])}
             savePlaylist={(sourceId, playlist) => {
               const svc = services.current;
@@ -916,7 +948,7 @@ function App() {
               const svc = services.current;
               return svc ? svc.albumTracks(sourceId, albumId, page) : Promise.reject(new Error("还没准备好，请稍后再试"));
             }}
-            onPlay={(sourceId, track, list, origin) => playRemote(sourceId, track, list, false, origin)}
+            onPlay={(sourceId, track, list, origin) => playRemoteSafe(sourceId, track, list, false, origin)}
             onSearch={(sourceId, keyword) => {
               const svc = services.current;
               if (!svc) return Promise.resolve({ items: [] });
@@ -1016,6 +1048,7 @@ function App() {
     canAuth: s.canAuth,
     canPlaylists: s.canPlaylists,
     canDownload: s.canDownload,
+    qualities: s.qualities,
   }));
   const afAccounts: Record<string, boolean> = Object.fromEntries(
     sources.map((s) => [s.id, Boolean(accountProfiles[s.id]?.loggedIn)]),
@@ -1093,11 +1126,16 @@ function App() {
       const svc = services.current;
       return svc ? svc.searchOnline(getActiveSource(), q) : Promise.resolve({ items: [] });
     },
+    seekOnlineSearch: (text) => {
+      setSearchSeek({ text, at: Date.now() });
+      setPage("online");
+    },
     discoverDetail,
     openDiscoverDetail: (ref) => {
       setDiscoverDetail({ ...ref, at: Date.now() });
       setPage("online");
     },
+    clearDiscoverDetail: () => setDiscoverDetail(null),
     playRemote: (sourceId, track, list, origin) =>
       playRemoteSafe(sourceId, track as RemoteTrack, list as RemoteTrack[], false, origin),
     playIds,
@@ -1116,6 +1154,8 @@ function App() {
      递进池用在横幅首句：第几次断网，横幅开头换成第几句（离线恢复后重置为 0）。 */
   const offlineCount = useRef(0);
   useEffect(() => {
+    /* btr 包动效签名：断网时页面怯缩向墙角（polish.css §15），恢复就回来 */
+    document.documentElement.classList.toggle("net-down", offline);
     if (!offline) {
       if (offlineCount.current > 0) afApi.triggerEgg("E27"); // E27 恢复沿：从墙角探个头
       offlineCount.current = 0;

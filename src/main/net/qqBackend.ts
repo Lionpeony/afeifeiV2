@@ -55,27 +55,52 @@ function makeSessionRepository(): {
   };
 }
 
-let started = false;
+let state: "idle" | "ready" | "failed" = "idle";
+let failure = "";
 
-/** require 前必须完成环境变量与仓库注入。返回是否成功（失败 = 端口占用等原因，QQ 功能降级）。 */
-export function startQqBackend(): boolean {
-  if (started) return true;
+export interface QqBackendStatus {
+  ok: boolean;
+  message?: string;
+}
+
+/**
+ * 按需启动本地服务：冷启动不再付这一步（P0 #1）。
+ * require 前必须完成环境变量与仓库注入；失败只降级 QQ 功能，重试也没有意义（端口被占）。
+ */
+export function ensureQqBackend(): QqBackendStatus {
+  if (state === "ready") return { ok: true };
+  if (state === "failed") return { ok: false, message: failure };
+
   process.env.PORT = String(QQ_API_PORT);
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pkg = require("@yakult-green-tea/qq-music-api") as {
-    configureAuthSessionRepository: (r: unknown) => void;
-    server: { address: () => { port: number }; on: (e: string, cb: () => void) => void } | null;
-  };
-  pkg.configureAuthSessionRepository(makeSessionRepository());
   try {
-    if (pkg.server) {
-      pkg.server.on("error", () => log("warn", "[qq] QQ API 服务端口异常，QQ 功能不可用"));
-      log("info", `[qq] QQ API 服务已启动 @ 127.0.0.1:${pkg.server.address().port}`);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pkg = require("@yakult-green-tea/qq-music-api") as {
+      configureAuthSessionRepository: (r: unknown) => void;
+      server: {
+        address: () => { port: number } | null;
+        on: (e: string, cb: () => void) => void;
+        once: (e: string, cb: () => void) => void;
+      } | null;
+    };
+    pkg.configureAuthSessionRepository(makeSessionRepository());
+    if (!pkg.server) {
+      state = "failed";
+      failure = "QQ 音乐本地服务没有启动（端口 3210 可能被占用），QQ 功能暂不可用";
+      log("warn", "[qq] 本地服务未返回 server 实例，QQ 功能不可用");
+      return { ok: false, message: failure };
     }
-    started = true;
-    return true;
+    pkg.server.on("error", () => {
+      state = "failed";
+      failure = "QQ 音乐本地服务端口异常（3210 可能被占用），QQ 功能暂不可用";
+      log("warn", "[qq] 本地服务端口异常，QQ 功能不可用");
+    });
+    pkg.server.once("listening", () => log("info", `[qq] 本地服务已启动 @ 127.0.0.1:${QQ_API_PORT}`));
+    state = "ready";
+    return { ok: true };
   } catch (err) {
-    log("warn", `[qq] QQ API 服务启动失败：${err instanceof Error ? err.message : String(err)}`);
-    return false;
+    state = "failed";
+    failure = "QQ 音乐本地服务启动失败，QQ 功能暂不可用";
+    log("warn", `[qq] 本地服务启动失败：${err instanceof Error ? err.message : String(err)}`);
+    return { ok: false, message: failure };
   }
 }

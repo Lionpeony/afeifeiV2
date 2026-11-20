@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAf } from "./context.js";
 import { IconCheck, IconCloud, IconMoon, IconRefresh, IconVolume, IconX } from "./icons.js";
 import { packSlotCopy } from "./copy.js";
+import { readLevelerPref, writeLevelerPref } from "../audio-pref.js";
 
 export const QUALITY_LEVELS = [
   { id: "standard", short: "标准", label: "标准音质", spec: "128 kbps · MP3", note: "流量省着点，排练室里也够用" },
@@ -74,6 +75,7 @@ export function StudioDrawer() {
   const af = useAf();
   const { studio, setStudio, sleep, startSleep, stopSleep, sleepLeft, quality, setQuality, eq, setEq, playing, sources, source } = af;
   const [tab, setTab] = useState<"sleep" | "quality" | "eq">(studio?.tab ?? "sleep");
+  const [leveler, setLevelerOn] = useState(readLevelerPref);
 
   useEffect(() => {
     if (studio?.tab) setTab(studio.tab);
@@ -88,6 +90,7 @@ export function StudioDrawer() {
   const total = (sleep.minutes || 30) * 60;
   const ratio = sleep.mode === "timer" && total ? Math.max(0, Math.min(100, (1 - sleepLeft / total) * 100)) : 0;
   const srcName = sources.find((s) => s.id === source)?.name ?? source;
+  const currentSource = sources.find((s) => s.id === source);
   const setBand = (i: number) => (v: number): void => {
     const bands = eq.bands.slice();
     bands[i] = v;
@@ -143,15 +146,39 @@ export function StudioDrawer() {
             <>
               <div className="studio__label">播放音质 · {srcName}</div>
               <div className="q-list">
-                {QUALITY_LEVELS.map((q) => (
-                  <button key={q.id} className={"q-opt" + (quality === q.id ? " is-on" : "")} onClick={() => { setQuality(q.id); af.toast(packSlotCopy(af.palette, "quality", q.label), { icon: "check" }); }}>
-                    <span className="q-opt__badge">{q.short}</span>
-                    <span className="q-opt__text"><b>{q.label}</b><span>{q.spec} · {q.note}</span></span>
-                    {quality === q.id ? <IconCheck size={15} className="q-opt__tick" /> : null}
-                  </button>
-                ))}
+                {QUALITY_LEVELS.map((q) => {
+                  const caps = currentSource?.qualities ?? ["128k", "320k"];
+                  const available = q.id === "standard" ? true : q.id === "hq" ? caps.includes("320k") : caps.includes("flac");
+                  return (
+                    <button
+                      key={q.id}
+                      className={"q-opt" + (quality === q.id ? " is-on" : "")}
+                      style={{ opacity: available ? 1 : 0.45, cursor: available ? "pointer" : "not-allowed" }}
+                      aria-disabled={!available}
+                      onClick={() => {
+                        if (!available) {
+                          af.toast(`${srcName} 最高只到 ${caps.includes("320k") ? "320 kbps" : "128 kbps"}，SQ / Hi-Res 不可用`);
+                          return;
+                        }
+                        setQuality(q.id);
+                        af.toast(packSlotCopy(af.palette, "quality", q.label), { icon: "check" });
+                      }}
+                    >
+                      <span className="q-opt__badge">{q.short}</span>
+                      <span className="q-opt__text"><b>{q.label}</b><span>{q.spec} · {q.note}</span></span>
+                      {quality === q.id ? <IconCheck size={15} className="q-opt__tick" /> : null}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="studio__note"><IconCloud size={13} /><span>音质跟着音源走；在线取流时会按这一档请求。</span></div>
+              <div className="studio__note">
+                <IconCloud size={13} />
+                <span>
+                  {currentSource?.qualities?.includes("flac")
+                    ? "音质跟着音源走；无损拿不到时会自动降到 320k。"
+                    : `${srcName} 由上游决定码率，最高 320 kbps；SQ / Hi-Res 不可用。`}
+                </span>
+              </div>
             </>
           ) : null}
 
@@ -174,7 +201,21 @@ export function StudioDrawer() {
               </div>
               <div className="eq__foot">
                 <span className="hand" style={{ fontSize: 12, color: "var(--text-3)" }}>{eq.preset === "custom" ? "手调中 · 台侧听见的低音比前排多一格" : "预设：" + (EQ_PRESETS_5.find((p) => p.id === eq.preset)?.name ?? "平直")}</span>
-                <button className="eq__reset" onClick={() => setEq({ preset: "flat", bands: [0, 0, 0, 0, 0] })}><IconRefresh size={12} />重置</button>
+                <span className="row gap6">
+                  <button
+                    className={"eq__preset" + (leveler ? " is-on" : "")}
+                    onClick={() => {
+                      const next = !leveler;
+                      setLevelerOn(next);
+                      writeLevelerPref(next);
+                      af.toast(next ? "响度均衡已开启：切歌音量差会变小" : "响度均衡已关闭");
+                    }}
+                    title="不同来源母带响度差很大，开启后按 RMS 缓慢拉齐（只影响听感，不改文件）"
+                  >
+                    <IconVolume size={12} /> 响度均衡
+                  </button>
+                  <button className="eq__reset" onClick={() => setEq({ preset: "flat", bands: [0, 0, 0, 0, 0] })}><IconRefresh size={12} />重置</button>
+                </span>
               </div>
               <div className="studio__note"><IconVolume size={13} /><span>推子已接到真实 10 段 EQ；5 段会按频率插值到 10 段。</span></div>
             </>

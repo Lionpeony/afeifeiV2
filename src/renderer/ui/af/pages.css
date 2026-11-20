@@ -332,14 +332,36 @@
 
 .palette-row{display:flex;gap:9px;flex-wrap:wrap}
 .palette-chip{
-  display:flex;align-items:center;gap:7px;
-  height:32px;padding:0 12px 0 8px;border-radius:999px;font-size:12px;
+  display:flex;align-items:center;gap:8px;
+  height:34px;padding:0 12px 0 6px;border-radius:999px;font-size:12px;
   border:1.2px solid var(--line);color:var(--text-2);
 }
-.palette-chip__dot{width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+/* 三色小样卡：纸底 + 底部幕布带（各包 --gradient-tri）+ 右上印章点，一眼读出一个世界 */
+.palette-chip__swatch{
+  position:relative;width:30px;height:20px;border-radius:6px;overflow:hidden;flex:none;
+  box-shadow:inset 0 0 0 1px rgba(61,43,57,.12);
+  transition:transform .18s var(--ease-spring);
+}
+.palette-chip__swatch i{position:absolute;left:0;right:0;bottom:0;height:7px}
+.palette-chip__swatch i.is-dot{
+  left:auto;right:3px;bottom:auto;top:3px;width:5px;height:5px;border-radius:50%;
+}
+.palette-chip__swatch.is-locked{
+  background:var(--wash);
+  border:1.2px dashed var(--line-strong);
+  box-shadow:none;
+}
+/* 锁住的包 = 封着的样卡：虚线封边 + 居中?，暗示「有颜色被收起来了」 */
+.palette-chip__swatch.is-locked::after{
+  content:"?";position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-3);
+}
 .palette-chip.is-on{border-color:var(--pink-600);color:var(--pink-700);background:var(--wash)}
+.palette-chip.is-on .palette-chip__swatch{outline:2px solid var(--pink-600);outline-offset:1.5px;transform:scale(1.06)}
 :root[data-theme="dark"] .palette-chip.is-on{color:var(--pink-400)}
-.palette-chip.is-locked{opacity:.5;cursor:not-allowed}
+.palette-chip:not(.is-locked):hover{border-color:var(--pink-400)}
+.palette-chip:not(.is-locked):hover .palette-chip__swatch{transform:translateY(-1px)}
+.palette-chip.is-locked{opacity:.55;cursor:not-allowed}
 
 /* 集章卡 */
 .stamp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}

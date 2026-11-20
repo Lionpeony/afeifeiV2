@@ -128,6 +128,9 @@
   --white:#FFFFFF;
   --mask-ink:#000000;
 
+  /* ---- 按压手感（jelly 按压统一刻度，见 docs/30 §18；gbc 包在 polish.css 里覆盖为不回弹） ---- */
+  --press-scale:.94;
+
   /* ---- 粉彩渐变家族（上面注释提到的 --pink-400 → 粉彩一族；固定值，不随主题包） ---- */
   --pastel-pink:#FF9EBB;
   --pastel-lav:#B8A9E8;
@@ -295,7 +298,7 @@
    结构 token（间距/布局/字体角色）不覆盖，仍走基座；暗色块必须放在亮色块之后，
    选择器多一档 data-theme 以保证在熄灯下也生效（基座暗色块是同权重的 :root[data-theme="dark"]）。 */
 :root[data-palette="mygo"]{
-  --bg:#F7F6FF; --bg-sub:#ECEBFB; --card:#FFFFFF;
+  --bg:#F5F4FE; --bg-sub:#EAE8FA; --card:#FFFFFF;
   --text:#2E2A3A; --text-2:#625C74; --text-3:#716A88;
   --pink-400:#9B8FD4;              /* 装饰：雨夜浅紫，禁作交互 */
   --pink-600:#5E49B8;              /* 交互：雨夜紫 */
@@ -332,7 +335,7 @@
 /* RAW 主题包（无滤镜 · GBC 气质）：冷灰纸 × 嘶吼红 × 夜港蓝，方角示人。
    方案见 Design Files anime-theme-packs.html；结构 token 不覆盖。 */
 :root[data-palette="gbc"]{
-  --bg:#F3F2F0; --bg-sub:#E7E5E2; --card:#FFFFFF;
+  --bg:#F0EFED; --bg-sub:#E5E3E0; --card:#FFFFFF;
   --text:#211E24; --text-2:#57525C; --text-3:#6E6874;
   --pink-400:#EE7A86;              /* 装饰：褪色红，禁作交互 */
   --pink-600:#D92534;              /* 交互：嘶吼红 */
@@ -368,7 +371,7 @@
 }
 /* KADO 主题包（墙角英雄 · 孤独摇滚气质）：暖米纸 × 墙角粉 × 火焰黄 × 运动服青。 */
 :root[data-palette="btr"]{
-  --bg:#F7F3EC; --bg-sub:#EFE8DD; --card:#FFFDF8;
+  --bg:#F8F1E2; --bg-sub:#F0E5D0; --card:#FFFDF8;
   --text:#3A2E33; --text-2:#6E5D66; --text-3:#7A6871;
   --pink-400:#F1789F;              /* 装饰：舞台粉，禁作交互 */
   /* AA 回炉：原 #E75C8D 配白字只有 3.3:1，整档下压一档（色相不变） */

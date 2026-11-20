@@ -84,6 +84,8 @@ import {
   setSavedPlaylists,
 } from "../domain/playlists/online.js";
 import { attachNetPersistence, hydrateNet } from "../domain/net-cache/index.js";
+import { activeQuality } from "./quality-pref.js";
+import { LEVELER_CHANGE_EVENT, readLevelerPref } from "./audio-pref.js";
 import { loadSalt } from "../domain/recommend/salt.js";
 import { clock } from "../kernel/clock.js";
 import { decideFailure } from "../kernel/failure.js";
@@ -283,6 +285,11 @@ export async function bootstrap(): Promise<Services> {
   }
 
   const engine = new AudioEngine(media);
+  /* 响度均衡（P0 #8）：开关是界面偏好，引擎只管执行；设置面板改开关时通过事件同步。 */
+  engine.setLeveler(readLevelerPref());
+  window.addEventListener(LEVELER_CHANGE_EVENT, (e) => {
+    engine.setLeveler(Boolean((e as CustomEvent<boolean>).detail));
+  });
   const persister = createPersister(storage);
 
   /* ---- 播放失败自愈（P0-14）。判定在 kernel/failure.ts，这里只做调度 ---- */
@@ -317,6 +324,9 @@ export async function bootstrap(): Promise<Services> {
 
   const handleFailure = (code: ErrorCode): void => {
     const st = getState();
+    /* 失败发生在“本来就没在播”的时候（启动恢复 paused、用户已暂停），
+       小退避后自动重试/跳歌都不该把歌放起来。 */
+    const wasPlaying = st.player.status === "playing";
     const decision = decideFailure({
       code,
       retryCount,
@@ -343,6 +353,7 @@ export async function bootstrap(): Promise<Services> {
           retryCount = 0;
           return;
         }
+        if (!wasPlaying) return;
         dispatch({ type: "player/seek", positionMs: 0 });
         dispatch({ type: "player/play" });
       });
@@ -365,6 +376,9 @@ export async function bootstrap(): Promise<Services> {
 
     // skip：先露错误态（否则用户不知道刚才跳过了什么），再按延迟切下一首
     dispatch({ type: "player/error", code });
+    /* 本来就没在播（启动暂停/用户暂停）不自动跳歌：只把错误留在界面上，
+       否则“启动一定暂停”会被一次坏文件自动打破。 */
+    if (!wasPlaying) return;
     skipStreak = decision.skipStreak;
     const failing = st.player.trackId;
     if (skipTimer) clearTimeout(skipTimer);
@@ -590,11 +604,12 @@ export async function bootstrap(): Promise<Services> {
     loadLog(kv),
   ]);
 
-  /* 联网清单的落盘快照：先装旧清单（首帧就有「有哪些榜 / 有哪些歌单」），有网再补。
-     只存清单类 —— 曲目和账号数据变太快，落盘只会让人看到过期内容。 */
+  /* 联网清单的落盘快照：先装旧清单（首帧就有「有哪些榜 / 有哪些歌单 / 首页栏目」），有网再补。
+     只存清单类 —— 曲目详情和账号数据变太快，落盘只会让人看到过期内容。 */
   hydrateNet(await kv.read("net-cache"));
   attachNetPersistence({
-    match: (key) => key.startsWith("charts:toplists:") || key.startsWith("playlists:list:"),
+    match: (key) =>
+      key.startsWith("charts:toplists:") || key.startsWith("charts:home:") || key.startsWith("playlists:list:"),
     save: (data) => {
       void kv.write("net-cache", JSON.stringify(data)).catch(() => undefined);
     },
@@ -699,32 +714,6 @@ export async function bootstrap(): Promise<Services> {
     }
   }
 
-  /* 启动一律暂停（2026-11-19）：恢复只 cue 不播；系统媒体面板/内核补发的 play
-     也一并挡掉。用户第一次点窗口/按键前，任何“自己响起来”都按回暂停。 */
-  let startupGuardDone = false;
-  let unsubStartupGuard: (() => void) | null = null;
-  const finishStartupGuard = (): void => {
-    if (startupGuardDone) return;
-    startupGuardDone = true;
-    document.removeEventListener("pointerdown", finishStartupGuard, true);
-    document.removeEventListener("keydown", finishStartupGuard, true);
-    unsubStartupGuard?.();
-  };
-  unsubStartupGuard = subscribe(() => {
-    if (startupGuardDone) return;
-    const ua = (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation;
-    if (ua?.hasBeenActive) {
-      finishStartupGuard();
-      return;
-    }
-    if (getState().player.status === "playing") {
-      dispatch({ type: "player/pause" });
-      console.warn("[startup] 启动自动播放已拦下（用户尚未交互）");
-    }
-  });
-  document.addEventListener("pointerdown", finishStartupGuard, true);
-  document.addEventListener("keydown", finishStartupGuard, true);
-
   window.addEventListener("beforeunload", () => {
     void persister.flush(getState, () => clock.t(performance.now()));
   });
@@ -807,6 +796,7 @@ export async function bootstrap(): Promise<Services> {
         canPlaylists: p.capabilities.canListPlaylists,
         canToplists: p.capabilities.canGetToplist,
         canAccount: Boolean(p.account),
+        qualities: [...p.traits.qualities],
       })),
 
     async listPlaylists(sourceId) {
@@ -1049,6 +1039,7 @@ export async function bootstrap(): Promise<Services> {
     unlockLyric: () => api.unlockLyric(),
 
     exportBackup: () => api.exportBackup(),
+    exportDiagnostics: () => api.exportDiagnostics(),
     importBackup: () => api.importBackup(),
 
     async exportTheme() {
@@ -1242,7 +1233,7 @@ export async function bootstrap(): Promise<Services> {
   engine.setResolver(async (track) => {
     const remote = parseRemoteTrackId(track);
     if (!remote) return null; // 本地路径：交给 engine 的默认授权流程
-    return services.resolveOnlineUrl(remote.sourceId, remote.songId, "320k");
+    return services.resolveOnlineUrl(remote.sourceId, remote.songId, activeQuality());
   });
 
   // 下载执行器（M7）：与播放链路同源——完成后走曲库，不做"边下边播"
@@ -1250,7 +1241,7 @@ export async function bootstrap(): Promise<Services> {
     port: download,
     library,
     kv,
-    resolveUrl: (sourceId, songId) => services.resolveOnlineUrl(sourceId, songId, "320k"),
+    resolveUrl: (sourceId, songId) => services.resolveOnlineUrl(sourceId, songId, activeQuality()),
   });
 
   return services;

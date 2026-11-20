@@ -9,7 +9,8 @@
  *   - 扫码 `/login/qr/key` → `/login/qr/create?key=&channel=qq` → `/login/qr/check?key=`（801=未扫）
  */
 import { fetchJson } from "./fetchJson.js";
-import { qqApiUrl } from "./qqBackend.js";
+import { ensureQqBackend, qqApiUrl } from "./qqBackend.js";
+import { FailureBackoff } from "./backoff.js";
 import { readKey, writeKey } from "../fs/kv.js";
 
 interface QqBody {
@@ -25,6 +26,9 @@ interface QqBody {
  * token 只是不透明的会话 id，不是 QQ 凭证本身；持久化到 KV，重启后登录态还在。 */
 const TOKEN_KEY = "qq-session-token";
 const SESSION_COOKIE_RE = /qqmusic_session=([^;]+)/;
+
+/** 连续失败熔断（按接口路径）。第 3 次起阶梯冷却，成功清零。 */
+const backoff = new FailureBackoff();
 
 let qqToken = "";
 let tokenLoaded = false;
@@ -74,12 +78,28 @@ function harvestToken(sources: (string | undefined)[]): void {
   }
 }
 
+/** 所有 QQ 请求先确保本地服务在跑；服务起不来时给人话错误，而不是 fetch 的 ECONNREFUSED。 */
+function backendUrl(pathAndQuery: string): string {
+  const status = ensureQqBackend();
+  if (!status.ok) throw new Error(status.message ?? "QQ 音乐服务不可用");
+  return `${qqApiUrl()}${pathAndQuery}`;
+}
+
 async function callApi<T = QqBody>(pathAndQuery: string): Promise<T> {
   const token = await loadToken();
   const sep = pathAndQuery.includes("?") ? "&" : "?";
   const session = token ? `${sep}cookie=${encodeURIComponent(`qqmusic_session=${token}`)}` : "";
-  const { json } = await fetchJson(`${qqApiUrl()}${pathAndQuery}${session}`);
-  return json as T;
+  const key = pathAndQuery.split("?")[0];
+  const wait = backoff.waitMs(key);
+  if (wait > 0) throw new Error(`QQ 音乐接口连续失败，${Math.ceil(wait / 1000)} 秒后自动恢复`);
+  try {
+    const { json } = await fetchJson(backendUrl(`${pathAndQuery}${session}`));
+    backoff.ok(key);
+    return json as T;
+  } catch (err) {
+    backoff.fail(key);
+    throw err;
+  }
 }
 
 /** 渲染层可见的接口面：与旧实现同名，底层换服务。 */
@@ -246,7 +266,7 @@ const DEFAULT_CHANNEL = "qqmusic";
 async function qqQrStart(params: Record<string, unknown>): Promise<unknown> {
   const channel = typeof params.channel === "string" && QR_CHANNELS.has(params.channel) ? params.channel : DEFAULT_CHANNEL;
   // key 这一步要看状态码：上次登录失败后包有 15s 冷却，冷却内回 429 + retryAfterMs
-  const keyRes = await fetchJson(`${qqApiUrl()}/login/qr/key?channel=${channel}`);
+  const keyRes = await fetchJson(backendUrl(`/login/qr/key?channel=${channel}`));
   if (keyRes.status === 429) {
     const waitSec = Math.ceil(Number((keyRes.json as { retryAfterMs?: number })?.retryAfterMs ?? 15_000) / 1000);
     throw new Error(`登录太频繁，约 ${waitSec} 秒后再点「刷新」`);
@@ -268,7 +288,7 @@ async function qqQrPoll(params: Record<string, unknown>): Promise<unknown> {
   const key = String(params.key ?? "");
   if (!key) throw new Error("缺少扫码会话 key");
   // 原生 fetch：803 时包把 `qqmusic_session=<token>` 写进 Set-Cookie，fetchJson 不透出头
-  const r = await fetch(`${qqApiUrl()}/login/qr/check?key=${encodeURIComponent(key)}`);
+  const r = await fetch(backendUrl(`/login/qr/check?key=${encodeURIComponent(key)}`));
   const body = (await r.json()) as { code?: number; cookie?: string };
   const setCookies = r.headers.getSetCookie?.() ?? [];
   harvestToken([...setCookies, body?.cookie]);
@@ -291,7 +311,7 @@ async function qqRefresh(): Promise<void> {
   if (!token) return;
   // 路由是 POST（GET 回 405 Allow: POST）；带 token 让包把当前会话续在同一个 key 上
   const { json } = await fetchJson(
-    `${qqApiUrl()}/login/refresh?cookie=${encodeURIComponent(`qqmusic_session=${token}`)}`,
+    backendUrl(`/login/refresh?cookie=${encodeURIComponent(`qqmusic_session=${token}`)}`),
     { method: "POST", timeoutMs: 20000 },
   );
   const data = (json as { data?: { rotated?: unknown; token?: unknown } } | null)?.data;
@@ -418,7 +438,7 @@ async function qqLike(params: Record<string, unknown>): Promise<unknown> {
   if (!Number.isSafeInteger(id) || id <= 0) throw new Error("QQ 红心缺数字 songId");
   const token = await loadToken();
   const sep = token ? `?cookie=${encodeURIComponent(`qqmusic_session=${token}`)}` : "";
-  const { json } = await fetchJson(`${qqApiUrl()}/user/song/like${sep}`, {
+  const { json } = await fetchJson(backendUrl(`/user/song/like${sep}`), {
     method: "POST",
     json: { song: { id, mid, type: 0 }, liked },
     timeoutMs: 20000,

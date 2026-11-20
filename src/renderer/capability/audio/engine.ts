@@ -2,6 +2,7 @@ import type { ErrorCode } from "../../../contracts/index.js";
 import type { MediaPort } from "../../../contracts/ports.js";
 import { clock } from "../../kernel/clock.js";
 import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, type AudioGraph } from "./graph.js";
+import { createLeveler, type Leveler } from "./loudness.js";
 import { fadeCurves } from "./crossfade.js";
 import { aggregateSpectrum } from "./spectrum-bins.js";
 import { streamSrcOf } from "./streamSrc.js";
@@ -58,6 +59,9 @@ export class AudioEngine {
   /** 图还没建（还没播过第一首）时暂存的音频配置，建图后立即应用。 */
   private pendingPreamp: number | null = null;
   private pendingEq: number[] | null = null;
+  /** 响度均衡开关与控制器（P0 #8）；图未建时先记开关。 */
+  private pendingLeveler: boolean | null = null;
+  private leveler: Leveler | null = null;
   /** crossfade 时长（秒），0 = 关。 */
   private crossfadeSec = 0;
   /** 进行中的 crossfade（finalize 定时器）。 */
@@ -442,6 +446,7 @@ export class AudioEngine {
       // 建图前收到的配置在这里一次应用——不能丢，否则"先调 EQ 再点播放"会静默失效
       if (this.pendingPreamp !== null) applyPreamp(this.graph, this.pendingPreamp);
       if (this.pendingEq) applyEq(this.graph, this.pendingEq);
+      this.leveler = createLeveler(this.graph.ctx, this.graph.leveler, this.graph.analyser, this.pendingLeveler ?? false);
       if (this.pendingOutputId) void this.setOutputDevice(this.pendingOutputId);
     }
     this.cancelPendingPause(); // 淡出收尾还没落地就续播：撤掉，否则刚响就停
@@ -586,6 +591,12 @@ export class AudioEngine {
   setEq(gains: number[]): void {
     this.pendingEq = [...gains];
     if (this.graph) applyEq(this.graph, gains);
+  }
+
+  /** 响度均衡开关（P0 #8）。图未建时暂存，第一次播放建图后按这个值启动。 */
+  setLeveler(on: boolean): void {
+    this.pendingLeveler = on;
+    this.leveler?.setEnabled(on);
   }
 
   private spectrumBuf: Uint8Array<ArrayBuffer> | null = null;

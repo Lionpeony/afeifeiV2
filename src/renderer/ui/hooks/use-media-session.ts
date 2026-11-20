@@ -72,7 +72,8 @@ export function useMediaSession(input: {
           durationMs: services.current?.engine.durationMs() ?? 0,
         };
       },
-      toggle: () => dispatch({ type: "player/toggle" }),
+      play: () => dispatch({ type: "player/play" }),
+      pause: () => dispatch({ type: "player/pause" }),
       next: () => dispatch({ type: "queue/next" }),
       prev: () => dispatch({ type: "queue/prev", atPositionMs: services.current?.positionMs() ?? 0 }),
       seek: (positionMs) => dispatch({ type: "player/seek", positionMs }),

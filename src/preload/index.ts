@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld("api", {
   toggleMaximize: (): Promise<boolean> => ipcRenderer.invoke("win:toggleMax"),
   closeWindow: (): Promise<void> => ipcRenderer.invoke("win:close"),
   windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke("win:isMaximized"),
+  // 全屏播放模式（不传参=翻转）；窗口层全屏与网页全屏无关
+  toggleFullscreen: (on?: boolean): Promise<boolean> => ipcRenderer.invoke("win:fullscreen", on),
+  windowIsFullscreen: (): Promise<boolean> => ipcRenderer.invoke("win:isFullscreen"),
   onWindowMaximized: (cb: (max: boolean) => void): void => {
     ipcRenderer.on("win:maximized", (_e, max: unknown) => {
       if (typeof max === "boolean") cb(max);
@@ -204,6 +207,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   lastCrash: (): Promise<{ at: string; kind: string; file: string } | null> =>
     ipcRenderer.invoke("app:lastCrash"),
+  /** 诊断包（P0 #4）：弹保存框，返回落盘路径；取消为 null。 */
+  exportDiagnostics: (): Promise<string | null> => ipcRenderer.invoke("app:diagnostics"),
   markCrashSeen: (file: string): Promise<void> => ipcRenderer.invoke("app:markCrashSeen", file),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke("app:openExternal", url),
 

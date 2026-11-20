@@ -23,6 +23,14 @@ export function registerWindowIpc(getWin: () => BrowserWindow | null): void {
     getWin()?.close();
   });
   ipcMain.handle("win:isMaximized", () => getWin()?.isMaximized() ?? false);
+  // 全屏播放模式：setFullScreen(true/false)；不传参=翻转
+  ipcMain.handle("win:fullscreen", (_e, on?: boolean) => {
+    const win = getWin();
+    if (!win) return false;
+    win.setFullScreen(typeof on === "boolean" ? on : !win.isFullScreen());
+    return win.isFullScreen();
+  });
+  ipcMain.handle("win:isFullscreen", () => getWin()?.isFullScreen() ?? false);
 
   // 自绘三键后不再启用 titleBarOverlay。保留通道让旧渲染层调用时安静返回 false，
   // 避免 setTitleBarOverlay 把系统原生按钮重新挂回来。

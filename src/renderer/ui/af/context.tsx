@@ -11,6 +11,8 @@ export interface AfSource {
   canAuth?: boolean;
   canPlaylists?: boolean;
   canDownload?: boolean;
+  /** 上游支持的最高音质档（P0 #7） */
+  qualities?: string[];
 }
 
 export interface AfRemote {
@@ -92,9 +94,13 @@ export interface AfApi {
   setLocalTab(t: "library" | "downloads" | "radio"): void;
   mineTab: "liked" | "recent" | "stats";
   setMineTab(t: "liked" | "recent" | "stats"): void;
-  searchOnline(keyword: string): Promise<{ items: unknown[] }>;
+  searchOnline(keyword: string): Promise<{ items: unknown[]; artists?: { id?: string; name: string; picUrl?: string }[] }>;
+  /** 搜索浮层「查看全部结果」→ 跳发现页的整表搜索（批量下载入口） */
+  seekOnlineSearch(text: string): void;
   /** 搜索浮层 → 发现页艺人 / 专辑详情页（无 id 的源由调用方回落直播行为） */
   openDiscoverDetail(ref: Omit<AfDetailSeek, "at">): void;
+  /** Discover 消费完跳转信号后清空，避免回到页面时旧详情被重新打开 */
+  clearDiscoverDetail(): void;
   discoverDetail: AfDetailSeek | null;
   /* 当前曲 */
   track: AfTrack;

@@ -139,7 +139,7 @@
 .mix__list{margin-top:18px;display:flex;flex-direction:column;gap:2px;max-width:640px}
 .mix-row{
   display:grid;grid-template-columns:20px 28px minmax(0,1fr) 110px 44px;
-  gap:10px;align-items:center;height:36px;padding:0 8px;border-radius:8px;
+  gap:10px;align-items:center;height:32px;padding:0 8px;border-radius:8px;
   text-align:left;transition:background .16s var(--ease);
 }
 .mix-row:hover{background:var(--wash)}
@@ -610,6 +610,14 @@
 .sr-row__title{font-size:13px;color:var(--text)}
 .sr-row__sub{font-size:11px;color:var(--text-3)}
 .sr-row__dur{color:var(--text-3);font-size:10px}
+/* 键盘选中的行：和 hover 同一观感（§29 ↑↓ 导航） */
+.sr-row.is-cursor{background:var(--wash)}
+.sr-artist.is-cursor{background:var(--card);box-shadow:var(--shadow-soft)}
+/* 标题行：名字截断 + VIP 角标不折行（Compact Label Overflow） */
+.sr-row__title-row{display:flex;align-items:center;gap:6px;min-width:0}
+.tbl__name-row{display:flex;align-items:center;gap:6px;min-width:0}
+/* 浮层底部的「查看全部结果」：整表搜索/批量下载的入口 */
+.sr-allrow{padding:8px 10px 4px;text-align:center}
 .sr-row__tag{
   font-size:10px;letter-spacing:.06em;color:var(--text-3);
   border:1px solid var(--line-strong);border-radius:5px;padding:1px 6px;flex:none;
@@ -632,8 +640,10 @@
 .sr-artist__avatar{
   width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
   background:linear-gradient(150deg,var(--pink-400),var(--pastel-iris-light));color:var(--ink-on-pastel);
-  font-family:var(--font-display);font-size:16px;margin-bottom:2px;
+  font-family:var(--font-display);font-size:16px;margin-bottom:2px;flex:none;
 }
+/* 源侧直搜给到的真头像：盖掉渐变底，圆内满贴 */
+.sr-artist__avatar--pic{background:var(--wash);object-fit:cover}
 .sr-artist__name{font-size:13px;color:var(--text);max-width:100%}
 .search-busy{display:flex;align-items:center;gap:12px;padding:26px 12px;color:var(--text-3)}
 .search-busy__guitar{display:inline-block;animation:guitarSlide 1.5s var(--ease-out-soft) infinite;color:var(--pink-600)}

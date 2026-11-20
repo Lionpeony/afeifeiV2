@@ -1,11 +1,11 @@
 /* 通用曲目表 · 原型 .tbl（# / TITLE / ARTIST / ALBUM / TIME + 心 + 更多） */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { useAf } from "./context.js";
 import type { AfTrack } from "./context.js";
 import { TrackArt } from "./art.js";
 import { Bars, Strike } from "./ui.js";
-import { IconHeart, IconHeartFill, IconMore, IconX } from "./icons.js";
+import { IconHeart, IconHeartFill, IconMore, IconPick, IconX } from "./icons.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 const fmt = (sec: number): string => {
@@ -29,6 +29,9 @@ export function AfTrackTable({
   footer?: ReactNode;
 }) {
   const af = useAf();
+  /* E05 拨片印记：点红心（点亮方向）的那一下，按钮上盖一枚拨片——
+     单一 stamp 槽位即可：印记 420ms 自己淡出（stampDown both），换行盖章自然顶替。 */
+  const [stampId, setStampId] = useState<string | null>(null);
   return (
     <div className={"tbl" + (dense ? " tbl--dense" : "")}>
       <div className="tbl__head">
@@ -70,8 +73,22 @@ export function AfTrackTable({
             <span className="tbl__c-artist truncate" title={t.artist}>{t.artist}</span>
             <span className="tbl__c-album truncate" title={t.album}>{t.album}</span>
             <span className="tbl__c-time">
-              <button className={"tbl__heart" + (isOn ? " is-on" : "")} title="喜欢" onClick={(e) => { e.stopPropagation(); af.toggleLike(t); }}>
+              <button
+                className={"tbl__heart" + (isOn ? " is-on" : "")}
+                title="喜欢"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isOn) {
+                    setStampId(t.id);
+                    af.onomaAt(e.currentTarget, "ペタッ", "coral");
+                  }
+                  af.toggleLike(t);
+                }}
+              >
                 {isOn ? <IconHeartFill size={14} /> : <IconHeart size={14} />}
+                {stampId === t.id ? (
+                  <span className="stamp-mark" aria-hidden="true"><IconPick size={22} /></span>
+                ) : null}
               </button>
               {onRemove ? (
                 <button className="tbl__more tbl__rm" title="从歌单里拿掉" onClick={(e) => { e.stopPropagation(); onRemove(t.id); }}>

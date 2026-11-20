@@ -822,6 +822,15 @@ function reduce(current: AppState, intent: Intent): AppState {
       return items === current.download.items ? current : { ...current, download: { items } };
     }
 
+    /* 手动重试（P0 #6）：清零退避计数，让这一轮重新拿满 3 次尝试；
+       失败原因清掉，重试过程中不再挂着上一轮的旧错误。 */
+    case "download/retry": {
+      const items = mapItem(current.download.items, intent.id, (i) =>
+        i.state === "error" ? { ...i, state: "queued" as const, tries: 0, error: null, speed: 0 } : i,
+      );
+      return items === current.download.items ? current : { ...current, download: { items } };
+    }
+
     case "download/resume": {
       const items = mapItem(current.download.items, intent.id, (i) =>
         i.state === "paused" || i.state === "error" ? { ...i, state: "queued" as const } : i,

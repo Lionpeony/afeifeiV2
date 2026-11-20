@@ -3,6 +3,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { dataDir } from "../paths.js";
 import { log } from "../log/index.js";
+import { FailureBackoff } from "./backoff.js";
 
 /**
  * 网易云通道：直接用 NeteaseCloudMusicApi 的函数式接口。
@@ -36,8 +37,58 @@ type NcmFn = (params: Record<string, unknown>) => Promise<{ status: number; body
 const DEVICE_ID = randomUUID().replace(/-/g, "").toUpperCase();
 (globalThis as Record<string, unknown>).deviceId = DEVICE_ID;
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const ncm = require("NeteaseCloudMusicApi") as Record<string, NcmFn>;
+/** 连续失败熔断（按接口名）。瞬时抖动不熔断，第 3 次起阶梯冷却。 */
+const backoff = new FailureBackoff();
+
+type NcmRequest = (...args: unknown[]) => Promise<unknown>;
+type NcmRoute = (
+  query: Record<string, unknown>,
+  request: NcmRequest,
+) => Promise<{ status: number; body: Record<string, unknown> }>;
+
+/**
+ * 按路由单独 require。整包 index 会把 300+ 个模块一次性载入（本机实测 3.6s），
+ * 每次请求只载入自己那一个路由，request 链首次用到时才载入（约 1.7s）。
+ * 冷启动不再为音源付钱，第一次联网请求的卡顿也从 3.6s 降到 1.7s（P0 #1）。
+ */
+let ncmRequest: NcmRequest | null = null;
+let cookieToJson: ((cookie: string) => Record<string, unknown>) | null = null;
+const routeCache = new Map<string, NcmFn>();
+
+function ncmFn(method: string): NcmFn | null {
+  const cached = routeCache.get(method);
+  if (cached) return cached;
+  if (!/^[a-z0-9_]+$/.test(method)) return null;
+  let route: NcmRoute;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    route = require(`NeteaseCloudMusicApi/module/${method}.js`) as NcmRoute;
+  } catch {
+    return null; // 路由不存在：与整包 index 的行为一致（callNcm 报「接口不存在」）
+  }
+  if (!cookieToJson) {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const util = require("NeteaseCloudMusicApi/util/index.js") as {
+      cookieToJson(v: string): Record<string, unknown>;
+    };
+    cookieToJson = util.cookieToJson;
+  }
+  const fn: NcmFn = (data = {}) => {
+    const cookie =
+      typeof data.cookie === "string"
+        ? cookieToJson!(data.cookie)
+        : ((data.cookie as Record<string, unknown> | undefined) ?? {});
+    return route({ ...data, cookie }, async (...args) => {
+      if (!ncmRequest) {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        ncmRequest = require("NeteaseCloudMusicApi/util/request.js") as NcmRequest;
+      }
+      return ncmRequest(...args);
+    });
+  };
+  routeCache.set(method, fn);
+  return fn;
+}
 
 export const currentDeviceId = (): string => DEVICE_ID;
 
@@ -93,8 +144,13 @@ export function cleanCookie(raw: string): string {
 export async function callNcm(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
   load();
 
-  const fn = ncm[method];
-  if (typeof fn !== "function") {
+  const wait = backoff.waitMs(method);
+  if (wait > 0) {
+    throw new Error(`网易云接口连续失败，${Math.ceil(wait / 1000)} 秒后自动恢复`);
+  }
+
+  const fn = ncmFn(method);
+  if (!fn) {
     throw new Error(`网易云接口不存在：${method}`);
   }
 
@@ -108,6 +164,7 @@ export async function callNcm(method: string, params: Record<string, unknown> = 
   try {
     result = await fn({ ...rest, cookie: useCookie, timestamp: Date.now() });
   } catch (err) {
+    backoff.fail(method);
     if (method === "song_url" || method === "song_url_v1") {
       const body = (err as { body?: { code?: unknown; message?: unknown } })?.body;
       log(
@@ -117,6 +174,7 @@ export async function callNcm(method: string, params: Record<string, unknown> = 
     }
     throw err;
   }
+  backoff.ok(method);
   const body = result?.body ?? {};
 
   // 取流失败要留痕：风控（-460）与「真的没地址」在 UI 上是同一句话，日志里必须分得开

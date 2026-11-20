@@ -42,11 +42,13 @@ if (TEST) {
       lyrics: "src/renderer/capability/lyrics/index.ts",
       "lyric-cache": "src/renderer/capability/lyrics/cache.ts",
       "audio-eq": "src/renderer/capability/audio/eq.ts",
+      "audio-loudness": "src/renderer/capability/audio/loudness.ts",
       "audio-spectrum-bins": "src/renderer/capability/audio/spectrum-bins.ts",
       "audio-crossfade": "src/renderer/capability/audio/crossfade.ts",
       "audio-engine": "src/renderer/capability/audio/engine.ts",
       "audio-eq-response": "src/renderer/capability/audio/eq-response.ts",
       "library-group": "src/renderer/domain/library/group.ts",
+      "library-match": "src/renderer/domain/library/match.ts",
       "library-meta": "src/renderer/domain/library/meta.ts",
       "playlists-online": "src/renderer/domain/playlists/online.ts",
       "lyric-filter": "src/renderer/domain/lyrics/filter.ts",
@@ -86,6 +88,8 @@ if (TEST) {
       "library-state": "src/renderer/domain/library/state.ts",
       "download-queue": "src/renderer/domain/download/queue.ts",
       "update-semver": "src/main/update/semver.ts",
+      "net-backoff": "src/main/net/backoff.ts",
+      redact: "src/main/redact.ts",
     },
     outdir: "dist-test",
     bundle: true,
@@ -201,6 +205,8 @@ await build({
   format: "iife",
   target: BROWSER_TARGET,
   jsx: "automatic",
+  // 1.5MB 未压缩脚本的解析直接算进首屏时间；压缩后体积约减半，启动层退场更快。
+  minify: true,
   define: { "process.env.NODE_ENV": '"production"' },
 });
 

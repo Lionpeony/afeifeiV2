@@ -52,10 +52,13 @@ export interface AfUiInput {
   loginFor(id: string | null): void;
   logout(id: string): void;
   loginSrc: string | null;
-  searchOnline(q: string): Promise<{ items: unknown[] }>;
+  searchOnline(q: string): Promise<{ items: unknown[]; artists?: { id?: string; name: string; picUrl?: string }[] }>;
+  /** 搜索浮层「查看全部结果」→ 发现页整表搜索 */
+  seekOnlineSearch(text: string): void;
   /** 搜索浮层发起的详情跳转（状态在 index 持有，Discover 读它开门） */
   discoverDetail: AfDetailSeek | null;
   openDiscoverDetail(ref: Omit<AfDetailSeek, "at">): void;
+  clearDiscoverDetail(): void;
   playRemote(sourceId: string, track: unknown, list: unknown[], origin: string): void;
   playIds(ids: string[], startAt?: number): void;
   toAfTrack(id: string): AfTrack;
@@ -407,6 +410,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
       volArmed.current = false;
       volCount.current += 1;
       discover("E18");
+      onoma("バッ…", { tone: "coral", x: window.innerWidth * 0.5, y: window.innerHeight * 0.62 });
       toast(eggText(palette, "volMax", volCount.current), { hand: true });
       document.documentElement.classList.add("vol-max");
       setTimeout(() => document.documentElement.classList.remove("vol-max"), 1200);
@@ -524,6 +528,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const markChorus = (sec: number): void => {
     setChorus((c) => ({ ...c, [currentId]: sec }));
     Sound.ding();
+    /* 拟声常驻：副歌点标记在高频位上落一个 ♪ 情绪气泡（docs/30 §18） */
+    onoma("♪", { tone: "mint", x: window.innerWidth / 2, y: window.innerHeight - 150 });
     toast("副歌点记在这儿了", { icon: "check" });
   };
   const chorusAt = chorus[currentId] ?? null;
@@ -822,8 +828,10 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     mineTab: input.mineTab,
     setMineTab: input.setMineTab,
     searchOnline: input.searchOnline,
+    seekOnlineSearch: input.seekOnlineSearch,
     discoverDetail: input.discoverDetail,
     openDiscoverDetail: input.openDiscoverDetail,
+    clearDiscoverDetail: input.clearDiscoverDetail,
     track,
     currentId,
     resolveTrack: input.toAfTrack,

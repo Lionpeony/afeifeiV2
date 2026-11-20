@@ -28,7 +28,14 @@ export function DownloadsPage() {
 
   const tasks = rows.filter((r) => r.state !== "done");
   const done = rows.filter((r) => r.state === "done");
+  const failed = tasks.filter((r) => r.state === "error");
   const srcName = (id: string): string => af.sources.find((s) => s.id === id)?.name ?? id;
+  /* 取消/删除必须连文件一起清：只摘列表会让文件留在下载目录，下次扫描又冒出来。 */
+  const removeTask = (d: { id: string; destPath: string }): void => {
+    void window.api.downloadCancel(d.id).catch(() => undefined);
+    dispatch({ type: "download/remove", id: d.id });
+    void window.api.downloadRemove(d.destPath).catch(() => undefined);
+  };
 
   return (
     <div className="page loc" data-screen-label="下载管理">
@@ -55,6 +62,14 @@ export function DownloadsPage() {
       <div className="loc__sect">
         <h2 className="sect-title">下载中<span>IN PROGRESS</span></h2>
         <span className="meta num">{tasks.length} 个任务</span>
+        {failed.length > 0 ? (
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => failed.forEach((d) => dispatch({ type: "download/retry", id: d.id }))}
+          >
+            <IconRefresh size={13} /> 全部重试
+          </button>
+        ) : null}
       </div>
 
       {tasks.length === 0 ? (
@@ -68,17 +83,29 @@ export function DownloadsPage() {
                 <span className="dl-row__art"><TrackArt id={d.id} size={44} radius={10} /></span>
                 <span className="dl-row__main">
                   <span className="dl-row__title truncate">{d.title}</span>
-                  <span className="dl-row__meta truncate">{srcName(d.sourceId)} · {fmtSize(d.total)} · {STATE_TEXT[d.state] ?? d.state} {fmtSpeed(d.speed)}</span>
+                  <span className="dl-row__meta truncate">
+                    {srcName(d.sourceId)} · {fmtSize(d.total)} · {STATE_TEXT[d.state] ?? d.state} {fmtSpeed(d.speed)}
+                    {d.state === "error" && d.error ? ` · ${d.error}` : ""}
+                  </span>
                   <span className="dl-bar">
                     <i style={{ width: pct + "%" }}></i>
                     <span className="dl-bar__pick"><IconDownload size={11} /></span>
                   </span>
                 </span>
-                <span className="dl-row__pct num">{d.total > 0 ? pct + "%" : "…"}</span>
-                <button className="icon-btn" title={d.state === "paused" ? "继续" : "暂停"} onClick={() => dispatch({ type: d.state === "paused" ? "download/resume" : "download/pause", id: d.id })}>
-                  {d.state === "paused" ? <IconPlay size={14} /> : <IconPause size={14} />}
+                <span className="dl-row__pct num">{d.state === "error" ? "失败" : d.total > 0 ? pct + "%" : "…"}</span>
+                <button
+                  className="icon-btn"
+                  title={d.state === "error" ? "重试" : d.state === "paused" ? "继续" : "暂停"}
+                  onClick={() =>
+                    dispatch({
+                      type: d.state === "error" ? "download/retry" : d.state === "paused" ? "download/resume" : "download/pause",
+                      id: d.id,
+                    })
+                  }
+                >
+                  {d.state === "error" ? <IconRefresh size={14} /> : d.state === "paused" ? <IconPlay size={14} /> : <IconPause size={14} />}
                 </button>
-                <button className="icon-btn" title="取消" onClick={() => dispatch({ type: "download/remove", id: d.id })}>
+                <button className="icon-btn" title="取消" onClick={() => removeTask(d)}>
                   <IconX size={14} />
                 </button>
               </div>
@@ -90,6 +117,11 @@ export function DownloadsPage() {
       <div className="loc__sect" style={{ marginTop: 28 }}>
         <h2 className="sect-title">已完成<span>FINISHED</span></h2>
         <span className="meta num">{done.length} 首</span>
+        {done.length > 0 ? (
+          <button className="btn btn-ghost btn-sm" onClick={() => done.forEach(removeTask)}>
+            <IconX size={13} /> 清空已完成
+          </button>
+        ) : null}
       </div>
 
       <div className="paper loc__sheet">
@@ -110,7 +142,7 @@ export function DownloadsPage() {
               <button className="icon-btn" title="播放" onClick={(e) => { e.stopPropagation(); af.goTo(d.destPath); af.openPlayer(); }}>
                 <IconPlay size={15} />
               </button>
-              <button className="icon-btn" title="删除" onClick={(e) => { e.stopPropagation(); dispatch({ type: "download/remove", id: d.id }); }}>
+              <button className="icon-btn" title="删除" onClick={(e) => { e.stopPropagation(); removeTask(d); }}>
                 <IconX size={14} />
               </button>
             </div>

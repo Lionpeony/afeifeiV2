@@ -3,7 +3,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 
 import { useAf } from "./context.js";
 import { TrackArt, artPaletteOf } from "./art.js";
-import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX } from "./icons.js";
+import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX, IconShare, IconKeys, IconMini, IconMin, IconMax, IconRestore, IconExpand } from "./icons.js";
 import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
 import { ShareCard } from "./ShareCard.js";
@@ -57,6 +57,53 @@ export function NowPlaying() {
   const longPressed = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  /* 播放页盖住了顶栏，窗口控制得自己带（最大化/还原态与主窗口同步） */
+  const [maximized, setMaximized] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void window.api.windowIsMaximized().then((v) => {
+      if (alive) setMaximized(v);
+    });
+    window.api.onWindowMaximized((v) => setMaximized(v));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  /* 全屏播放模式：窗口层真全屏；chrome 鼠标静止 2.8s 隐退，Esc 退出（对齐 QQ/网易全屏，docs/30 §22） */
+  const [fs, setFs] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void window.api.windowIsFullscreen().then((v) => {
+      if (alive) setFs(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    document.body.toggleAttribute("data-fs", fs);
+    if (!fs) { document.body.classList.remove("np-idle"); return; }
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const arm = (): void => {
+      if (timer) clearTimeout(timer);
+      document.body.classList.remove("np-idle");
+      timer = setTimeout(() => document.body.classList.add("np-idle"), 2800);
+    };
+    arm();
+    const onMove = (): void => arm();
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Escape") void window.api.toggleFullscreen(false).then(setFs);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.classList.remove("np-idle");
+      document.body.removeAttribute("data-fs");
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [fs]);
   const liked = isLiked(track);
 
   /* 红心飞出：点喜欢（或长按盖火焰时顺手点亮）就从按钮上方飘一颗心 */
@@ -142,9 +189,29 @@ export function NowPlaying() {
         {palette === "gbc" && (
           <span className="np__rec" aria-hidden="true"><i></i>REC</span>
         )}
-        <button className="np__keysbtn" onClick={() => setShareOpen(true)} title="把这首做成分享卡片">卡片</button>
-        <button className="np__keysbtn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单">快捷键 <kbd>?</kbd></button>
-        <span className="meta hand" style={{ fontSize: 12 }}>还剩 {remainMin} 分钟就散场</span>
+        {/* 右上 = 视窗/环境操作带（对齐主流播放器「左上离开 / 右上管窗 / 底部管歌」分区；docs/30 §20/§21） */}
+        <button className="icon-btn" onClick={() => setShareOpen(true)} title="把这首做成分享卡片" aria-label="分享卡片"><IconShare size={16} /></button>
+        <button className="icon-btn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单（?）" aria-label="快捷键"><IconKeys size={16} /></button>
+        <button className="icon-btn" onClick={() => { void window.api.toggleMini(); }} title="迷你模式（K）" aria-label="迷你模式"><IconMini size={16} /></button>
+        <button
+          className="icon-btn"
+          onClick={() => void window.api.toggleFullscreen().then(setFs)}
+          title={fs ? "退出全屏（Esc）" : "全屏模式"}
+          aria-label={fs ? "退出全屏" : "全屏模式"}
+        >
+          <IconExpand size={16} />
+        </button>
+        <span className="np__windiv" aria-hidden="true"></span>
+        <button className="icon-btn np__winbtn" onClick={() => void window.api.minimizeWindow()} title="最小化" aria-label="最小化"><IconMin size={13} /></button>
+        <button
+          className="icon-btn np__winbtn"
+          onClick={() => void window.api.toggleMaximize().then(setMaximized)}
+          title={maximized ? "还原" : "最大化"}
+          aria-label={maximized ? "还原" : "最大化"}
+        >
+          {maximized ? <IconRestore size={12} /> : <IconMax size={12} />}
+        </button>
+        <button className="icon-btn np__winbtn np__winclose" onClick={() => void window.api.closeWindow()} title="关闭" aria-label="关闭"><IconX size={13} /></button>
       </div>
 
       <div className="np__main">
@@ -361,7 +428,10 @@ export function NowPlaying() {
           </div>
           <div className="np__queue-foot">
             <span className="hand">划掉的那首就别返场了</span>
-            <IconPickOutline size={13} style={{ color: "var(--coral)", opacity: 0.6 }} />
+            <span className="np__stagecall">
+              <span className="hand">还剩 {remainMin} 分钟就散场</span>
+              <IconPickOutline size={13} style={{ color: "var(--coral)", opacity: 0.6 }} />
+            </span>
           </div>
         </aside>
       </div>

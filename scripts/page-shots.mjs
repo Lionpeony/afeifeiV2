@@ -191,7 +191,7 @@ function registerMinimalIpc() {
       return { code: 200, playlist: { id: Number(params?.id ?? 0), name: "导入的歌单 · 测试", trackCount: 3 } };
     }
     const SONGS = [
-      { id: 1, name: "晴天", ar: [{ name: "周杰伦" }], al: { name: "叶惠美" }, dt: 269000 },
+      { id: 1, name: "晴天", ar: [{ name: "周杰伦" }], al: { name: "叶惠美" }, dt: 269000, fee: 1 },
       { id: 2, name: "富士山下", ar: [{ name: "陈奕迅" }], al: { name: "What's Going On…?" }, dt: 258000 },
       { id: 3, name: "江南", ar: [{ name: "林俊杰" }], al: { name: "第二天堂" }, dt: 268000 },
       { id: 4, name: "夜的第七章", ar: [{ name: "周杰伦" }], al: { name: "依然范特西" }, dt: 297000 },
@@ -208,21 +208,43 @@ function registerMinimalIpc() {
     // 发现页主视觉（2026-11-13 重设计）：每日推荐有真实形状，hero 才不是空壳
     if (method === "recommend_songs") return { data: { dailySongs: SONGS } };
     // 榜单目录（2026-11-10 重设计验收）：8 个榜，右栏下钻走 playlist_track_all
+    // 榜单目录（2026-11-10 重设计验收）：右栏下钻走 playlist_track_all
+    // 2026-11-20 改 24 个：要验「目录 12 行封顶 + 其余展开」（§26），8 个压不出来
     if (method === "toplist") {
       return {
-        list: [
-          { id: 19723756, name: "飙升榜", trackCount: 100 },
-          { id: 3779629, name: "新歌榜", trackCount: 100 },
-          { id: 3778678, name: "热歌榜", trackCount: 200 },
-          { id: 10520166, name: "电音榜", trackCount: 50 },
-          { id: 745956260, name: "说唱榜", trackCount: 50 },
-          { id: 71384707, name: "ACG 新歌榜", trackCount: 80 },
-          { id: 2713520465, name: "日本公信榜", trackCount: 60 },
-          { id: 60198, name: "欧美热歌榜", trackCount: 100 },
-        ],
+        list: Array.from({ length: 24 }, (_, i) => ({
+          id: 19723756 + i,
+          name: ["飙升榜", "新歌榜", "热歌榜", "电音榜", "说唱榜", "ACG 新歌榜", "日本公信榜", "欧美热歌榜"][i % 8] + (i >= 8 ? ` · 续${Math.floor(i / 8)}` : ""),
+          trackCount: 100,
+        })),
       };
     }
     // 在线搜索（B-10 批量下载）：3 条结果刚好验「全选 → 下载选中（3）」
+    // 艺人直搜（type:100）：给三张 SVG 头像（data: URI，CSP img-src 允许），
+    // 搜索浮层「艺人」tab 才有真头像可拍（§28）
+    if (method === "cloudsearch" && Number(params?.type) === 100) {
+      const pic = (c1, c2) =>
+        "data:image/svg+xml;base64," +
+        Buffer.from(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="48" cy="38" r="13" fill="rgba(255,255,255,.9)"/><path d="M22 94c4-19 14-28 26-28s22 9 26 28z" fill="rgba(255,255,255,.9)"/></svg>`,
+        ).toString("base64");
+      return {
+        result: {
+          artists: [
+            { id: 901, name: "周杰伦", picUrl: pic("#f8a5c2", "#b490ca") },
+            { id: 902, name: "陈奕迅", picUrl: pic("#8ec9f5", "#7f7fd5") },
+            { id: 903, name: "林俊杰", picUrl: pic("#ffd6a5", "#ff9a9e") },
+          ],
+        },
+      };
+    }
+    // 艺人热门曲目（getArtist）：按 stub 艺人 id 映射回名字，再从 SONGS 里挑
+    if (method === "artist_songs") {
+      const name = { 901: "周杰伦", 902: "陈奕迅", 903: "林俊杰" }[Number(params?.id)] ?? "周杰伦";
+      return {
+        songs: SONGS.filter((s) => (s.ar ?? []).some((a) => a.name === name)),
+      };
+    }
     if (method === "cloudsearch") return { result: { songs: SONGS.slice(0, 3), songCount: 3 } };
     return { code: 200 };
   });
@@ -317,22 +339,60 @@ app.whenReady().then(async () => {
   await win.webContents.executeJavaScript(`document.querySelector(".auth__skip")?.click()`, true);
   await sleep(400);
 
-  // 新顶栏的音源切换是右侧胶囊；旧账号菜单已不在主界面
-  const switchSource = async (name) => {
-    const short = name.includes("网易云") ? "网易云" : name.startsWith("QQ") ? "QQ" : name;
-    const switched = await win.webContents.executeJavaScript(
-      `(() => {
-        const b = [...document.querySelectorAll(".src-switch__btn, .src-pill__btn")].find(
-          (x) => (x.textContent || "").trim() === ${JSON.stringify(short)},
-        );
-        if (!b) return false;
-        b.click();
-        return true;
-      })()`,
+  /* 四包色调对照（§25）：SHOTS_PALETTE=mygo 时种进 localStorage 重载，
+     只拍发现页+设置页就退——对比四个世界的实机观感，不必每包跑全量。 */
+  if (process.env.SHOTS_PALETTE) {
+    const pal = process.env.SHOTS_PALETTE;
+    await win.webContents.executeJavaScript(
+      `localStorage.setItem("afeifei.v42.palette", ${JSON.stringify(JSON.stringify(pal))}); true`,
       true,
     );
-    await sleep(450);
-    return switched;
+    await win.webContents.reload();
+    await sleep(900);
+    await win.webContents.executeJavaScript(`document.querySelector(".auth__skip")?.click()`, true);
+    await sleep(400);
+    for (const [label, id] of [["发现", "online"], ["设置", "settings"]]) {
+      const ok = await win.webContents.executeJavaScript(
+        `(() => { const b = document.querySelector('[data-page="${id}"]'); if (!b) return false; b.click(); return true; })()`,
+        true,
+      );
+      if (!ok) throw new Error(`[SHOTS_PALETTE] 找不到导航项「${label}」`);
+      await sleep(400);
+      await shoot(`page-${id}-pal-${pal}${suffix}.png`);
+    }
+    app.quit();
+    return;
+  }
+
+  // 新顶栏的音源切换是右侧胶囊；旧账号菜单已不在主界面。
+  // 必须验 is-on：pill 换台是 170ms 延时 + 400ms 收尾（use-af switchSource），
+  // 盲等 450ms 偶发没切成（2026-11-20 实测：搜索段跑成了 QQ，浮层空态假证据）
+  const switchSource = async (name) => {
+    const short = name.includes("网易云") ? "网易云" : name.startsWith("QQ") ? "QQ" : name;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const found = await win.webContents.executeJavaScript(
+        `(() => {
+          const b = [...document.querySelectorAll(".src-switch__btn, .src-pill__btn")].find(
+            (x) => (x.textContent || "").trim() === ${JSON.stringify(short)},
+          );
+          if (!b) return false;
+          if (b.classList.contains("is-on")) return true;
+          b.click();
+          return true;
+        })()`,
+        true,
+      );
+      if (!found) return false;
+      await sleep(650);
+      const on = await win.webContents.executeJavaScript(
+        `[...document.querySelectorAll(".src-switch__btn.is-on, .src-pill__btn.is-on")].some(
+          (x) => (x.textContent || "").trim() === ${JSON.stringify(short)},
+        )`,
+        true,
+      );
+      if (on) return true;
+    }
+    return false;
   };
 
   // 首次使用引导（C-16）已下线（2026-11-05 用户要求去掉启动弹窗）：
@@ -366,6 +426,11 @@ app.whenReady().then(async () => {
   await win.webContents.executeJavaScript(`document.querySelector(".set-body")?.scrollTo(0, 1e6)`, true);
   await sleep(200);
   await shoot(`page-settings-m9${suffix}.png`);
+
+  // 限定色调样卡（§23）：滚到色调行，拍真机证据（静态样卡页测不出真实上下文）
+  await win.webContents.executeJavaScript(`document.querySelector(".palette-row")?.scrollIntoView({ block: "center" })`, true);
+  await sleep(200);
+  await shoot(`page-settings-palette${suffix}.png`);
 
   // 扫码登录：会员票弹窗
   await win.webContents.executeJavaScript(`document.querySelector(".acct-row.is-empty .btn-primary")?.click()`, true);
@@ -562,10 +627,10 @@ app.whenReady().then(async () => {
     throw new Error(`发现页没长齐：${JSON.stringify(chartProbe)}`);
   }
   }
-  // page-online 记首屏（每日推荐），page-charts 记榜单段（卡带 + 下钻）：
-  // 两张图各记录一个卖点，不再重复截同一个视口。
+  // page-online 记首屏（每日推荐），page-charts 记榜单段（特写卡 + 封顶目录 + 展开钮）：
+  // 两张图各记录一个卖点，不再重复截同一个视口。新发现页没有 .top-preview，滚到榜单特写行。
   await win.webContents.executeJavaScript(
-    `document.querySelector(".top-preview")?.scrollIntoView({ block: "start" })`,
+    `document.querySelector(".chart-feat-row")?.scrollIntoView({ block: "start" })`,
     true,
   );
   await sleep(300);
@@ -664,6 +729,98 @@ app.whenReady().then(async () => {
       );
       await sleep(900);
       await shoot(`page-search-overlay${suffix}.png`);
+      // §29 VIP 角标 + ↑↓ 选结果：晴天 fee=1 首行要挂金色 VIP；↓ 光标到第二行，↑ 回来
+      const vipThere = await win.webContents.executeJavaScript(
+        `Boolean(document.querySelector(".sr-row .tbl__badge.is-vip"))`,
+        true,
+      );
+      if (!vipThere) throw new Error("fee=1 的曲目没有标 VIP 角标");
+      const cursorAt = async () =>
+        win.webContents.executeJavaScript(
+          `(() => {
+            const rows = [...document.querySelectorAll(".sr-list .sr-row, .sr-artists .sr-artist")];
+            return rows.findIndex((r) => r.classList.contains("is-cursor"));
+          })()`,
+          true,
+        );
+      await win.webContents.executeJavaScript(
+        `document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }))`,
+        true,
+      );
+      await sleep(200);
+      if ((await cursorAt()) !== 1) throw new Error("↓ 没把键盘光标移到第二行");
+      await win.webContents.executeJavaScript(
+        `document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }))`,
+        true,
+      );
+      await sleep(200);
+      if ((await cursorAt()) !== 0) throw new Error("↑ 没把键盘光标移回第一行");
+      // §28 搜索验收：有词时要有清空钮；「艺人」tab 要有真头像（不是首字占位）
+      const clearThere = await win.webContents.executeJavaScript(
+        `Boolean(document.querySelector(".searchbox__clear"))`,
+        true,
+      );
+      if (!clearThere) throw new Error("有词时没有出现清空按钮");
+      await win.webContents.executeJavaScript(
+        `[...document.querySelectorAll(".search-tab")].find((b) => (b.textContent || "").includes("艺人"))?.click()`,
+        true,
+      );
+      await sleep(500);
+      const artistPics = await win.webContents.executeJavaScript(
+        `document.querySelectorAll(".sr-artist__avatar--pic").length`,
+        true,
+      );
+      if (artistPics < 3) throw new Error(`艺人头像没走直搜图：${artistPics} 张`);
+      await shoot(`page-search-artists${suffix}.png`);
+      // §28 艺人详情页头部：点第一个艺人，海报照片必须是直搜头像（不是专辑封面/首字）
+      await win.webContents.executeJavaScript(
+        `(() => { const b = document.querySelector(".sr-artist"); if (!b) return false; b.click(); return true; })()`,
+        true,
+      );
+      await sleep(700);
+      const heroPic = await win.webContents.executeJavaScript(
+        `(() => {
+          const img = document.querySelector(".setlist-poster__photo img");
+          const rows = document.querySelectorAll(".tracklist__row").length;
+          return { src: img?.src ?? "", rows };
+        })()`,
+        true,
+      );
+      if (!heroPic.src.startsWith("data:image/svg+xml;base64,")) {
+        throw new Error(`艺人详情头部不是直搜头像：${heroPic.src.slice(0, 60)}`);
+      }
+      if (heroPic.rows < 1) throw new Error("艺人详情页没取到曲目");
+      // §29 头部徽章（首数/时长）+ 曲目行 VIP：晴天 fee=1 要带金色角标
+      const headBadges = await win.webContents.executeJavaScript(
+        `[...document.querySelectorAll(".setlist-badge")].map((b) => (b.textContent || "").trim()).join("|")`,
+        true,
+      );
+      if (!headBadges.includes("首") || !headBadges.includes("分钟")) {
+        throw new Error(`艺人详情头部徽章缺失：${headBadges}`);
+      }
+      const trackVip = await win.webContents.executeJavaScript(
+        `document.querySelectorAll(".tracklist .tbl__badge.is-vip").length`,
+        true,
+      );
+      if (trackVip < 1) throw new Error("艺人详情曲目行没标 VIP 角标");
+      await shoot(`page-artist-detail${suffix}.png`);
+      await win.webContents.executeJavaScript(`document.querySelector(".setlist-back")?.click()`, true);
+      await sleep(400);
+      await win.webContents.executeJavaScript(
+        `document.querySelector(".searchbox input")?.focus()`,
+        true,
+      );
+      await sleep(300);
+      await win.webContents.executeJavaScript(
+        `document.querySelector(".searchbox__clear")?.click()`,
+        true,
+      );
+      await sleep(300);
+      const cleared = await win.webContents.executeJavaScript(
+        `!document.querySelector(".searchbox input")?.value && !document.querySelector(".search-overlay")`,
+        true,
+      );
+      if (!cleared) throw new Error("清空按钮没有把词和浮层一起收掉");
       await key("Escape");
 
       // 刚才真播了一首，历史里已有记录：回到发现页拍真实传单墙
@@ -770,14 +927,24 @@ app.whenReady().then(async () => {
   // 默认音源是「示例音源」，要从左下角账号菜单切到网易云才走我们 stub 的 cloudsearch
   await switchSource("网易云音乐");
   await sleep(300);
-  // 搜索入口已上移到站尺右端的 form（页内搜索按钮已删）：填词 + 提交
+  // 搜索入口在新顶栏浮层：填词 → 等浮层 → 「查看全部结果」跳发现页整表（§29）
   await win.webContents.executeJavaScript(
     `(() => {
-      const input = document.querySelector(".topbar .search input");
+      const input = document.querySelector(".searchbox input");
+      if (!input) return false;
       const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
       setter.call(input, "晴天");
       input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.closest("form").requestSubmit();
+      return true;
+    })()`,
+    true,
+  );
+  await sleep(900);
+  await win.webContents.executeJavaScript(
+    `(() => {
+      const b = [...document.querySelectorAll(".sr-allrow button")].find((x) => (x.textContent || "").includes("查看全部结果"));
+      if (!b) return false;
+      b.click();
       return true;
     })()`,
     true,
@@ -785,7 +952,7 @@ app.whenReady().then(async () => {
   await sleep(1200);
   const searchState = await win.webContents.executeJavaScript(
     `(() => ({
-      rows: document.querySelectorAll(".online-row").length,
+      rows: document.querySelectorAll(".tbl .tbl__row").length,
       note: document.querySelector(".lib-note")?.textContent ?? "",
       source: document.querySelector(".seg button.on")?.textContent ?? "",
     }))()`,
@@ -794,13 +961,13 @@ app.whenReady().then(async () => {
   if (searchState.rows !== 3) throw new Error(`在线搜索没出 3 条：${JSON.stringify(searchState)}`);
   await shoot(`page-search${suffix}.png`);
   await win.webContents.executeJavaScript(
-    `[...document.querySelectorAll(".list-now button")].find((b) => (b.textContent || "").trim() === "全选")?.click()`,
+    `[...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "全选")?.click()`,
     true,
   );
   await sleep(200);
   const manyBtn = await win.webContents.executeJavaScript(
     `(() => {
-      const b = [...document.querySelectorAll(".list-now button")].find((x) => (x.textContent || "").startsWith("下载选中"));
+      const b = [...document.querySelectorAll("button")].find((x) => (x.textContent || "").startsWith("下载选中"));
       if (!b) return false;
       b.click();
       return true;

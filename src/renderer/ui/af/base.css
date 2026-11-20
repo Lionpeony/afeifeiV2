@@ -136,19 +136,46 @@ a{color:var(--lav);text-decoration:none}
   height:38px;padding:0 18px;border-radius:var(--radius-btn);
   font-size:13px;font-weight:500;
   transition:background .18s var(--ease),color .18s var(--ease),
-             transform .12s var(--ease),box-shadow .18s var(--ease),border-color .18s var(--ease);
+             transform .28s var(--ease-spring),box-shadow .18s var(--ease),border-color .18s var(--ease);
   white-space:nowrap;
 }
-.btn:active{transform:translateY(2px)}
-.btn-primary{background:var(--pink-600);color:var(--on-accent);box-shadow:0 4px 14px rgba(214,51,132,.28)}
-.btn-primary:hover{background:var(--pink-700)}
-.btn-primary:active{background:var(--pink-700)}
+/* jelly 按压：捏下去快（80ms 直给），松手走 spring 回弹——二次元手感的统一底线 */
+.btn:active{transform:translateY(1px) scale(var(--press-scale));transition-duration:80ms}
+/* 赛璐璐分色：硬底边替代柔投影（二次元上色语法），按下时陷进底边里 */
+.btn-primary{
+  position:relative;
+  background:var(--pink-600);color:var(--on-accent);
+  box-shadow:0 3px 0 color-mix(in srgb, var(--pink-700) 82%, var(--mask-ink));
+}
+.btn-primary:hover{background:var(--pink-700);box-shadow:0 3px 0 color-mix(in srgb, var(--pink-700) 65%, var(--mask-ink))}
+.btn-primary:active{
+  background:var(--pink-700);transform:translateY(2px) scale(var(--press-scale));
+  box-shadow:0 1px 0 color-mix(in srgb, var(--pink-700) 82%, var(--mask-ink));
+}
+/* kirakira：hover 时右上角一颗四芒星闪一下（纯 CSS，零角色） */
+:root:not([data-motion="off"]) .btn-primary::after{
+  content:"";position:absolute;top:-7px;right:-5px;width:13px;height:13px;
+  background:var(--pink-400);pointer-events:none;
+  clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);
+  opacity:0;transform:scale(.3);
+}
+:root:not([data-motion="off"]) .btn-primary:hover::after{animation:kira 560ms var(--ease-out-soft)}
+@keyframes kira{
+  0%{opacity:0;transform:scale(.3) rotate(-24deg)}
+  40%{opacity:1;transform:scale(1) rotate(6deg)}
+  100%{opacity:0;transform:scale(.5) rotate(22deg)}
+}
+/* 深色同语法：低亮度 cel 底边（pink-400 压暗），按下去同样陷进底边——夜里不换按钮语言 */
 :root[data-theme="dark"] .btn-primary{
   background:rgba(255,133,176,.12);color:var(--text);
   border:1.4px solid var(--pink-400);
-  box-shadow:0 0 0 0 rgba(255,133,176,0);
+  box-shadow:0 3px 0 color-mix(in srgb, var(--pink-400) 45%, var(--mask-ink));
 }
 :root[data-theme="dark"] .btn-primary:hover{background:rgba(255,133,176,.22)}
+:root[data-theme="dark"] .btn-primary:active{
+  background:rgba(255,133,176,.22);transform:translateY(2px) scale(var(--press-scale));
+  box-shadow:0 1px 0 color-mix(in srgb, var(--pink-400) 45%, var(--mask-ink));
+}
 .btn-soft{background:var(--wash);color:var(--pink-700)}
 .btn-soft:hover{background:rgba(255,107,157,.16)}
 :root[data-theme="dark"] .btn-soft{color:var(--pink-400);background:rgba(255,133,176,.12)}
@@ -163,7 +190,7 @@ a{color:var(--lav);text-decoration:none}
   transition:color .16s var(--ease),background .16s var(--ease),transform .14s var(--ease);
 }
 .icon-btn:hover{color:var(--pink-700);background:var(--wash)}
-.icon-btn:active{transform:scale(.94)}
+.icon-btn:active{transform:scale(var(--press-scale))}
 .icon-btn.is-on{color:var(--pink-600)}
 :root[data-theme="dark"] .icon-btn.is-on{color:var(--pink-400)}
 

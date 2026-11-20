@@ -42,6 +42,9 @@ export interface Api {
   closeWindow(): Promise<void>;
   windowIsMaximized(): Promise<boolean>;
   onWindowMaximized(cb: (max: boolean) => void): void;
+  /** 全屏播放模式（窗口层；不传参=翻转）。 */
+  toggleFullscreen(on?: boolean): Promise<boolean>;
+  windowIsFullscreen(): Promise<boolean>;
   /** 兼容旧桥：窗口不再启用 titleBarOverlay，保留调用以免旧渲染层报错。 */
   setWindowOverlayTheme(bg: string, fg: string): Promise<boolean>;
   readTags(filePaths: string[]): Promise<unknown[]>;
@@ -123,6 +126,8 @@ export interface Api {
   onUpdateAvailable(cb: (v: { version: string; url: string }) => void): void;
   lastCrash(): Promise<{ at: string; kind: string; file: string } | null>;
   markCrashSeen(file: string): Promise<void>;
+  /** 诊断包（P0 #4）：弹保存框，返回落盘路径；取消为 null。 */
+  exportDiagnostics(): Promise<string | null>;
   /** 外链（白名单域，主进程校验）。 */
   openExternal(url: string): Promise<void>;
   exportBackup(): Promise<string | null>;
@@ -181,6 +186,8 @@ export interface Services {
     canToplists: boolean;
     /** 有账号级数据（每日推荐 / 红心 / 播放记录 / 漫游） */
     canAccount: boolean;
+    /** 上游支持的最高音质档（P0 #7） */
+    qualities: string[];
   }[];
   /** 在线搜索。错误已经翻译成人话，直接显示。 */
   searchOnline(sourceId: string, keyword: string, page?: number): Promise<SearchResult>;
@@ -297,6 +304,8 @@ export interface Services {
   /** 上次异常退出的崩溃记录；没有或已提示过返回 null。 */
   lastCrash(): Promise<{ at: string; kind: string; file: string } | null>;
   markCrashSeen(file: string): Promise<void>;
+  /** 诊断包（P0 #4）：弹保存框，返回落盘路径；取消为 null。 */
+  exportDiagnostics(): Promise<string | null>;
   /** 打开发布页（白名单域，主进程校验）。 */
   openExternal(url: string): Promise<void>;
   /** 取在线播放地址。拿到的是一个本地代理地址（真音源接入后才会有）。 */

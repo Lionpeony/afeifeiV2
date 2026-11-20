@@ -699,3 +699,32 @@ test("queue/restore：老快照没有 failed 字段时补空数组", () => {
   });
   assert.deepEqual(getState().queue.failed, []);
 });
+
+test("download/retry 把失败任务放回队列并清零重试计数", () => {
+  const item = {
+    id: "qq:abc123",
+    sourceId: "qq",
+    songId: "abc123",
+    title: "晴天 — 周杰伦",
+    destPath: "d:/downloads/晴天.mp3",
+    state: "queued",
+    received: 1024,
+    total: 8192,
+    tries: 0,
+    speed: 0,
+    error: null,
+  };
+  dispatch({ type: "download/add", item });
+  dispatch({ type: "download/start", id: item.id });
+  dispatch({ type: "download/fail", id: item.id, error: "网络断了", requeue: false });
+  const failed = getState().download.items.find((i) => i.id === item.id);
+  assert.equal(failed.state, "error");
+  assert.equal(failed.tries, 1);
+
+  dispatch({ type: "download/retry", id: item.id });
+  const retried = getState().download.items.find((i) => i.id === item.id);
+  assert.equal(retried.state, "queued");
+  assert.equal(retried.tries, 0);
+  assert.equal(retried.error, null);
+  assert.equal(retried.received, 1024, "已下字节保留，续传靠它");
+});

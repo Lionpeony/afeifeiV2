@@ -384,6 +384,7 @@ export type Intent =
   | { type: "download/add"; item: DownloadItem }
   | { type: "download/start"; id: string }
   | { type: "download/pause"; id: string }
+  | { type: "download/retry"; id: string }
   /** paused / error → queued（error 时 tries 保留，重试决策在 domain） */
   | { type: "download/resume"; id: string }
   | { type: "download/progress"; id: string; received: number; total: number; speed: number }

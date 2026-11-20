@@ -2,8 +2,8 @@
  * 会话级联网缓存（Ring 1）：同一次运行内切页不重拉。
  *
  * 账号数据（`account:*`）只留内存：一天一换，跨重启的旧值反而容易误导。
- * **清单类**（`charts:toplists:` / `playlists:list:`）可以落盘：它们是「有哪些榜 / 有哪些歌单」，
- * 变化慢、丢了也不影响播放，落盘后冷启动首帧就有内容，有网再补（stale-while-revalidate）。
+ * **清单类**（`charts:toplists:` / `charts:home:` / `playlists:list:`）可以落盘：它们是「有哪些榜 /
+ * 首页栏目 / 有哪些歌单」，变化慢、丢了也不影响播放，落盘后冷启动首帧就有内容，有网再补（stale-while-revalidate）。
  * 落盘由 UI 层用 `attachNetPersistence` 注入，本模块不认识 KV。
  *
  * key 约定（调用方负责拼）：

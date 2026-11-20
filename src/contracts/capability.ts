@@ -62,12 +62,24 @@ export interface RemoteTrack {
   artistId?: string;
   /** 专辑的音源 id：点专辑名进专辑页用 */
   albumId?: string;
+  /** VIP 曲目（网易云 fee=1）：播放可能要会员，列表行上要提前标出来 */
+  vip?: boolean;
+}
+
+/** 搜索命中的艺人（可选）：真头像/艺人 id 只有源侧艺人搜索能给，单靠曲目聚不出来 */
+export interface RemoteArtistHit {
+  /** 艺人的音源 id；拿不到就走曲目聚出的名字匹配 */
+  id?: string;
+  name: string;
+  picUrl?: string;
 }
 
 export interface SearchResult {
   items: RemoteTrack[];
   /** 还有下一页就给出来；没有就 undefined */
   nextPage?: number;
+  /** 艺人直搜结果（首页才有）；没有就 undefined，UI 回落曲目聚名 */
+  artists?: RemoteArtistHit[];
 }
 
 /** 用户歌单（M9-5）。id 是音源内的歌单 id，取曲目走 getPlaylist(id)。 */

@@ -192,17 +192,6 @@
 .np-hint__close{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;color:var(--text-3)}
 .np-hint__close:hover{color:var(--text);background:var(--wash)}
 
-.np__keysbtn{
-  display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;border-radius:999px;
-  font-size:11px;color:var(--text-2);border:1px solid var(--line);
-  transition:all var(--dur-fast) var(--ease);
-}
-.np__keysbtn:hover{color:var(--pink-700);border-color:rgba(214,51,132,.4);background:var(--wash)}
-.np__keysbtn kbd{
-  font-family:var(--font-mono);font-size:10px;color:var(--text-3);
-  border:1px solid var(--line-strong);border-radius:3px;padding:0 3px;
-}
-
 /* 缩窄时让歌词让位 */
 @media (max-width:1200px){
   .np__stage-top{gap:28px}

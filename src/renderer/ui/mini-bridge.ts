@@ -7,6 +7,7 @@ import { onTick } from "./compositor.js";
 import { desktopLyricState } from "./desktop-lyric-state.js";
 import { lyricState, subscribeLyric } from "./lyric-source.js";
 import type { Services } from "./services.js";
+import { activeQuality } from "./quality-pref.js";
 
 /**
  * 主窗 → 迷你窗的桥（M5 / P0-27）。
@@ -182,7 +183,7 @@ export function startMiniBridge(services: Services, opts: { onLike?: () => void 
       void (async () => {
         try {
           // 只验证点的那一首：整列里个别拿不到地址不该让唤起失败
-          await services.resolveOnlineUrl(sourceId, intent.id, "320k");
+          await services.resolveOnlineUrl(sourceId, intent.id, activeQuality());
           // list = 调用方给的整列（`afeifei://play?id=x&source=s&list=x,y,z` → 唤起即连播）；
           // 不传就只有点的那一首，行为与以前一致
           const ids = intent.list && intent.list.length > 0 ? intent.list : [intent.id];

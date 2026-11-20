@@ -29,8 +29,9 @@ export interface MediaSessionSnapshot {
 export interface MediaSessionDeps {
   /** 当前快照；null = 没有在放（会话清空）。 */
   read(): MediaSessionSnapshot | null;
-  /** 播放 / 暂停。 */
-  toggle(): void;
+  /** 明确播放 / 明确暂停。不要用 toggle：系统会补发“暂停”，会反过来开播。 */
+  play(): void;
+  pause(): void;
   next(): void;
   prev(): void;
   /** 绝对跳转（媒体面板的进度条）。 */
@@ -77,26 +78,35 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
   });
 
   /**
-   * 启动静默期（1.5s）：应用重启后 Windows 的系统媒体面板（SMTC）可能按"上次在播"的
-   * 记忆补发一次 play。那不是用户指令，收到就播会变成"打开就自己放歌"。
-   * 只挡 play，pause/next/prev 照常 —— 那几条误发也无害。
+   * 启动护栏：应用重启后 Windows 的系统媒体面板（SMTC）可能按"上次在播"的
+   * 记忆补发一次 play。用户在本窗口有过真实手势之前，一律不认这条命令；
+   * pause/stop 照常处理（它们不会把静止的播放器弄响）。
    */
-  const startedAt = Date.now();
-  const STARTUP_GUARD_MS = 1500;
+  let gestureSeen = false;
+  const markGesture = (): void => {
+    if (gestureSeen) return;
+    gestureSeen = true;
+    document.removeEventListener("pointerdown", markGesture, true);
+    document.removeEventListener("keydown", markGesture, true);
+  };
+  if (typeof document !== "undefined") {
+    document.addEventListener("pointerdown", markGesture, true);
+    document.addEventListener("keydown", markGesture, true);
+  }
 
   const handlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
     [
       "play",
       () => {
-        if (Date.now() - startedAt < STARTUP_GUARD_MS) {
-          console.warn("[media-session] 启动静默期内忽略播放命令（系统面板恢复上次状态）");
+        if (!gestureSeen) {
+          console.warn("[media-session] 用户尚未与窗口交互，忽略启动期的播放命令");
           return;
         }
-        deps.toggle();
+        deps.play();
       },
     ],
-    ["pause", () => deps.toggle()],
-    ["stop", () => deps.toggle()],
+    ["pause", () => deps.pause()],
+    ["stop", () => deps.pause()],
     ["previoustrack", () => deps.prev()],
     ["nexttrack", () => deps.next()],
     ["seekbackward", (details) => deps.seekBy(-(details.seekOffset ?? SEEK_STEP_MS))],
@@ -172,6 +182,8 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
   };
 
   const dispose = (): void => {
+    document.removeEventListener("pointerdown", markGesture, true);
+    document.removeEventListener("keydown", markGesture, true);
     for (const [action] of handlers) {
       try {
         session.setActionHandler(action, null);

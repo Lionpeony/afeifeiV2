@@ -3,11 +3,18 @@
    "Cannot read properties of undefined (reading 'registerSchemesAsPrivileged')"），
    然后拉起带应用图标的 Afeifei.exe。 */
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const exe = path.join(here, "..", "node_modules", "electron", "dist", "Afeifei.exe");
+const dist = path.join(here, "..", "node_modules", "electron", "dist");
+/* 优先用改过名的 Afeifei.exe（带品牌图标）；npm 装的 electron 只有 electron.exe，回落之 */
+const exe = [path.join(dist, "Afeifei.exe"), path.join(dist, "electron.exe")].find((f) => fs.existsSync(f));
+if (!exe) {
+  console.error("找不到 electron 可执行文件（node_modules/electron/dist/），先 npm install");
+  process.exit(1);
+}
 const app = path.join(here, "..", "dist", "main.js");
 
 delete process.env.ELECTRON_RUN_AS_NODE;

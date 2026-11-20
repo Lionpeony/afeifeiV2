@@ -2,6 +2,7 @@ import type {
   HomeSection,
   LyricDoc,
   OnlinePlaylist,
+  RemoteArtistHit,
   RemoteTrack,
   SearchResult,
   SourceProvider,
@@ -74,6 +75,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
        deep-equal 的判据多出两个键（2026-11-19 修）。 */
     if (artistId !== undefined && artistId !== null) track.artistId = String(artistId);
     if (al.id !== undefined && al.id !== null) track.albumId = String(al.id);
+    /* fee=1 才是「只有会员能完整听」；4=购专辑、8=低音质试听，都不标 */
+    if (song.fee === 1) track.vip = true;
     return track;
   }
 
@@ -122,8 +125,8 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
       canGetUrl: true,
       canGetLyric: true,
       canLogin: true,
-      canGetAlbum: false,
-      canGetArtist: false,
+      canGetAlbum: true,
+      canGetArtist: true,
       canGetPlaylist: true,
       canListPlaylists: true,
       canGetRadio: false,
@@ -133,23 +136,49 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
 
     traits: {
       requiresAuth: false, // 搜索匿名可用
-      qualities: ["128k", "320k"],
+      qualities: ["128k", "320k", "flac"],
     },
 
     async search(keyword: string, page = 0): Promise<SearchResult> {
       const limit = 30;
-      const body = await ncm<{ result?: { songs?: Record<string, unknown>[]; songCount?: number } }>("cloudsearch", {
-        keywords: keyword,
-        type: 1,
-        limit,
-        offset: page * limit,
-      });
+      /* 艺人头像/艺人 id 只有 cloudsearch type:100（歌手直搜）给，曲目聚合只有名字。
+         只在首页带这一路，且失败不致命（回落曲目聚名，别让艺人搜索拖垮整个搜索）。 */
+      const [body, artistBody] = await Promise.all([
+        ncm<{ result?: { songs?: Record<string, unknown>[]; songCount?: number } }>("cloudsearch", {
+          keywords: keyword,
+          type: 1,
+          limit,
+          offset: page * limit,
+        }),
+        page === 0
+          ? ncm<{ result?: { artists?: Record<string, unknown>[] } }>("cloudsearch", {
+              keywords: keyword,
+              type: 100,
+              limit: 8,
+            }).catch(() => undefined)
+          : Promise.resolve(undefined),
+      ]);
 
       const songs = body?.result?.songs ?? [];
       const items = songs.map(toTrack).filter((t): t is RemoteTrack => t !== null);
       const total = Number(body?.result?.songCount ?? 0);
 
-      return { items, nextPage: (page + 1) * limit < total ? page + 1 : undefined };
+      const artists = (artistBody?.result?.artists ?? [])
+        .map((a): RemoteArtistHit | null => {
+          const name = a.name;
+          if (typeof name !== "string" || !name) return null;
+          const hit: RemoteArtistHit = { name };
+          if (a.id !== undefined && a.id !== null) hit.id = String(a.id);
+          if (typeof a.picUrl === "string" && a.picUrl) hit.picUrl = a.picUrl;
+          return hit;
+        })
+        .filter((a): a is RemoteArtistHit => a !== null);
+
+      return {
+        items,
+        nextPage: (page + 1) * limit < total ? page + 1 : undefined,
+        ...(page === 0 && artists.length ? { artists } : {}),
+      };
     },
 
     async getDetail(sourceId: string): Promise<RemoteTrack> {
@@ -161,24 +190,41 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
     },
 
     async getUrl(sourceId: string, quality): Promise<string> {
-      const level = quality === "320k" ? "exhigh" : "standard";
       const pick = (body: unknown): { url?: string; fee?: number } => {
         const first = (body as { data?: { url?: string | null; fee?: number }[] } | null)?.data?.[0];
         return { url: first?.url ?? undefined, fee: first?.fee };
       };
 
-      const ask = async (fn: string, params: Record<string, unknown>) =>
-        pick(await ncm(fn, params).catch(() => null));
+      /* 风控（-460）会被 IPC 压成可读字符串，body 拿不到；记下特征，最后给一句准确的错误。 */
+      let riskBlocked = false;
+      const ask = async (fn: string, params: Record<string, unknown>) => {
+        try {
+          return pick(await ncm(fn, params));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("-460") || msg.includes("网络环境存在风险")) riskBlocked = true;
+          return { url: undefined };
+        }
+      };
 
-      // 实测（2026-11-06）：带登录 cookie 调 v1 会稳定触发网易云 -460「网络环境存在风险」，
-      // 旧 song_url 同一凭证可取到地址；两者偶发空返回，重试一次即可恢复。
-      let got = await ask("song_url", { id: sourceId, br: quality === "320k" ? 320000 : 128000 });
-      if (!got.url) got = await ask("song_url_v1", { id: sourceId, level });
-      if (!got.url) got = await ask("song_url", { id: sourceId, br: quality === "320k" ? 320000 : 128000 });
-      // 最后一层：匿名取流。登录 cookie 被风控 -460 时，匿名请求往往还能拿到免费曲地址。
-      if (!got.url) got = await ask("song_url_v1", { id: sourceId, level, cookie: "" });
+      /* 音质链路（P0 #7）：按用户档位请求；拿不到就逐档往下降，别让「选了无损」直接变成不能播。
+         实测（2026-11-06）：带登录 cookie 调 v1 会稳定触发 -460，旧 song_url 同一凭证可取到地址。 */
+      const attempts: ("flac" | "320k" | "128k")[] =
+        quality === "flac" ? ["flac", "320k", "128k"] : quality === "320k" ? ["320k", "128k"] : ["128k"];
+      let got: { url?: string; fee?: number } = { url: undefined };
+      for (const q of attempts) {
+        const level = q === "flac" ? "lossless" : q === "320k" ? "exhigh" : "standard";
+        const br = q === "flac" ? 999_000 : q === "320k" ? 320_000 : 128_000;
+        got = await ask("song_url", { id: sourceId, br });
+        if (!got.url) got = await ask("song_url_v1", { id: sourceId, level });
+        if (!got.url) got = await ask("song_url", { id: sourceId, br });
+        // 最后一层：匿名取流。登录 cookie 被风控 -460 时，匿名请求往往还能拿到免费曲地址。
+        if (!got.url) got = await ask("song_url_v1", { id: sourceId, level, cookie: "" });
+        if (got.url) break;
+      }
 
       if (!got.url) {
+        if (riskBlocked) throw err("network", "网易云风控拦截了取流（-460），稍后再试或切换音源");
         // 有地址就播；没有的话：未登录 / 需要会员 / 真无版权，三种要分开说
         const profile = await api.profile("netease").catch(() => ({ loggedIn: false }));
         if (!profile.loggedIn) throw err("auth-required", "需要登录后才能播放");

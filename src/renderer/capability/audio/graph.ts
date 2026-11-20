@@ -4,9 +4,10 @@
  *
  * 图结构（00 §5.1，M9-3 双路化）：
  *   <audio A> → fadeA ─┐
- *                      ├─▶ preamp → eq[10] → analyser → destination
+ *                      ├─▶ preamp → leveler → eq[10] → limiter → analyser → destination
  *   <audio B> → fadeB ─┘
  * fadeA/fadeB 是 crossfade 的两条增益曲线；preamp 是前置增益（ReplayGain 手动版）；
+ * leveler 是响度均衡的慢速 AGC，limiter 兜住增益抬升后的峰值（P0 #8）；
  * eq 是 10 段 peaking 串联。
  */
 import { EQ_BANDS, dbToGain, writeEqGains } from "./eq.js";
@@ -18,8 +19,12 @@ export interface AudioGraph {
   /** B 路（元素 1）的增益。 */
   fadeB: GainNode;
   preamp: GainNode;
+  /** 响度均衡增益（默认 0dB；控制器按 RMS 缓慢调整）。 */
+  leveler: GainNode;
   /** 10 段 peaking，与 EQ_BANDS 对齐。 */
   eq: BiquadFilterNode[];
+  /** 末端限幅：高 ratio + 快 attack，只削峰不参与音乐性压缩。 */
+  limiter: DynamicsCompressorNode;
   analyser: AnalyserNode;
 }
 
@@ -38,6 +43,16 @@ export function createGraph(elA: HTMLAudioElement, elB: HTMLAudioElement): Audio
   const preamp = ctx.createGain();
   preamp.gain.value = 1;
 
+  const leveler = ctx.createGain();
+  leveler.gain.value = 1;
+
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -1; // 只拦接近 0dBFS 的峰
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.003;
+  limiter.release.value = 0.25;
+
   const eq = EQ_BANDS.map((hz) => {
     const node = ctx.createBiquadFilter();
     node.type = "peaking";
@@ -53,10 +68,11 @@ export function createGraph(elA: HTMLAudioElement, elB: HTMLAudioElement): Audio
 
   let tail: AudioNode = ctx.createMediaElementSource(elA).connect(fadeA).connect(preamp);
   tail = ctx.createMediaElementSource(elB).connect(fadeB).connect(preamp);
+  tail = tail.connect(leveler);
   for (const node of eq) tail = tail.connect(node);
-  tail.connect(analyser).connect(ctx.destination);
+  tail.connect(limiter).connect(analyser).connect(ctx.destination);
 
-  instance = { ctx, fadeA, fadeB, preamp, eq, analyser };
+  instance = { ctx, fadeA, fadeB, preamp, leveler, eq, limiter, analyser };
   return instance;
 }
 

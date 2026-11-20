@@ -13,7 +13,26 @@ const MAX = 3;
  */
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
+  /* 退场中名单：先播 200ms toastOut（进场的 66%），再真正移除 */
+  const [leaving, setLeaving] = useState<Set<number>>(new Set());
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+
+  const retire = (id: number): void => {
+    setLeaving((s) => {
+      if (s.has(id)) return s;
+      const n = new Set(s);
+      n.add(id);
+      return n;
+    });
+    setTimeout(() => {
+      setItems((prev) => prev.filter((x) => x.id !== id));
+      setLeaving((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }, 200);
+  };
 
   useEffect(() => {
     const clearAll = (): void => {
@@ -28,7 +47,7 @@ export function Toaster() {
         next.id,
         setTimeout(() => {
           timers.current.delete(next.id);
-          setItems((prev) => prev.filter((x) => x.id !== next.id));
+          retire(next.id);
         }, DWELL[next.kind]),
       );
     });
@@ -36,15 +55,16 @@ export function Toaster() {
       off();
       clearAll();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && leaving.size === 0) return null;
 
   const dismiss = (id: number): void => {
     const t = timers.current.get(id);
     if (t) clearTimeout(t);
     timers.current.delete(id);
-    setItems((prev) => prev.filter((x) => x.id !== id));
+    retire(id);
   };
 
   return (
@@ -52,7 +72,7 @@ export function Toaster() {
       {items.map((item) => (
         <aside
           key={item.id}
-          className={`toast toast-${item.kind}`}
+          className={`toast toast-${item.kind}` + (leaving.has(item.id) ? " toast--out" : "")}
           role="status"
           onClick={() => dismiss(item.id)}
           title="点击关闭"

@@ -41,6 +41,8 @@ interface PackCopy {
   lateNight: string;
   /** 点歌分享卡右下角的手写落款 */
   shareNote: string;
+  /** 发现页「今日一句」便签：按日期在池内轮换（原创句子，各包自己的口气） */
+  noteQuotes: readonly string[];
   repeatThree(n: number): string;
   sameArtist(n: number): string;
   /* ---- 服务层字符串的包文案对应（svcText 收敛翻译用） ---- */
@@ -84,6 +86,7 @@ const BELLE: PackCopy = {
   pack: (label: string): string => `主题切到「${label}」。`,
   lateNight: "还没睡？给耳朵放个假吧。",
   shareNote: "今晚也想把这首递给你。",
+  noteQuotes: ["好歌和拨片一样，都朝着下一首飞。", "今天的 BGM，由你的耳朵签收。", "把音量交给心情就好。"],
   repeatThree: (n: number): string => `这首已经放第 ${n} 遍了。`,
   sameArtist: (n: number): string => `连着听了 ${n} 首这位艺人。`,
   downloadStart: "已加入下载队列。",
@@ -126,6 +129,7 @@ const MAIGO: PackCopy = {
   pack: (_label: string): string => "灯光换了一种。",
   lateNight: "这个点还醒着…听点安静的。",
   shareNote: "这首歌…想交给谁呢。",
+  noteQuotes: ["迷路也没关系，歌会替我开口。", "雨停之前，就先在这里躲一躲吧。", "找不到答案的话，就先找到这首歌。"],
   repeatThree: (n: number): string => `又要演奏一遍吗？…好呀，第 ${n} 遍了。`,
   sameArtist: (_n: number): string => "你和 TA 很合拍呢。",
   downloadStart: "出发去取了。",
@@ -168,6 +172,7 @@ const RAW: PackCopy = {
   pack: (label: string): string => `主题切到 ${label}。`,
   lateNight: "还没睡？音量自觉。",
   shareNote: "拿去。别弄丢了。",
+  noteQuotes: ["不装了。这就是我们的声音。", "滤镜碎了，歌反而是清楚的。", "想听真的，就自己来现场。"],
   repeatThree: (n: number): string => `这首播了 ${n} 遍。真喜欢还是懒得切。`,
   sameArtist: (n: number): string => `连着听了 ${n} 首这个艺人。`,
   downloadStart: "开始下。",
@@ -210,6 +215,7 @@ const KADO: PackCopy = {
   pack: (_label: string): string => "换了身衣服…好看吗。",
   lateNight: "深夜的 live，观众只有你。",
   shareNote: "给、给你……要听完哦。",
+  noteQuotes: ["在墙角练一万遍，也敢为你唱这一遍。", "观众只有你一个…也、也是观众！", "今天也躲在墙角弹了六个小时。"],
   repeatThree: (n: number): string => `被发现了，这是第 ${n} 遍了吧。`,
   sameArtist: (_n: number): string => "呜…你们感情真好。",
   downloadStart: "出门去带了！",

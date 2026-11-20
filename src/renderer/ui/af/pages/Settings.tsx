@@ -116,7 +116,15 @@ export function SettingsPage() {
               const isUnlocked = !p.locked || unlocked.includes(p.id);
               return (
                 <button key={p.id} className={"palette-chip" + (palette === p.id ? " is-on" : "") + (isUnlocked ? "" : " is-locked")} onClick={() => { if (!isUnlocked) { toast("这个还锁着。去顶部搜索框输个暗号试试。", { hand: true }); return; } setPalette(p.id); }}>
-                  <span className="palette-chip__dot" style={{ background: isUnlocked ? p.dot : "var(--line-strong)" }}></span>
+                  {isUnlocked ? (
+                    /* 三色小样卡：纸底 + 包边 + 印，一个世界一眼读完（单色圆点分不清包） */
+                    <span className="palette-chip__swatch" style={{ background: p.swatch.bg }}>
+                      <i style={{ background: p.swatch.band }} />
+                      <i className="is-dot" style={{ background: p.swatch.sub }} />
+                    </span>
+                  ) : (
+                    <span className="palette-chip__swatch is-locked" style={{ background: "var(--line-soft)" }} />
+                  )}
                   {isUnlocked ? p.label : "???"}
                 </button>
               );
@@ -268,6 +276,20 @@ export function SettingsPage() {
               </div>
             ))}
           </div>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ marginTop: 14 }}
+            onClick={() => {
+              void window.api
+                .exportDiagnostics()
+                .then((file) => {
+                  if (file) toast("诊断包已导出，可直接贴到 issue");
+                })
+                .catch((err: unknown) => toast(err instanceof Error ? err.message : "诊断包导出失败"));
+            }}
+          >
+            <IconArchive size={14} /> 导出诊断包
+          </button>
         </div>
       </div>
     </div>

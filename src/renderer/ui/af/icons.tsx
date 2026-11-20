@@ -345,6 +345,29 @@ export const IconMini = (p: IcProps) => (
     <rect x="12.4" y="12.4" width="6" height="5" rx="1.2" fill="currentColor" stroke="none" />
   </Ic>
 );
+export const IconShare = (p: IcProps) => (
+  <Ic {...p}>
+    <rect x="4" y="6" width="16" height="12.4" rx="2.2" />
+    <path d="M7.6 14.6l3.2-3.4 2.4 2.4 3.4-3.8" />
+  </Ic>
+);
+export const IconKeys = (p: IcProps) => (
+  <Ic {...p}>
+    <rect x="3.6" y="7" width="16.8" height="10" rx="2" />
+    <path d="M7 10.4h.01M10.4 10.4h.01M13.8 10.4h.01M17 10.4h.01M8.4 13.8h7.2" />
+  </Ic>
+);
+export const IconRestore = (p: IcProps) => (
+  <Ic {...p} vb="0 0 12 12" sw={1.2}>
+    <rect x="3.6" y="1.6" width="6.8" height="6.8" rx="1" />
+    <path d="M1.6 3.6v5.8a1 1 0 0 0 1 1h5.8" />
+  </Ic>
+);
+export const IconExpand = (p: IcProps) => (
+  <Ic {...p}>
+    <path d="M9.4 4H4v5.4M14.6 4H20v5.4M14.6 20H20v-5.4M9.4 20H4v-5.4" />
+  </Ic>
+);
 export const IconMax = (p: IcProps) => (
   <Ic {...p}><rect x="5.4" y="5.4" width="13.2" height="13.2" rx="1.6" /></Ic>
 );

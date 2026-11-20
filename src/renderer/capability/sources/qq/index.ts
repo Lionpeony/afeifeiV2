@@ -166,8 +166,8 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       canGetUrl: true, // 登录态走 GetEVkey（M6.1）；未登录时上游不给 vkey，错误翻译成人话
       canGetLyric: true,
       canLogin: true, // 本地服务扫码登录（main/net/qqClient.ts）
-      canGetAlbum: false,
-      canGetArtist: false,
+      canGetAlbum: true,
+      canGetArtist: true,
       // canGetPlaylist 两条路：top: 前缀 = 榜单下钻；纯数字 = 我的歌单（dirid/tid）
       canGetPlaylist: true,
       // 2026-11-06 补：/user/playlist 读本人自建 + 收藏。匿名会 401，
