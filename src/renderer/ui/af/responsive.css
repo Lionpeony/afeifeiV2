@@ -19,12 +19,12 @@
     grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   }
   .sidebar {
-    padding: 18px 8px 12px;
+    padding: var(--space-md) var(--space-xs) var(--space-sm);
     align-items: center;
   }
   .sidebar__brand {
     justify-content: center;
-    padding: 0 0 18px;
+    padding: 0 0 var(--space-md);
   }
   .brand-word,
   .nav__label,
@@ -48,12 +48,12 @@
     position: absolute;
     top: 4px;
     right: 2px;
-    padding: 0 4px;
-    font-size: 10px;
+    padding: 0 var(--space-2xs);
+    font-size: var(--fs-micro);
   }
   .nav__marker {
     left: 0;
-    border-radius: 0 3px 3px 0;
+    border-radius:0 var(--r-2) var(--r-2) 0;
   }
   .sidebar__next {
     width: 100%;
@@ -61,8 +61,8 @@
   }
   .side-user {
     flex-direction: row;
-    gap: 4px;
-    padding: 6px 0;
+    gap: var(--space-2xs);
+    padding: var(--space-2xs) 0;
   }
   .sidebar .side-user .icon-btn {
     margin-left: 0;
@@ -73,7 +73,7 @@
     justify-content: center;
   }
   .page {
-    padding: 8px 18px 28px;
+    padding: var(--space-xs) var(--space-md) var(--space-xl);
   }
   .search-overlay {
     left: 16px;
@@ -84,9 +84,9 @@
   }
   .bar {
     grid-template-columns: 150px minmax(240px, 1fr) auto;
-    gap: 8px;
-    padding-left: 14px;
-    padding-right: 14px;
+    gap: var(--space-xs);
+    padding-left: var(--space-sm);
+    padding-right: var(--space-sm);
   }
   .bar__meta {
     max-width: 120px;
@@ -97,12 +97,12 @@
 @media (max-width: 900px) {
   .bar {
     grid-template-columns: 150px minmax(0, 1fr) auto;
-    gap: 6px;
-    padding-left: 10px;
-    padding-right: 10px;
+    gap: var(--space-2xs);
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
   }
   .bar__right {
-    gap: 2px;
+    gap: var(--space-3xs);
   }
   .bar__right .vol,
   .bar__right .bar__sep {

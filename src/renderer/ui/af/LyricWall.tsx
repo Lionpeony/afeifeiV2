@@ -52,12 +52,11 @@ export function LyricWall() {
       <div className="lw__rail" aria-hidden="true">
         <span className="lw__rail-jp">台侧字幕</span>
         <span className="lw__rail-line"></span>
-        <span className="lw__rail-latin">ED&nbsp;SUBTITLE</span>
       </div>
 
       <div className="lw__main">
         <div className="lw__head">
-          <span className="lw__head-title"><b>歌词</b><span className="lw__head-sub">逐行 · 当前音源</span></span>
+          <span className="lw__head-title"><b>歌词</b></span>
           <div className="lw__tools">
             <button className="lw__tool" onClick={() => void window.api.toggleLyric()} title="桌面歌词">桌面</button>
             <button className={"lw__tool" + (full ? " is-on" : "")} onClick={() => setLyricsFull(!full)} title={full ? "收起大歌词（Esc）" : "展开成大歌词"}>
@@ -105,7 +104,6 @@ export function LyricWall() {
         <div className="lw__foot">
           <span className="lw__foot-progress"><i style={{ ["--p" as string]: String((cur + p / 100) / Math.max(1, lines.length)) }}></i></span>
           <span className="lw__foot-num num">{cur + 1} / {lines.length}</span>
-          <span className="hand lw__foot-hint">点一行就跳到那句</span>
         </div>
       </div>
     </div>

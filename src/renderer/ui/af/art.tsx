@@ -11,13 +11,20 @@ export function hashStr(str: string): number {
   return h >>> 0;
 }
 
-const ART_BG: [string, string, string][] = [
-  ["#FFE3EC", "#FFC2D6", "#D9CDF6"],
-  ["#E6F0FF", "#C9DDF7", "#BFE8E0"],
-  ["#FFF3D6", "#FFD9A8", "#F7C7D8"],
-  ["#EBE3FF", "#CDBFF2", "#FFD3E2"],
-  ["#E2F6EF", "#BFE9DB", "#CFE0FA"],
+/* 占位封面的三色底只读主题包 token（--art-a/b/c），换包即换材质；
+   先站哪一色按 track 轮换，保留「每首歌都不一样」的手感，不再留死粉紫。 */
+const ART_COLORS = ["var(--art-a)", "var(--art-b)", "var(--art-c)"] as const;
+const ART_ORDERS: [0 | 1 | 2, 0 | 1 | 2, 0 | 1 | 2][] = [
+  [0, 1, 2],
+  [1, 2, 0],
+  [2, 0, 1],
+  [0, 2, 1],
+  [2, 1, 0],
 ];
+function artTriple(h: number): [string, string, string] {
+  const o = ART_ORDERS[h % ART_ORDERS.length];
+  return [ART_COLORS[o[0]], ART_COLORS[o[1]], ART_COLORS[o[2]]];
+}
 
 const ART_MOTIF: Record<string, ReactNode> = {
   guitar: (
@@ -68,7 +75,7 @@ const TrackArtScene = memo(function TrackArtScene({
   className: string;
 }) {
   const h = hashStr(id || "x");
-  const bg = ART_BG[h % ART_BG.length];
+  const bg = artTriple(h);
   const nid = "as" + (h % 9973);
   const fx = [22 + (h % 14), 78 + ((h >>> 4) % 16), 48 + ((h >>> 8) % 22)];
   const fy = [30 + ((h >>> 2) % 10), 20 + ((h >>> 6) % 12), 38 + ((h >>> 9) % 10)];
@@ -110,7 +117,7 @@ const TrackArtScene = memo(function TrackArtScene({
 
 /** 曲目专属色板（立绘场景的底色三连）：舞台的柔光、队列指示这类「这条歌自己的颜色」都从这里取 */
 export function artPaletteOf(id: string): [string, string, string] {
-  return ART_BG[hashStr(id || "x") % ART_BG.length];
+  return artTriple(hashStr(id || "x"));
 }
 
 export const TrackArt = memo(function TrackArt({
@@ -125,7 +132,7 @@ export const TrackArt = memo(function TrackArt({
   className?: string;
 }) {
   const h = hashStr(id || "x");
-  const bg = ART_BG[h % ART_BG.length];
+  const bg = artTriple(h);
   const gid = "ag" + (h % 9973);
   if (size >= 100) {
     return <TrackArtScene id={id} size={size} radius={radius} className={className} />;

@@ -27,7 +27,7 @@
 /* —— 聚光舞台：拨片被灯光点亮，随后一直轻轻悬浮 —— */
 .splash__stage{
   position:relative;display:grid;justify-items:center;
-  padding-bottom:6px;
+  padding-bottom: var(--space-2xs);
 }
 /* 径向光晕：聚光灯渐亮（一段入场，之后停住） */
 .splash__halo{
@@ -56,10 +56,10 @@
 .splash__eq{
   position:relative;
   margin-top:26px;height:34px;
-  display:flex;align-items:center;gap:7px;
+  display:flex;align-items:center;gap: var(--space-xs);
 }
 .splash__eq i{
-  width:5px;height:34px;border-radius:99px;
+  width:5px;height:34px;border-radius:var(--r-pill);
   background:linear-gradient(180deg,var(--splash-spark),var(--splash-accent));
   transform:scaleY(.32);transform-origin:center;
   will-change:transform;
@@ -78,9 +78,9 @@
 
 /* —— 字标与副标 —— */
 .splash__word{
-  margin-top:22px;
+  margin-top: var(--space-lg);
   font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
-  font-size:15px;letter-spacing:.42em;color:var(--text);
+  font-size:14px;letter-spacing:.42em;color:var(--text);
 }
 /* 字母逐个亮起（stagger 46ms，聚光灯扫过一排的感觉） */
 .splash__word i{
@@ -98,9 +98,9 @@
 .splash__word i:nth-child(7){animation-delay:836ms}
 :root[data-theme="dark"] .splash__word{color:var(--text)}
 .splash__sub{
-  margin-top:6px;
+  margin-top: var(--space-2xs);
   font-family:var(--font-hand,"ZCOOL KuaiLe",cursive);
-  font-size:11px;letter-spacing:.2em;
+  font-size:var(--fs-micro);letter-spacing:.2em;
   color:var(--splash-dim);
   opacity:0;will-change:transform,opacity;
   animation:splashLetter .4s cubic-bezier(.22,.61,.36,1) 950ms both;
@@ -108,7 +108,7 @@
 
 /* —— 进度线：宽度由真实启动阶段驱动（JS 写 scaleX），闲时微光扫过 —— */
 .splash__bar{
-  position:relative;margin-top:30px;height:2px;border-radius:99px;
+  position:relative;margin-top:30px;height:2px;border-radius:var(--r-pill);
   background:var(--splash-bar);overflow:hidden;
 }
 :root[data-theme="dark"] .splash__bar{background:var(--splash-bar-dark)}

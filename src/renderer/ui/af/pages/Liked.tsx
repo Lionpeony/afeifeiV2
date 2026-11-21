@@ -10,7 +10,7 @@ import { useAf } from "../context.js";
 import { likedEmptyCopy } from "../copy.js";
 import { TrackArt } from "../art.js";
 import { IconHeart, IconHeartFill, IconPickOutline, IconPlay } from "../icons.js";
-import { EmptySetlist, Tape } from "../ui.js";
+import { EmptySetlist, PageHead } from "../ui.js";
 
 export interface LikedPageProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
@@ -43,20 +43,18 @@ export function LikedPage(props: LikedPageProps) {
 
   return (
     <div className="page likes" data-screen-label="我喜欢的音乐">
-      <div className="likes__head">
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>MY FAVORITES · {total} 首</div>
-          <h1 className="display">我喜欢的<span className="marker">音乐</span></h1>
-          <p className="body" style={{ marginTop: 10, maxWidth: 440 }}>
-            盖过拨片印记的歌都会落在这儿，最新的在最上面。账号红心与本机红心分两段列出。
-          </p>
-          {props.tabs}
-        </div>
-        <div className="likes__stat">
-          <b className="num">{total}</b>
-          <span>首被我标记过</span>
-        </div>
-      </div>
+      <PageHead
+        eyebrow={<>MY FAVORITES · {total} 首</>}
+        title={<>我喜欢的<span className="marker">音乐</span></>}
+        sub="盖过拨片印记的歌都会落在这儿，最新的在最上面。账号红心与本机红心分两段列出。"
+        children={props.tabs}
+        aside={
+          <div className="likes__stat">
+            <b className="num">{total}</b>
+            <span>首被我标记过</span>
+          </div>
+        }
+      />
 
       {acct.hint ? <p className="lib-note">{acct.hint}</p> : null}
       {acct.error ? <p className="lib-note">{acct.error}</p> : null}
@@ -67,7 +65,6 @@ export function LikedPage(props: LikedPageProps) {
         </div>
       ) : (
         <div className="paper likes__sheet">
-          <Tape w={76} rot={-2.6} style={{ top: -11, left: 40 }} />
           <div className="likes__sheet-head">
             <span className="eyebrow">TAPE SIDE A · 手写目录</span>
             <button className="btn btn-primary btn-sm" disabled={!acctSongs[0] && !localLiked[0]} onClick={() => {

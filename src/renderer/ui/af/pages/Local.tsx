@@ -6,8 +6,8 @@ import { selectVisible } from "../../../projection/library.js";
 import { useAf } from "../context.js";
 import { hashStr, TrackArt } from "../art.js";
 import { GuitarFigure, IconDownload, IconFolder, IconNote, IconPlay, IconRefresh } from "../icons.js";
-import { Tape } from "../ui.js";
 import { packLineCopy } from "../copy.js";
+import { PageHead } from "../ui.js";
 
 const ROW_H = 56;const fmt = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -72,20 +72,18 @@ export function LocalPage({
 
   return (
     <div className="page loc" data-screen-label={isLocal ? "本地音乐" : "下载管理"}>
-      <div className="loc__head">
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>{isLocal ? "LOCAL LIBRARY · 这台电脑" : "DOWNLOADS · 缓存目录"}</div>
-          <h1 className="display">{isLocal ? "本地音乐" : "下载管理"}</h1>
-          <p className="body" style={{ marginTop: 10, maxWidth: 460 }}>
-            {isLocal ? "扫一遍硬盘里的音频文件，只读路径，不改动原文件。" : "下载只是把音源那边的文件存到本地缓存，卸载时就一起清掉。"}
-          </p>
-        </div>
-        <div className="row gap8">
-          <button className="btn btn-ghost btn-sm" disabled={tracks.length === 0} onClick={() => { if (tracks[0]) { onPlayGroup(tracks, 0); af.openPlayer(); } }}>
-            <IconPlay size={13} />试听一首
-          </button>
-        </div>
-      </div>
+      <PageHead
+        eyebrow={isLocal ? "LOCAL LIBRARY · 这台电脑" : "DOWNLOADS · 缓存目录"}
+        title={isLocal ? "本地音乐" : "下载管理"}
+        sub={isLocal ? "扫一遍硬盘里的音频文件，只读路径，不改动原文件。" : "下载只是把音源那边的文件存到本地缓存，卸载时就一起清掉。"}
+        aside={
+          <div className="row gap8">
+            <button className="btn btn-ghost btn-sm" disabled={tracks.length === 0} onClick={() => { if (tracks[0]) { onPlayGroup(tracks, 0); af.openPlayer(); } }}>
+              <IconPlay size={13} />试听一首
+            </button>
+          </div>
+        }
+      />
 
       <div className="loc__tabs">
         <button className={"loc__tab" + (isLocal ? " is-on" : "")} onClick={() => af.setPage("local")}>本地音乐</button>
@@ -114,7 +112,6 @@ export function LocalPage({
           ) : null}
 
           <div className="paper loc__sheet">
-            <Tape w={64} rot={-2} style={{ top: -9, left: 28 }} />
             <div className="loc__sheet-head">
               <span className="eyebrow">本地文件 · 按修改时间</span>
               <span className="meta">共 {tracks.length} 首</span>

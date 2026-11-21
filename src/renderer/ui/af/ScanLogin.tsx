@@ -17,6 +17,17 @@ export interface ScanLoginProps {
   onClose(): void;
 }
 
+/** 音源接口可能一直不回包：超时就当失败，让「刷新二维码」永远有出路 */
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error(message)), ms);
+    p.then(
+      (v) => { window.clearTimeout(t); resolve(v); },
+      (e) => { window.clearTimeout(t); reject(e); },
+    );
+  });
+}
+
 const STEPS = [
   { key: "wait", label: "打开手机扫一扫", hint: "扫左边这张票上的码" },
   { key: "scanned", label: "在手机上确认登录", hint: "手机上会弹一个确认" },
@@ -75,29 +86,32 @@ export function ScanLogin(props: ScanLoginProps) {
   const timer = useRef<number | undefined>(undefined);
   const runId = useRef(0);
 
-  useEffect(() => {
+  const beginQr = (resetForm: boolean): void => {
     if (!sourceId) return;
-    setMode("qr");
+    runId.current += 1;
+    const my = runId.current;
+    const alive = (): boolean => runId.current === my;
+    if (timer.current) window.clearTimeout(timer.current);
     setState("wait");
     setQrImage("");
     setQrNote("正在获取二维码…");
     setStopped(false);
-    setPhone("");
-    setCode("");
-    setNote("");
-    runId.current += 1;
-    const my = runId.current;
-    const alive = (): boolean => runId.current === my;
+    if (resetForm) {
+      setMode("qr");
+      setPhone("");
+      setCode("");
+      setNote("");
+    }
     void (async () => {
       try {
-        const session = await start();
+        const session = await withTimeout(start(), 20000, "二维码获取超时，点下面刷新");
         if (!alive()) return;
         setQrImage(session.qrImage);
         setQrNote("请打开手机扫一扫");
         const tick = async (): Promise<void> => {
           if (!alive()) return;
           try {
-            const r = await poll(session.key);
+            const r = await withTimeout(poll(session.key), 10000, "查询超时，点下面刷新");
             if (!alive()) return;
             setQrNote(r.message);
             if (r.qrImage) setQrImage(r.qrImage);
@@ -127,6 +141,10 @@ export function ScanLogin(props: ScanLoginProps) {
         setStopped(true);
       }
     })();
+  };
+
+  useEffect(() => {
+    beginQr(true);
     return () => {
       runId.current += 1;
       if (timer.current) window.clearTimeout(timer.current);
@@ -182,7 +200,7 @@ export function ScanLogin(props: ScanLoginProps) {
               <span className="scan__mark" aria-hidden="true"><IconPick size={34} /></span>
             </div>
             {state === "ok" ? <span className="scan__stamp">已登记</span> : null}
-            <span className="scan__qrfoot hand">{state === "ok" ? "登记完成 · 电子票已存" : stopped ? "码失效了，点下面刷新" : qrNote}</span>
+            <span className="scan__qrfoot hand">{state === "ok" ? "登记完成 · 电子票已存" : qrNote}</span>
           </div>
 
           <div className="scan__side">
@@ -206,7 +224,7 @@ export function ScanLogin(props: ScanLoginProps) {
                   ) : state === "scanned" ? (
                     <span className="scan__waiting"><i></i><i></i><i></i><span className="hand">等手机确认…</span></span>
                   ) : (
-                    <span className="scan__waiting"><i></i><i></i><i></i><span className="hand">{stopped ? "码失效了" : "等着手机扫过去…"}</span></span>
+                    <span className="scan__waiting"><i></i><i></i><i></i><span className="hand">{stopped ? "点下面刷新一下" : "等着手机扫过去…"}</span></span>
                   )}
                 </div>
               </>
@@ -229,7 +247,7 @@ export function ScanLogin(props: ScanLoginProps) {
 
             <div className="scan__switch">
               <button className="scan__link" onClick={() => setMode((m) => (m === "qr" ? "code" : "qr"))}>{mode === "qr" ? "扫码不方便？用验证码" : "还是扫码吧"}</button>
-              {stopped ? <button className="scan__link" style={{ marginLeft: 12 }} onClick={() => { setStopped(false); setQrNote("正在获取二维码…"); }}>刷新二维码</button> : null}
+              {stopped ? <button className="scan__link" style={{ marginLeft: 12 }} onClick={() => beginQr(false)}>刷新二维码</button> : null}
             </div>
           </div>
         </div>

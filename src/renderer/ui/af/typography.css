@@ -16,27 +16,27 @@
 /* ---------- 侧栏：4 套字体 → display + body + hand ---------- */
 .brand-word b {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size:14px;
   font-weight: 400;
   letter-spacing: 0.14em;
 }
 .brand-word span {
   font-family: var(--font-body);
-  font-size:10px;
+  font-size:var(--fs-micro);
   letter-spacing: 0.06em;
 }
-.nav-item { font-size:13px; }
+.nav-item { font-size:12px; }
 .nav-item.is-active { font-weight: 600; }
 .nav-item__count {
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
-  font-size: 11px;
+  font-size:var(--fs-micro);
 }
 /* 账号卡第二行：正文 + 等宽数字；原来用 .num 会变成第四套字体，且 9→10 后被截断 */
 .side-user__stat {
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

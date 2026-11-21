@@ -6,7 +6,6 @@ import { packLineCopy } from "./copy.js";
 import { EGGS } from "./data.js";
 import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconMoon, IconSettings, IconSparkle, IconSun, LogoMark } from "./icons.js";
 import { getLikes, subscribe as subscribeLikes } from "../../domain/likes/index.js";
-import { Tape } from "./ui.js";
 
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
 
@@ -127,7 +126,6 @@ export function Sidebar() {
 
       <div className="sidebar__next">
         <div className="side-card">
-          <Tape w={52} rot={-3} style={{ top: -8, left: "50%", marginLeft: -26 }} />
           <div className="side-card__row">
             <span className="side-card__day">{day}</span>
             <div className="side-card__meta">

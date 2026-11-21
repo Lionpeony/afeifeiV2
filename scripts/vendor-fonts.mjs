@@ -23,6 +23,13 @@ const FAMILIES = [
     slug: "jetbrains-mono",
     url: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap",
   },
+  // 番剧主题包（docs/30 §31）：MyGO 正文/标题、BTR 正文，Instrument Serif 为 BTR 标题拉丁字
+  { slug: "noto-serif-sc", url: "https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500&display=swap" },
+  {
+    slug: "instrument-serif",
+    url: "https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap",
+  },
+  { slug: "manrope", url: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&display=swap" },
 ];
 
 fs.mkdirSync(OUT_DIR, { recursive: true });

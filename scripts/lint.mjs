@@ -186,10 +186,10 @@ for (const file of styled) {
   }
 }
 
-/* ---------- 规则 8：af 层字号只取阶梯（2026-11-20 排版收敛） ----------
-   阶梯 = DESIGN.md「Hierarchy」节：正文 10/11/12/13/14/15/16/18/20/22/26 + 展示 28/30/36/44/128。
+/* ---------- 规则 8：af 层字号只取阶梯（2026-11-21 二次收敛） ----------
+   阶梯 = 10/12/14/16/18/20/22/26/30/36/44（+128 数字展示）。低端原 10-16 七档相邻 1px 已收成四档。
    字号声明只准是：阶梯 px、var(--fs-*)、calc()/clamp()。小数档与越阶值一律打回。 */
-const AF_LADDER = new Set(["10", "11", "12", "13", "14", "15", "16", "18", "20", "22", "26", "28", "30", "36", "44", "128"]);
+const AF_LADDER = new Set(["10", "12", "14", "16", "18", "20", "22", "26", "30", "36", "44", "128"]);
 for (const file of styled) {
   const n = norm(file);
   if (!n.includes("/ui/af/")) continue;
@@ -198,7 +198,7 @@ for (const file of styled) {
     const v = m[1].trim();
     const px = v.match(/^(\d+(?:\.\d+)?)px$/);
     const ok = (px && AF_LADDER.has(px[1])) || v.startsWith("var(--fs-") || v.startsWith("calc(") || v.startsWith("clamp(");
-    if (!ok) fail(`${n}: font-size ${v} 不在阶梯上（10-16/18/20/22/26 + 28/30/36/44/128，或 var(--fs-*)）`);
+    if (!ok) fail(`${n}: font-size ${v} 不在阶梯上（10/12/14/16/18/20/22/26/30/36/44 + 128，或 var(--fs-*)）`);
   }
 }
 
@@ -216,6 +216,43 @@ for (const file of bomTargets) {
   }
 }
 
+/* ---------- 规则 10：af 层圆角只取刻度（2026-11-21 收敛） ----------
+   只准：var(--r-*) / var(--radius-*)，以及 0 / 50% / inherit。
+   原有 21 种裸 px 圆角（1-14 每个整数）已收成 7 档。 */
+const RADIUS_OK = /^(0|50%|inherit)$|var\(--(r-|radius-)/;
+for (const file of styled) {
+  const n = norm(file);
+  if (!n.includes("/ui/af/")) continue;
+  const src = stripComments(read(file));
+  for (const m of src.matchAll(/border-radius\s*:\s*([^;}]+)/g)) {
+    const v = m[1].trim();
+    const comps = v.split(/\s+/);
+    if (!comps.every((c) => RADIUS_OK.test(c))) {
+      fail(`${n}: border-radius ${v} 不在刻度上（--r-* / --radius-* / 0 / 50%）`);
+    }
+  }
+}
+
+/* ---------- 规则 11：af 层间距只取 4px 刻度（2026-11-21 收敛） ----------
+   只准：var(--space-*)、0、1px、3px、>48px 版式值、auto/%/calc/clamp。
+   含显式 height 的块不查（垂直 padding 为保内容不裁切而保留原值）。 */
+for (const file of styled) {
+  const n = norm(file);
+  if (!n.includes("/ui/af/")) continue;
+  const src = stripComments(read(file));
+  for (const blk of src.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (/(?:^|[;{\s])height\s*:/.test(blk[2])) continue;
+    for (const m of blk[2].matchAll(/(padding|margin|gap|row-gap|column-gap)(-top|-right|-bottom|-left)?\s*:\s*([^;}]+)/g)) {
+      for (const c of m[3].trim().split(/\s+/)) {
+        if (!/^-?\d+(\.\d+)?px$/.test(c)) continue;
+        const px = Math.abs(parseFloat(c));
+        if (px === 0 || px === 1 || px === 3 || px > 48) continue;
+        fail(`${n}: ${m[1]}${m[2] || ""} 用了裸 px ${c}（应取 --space-* 刻度）`);
+      }
+    }
+  }
+}
+
 /* ---------- 结果 ---------- */
 if (problems.length) {
   console.log(`✗ lint 失败 ${problems.length} 处：`);
@@ -223,4 +260,4 @@ if (problems.length) {
   console.log("\n规则见 docs/51 §2.4（新仓库里的 docs/01）");
   process.exit(1);
 }
-console.log(`LINT PASS：${code.length} 个源文件，9 条规则无违规`);
+console.log(`LINT PASS：${code.length} 个源文件，11 条规则无违规`);

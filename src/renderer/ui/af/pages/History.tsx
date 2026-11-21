@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
 import { IconPlay } from "../icons.js";
-import { EmptySetlist } from "../ui.js";
+import { EmptySetlist, PageHead } from "../ui.js";
 import { eggText, packLineCopy, historyEmptyCopy } from "../copy.js";
 
 const dayStart = (t: number): number => {
@@ -44,13 +44,11 @@ export function HistoryPage() {
 
   return (
     <div className="page" data-screen-label="播放历史">
-      <div className="page-head">
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>HISTORY · {rows.length} 条记录</div>
-          <h1 className="display">播放历史</h1>
-          <p className="body" style={{ marginTop: 8, maxWidth: 460 }}>听过什么，台侧都记着。按天分堆，最近的排在最上面。</p>
-        </div>
-        <div className="page-head__aside">
+      <PageHead
+        eyebrow={<>HISTORY · {rows.length} 条记录</>}
+        title="播放历史"
+        sub="听过什么，台侧都记着。按天分堆，最近的排在最上面。"
+        aside={
           <div className="row gap8">
             {rows.length > 0 ? (
               <button className="btn btn-ghost btn-sm" onClick={() => af.playIds(ids)}>
@@ -70,8 +68,8 @@ export function HistoryPage() {
               {confirmClear ? "确认清空" : "清空历史"}
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="hist__stats">
         <div className="hist__stat"><b>{rows.length}</b><span>条播放记录</span></div>

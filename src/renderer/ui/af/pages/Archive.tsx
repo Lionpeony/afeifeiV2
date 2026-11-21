@@ -6,7 +6,7 @@ import { getLikes, subscribe as subLikes } from "../../../domain/likes/index.js"
 import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
 import { IconBack, IconChevronRight, IconPickOutline, IconPlay } from "../icons.js";
-import { EmptySetlist, Tape } from "../ui.js";
+import { EmptySetlist, PageHead } from "../ui.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 const fmt = (sec: number): string => {
@@ -51,14 +51,12 @@ export function ArchivePage() {
 
   return (
     <div className="page" data-screen-label="演出档案">
-      <div className="page-head">
-        <div>
-          <button className="crumb" onClick={() => af.setPage("online")}><IconBack size={13} />返回发现</button>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>乐馆 · 演出档案库</div>
-          <h1 className="display">每一次上台，<span className="marker">都留了档</span></h1>
-          <p className="body" style={{ marginTop: 10, maxWidth: 460 }}>按演出整理的曲目单。有的场次只来了七个人，也记着。</p>
-        </div>
-      </div>
+      <PageHead
+        above={<button className="crumb" onClick={() => af.setPage("online")}><IconBack size={13} />返回发现</button>}
+        eyebrow="乐馆 · 演出档案库"
+        title={<>每一次上台，<span className="marker">都留了档</span></>}
+        sub="按演出整理的曲目单。有的场次只来了七个人，也记着。"
+      />
 
       <div className="row gap8" style={{ marginBottom: 26 }}>
         {[
@@ -76,7 +74,6 @@ export function ArchivePage() {
         <div style={{ maxWidth: 520 }}><EmptySetlist onGo={() => af.setPage("online")} /></div>
       ) : af.archiveFilter !== "all" ? (
         <div className="paper" style={{ padding: "20px 22px" }}>
-          <Tape w={70} rot={-3} style={{ top: -9, left: 34 }} />
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
             <div>
               <div className="h2">{af.archiveFilter === "liked" ? "我记下的" : "今晚的曲目"}</div>

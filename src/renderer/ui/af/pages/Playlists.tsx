@@ -11,7 +11,7 @@ import { TrackArt } from "../art.js";
 import { AfTrackTable } from "../TrackTable.js";
 import { IconCheck, IconHeart, IconImport, IconPlay, IconPlus, IconRefresh } from "../icons.js";
 import { PillWipe } from "../SourceSwap.js";
-import { EmptySetlist, Tape } from "../ui.js";
+import { EmptySetlist, PageHead } from "../ui.js";
 
 export interface PlaylistsPageProps {
   sources: { id: string; name: string }[];
@@ -76,18 +76,18 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
 
   return (
     <div className="page pl" data-screen-label="歌单">
-      <div className="pl__head">
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>PLAYLISTS · {lib.saved.length + lib.playlists.length} LISTS</div>
-          <h1 className="display">歌单</h1>
-        </div>
-        <div className="row gap8">
-          <button className="btn btn-ghost btn-sm" onClick={() => { lib.clearNote(); setImportOpen(true); }}>
-            <IconImport size={14} />导入
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={lib.refresh}><IconRefresh size={14} />刷新</button>
-        </div>
-      </div>
+      <PageHead
+        eyebrow={<>PLAYLISTS · {lib.saved.length + lib.playlists.length} LISTS</>}
+        title="歌单"
+        aside={
+          <div className="row gap8">
+            <button className="btn btn-ghost btn-sm" onClick={() => { lib.clearNote(); setImportOpen(true); }}>
+              <IconImport size={14} />导入
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={lib.refresh}><IconRefresh size={14} />刷新</button>
+          </div>
+        }
+      />
 
       <div className="pl__switch">
         <div className="src-pill">
@@ -156,7 +156,6 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
 
         {mine ? (
           <section className="pl__detail paper">
-            <Tape w={70} rot={-2.4} style={{ top: -10, left: 30 }} />
             <div className="pl__detail-head">
               <div className="pl__cover">
                 <TrackArt id={"cover-" + mine.cover} size={104} radius={14} />
@@ -188,7 +187,6 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
           </section>
         ) : (
         <section className="pl__detail paper">
-          <Tape w={70} rot={-2.4} style={{ top: -10, left: 30 }} />
           <div className="pl__detail-head">
             <div className="pl__cover">
               {item?.coverUrl ? <img src={item.coverUrl} alt="" referrerPolicy="no-referrer" style={{ width: 104, height: 104, borderRadius: 14, objectFit: "cover" }} /> : <TrackArt id={(item?.sourceId ?? lib.sourceId) + (item?.id ?? "empty")} size={104} radius={14} />}

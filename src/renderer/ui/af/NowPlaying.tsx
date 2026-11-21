@@ -3,7 +3,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 
 import { useAf } from "./context.js";
 import { TrackArt, artPaletteOf } from "./art.js";
-import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconX, IconShare, IconKeys, IconMini, IconMin, IconMax, IconRestore, IconExpand } from "./icons.js";
+import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconVolume, IconX, IconShare, IconKeys, IconMini, IconMin, IconMax, IconRestore, IconExpand } from "./icons.js";
 import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
 import { ShareCard } from "./ShareCard.js";
@@ -49,9 +49,15 @@ export function NowPlaying() {
     keysHintSeen,
     dismissKeysHint,
     reduce,
+    volume,
+    setVolume,
+    muted,
+    toggleMute,
   } = api;
   const { pos, dur } = usePosition(api);
   const total = track.dur || dur || 0;
+  // 专辑与艺人同名（单曲/同名单）时不重复报一遍（docs/30 §37：播放页去重）
+  const albumText = track.album && track.album !== track.artist ? track.album : "";
   const barRef = useRef<HTMLDivElement>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -238,46 +244,32 @@ export function NowPlaying() {
             {struckId && <span className={"sheer is-on sheer--" + (sheerSide || "r")}></span>}
           </div>
 
-          <div className="np__info">
-            <div className="np__kicker">
-              <span className="eyebrow">{track.album}</span>
-              <span style={{ width: 12, height: 1, background: "var(--line-strong)" }}></span>
-              <span className="meta">{new Date().getFullYear()}</span>
-            </div>
-            <h1 key={track.id} className="np__title">{track.title}</h1>
-            <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
-            <div className="np__band jp">
-              {track.remote?.artistId ? (
-                <button
-                  className="np__band-link"
-                  title={`去看 ${track.artist} 的艺人页`}
-                  onClick={() => {
-                    openDiscoverDetail({ kind: "artist", id: track.remote!.artistId!, name: track.artist, coverUrl: track.cover ?? undefined });
-                    closePlayer();
-                  }}
-                >
-                  {track.artist}
-                </button>
-              ) : (
-                <span>{track.artist}</span>
-              )}
-              <i></i>
-              {track.remote?.albumId ? (
-                <button
-                  className="np__band-link"
-                  style={{ color: "var(--text-3)" }}
-                  title={`去看《${track.album}》的专辑页`}
-                  onClick={() => {
-                    openDiscoverDetail({ kind: "album", id: track.remote!.albumId!, name: track.album, coverUrl: track.cover ?? undefined });
-                    closePlayer();
-                  }}
-                >
-                  {track.album}
-                </button>
-              ) : (
-                <span style={{ color: "var(--text-3)" }}>{track.album}</span>
-              )}
-            </div>
+            <div className="np__info">
+              {albumText ? (
+                <div className="np__kicker">
+                  <span className="eyebrow">{albumText}</span>
+                  <span style={{ width: 12, height: 1, background: "var(--line-strong)" }}></span>
+                  <span className="meta">{new Date().getFullYear()}</span>
+                </div>
+              ) : null}
+              <h1 key={track.id} className="np__title">{track.title}</h1>
+              <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
+              <div className="np__band jp">
+                {track.remote?.artistId ? (
+                  <button
+                    className="np__band-link"
+                    title={`去看 ${track.artist} 的艺人页`}
+                    onClick={() => {
+                      openDiscoverDetail({ kind: "artist", id: track.remote!.artistId!, name: track.artist, coverUrl: track.cover ?? undefined });
+                      closePlayer();
+                    }}
+                  >
+                    {track.artist}
+                  </button>
+                ) : (
+                  <span>{track.artist}</span>
+                )}
+              </div>
 
             <div className="np__progress-wrap">
               {showChorusHint && <span className="np__chorus-hint">要来了♡</span>}
@@ -368,7 +360,29 @@ export function NowPlaying() {
               <button className={"np__ctrl" + (lyricsOn ? " is-on" : "")} onClick={() => setLyricsOn(!lyricsOn)} title="歌词字幕（ED 风）" aria-pressed={lyricsOn}>
                 <IconNote size={18} />
               </button>
-              <span className="meta" style={{ marginLeft: 6, color: "var(--text-3)", whiteSpace: "nowrap" }}>长按进度条标记副歌</span>
+              {/* 音量（2026-11-21 用户指认：播放页要有调音量处）——放在控制行右端，进度区只留一条滑杆 */}
+              <div className="np__times-vol">
+                <button
+                  className={"np__ctrl np__ctrl--sm" + (muted ? " is-on" : "")}
+                  onClick={toggleMute}
+                  aria-pressed={muted}
+                  title={muted ? "取消静音" : "静音（M）"}
+                >
+                  <IconVolume size={15} />
+                </button>
+                <input
+                  className="vol__range"
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={muted ? 0 : volume}
+                  style={{ "--fill": `${Math.round((muted ? 0 : volume) * 100)}%` } as React.CSSProperties}
+                  onChange={(e) => setVolume(Number(e.currentTarget.value))}
+                  aria-label={"音量 " + Math.round((muted ? 0 : volume) * 100) + "%"}
+                  title={"音量 " + Math.round((muted ? 0 : volume) * 100) + "%"}
+                />
+              </div>
             </div>
             <div className="np__stage-note">
               <span className="hand">台侧视角 · 第三排有人在跟着打拍子</span>
@@ -380,6 +394,7 @@ export function NowPlaying() {
         </div>
 
         <aside className="np__queue">
+          <Tape w={72} rot={-2} style={{ top: -10, left: "50%", marginLeft: -36 }} />
           <div className="np__queue-head">
             <div>
               <div className="np__queue-title">今晚的顺序</div>
@@ -438,10 +453,9 @@ export function NowPlaying() {
 
       {!keysHintSeen && !lyricsFull ? (
         <div className="np-hint" role="status">
-          <span className="np-hint__text"><b>键盘也弹得了</b><span>播放页里这些键一直有效</span></span>
-          <span className="np-hint__keys"><kbd>空格</kbd><kbd>← →</kbd><kbd>Shift+← →</kbd><kbd>?</kbd></span>
-          <button className="np-hint__go" onClick={() => { setKeysOpen(true); dismissKeysHint(); }}>看全部</button>
-          <button className="np-hint__close" onClick={dismissKeysHint} title="知道了" aria-label="知道了"><IconX size={12} /></button>
+          <span className="np-hint__text"><b>键盘</b><kbd>空格</kbd>播放<kbd>← →</kbd>切歌<kbd>?</kbd>全部</span>
+          <button className="np-hint__go" onClick={() => { setKeysOpen(true); dismissKeysHint(); }}>快捷键</button>
+          <button className="np-hint__close" onClick={dismissKeysHint} title="知道了" aria-label="知道了"><IconX size={11} /></button>
         </div>
       ) : null}
 

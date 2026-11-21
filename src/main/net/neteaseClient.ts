@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { dataDir } from "../paths.js";
@@ -36,6 +37,28 @@ type NcmFn = (params: Record<string, unknown>) => Promise<{ status: number; body
  */
 const DEVICE_ID = randomUUID().replace(/-/g, "").toUpperCase();
 (globalThis as Record<string, unknown>).deviceId = DEVICE_ID;
+
+/**
+ * **上游 4.32 的暗雷**：`util/request.js` 在**模块加载时**同步读
+ * `os.tmpdir()/anonymous_token`，文件不存在就直接抛 ENOENT。require 期抛错意味着
+ * 所有接口（扫码 key、榜单、搜索、播放地址）一起废掉，日志里只剩一行
+ * `Error invoking remote method 'netease:call': ENOENT ... anonymous_token`。
+ *
+ * 系统清理临时目录、换机器、首次安装都会踩到。这里在任何人 require request.js
+ * 之前补一个空占位——实测空文件即可正常走 weapi（MUSIC_A 只是未登录时的兜底 cookie）；
+ * 文件已存在（真 token / 别的客户端生成）就绝不覆盖。
+ */
+function ensureAnonymousToken(): void {
+  const file = path.join(os.tmpdir(), "anonymous_token");
+  if (fs.existsSync(file)) return;
+  try {
+    fs.writeFileSync(file, "", "utf8");
+  } catch (err) {
+    log("warn", `[netease] 建匿名 token 占位失败：code=${(err as NodeJS.ErrnoException).code ?? "unknown"}`);
+  }
+}
+
+ensureAnonymousToken();
 
 /** 连续失败熔断（按接口名）。瞬时抖动不熔断，第 3 次起阶梯冷却。 */
 const backoff = new FailureBackoff();

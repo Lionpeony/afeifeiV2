@@ -5,7 +5,6 @@ import { useAf } from "./context.js";
 import { sourceShort, sourceTone } from "./data.js";
 import { PillWipe } from "./SourceSwap.js";
 import { TrackArt } from "./art.js";
-import { Tape } from "./ui.js";
 import { packLineCopy } from "./copy.js";
 import { GuitarFigure, IconArrowRight, IconMax, IconMini, IconMin, IconSearch, IconX } from "./icons.js";
 
@@ -208,7 +207,6 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
             </div>
           ) : total === 0 ? (
             <div className="search-empty-note loop">
-              <Tape w={60} rot={-2.5} style={{ top: -9, left: "50%", marginLeft: -30 }} />
               <p>{packLineCopy(palette, "emptySearch")}</p>
               <span className="hand">换个词试试，或者去漫游随便听听。</span>
               <button className="btn btn-soft btn-sm" onClick={() => { onClose(); setPage("roam"); }}>

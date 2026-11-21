@@ -60,7 +60,12 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
    QQ 的 gtimg 用路径段控制尺寸，网易云用 param 查询参数。 */
 const thumb = (url: string | undefined, size: number): string | undefined => {
   if (!url) return url;
-  if (url.includes("y.gtimg.cn")) return url.replace(/R\d+x\d+M000/, `R${size}x${size}M000`);
+  if (url.includes("y.gtimg.cn")) {
+    /* y.gtimg 只烤固定尺寸（90/120/150/300/500 实测，R64x64 直接 404）——
+       取 ≥ 请求尺寸的最小一档，不然 QQ 的行内封面全是破图（2026-11-21 用户实测：每日推荐） */
+    const bucket = [90, 120, 150, 300, 500].find((s) => s >= size) ?? 500;
+    return url.replace(/R\d+x\d+M000/, `R${bucket}x${bucket}M000`);
+  }
   if (url.includes("music.126.net")) {
     const clean = url.replace(/[?&]param=\d+y\d+/, "");
     return `${clean}${clean.includes("?") ? "&" : "?"}param=${size}y${size}`;
@@ -775,7 +780,6 @@ export function DiscoverPage(props: DiscoverPageProps) {
                         onFocus={() => prefetchDetail("playlist", item.id)}
                       >
                         <span className="home-card__art">
-                          <span className="home-card__tape" aria-hidden="true" />
                           {item.coverUrl ? (
                             <img src={item.coverUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
                           ) : (
@@ -959,7 +963,6 @@ export function DiscoverPage(props: DiscoverPageProps) {
             <div className="flyers flyers--compact">
               {flyerDays.map((f, i) => (
                 <div key={f.key} style={{ position: "relative" }}>
-                  <Tape w={60} rot={-3} style={{ top: -9, left: "50%", marginLeft: -30 }} />
                   <button
                     className="flyer flyer__rot"
                     style={{ ["--rot" as string]: i === 1 ? "0.9deg" : "-1.2deg" }}

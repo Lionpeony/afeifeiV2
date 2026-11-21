@@ -159,12 +159,14 @@ export function Console(props: {
         </button>
         <div className="bar__meta">
           <span className="bar__title truncate" title={title ?? ""}>{title ?? "还没选歌"}</span>
-          <span className="bar__artist truncate">
+          <span className="bar__artist">
             {error ? (
               <span className="status" data-status={status} title={error}>{errorText(error)}</span>
             ) : (
               <>
-                {artist || phaseLabel(phase, false)}
+                <span className="bar__artist-name truncate" title={artist || undefined}>
+                  {artist || phaseLabel(phase, false)}
+                </span>
                 {remote && sourceName ? <span className="bar__src" style={{ color: sourceTone(af.source) }}>{sourceName}</span> : null}
               </>
             )}

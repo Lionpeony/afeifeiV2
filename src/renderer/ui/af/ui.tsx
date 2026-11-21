@@ -15,6 +15,35 @@ export const SectionHead = ({ children, right, note }: { children: ReactNode; ri
   </div>
 );
 
+/** 统一页头（2026-11-21）：eyebrow + display 标题 + 副标，可选上方 crumb / 下方标签 / 右侧动作。
+    全部页面共用这一套，间距与字阶由 .page-head 统一管。 */
+export const PageHead = ({
+  eyebrow,
+  title,
+  sub,
+  above,
+  aside,
+  children,
+}: {
+  eyebrow: ReactNode;
+  title: ReactNode;
+  sub?: ReactNode;
+  above?: ReactNode;
+  aside?: ReactNode;
+  children?: ReactNode;
+}) => (
+  <div className="page-head">
+    <div className="page-head__main">
+      {above}
+      <div className="eyebrow">{eyebrow}</div>
+      <h1 className="display">{title}</h1>
+      {sub ? <p className="body">{sub}</p> : null}
+      {children}
+    </div>
+    {aside ? <div className="page-head__aside">{aside}</div> : null}
+  </div>
+);
+
 export const EmptySetlist = ({
   onGo,
   title = "今天还没写 setlist。",
@@ -27,7 +56,6 @@ export const EmptySetlist = ({
   cta?: string;
 }) => (
   <div className="empty-sheet loop">
-    <Tape style={{ top: -9, left: "50%", marginLeft: -36 }} w={72} rot={-3} />
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
       <IconPickOutline size={34} style={{ color: "var(--pink-400)" }} />
       <p>{title}</p>

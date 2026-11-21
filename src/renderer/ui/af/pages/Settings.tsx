@@ -4,6 +4,7 @@ import { useState } from "react";
 import { dispatch, getState } from "../../../kernel/index.js";
 import { useAf } from "../context.js";
 import { SourceSwap } from "../SourceSwap.js";
+import { PageHead } from "../ui.js";
 import { EGGS, PALETTES } from "../data.js";
 import {
   IconArchive,
@@ -29,13 +30,11 @@ export function SettingsPage() {
 
   return (
     <div className="page" data-screen-label="设置" style={{ maxWidth: 1080 }}>
-      <div className="page-head">
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>设置 · 后台的抽屉</div>
-          <h1 className="display">这里的东西可以随便<span className="marker">翻</span></h1>
-          <p className="body" style={{ marginTop: 10, maxWidth: 460 }}>灯光、音量，还有一张集章卡。慢慢来，不着急。</p>
-        </div>
-      </div>
+      <PageHead
+        eyebrow="设置 · 后台的抽屉"
+        title={<>这里的东西可以随便<span className="marker">翻</span></>}
+        sub="灯光、音量，还有一张集章卡。慢慢来，不着急。"
+      />
 
       <div className="set-card set-card--wide acct-card" style={{ marginBottom: 18 }}>
         <SourceSwap />

@@ -157,12 +157,12 @@ test("布局与字阶是规范值：200 / 60 / 72、8-16-24-32、16/999/4", () =
   assert.equal(raw("--nav-w", root), "200px");
   assert.equal(raw("--topbar-h", root), "60px");
   assert.equal(raw("--console-h", root), "72px");
-  assert.deepEqual([1, 2, 3, 4].map((n) => raw(`--space-${n}`, root)), ["8px", "16px", "24px", "32px"]);
+  assert.deepEqual([1, 2, 3, 4].map((n) => color(`--space-${n}`)), ["8px", "16px", "24px", "32px"]);
   assert.equal(raw("--radius-card", root), "16px");
   assert.equal(raw("--radius-btn", root), "999px");
   assert.equal(raw("--radius-cover", root), "4px");
   assert.deepEqual(
     ["display", "title", "heading", "body", "caption", "micro"].map((n) => raw(`--fs-${n}`, root)),
-    ["28px", "20px", "16px", "14px", "12px", "11px"],
+    ["26px", "20px", "16px", "14px", "12px", "10px"],
   );
 });
