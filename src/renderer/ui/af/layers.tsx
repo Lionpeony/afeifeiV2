@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
+import { SceneSwitch } from "./SceneSwitch.js";
 import { EGGS, DEMO_INFO, PALETTES, sourceShort, sourceTone } from "./data.js";
 import { eggText, packLineCopy } from "./copy.js";
 import {
@@ -62,7 +63,7 @@ export function useLyricLines(): { text: string; startMs: number }[] {
 
 /* ---------- 彩蛋层 ---------- */
 export function EggLayer() {
-  const { overlay, corner, palette, packFx, setOverlay } = useAf();
+  const { overlay, corner, palette, themeScene, setOverlay } = useAf();
   return (
     <>
       {overlay === "river" && (
@@ -138,31 +139,18 @@ export function EggLayer() {
         </div>
       )}
 
-      {packFx && (
-        <div className={"packfx packfx--" + packFx} key={packFx} aria-hidden="true">
-          {packFx === "mygo" && (
-            <>
-              <div className="packfx__rain"></div>
-              <span className="packfx__ripple"></span>
-              <div className="packfx__copy">雨停了。</div>
-            </>
-          )}
-          {packFx === "gbc" && (
-            <>
-              <div className="packfx__flash"></div>
-              <div className="packfx__frame"></div>
-              <div className="packfx__copy">无滤镜，直出。</div>
-            </>
-          )}
-          {packFx === "btr" && (
-            <>
-              <div className="packfx__spot"></div>
-              <div className="packfx__copy">灯，亮了。</div>
-            </>
-          )}
-          {packFx === "default" && <span className="packfx__ripple"></span>}
-        </div>
-      )}
+      {themeScene ? (
+        <SceneSwitch
+          scene={{
+            kind: "theme",
+            phase: themeScene.phase,
+            label: (PALETTES.find((p) => p.id === themeScene.id) ?? PALETTES[0]).label,
+            sub: "换装 · PALETTE",
+            tone: "var(--pink-600)",
+            dir: themeScene.dir,
+          }}
+        />
+      ) : null}
 
       {corner && (
         <>

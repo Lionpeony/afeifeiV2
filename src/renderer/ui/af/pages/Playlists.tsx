@@ -12,6 +12,7 @@ import { AfTrackTable } from "../TrackTable.js";
 import { IconCheck, IconHeart, IconImport, IconPlay, IconPlus, IconRefresh } from "../icons.js";
 import { PillWipe } from "../SourceSwap.js";
 import { EmptySetlist, PageHead } from "../ui.js";
+import { useSourceRefresh } from "../RefreshTape.js";
 
 export interface PlaylistsPageProps {
   sources: { id: string; name: string }[];
@@ -62,6 +63,7 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
   const nameOf = (id: string): string => props.sources.find((s) => s.id === id)?.name ?? "其它音源";
   const item = lib.selectedItem;
   const srcName = nameOf(lib.sourceId);
+  const rf = useSourceRefresh(lib.sourceId, lib.listsBusy || lib.busy);
 
   if (props.sources.length === 0) {
     return <div className="page pl"><p className="lib-note">没有支持歌单的音源。网易云登录后可用。</p></div>;
@@ -114,7 +116,10 @@ export function PlaylistsPage(props: PlaylistsPageProps) {
       ) : null}
       {lib.note ? <p className="lib-note" role="status">{lib.note}</p> : null}
 
-      <div className="pl__grid">
+      <div
+        className={"pl__grid rf" + (rf === "loading" ? " is-refreshing" : rf === "fresh" ? " is-fresh" : "")}
+        aria-busy={lib.listsBusy || lib.busy || undefined}
+      >
         <aside className="pl__side">
           <div className="pl__side-label eyebrow">我的歌单 · {af.myLists.length}</div>
           <button className="pl-row pl-row--new" onClick={() => af.setListEditor({ mode: "new", tracks: [] })}>

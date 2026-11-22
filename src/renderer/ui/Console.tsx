@@ -272,7 +272,7 @@ export function Console(props: {
                 if (!tip) return;
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pct = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-                const duration = services.current?.engine.durationMs() ?? 0;
+                const duration = services.current?.durationMs() ?? 0;
                 tip.textContent = fmt(pct * duration);
                 tip.style.left = `${pct * 100}%`;
               }}
@@ -282,7 +282,7 @@ export function Console(props: {
                   return;
                 }
                 const v = Number(e.target.value);
-                const duration = services.current?.engine.durationMs() ?? 0;
+                const duration = services.current?.durationMs() ?? 0;
                 if (timeEl.current) timeEl.current.textContent = fmt(v);
                 const pct = duration > 0 ? Math.min(100, (v / duration) * 100) : 0;
                 e.currentTarget.parentElement?.style.setProperty("--fill", `${pct.toFixed(2)}%`);

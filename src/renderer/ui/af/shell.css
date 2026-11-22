@@ -79,12 +79,27 @@
 /* 包布景：主区第一眼的空气感随包换——雨夜潮气 / 红黑压场 / 墙角一盏暖灯 */
 :root[data-palette="mygo"] .main{background:linear-gradient(180deg,rgba(143,220,238,.08),transparent 260px),var(--bg)}
 :root[data-palette="gbc"] .main{background:linear-gradient(180deg,rgba(217,37,52,.07),transparent 220px),var(--bg)}
-:root[data-palette="btr"] .main{background:radial-gradient(640px 320px at 50% -80px,rgba(255,197,61,.16),transparent 72%),var(--bg)}
+:root[data-palette="btr"] .main{background:radial-gradient(680px 340px at 50% -80px,color-mix(in srgb,var(--btr-yellow) 24%,transparent),transparent 72%),var(--bg)}
 
 /* 页面入场编排：key={page} remount 后整页波浪进场（时长走 --dur-base，随包换节奏）。
    动效关 / 初始进场（boot 已有开屏）不重复演。 */
-@keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-:root:not([data-motion="off"]) .main__page{animation:pageIn var(--dur-base) var(--ease-out-soft) both}
+@keyframes pageIn{
+  0%{opacity:0;transform:translateY(14px) scale(.994)}
+  72%{opacity:1;transform:translateY(-2px) scale(1.002)}
+  100%{opacity:1;transform:none}
+}
+:root:not([data-motion="off"]) .main__page{animation:pageIn var(--scene-in) var(--scene-ease-out) both}
+/* 换页 v3：纸带盖满后，新页只从自己那侧移 12px 落位；不再上下抽鞭。 */
+@keyframes pageWipeR{
+  from{opacity:.35;transform:translateX(14px)}
+  to{opacity:1;transform:none}
+}
+@keyframes pageWipeL{
+  from{opacity:.35;transform:translateX(-14px)}
+  to{opacity:1;transform:none}
+}
+:root:not([data-motion="off"]) .main__page.is-wipe-r{animation:pageWipeR var(--scene-cut) var(--scene-ease-out) both}
+:root:not([data-motion="off"]) .main__page.is-wipe-l{animation:pageWipeL var(--scene-cut) var(--scene-ease-out) both}
 
 .topbar{
   display:flex;align-items:center;gap: var(--space-md);
@@ -257,9 +272,10 @@
 
 /* ---------------- toast ---------------- */
 .toasts{
-  position:fixed;left:50%;bottom:100px;transform:translateX(-50%);
-  z-index:var(--z-toast);display:flex;flex-direction:column;align-items:center;gap: var(--space-xs);
-  pointer-events:none;
+  /* 反馈靠右下角排队：舞台中央留给歌和字幕，toast 只占台口边上的位置 */
+  position:fixed;right:var(--space-lg);bottom:100px;
+  z-index:var(--z-toast);display:flex;flex-direction:column;align-items:flex-end;gap: var(--space-xs);
+  pointer-events:none;max-width:min(360px,42vw);
 }
 .toast{
   display:flex;align-items:center;gap: var(--space-xs);

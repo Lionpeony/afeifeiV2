@@ -374,14 +374,26 @@
 :root[data-theme="dark"] .share-card{
   background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 46px),var(--share-paper);
 }
-/* 票面抬头：小字钢印 + 手写大字 */
+/* 票面抬头：封面小照 + 钢印小字 + 手写大字 */
+.share-card__head{display:flex;align-items:center;gap:var(--space-md);min-width:0}
+.share-card__thumb{
+  flex:none;width:56px;height:56px;border-radius:var(--r-sm);overflow:hidden;
+  box-shadow:0 6px 16px rgba(20,16,26,.18);transform:rotate(-2.5deg);
+  background:var(--wash);display:grid;place-items:center;
+}
+.share-card__thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.share-card__thumb-pick{
+  width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(60% 60% at 40% 30%,var(--pink-400),var(--pink-600));
+}
+.share-card__meta{display:flex;flex-direction:column;min-width:0}
 .share-card__eyebrow{
   font-size:var(--fs-micro);letter-spacing:.3em;color:var(--pink-600);
   font-family:var(--font-mono,"SFMono-Regular",ui-monospace,monospace);
 }
 :root[data-theme="dark"] .share-card__eyebrow{color:var(--pink-400)}
 .share-card__title{
-  margin-top: var(--space-2xs);font-family:var(--font-hand);font-size:22px;
+  margin-top: var(--space-3xs);font-family:var(--font-hand);font-size:22px;line-height:1.2;
   letter-spacing:.08em;color:var(--text);
 }
 /* 票面曲目行：像写好的演出传单 */
@@ -428,7 +440,7 @@
 .share-card__link{
   margin-top: var(--space-md);padding-top: var(--space-sm);
   border-top:2px dashed var(--line);
-  display:flex;align-items:center;gap: var(--space-xs);
+  display:flex;align-items:center;gap: var(--space-sm);
 }
 .share-card__url{
   flex:1;min-width:0;font-size:var(--fs-micro);color:var(--text-3);
@@ -444,7 +456,8 @@
 :root[data-theme="dark"] .share-card__copy{color:var(--pink-400);border-color:var(--pink-400)}
 .share-card__copy:hover{color:var(--pink-600)}
 .share-card__copy.is-done{color:var(--pink-600);border-bottom-style:solid}
-.share-card__none{margin-top: var(--space-md);font-size:12px;color:var(--text-3);letter-spacing:.04em}
+.share-card__none{flex:1;min-width:0;font-size:12px;color:var(--text-3);letter-spacing:.04em}
+.share-card__hint{margin-top:var(--space-xs);font-size:var(--fs-micro);color:var(--text-3);letter-spacing:.04em}
 /* 手写落款：右下角一句，随文案包换口气 */
 .share-card__note{
   margin-top: var(--space-md);text-align:right;

@@ -44,79 +44,319 @@
 }
 .acct-acts{display:flex;align-items:center;gap: var(--space-2xs);flex:none}
 
-/* ---------------- 换台：幕间幕布 ---------------- */
-/* 只走 transform：两片纯渐变幕布 + 暗角，不用 repeating 条纹和 blend mode —
-   大卡片上缩放条纹会摩尔纹、soft-light 锥形层每帧都在重算混合（2026-11-19 实测卡顿）。 */
-.swap{position:absolute;inset:0;z-index:var(--z-swap);overflow:hidden;border-radius:inherit;pointer-events:none;contain:paint}
-.swap__half{
-  position:absolute;top:0;bottom:0;width:50.4%;
-  background:
-    radial-gradient(120% 80% at 50% 0%,rgba(255,255,255,.28),transparent 62%),
-    linear-gradient(160deg,var(--pastel-pink),var(--pastel-lav) 62%,var(--pastel-iris));
-  box-shadow:0 0 26px rgba(61,43,57,.18);
-  transform:scaleX(0) translateZ(0);
-  backface-visibility:hidden;
-  will-change:transform;
+/* ---------------- 换台 · 开演换场：聚光灯、拨片、揭幕线、场记牌 ---------------- */
+/* 一段完整舞台 cue，不使用冲击环、粒子、色差或大范围滤镜。
+   所有运动只走 transform / opacity，避免全屏重绘。 */
+.cue{
+  position:fixed;inset:0;z-index:var(--z-flash);
+  overflow:hidden;pointer-events:none;contain:strict;
+  --cue-a:var(--coral-deco);--cue-b:var(--coral);--cue-ink:var(--text);
 }
-.swap__half--l{left:0;transform-origin:left center;border-radius:0 var(--r-sm) var(--r-sm) 0}
-.swap__half--r{right:0;transform-origin:right center;border-radius:var(--r-sm) 0 0 var(--r-sm)}
-.swap__half--l{box-shadow:6px 0 22px rgba(61,43,57,.14)}
-.swap--close .swap__half{animation:swapClose var(--dur-base) var(--ease-curtain) both}
-.swap--hold .swap__half{transform:scaleX(1)}
-.swap--open .swap__half{transform:scaleX(1);animation:swapOpen 400ms var(--ease-curtain) both}
-@keyframes swapClose{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@keyframes swapOpen{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.cue__panel{
+  position:absolute;top:-14%;bottom:-14%;width:54%;
+  background:var(--cue-b);backface-visibility:hidden;will-change:transform;
+}
+.cue__panel--l{left:0;transform:translateX(-104%);border-radius:0 var(--r-lg) var(--r-lg) 0}
+.cue__panel--r{right:0;transform:translateX(104%);border-radius:var(--r-lg) 0 0 var(--r-lg)}
 
-.swap__caption{
-  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap: var(--space-2xs);
-  opacity:0;animation:swapCapIn 200ms var(--ease-out-soft) 120ms both;
-}
-.swap--open .swap__caption{animation:swapCapOut 200ms var(--ease) both}
-@keyframes swapCapIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes swapCapOut{from{opacity:1}to{opacity:0;transform:translateY(-4px)}}
-.swap__eyebrow{font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.28em;color:rgba(61,43,57,.62)}
-.swap__name{
-  display:inline-flex;align-items:center;gap: var(--space-xs);
-  font-family:var(--font-display);font-size:30px;color:var(--text);
-  text-shadow:0 1px 0 rgba(255,255,255,.5);
-}
-.swap__name i{width:8px;height:8px;border-radius:50%;display:block;box-shadow:0 0 0 3px rgba(255,255,255,.5)}
-.swap__state{font-size:var(--fs-micro);color:rgba(61,43,57,.7);letter-spacing:.06em}
+.cue--close .cue__panel--l{animation:cueInL 150ms var(--ease-curtain) both}
+.cue--close .cue__panel--r{animation:cueInR 150ms var(--ease-curtain) both}
+.cue--hold .cue__panel--l,.cue--hold .cue__panel--r{transform:none}
+.cue--open .cue__panel--l{animation:cueOutL 270ms var(--ease-curtain) both}
+.cue--open .cue__panel--r{animation:cueOutR 270ms var(--ease-curtain) both}
+@keyframes cueInL{from{transform:translateX(-104%)}to{transform:none}}
+@keyframes cueInR{from{transform:translateX(104%)}to{transform:none}}
+@keyframes cueOutL{from{transform:none}to{transform:translate3d(-8%,-116%,0) rotate(-3deg)}}
+@keyframes cueOutR{from{transform:none}to{transform:translate3d(8%,-116%,0) rotate(3deg)}}
 
-.swap__stamp{
-  position:absolute;left:calc(50% + 96px);top:calc(50% + 4px);
-  font-family:var(--font-hand);font-size:14px;letter-spacing:.1em;
-  color:var(--coral);border:2px solid rgba(198,42,63,.7);border-radius:var(--r-sm);
-  padding: var(--space-3xs) var(--space-xs);background:rgba(255,255,255,.35);
-  animation:stampIn 420ms var(--ease-spring) both;
+/* 减少动效：只做一层短淡入淡出，不位移、不显示舞台特效 */
+.cue--fade{background:rgba(12,6,12,.35);animation:cueFade 120ms ease-out both}
+@keyframes cueFade{0%{opacity:0}45%{opacity:1}100%{opacity:0}}
+
+/* 顶光：先照亮舞台中心，再随揭幕退场 */
+.cue__beam{
+  position:absolute;top:-30%;width:42%;height:140%;
+  transform-origin:50% 0;opacity:0;pointer-events:none;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--cue-a) 42%,transparent),transparent 76%);
+  will-change:transform,opacity;
 }
+.cue__beam--l{left:4%;--beam-rot:24deg;transform:rotate(24deg) translateY(-10%)}
+.cue__beam--r{right:4%;--beam-rot:-24deg;transform:rotate(-24deg) translateY(-10%)}
+.cue--close .cue__beam{animation:cueBeam 360ms var(--ease-out-soft) both}
+.cue--open .cue__beam{animation:cueBeamOut 230ms var(--ease) both}
+@keyframes cueBeam{
+  0%{opacity:0;transform:rotate(var(--beam-rot)) translateY(-16%)}
+  48%{opacity:.72}
+  100%{opacity:.46;transform:rotate(var(--beam-rot)) translateY(0)}
+}
+@keyframes cueBeamOut{from{opacity:.46;transform:rotate(var(--beam-rot)) translateY(0)}to{opacity:0;transform:rotate(var(--beam-rot)) translateY(-6%)}}
+
+/* 灯暗：舞台压暗，主题色从中心托起 */
+.cue__dim{
+  position:absolute;inset:0;opacity:0;will-change:opacity;
+  background:color-mix(in srgb,var(--cue-b) 82%,var(--text));
+}
+.cue--close .cue__dim{animation:cueDim 180ms var(--ease-out-soft) both}
+.cue--open .cue__dim{animation:cueDimOut 260ms var(--ease) both}
+@keyframes cueDim{0%{opacity:0}100%{opacity:1}}
+@keyframes cueDimOut{from{opacity:1}to{opacity:0}}
+
+/* 拨片：logo 同款形状，像节拍落点一样出现，再带着揭幕线划过 */
+.cue__pick{
+  position:absolute;left:50%;top:50%;width:clamp(120px,17vmin,188px);aspect-ratio:1;
+  transform:translate(-50%,-50%) rotate(-18deg) scale(.62);opacity:0;
+  color:var(--cue-b);
+  will-change:transform,opacity;
+}
+.cue__pick svg{width:100%;height:100%;display:block;overflow:visible}
+.cue__pick-highlight{
+  position:absolute;top:8%;bottom:8%;left:-14%;width:14%;opacity:0;
+  background:linear-gradient(90deg,transparent,var(--white),transparent);
+  transform:translateX(-120%) skewX(-18deg);will-change:transform,opacity;
+}
+.cue--close .cue__pick{animation:cuePickIn 260ms var(--ease-spring) both}
+.cue--hold .cue__pick{animation:cuePickHold 170ms var(--ease-spring) both}
+.cue--open .cue__pick{animation:cuePickOut 280ms var(--ease-out-soft) both}
+.cue--open .cue__pick-highlight{animation:cueHighlight 260ms var(--ease-out-soft) 30ms both}
+@keyframes cuePickIn{0%{opacity:0;transform:translate(-50%,-50%) rotate(-28deg) scale(.52)}65%{opacity:1;transform:translate(-50%,-50%) rotate(5deg) scale(1.04)}100%{opacity:1;transform:translate(-50%,-50%) rotate(0) scale(1)}}
+@keyframes cuePickHold{0%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.045)}100%{transform:translate(-50%,-50%) scale(1)}}
+@keyframes cuePickOut{from{opacity:1;transform:translate(-50%,-50%) rotate(0) scale(1)}to{opacity:0;transform:translate(calc(-50% + 23vw),-50%) rotate(18deg) scale(.72)}}
+@keyframes cueHighlight{0%{opacity:0;transform:translateX(-120%) skewX(-18deg)}35%{opacity:.9}100%{opacity:0;transform:translateX(900%) skewX(-18deg)}}
+
+/* 揭幕线：拨片划过时唯一的全宽动作，像舞台灯光切开幕布。 */
+.cue__stage-line{position:absolute;left:50%;top:0;width:2px;height:100%;opacity:0;background:var(--white);transform:translateX(-50%) scaleY(.1);will-change:transform,opacity}
+.cue--open .cue__stage-line{animation:cueStageLine 270ms var(--ease-out-soft) both}
+@keyframes cueStageLine{0%{opacity:0;transform:translateX(-50%) scaleY(.1)}30%{opacity:.88}100%{opacity:0;transform:translateX(calc(-50% + 36vw)) scaleY(1)}}
+
+/* 章：场记牌是落定信号，不抢拨片主角 */
+.cue__stamp{
+  position:absolute;left:50%;top:calc(50% + 6vmin);transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:var(--space-2xs);
+  padding:var(--space-sm) var(--space-lg);text-align:center;opacity:0;
+   background:color-mix(in srgb,var(--cue-b) 84%,var(--text));
+   border:1px solid color-mix(in srgb,var(--cue-a) 40%,transparent);border-radius:var(--r-lg);
+}
+.cue--open .cue__stamp{animation:cueStampIn 320ms var(--ease-spring) 70ms both}
+.cue--sync .cue__stamp{animation:cueStampOut 240ms var(--ease) both}
+@keyframes cueStampIn{
+  0%{opacity:0;transform:translate(-50%,16px) scale(1.35) rotate(-5deg)}
+  55%{opacity:1;transform:translate(-50%,0) scale(.96) rotate(-1.5deg)}
+  100%{opacity:1;transform:translate(-50%,0) scale(1) rotate(-1.5deg)}
+}
+@keyframes cueStampOut{from{opacity:1;transform:translate(-50%,0) scale(1) rotate(-1.5deg)}to{opacity:0;transform:translate(-50%,-14px) scale(.94) rotate(-1.5deg)}}
+.cue__eyebrow{font-size:var(--fs-micro);letter-spacing:.3em;color:rgba(255,255,255,.62)}
+.cue__name{
+  display:inline-flex;align-items:center;gap:var(--space-xs);
+  font-family:var(--font-display);font-size:clamp(26px,4.6vmin,36px);color:rgba(255,255,255,.98);
+}
+.cue__name i{width:9px;height:9px;border-radius:50%;display:block;box-shadow:0 0 0 3px rgba(255,255,255,.18)}
+.cue__word{
+  margin-top:var(--space-3xs);font-family:var(--font-hand);font-size:18px;letter-spacing:.18em;
+   color:var(--cue-a);border:2px solid color-mix(in srgb,var(--cue-a) 68%,transparent);border-radius:var(--r-sm);
+   padding:var(--space-3xs) var(--space-sm);background:transparent;
+}
+
+/* 音源身份换场：差异只在色板和装饰方向，幕布几何始终由公共阶段动画控制。 */
+.cue--netease .cue__panel{background:linear-gradient(90deg,color-mix(in srgb,var(--cue-b) 86%,var(--text)),var(--cue-b) 48%,color-mix(in srgb,var(--cue-b) 86%,var(--text)))}
+.cue--netease .cue__beam{background:linear-gradient(180deg,color-mix(in srgb,var(--cue-a) 55%,transparent),transparent 76%)}
+.cue--netease .cue__stage-line{background:var(--cue-a)}
+
+.cue--qq .cue__panel{background:linear-gradient(180deg,color-mix(in srgb,var(--cue-b) 86%,var(--text)),var(--cue-b) 52%,color-mix(in srgb,var(--cue-b) 86%,var(--text)))}
+.cue--qq .cue__beam{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--cue-a) 48%,transparent) 0 2px,transparent 2px 22px)}
+.cue--qq .cue__beam--l,.cue--qq .cue__beam--r{--beam-rot:24deg}
+.cue--qq .cue__stage-line{background:var(--cue-a)}
+.cue--netease .cue__stamp,.cue--qq .cue__stamp{border-color:color-mix(in srgb,var(--cue-a) 56%,transparent)}
+.cue--netease .cue__word,.cue--qq .cue__word{color:var(--cue-a);border-color:color-mix(in srgb,var(--cue-a) 68%,transparent)}
+
+/* 播放页：只留一下幕光，不打断歌词本 */
+.cue--quiet .cue__glow{
+  position:absolute;inset:0;
+  background:radial-gradient(72% 42% at 50% 0%,color-mix(in srgb,var(--cue-a) 20%,transparent),transparent 70%);
+  animation:cueGlow 240ms var(--ease-out-soft) both;
+}
+@keyframes cueGlow{0%{opacity:0}42%{opacity:1}100%{opacity:0}}
+
+@media (prefers-reduced-motion:reduce){
+  .cue__panel,.cue__beam,.cue__dim,.cue__pick,.cue__pick-highlight,.cue__stage-line,.cue__stamp{
+    animation:none !important;
+  }
+  .cue--close .cue__dim,.cue--hold .cue__dim{opacity:.92}
+  .cue--close .cue__panel--l,.cue--hold .cue__panel--l,
+  .cue--close .cue__panel--r,.cue--hold .cue__panel--r{transform:none}
+  .cue--close .cue__pick,.cue--hold .cue__pick{opacity:1;transform:translate(-50%,-50%)}
+  .cue--open .cue__dim,.cue--open .cue__panel--l,.cue--open .cue__panel--r{opacity:0}
+  .cue--open .cue__pick{opacity:0}
+}
+
 @keyframes stampIn{
   0%{opacity:0;transform:rotate(-24deg) scale(1.7)}
   55%{opacity:1;transform:rotate(-7deg) scale(.94)}
   100%{opacity:1;transform:rotate(-9deg) scale(1)}
 }
-
 /* ---------------- 胶囊切换器：缩微幕帘（顶栏 / 歌单页） ---------------- */
 .src-switch,.src-pill{position:relative;overflow:hidden}
+/* 顶栏小换台：不遮台标，只扫一道音源色的光和一层淡洗。
+   白纸片会从旧台滑到新台，扫光负责把「刚刚换过」说清楚；不再泛白盖住整个控件。 */
 .src-wipe{
-  position:absolute;inset:0;z-index:var(--z-card-top);display:flex;pointer-events:none;
-  border-radius:var(--r-pill);overflow:hidden;
+  position:absolute;inset:0;z-index:var(--z-card-top);display:block;pointer-events:none;
+  border-radius:inherit;overflow:hidden;
 }
-.src-wipe i{flex:1;display:block;will-change:transform;transform:scaleX(0)}
-.src-wipe__l{
-  transform-origin:left center;
-  background:repeating-linear-gradient(90deg,rgba(255,255,255,.2) 0 1.5px,transparent 1.5px 7px),
-             linear-gradient(160deg,var(--pastel-pink),var(--pastel-lav) 70%,var(--pastel-iris));
+.src-wipe__wash{
+  position:absolute;inset:0;display:block;opacity:0;
+  background:color-mix(in srgb,var(--src-tone) 12%,transparent);
 }
-.src-wipe__r{
-  transform-origin:right center;
-  background:repeating-linear-gradient(90deg,rgba(255,255,255,.2) 0 1.5px,transparent 1.5px 7px),
-             linear-gradient(200deg,var(--pastel-pink),var(--pastel-lav) 70%,var(--pastel-iris));
+.src-wipe__scan{
+  position:absolute;top:0;bottom:0;left:-45%;display:block;width:40%;opacity:0;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--src-tone) 68%,transparent) 50%,transparent);
 }
-.src-wipe--close i{animation:pillWipeIn 170ms var(--ease-curtain) both}
-.src-wipe--open i{animation:pillWipeOut 190ms var(--ease-curtain) both}
-@keyframes pillWipeIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-@keyframes pillWipeOut{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.src-wipe--close .src-wipe__wash,
+.src-wipe--hold .src-wipe__wash{
+  opacity:1;transition:opacity 120ms var(--scene-ease-out);
+}
+.src-wipe--open .src-wipe__wash{
+  opacity:0;transition:opacity var(--scene-cut) var(--scene-ease-out);
+}
+.src-wipe--close .src-wipe__scan{animation:srcScan var(--scene-cut) var(--scene-ease-out) both;animation-direction:var(--src-scan-dir,normal)}
+@keyframes srcScan{
+  0%{left:-45%;opacity:0}
+  16%{opacity:.95}
+  100%{left:105%;opacity:0}
+}
+
+/* ---------------- 换台 · 调频：顶栏胶囊后的刷新条 ---------------- */
+.src-switch-wrap{position:relative;display:flex;align-items:center}
+
+.tune{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:var(--z-pop);
+  display:flex;align-items:center;gap:var(--space-xs);
+  padding:var(--space-2xs) var(--space-sm) var(--space-2xs) var(--space-2xs);
+  border-radius:var(--r-pill);
+  background:var(--card);border:1px solid var(--line);
+  box-shadow:0 8px 22px rgba(61,43,57,.14);
+  pointer-events:none;white-space:nowrap;
+  transform-origin:top right;
+  animation:tuneIn 240ms var(--ease-out-soft) both;
+}
+@keyframes tuneIn{from{opacity:0;transform:translateY(-6px) scale(.96)}to{opacity:1;transform:none}}
+.tune.is-done{animation:tuneSettle 260ms var(--ease-spring) both}
+@keyframes tuneSettle{0%{transform:scale(1.02)}100%{transform:none}}
+
+/* 唱片：外圈沟槽用径向渐变，转动只改 transform；高光锥让旋转看得出来 */
+.tune__disc{
+  position:relative;flex:none;display:block;border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%, var(--card) 0 30%, transparent 31%),
+    repeating-radial-gradient(circle at 50% 50%,
+      color-mix(in srgb,var(--tone,var(--pink-600)) 72%,rgba(33,20,30,.72)) 0 1px,
+      color-mix(in srgb,var(--tone,var(--pink-600)) 52%,rgba(33,20,30,.6)) 2px 3px);
+  box-shadow:inset 0 0 0 1px rgba(33,20,30,.3), 0 3px 10px rgba(61,43,57,.2);
+  animation:tuneSpin 1.5s linear infinite;
+}
+.tune__disc{width:30px;height:30px}
+.tune__disc::before{
+  content:"";position:absolute;inset:0;border-radius:50%;
+  background:conic-gradient(from 0deg, rgba(255,255,255,.34), transparent 24%, transparent 76%, rgba(255,255,255,.2));
+}
+.tune__disc i{
+  position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--card);box-shadow:inset 0 0 0 2px rgba(33,20,30,.16);
+}
+.tune__disc i::after{
+  content:"";position:absolute;left:50%;top:50%;width:34%;height:34%;transform:translate(-50%,-50%);
+  border-radius:50%;background:var(--tone,var(--pink-600));
+}
+@keyframes tuneSpin{to{transform:rotate(360deg)}}
+
+.tune__body{display:flex;flex-direction:column;gap:1px;min-width:0}
+.tune__eyebrow{font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-3)}
+.tune__line{display:flex;align-items:baseline;gap:var(--space-2xs);font-size:12px;color:var(--text)}
+.tune__line b{font-weight:600}
+.tune__name{color:var(--text-2);max-width:128px;overflow:hidden;text-overflow:ellipsis}
+.tune--qq{--tone:var(--src-qq)}
+.tune--netease{--tone:var(--src-netease)}
+.tune--qq .tune__stamp{color:var(--src-qq);border-color:color-mix(in srgb,var(--src-qq) 62%,transparent)}
+.tune--netease .tune__stamp{color:var(--src-netease);border-color:color-mix(in srgb,var(--src-netease) 62%,transparent)}
+
+/* 均衡器：四根柱只做 scaleY，落定后冻住 */
+.tune__eq{display:inline-flex;align-items:flex-end;gap:3px;height:16px;margin-left:var(--space-2xs);flex:none}
+.tune__eq i{
+  width:2px;height:100%;display:block;border-radius:var(--r-xs);
+  background:var(--tone,var(--pink-600));transform-origin:bottom;
+  animation:tuneEq .9s var(--ease-out-soft) infinite;
+}
+.tune__eq i:nth-child(2){animation-delay:.12s}
+.tune__eq i:nth-child(3){animation-delay:.24s}
+.tune__eq i:nth-child(4){animation-delay:.36s}
+@keyframes tuneEq{0%,100%{transform:scaleY(.28)}50%{transform:scaleY(1)}}
+.tune.is-done .tune__eq i{animation:none;transform:scaleY(.45);opacity:.55}
+.tune__stamp{
+  margin-left:var(--space-2xs);font-family:var(--font-hand);font-size:12px;letter-spacing:.1em;
+  color:var(--coral);border:2px solid rgba(198,42,63,.7);border-radius:var(--r-xs);
+  padding:0 var(--space-2xs);background:rgba(255,255,255,.35);
+  animation:stampIn 360ms var(--ease-spring) both;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .tune,.tune.is-done{animation:none}
+  .tune__disc,.tune__eq i{animation:none}
+}
+
+/* ---------------- 换台落定：新内容砸入、逐块落下 ---------------- */
+/* 只动 opacity / transform。连切由 sourceId 直接替换终态，不等 animationend。 */
+.rf{position:relative;transition:opacity 160ms var(--ease)}
+.rf.is-refreshing{opacity:.6}
+.rf.is-fresh{animation:rfFade var(--scene-in) var(--ease) both}
+@keyframes rfFade{from{opacity:.4}to{opacity:1}}
+.rf.is-fresh > *{animation:rfDrop var(--scene-in) var(--scene-ease-out) both}
+.rf.is-fresh > *:nth-child(2){animation-delay:24ms}
+.rf.is-fresh > *:nth-child(3){animation-delay:48ms}
+.rf.is-fresh > *:nth-child(4){animation-delay:72ms}
+.rf.is-fresh > *:nth-child(5){animation-delay:96ms}
+.rf.is-fresh > *:nth-child(n+6){animation-delay:120ms}
+@keyframes rfDrop{
+  0%{opacity:0;transform:translateY(10px)}
+  100%{opacity:1;transform:none}
+}
+
+/* 页面/详情换景：同一套 scene 长度，只做一次方向明确的浮入，不再回弹 */
+.pg-hand{animation:pgIn var(--scene-in) var(--scene-ease-out) both}
+.pg-push{animation:pgPush var(--scene-in) var(--scene-ease-out) both}
+@keyframes pgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pgPush{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+
+/* 浮层：从锚点方向起身，一次到位；不再砸入/回弹 */
+.qp-mask{animation:mvFade var(--scene-out) var(--ease) both}
+.qp{animation:qpIn var(--scene-in) var(--scene-ease-out) both}
+@keyframes qpIn{
+  0%{opacity:0;transform:translateY(10px) scale(.985)}
+  100%{opacity:1;transform:none}
+}
+.share-card{animation:mvPop var(--scene-in) var(--scene-ease-out) both}
+@keyframes mvPop{
+  0%{opacity:0;transform:translateY(8px) scale(.985)}
+  100%{opacity:1;transform:none}
+}
+.pl-import{animation:plIn var(--scene-in) var(--scene-ease-out) both}
+.login-pane{animation:plIn var(--scene-in) var(--scene-ease-out) both}
+@keyframes plIn{
+  0%{opacity:0;transform:translateY(-6px) scale(.99)}
+  100%{opacity:1;transform:none}
+}
+@keyframes mvFade{from{opacity:0}to{opacity:1}}
+
+/* 冷启动骨架：与真实行同高，数据到了原地替换，不顶动布局 */
+.rf-skel{display:flex;flex-direction:column;gap:var(--space-2xs)}
+.rf-skel.is-compact{gap:var(--space-3xs)}
+.rf-skel__row{
+  position:relative;height:var(--row-h);border-radius:var(--r-md);overflow:hidden;background:var(--wash);
+}
+.rf-skel.is-compact .rf-skel__row{height:var(--row-h-compact)}
+.rf-skel-row{
+  display:grid;grid-template-columns:20px 28px minmax(0,1fr) 110px 44px;
+  gap:var(--space-xs);align-items:center;height:32px;padding:0 var(--space-xs);border-radius:var(--r-sm);
+}
+.rf-skel-block{width:26px;height:26px;border-radius:var(--r-xs);background:var(--wash);display:block}
+.rf-skel-bar{height:8px;border-radius:var(--r-xs);background:var(--wash);display:block}
 
 /* ---------------- 扫码登录：会员票 ---------------- */
 .scan-ov{

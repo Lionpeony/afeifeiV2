@@ -313,7 +313,9 @@ function reduce(current: AppState, intent: Intent): AppState {
         ...current,
         player: {
           ...player,
-          status: "loading",
+          /* 恢复 = 停在暂停，不在这里取源：直链会过期，启动时先别碰网络。
+             真正加载放到用户点播放（reconcile 的 status → playing 分支）。 */
+          status: "paused",
           trackId: intent.trackId,
           // 标题与在线标识一起落，别留着上一首的（P0-13：恢复后顶栏要显示歌名而不是直链）
           trackTitle: intent.trackTitle ?? (cueMeta ? `${cueMeta.title} — ${cueMeta.artist}` : null),

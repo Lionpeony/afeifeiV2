@@ -93,6 +93,17 @@
   --dur-curtain:500ms;
   --dur-ambient:2s;
 
+  /* 换景（2026-11-22）：页面 / 换源 / 换主题共用的幕布语言。
+     进场比出场慢，关闭用 curtain，开启用 out；不再每个组件各写一套时长。 */
+  --scene-out:160ms;
+  --scene-in:260ms;
+  --scene-ease:cubic-bezier(.65,0,.35,1);
+  --scene-ease-out:cubic-bezier(.22,.61,.36,1);
+  --scene-rise:10px;
+  /* v3 分镜横移：纸带扫入 140ms → 盖满 hold 40ms → 换内容 → 扫出 140ms；总 320ms。 */
+  --scene-cut:140ms;
+  --scene-band:var(--pink-600);
+
   /* ---- v4.2 规范名别名（只指向上面的原型变量） ---- */
   --bg-base:#FFF8F5;
   --bg-card:var(--card);
@@ -172,7 +183,7 @@
   --art-a:#FFE3EC; --art-b:#FFC2D6; --art-c:#D9CDF6;
 
   /* ---- 舞台卡片材质：播放页队列卡 + 歌词字幕卡共用一块料（docs/30 §37）---- */
-  --stage-card:var(--card);
+  --card-paper:var(--card);
 
   /* ---- 便签 / 拟物场景固定色 ---- */
   --note-paper:#FFFDF4;
@@ -248,6 +259,7 @@
   --z-keys-mask:110;
   --z-keys:111;
   --z-toast:120;
+  --z-scene:118;
   --z-onoma:124;
   --z-hud:130;
   --z-celebrate:150;
@@ -335,48 +347,49 @@
    结构 token（间距/布局/字体角色）不覆盖，仍走基座；暗色块必须放在亮色块之后，
    选择器多一档 data-theme 以保证在熄灯下也生效（基座暗色块是同权重的 :root[data-theme="dark"]）。 */
 :root[data-palette="mygo"]{
-  /* 2026-11-21 灰调：雨夜紫降饱和、压明度，和纸底不再发亮 */
-  --bg:#F4F3F7; --bg-sub:#E8E6EE; --card:#FFFFFF;
-  --text:#2B2735; --text-2:#5F5A6E; --text-3:#6E6A7C;
-  --pink-400:#CAC4D7;              /* 装饰：#8C7FA8 按 0.4 不透明度混入纸底的结果，禁作交互 */
-  --pink-600:#5B5276;              /* 交互：灰调雨夜紫（白字 7.2:1） */
-  --pink-650:#4D4463; --pink-700:#41395A;
-  --lav:#5B5276; --mint:#6F8BA3;
-  --coral:#B5456B; --coral-deco:#C98AA3;
-  --line:rgba(43,39,53,.12); --line-strong:rgba(43,39,53,.22);
-  --wash:rgba(91,82,118,.09);
-  --shadow:0 10px 28px rgba(43,39,53,.22);
-  --shadow-soft:0 2px 8px rgba(43,39,53,.25);
-  --shadow-lift:0 14px 34px rgba(91,82,118,.20);
-  --shadow-pop:0 8px 32px rgba(43,39,53,.18);
-  --gradient-tri:linear-gradient(90deg,#6F8BA3,#8E88A8,#B5A8B8);
-  --focus-ring:0 0 0 3px rgba(91,82,118,.35);
+  /* 2026-11-23 冷雨修正：雨夜紫降暖、往蓝灰推；纸底和卡片不再接近默认奶油白 */
+  --bg:#E9EFF8; --bg-sub:#DDE6F3; --card:#FBFCFE;
+  --text:#252B3A; --text-2:#4F5A6E; --text-3:#5F6A7E;
+  --pink-400:#C2CBDE;              /* 装饰：雨雾蓝灰，禁作交互 */
+  --pink-600:#4A5673;              /* 交互：压深的雨夜蓝紫（白字 7.4:1） */
+  --pink-650:#3F4A64; --pink-700:#354056;
+  --lav:#6F8FB5; --mint:#7FAFC9;
+  --scene-band:var(--mint);
+  --coral:#A94E6E; --coral-deco:#C98AA3;
+  --line:rgba(37,43,58,.12); --line-strong:rgba(37,43,58,.22);
+  --wash:rgba(74,86,115,.09);
+  --shadow:0 10px 28px rgba(37,43,58,.20);
+  --shadow-soft:0 2px 8px rgba(37,43,58,.22);
+  --shadow-lift:0 14px 34px rgba(74,86,115,.18);
+  --shadow-pop:0 8px 32px rgba(37,43,58,.16);
+  --gradient-tri:linear-gradient(90deg,#6F8FB5,#8E88A8,#B5A8B8);
+  --focus-ring:0 0 0 3px rgba(74,86,115,.35);
   /* 材质：和纸手账 = 横格线（手写稿纸的行距） */
-  --paper-grid:repeating-linear-gradient(0deg,transparent 0 23px,rgba(43,39,53,.055) 23px 24px);
+  --paper-grid:repeating-linear-gradient(0deg,transparent 0 23px,rgba(37,43,58,.05) 23px 24px);
   --radius-card:12px; --radius-sheet:16px; --radius-btn:999px;  /* 形状语言：手绘圆角 */
   --hover-lift:-1px;                                            /* 悬停位移小，克制 */
-  --btn-edge:0 2px 8px rgba(43,39,53,.28);                      /* 柔阴影，不做赛璐璐硬边 */
+  --btn-edge:0 2px 8px rgba(37,43,58,.24);                      /* 柔阴影，不做赛璐璐硬边 */
   --font-body:"Noto Serif SC","Songti SC",serif;                 /* 打包衬线正文：手账纸感 */
   --font-hand:"ZCOOL KuaiLe","Microsoft YaHei",cursive;         /* 打包手写体：只用于批注与标题 */
   --card-border-style:dashed;                                    /* 迷路的手绘虚线 */
-  --art-a:#E9E6F3; --art-b:#DEE5EC; --art-c:#F1E6EC;              /* 占位封面：雨雾灰紫 */
-  --stage-card:color-mix(in srgb, var(--card) 86%, var(--pink-400) 14%);  /* 队列/歌词卡：冷纸掺一点雨紫 */
+  --art-a:#E7EDF6; --art-b:#DCE6F0; --art-c:#E8E6F2;              /* 占位封面：雨雾蓝灰 */
+  --card-paper:color-mix(in srgb, var(--card) 86%, var(--pink-400) 14%);  /* 队列/歌词卡：冷纸掺一点雨紫 */
 }
 :root[data-theme="dark"][data-palette="mygo"]{
-  --bg:#211E2E; --bg-sub:#2A2740; --card:#332F4C;
-  --text:#F0EDF6; --text-2:#ACA5C2; --text-3:#A5A0C4;
-  --pink-400:#8F88AE; --pink-600:#A9A1C9; --pink-650:#C2BBD9; --pink-700:#C2BBD9;
-  --paper-grid:repeating-linear-gradient(0deg,transparent 0 23px,rgba(240,237,246,.06) 23px 24px);
-  --lav:#B9A7F0; --mint:#8FDCEE;
+  --bg:#1D2233; --bg-sub:#252C40; --card:#2C354A;
+  --text:#EEF2FA; --text-2:#AAB5CA; --text-3:#9AA6BE;
+  --pink-400:#8190AE; --pink-600:#A8B7D6; --pink-650:#C0CCE4; --pink-700:#C0CCE4;
+  --paper-grid:repeating-linear-gradient(0deg,transparent 0 23px,rgba(238,242,250,.06) 23px 24px);
+  --lav:#B9C7F0; --mint:#8FDCEE;
   --coral:#FF8A9B; --coral-deco:#FF8A9B;
-  --line:rgba(240,237,246,.12); --line-strong:rgba(240,237,246,.22);
-  --wash:rgba(185,167,240,.10);
+  --line:rgba(238,242,250,.12); --line-strong:rgba(238,242,250,.22);
+  --wash:rgba(168,183,214,.10);
   --shadow:0 4px 22px rgba(0,0,0,.28);
   --shadow-soft:0 2px 10px rgba(0,0,0,.22);
   --shadow-lift:0 16px 36px rgba(0,0,0,.4);
   --shadow-pop:0 8px 32px rgba(0,0,0,.42);
-  --focus-ring:0 0 0 3px rgba(185,167,240,.4);
-  --stage-card:color-mix(in srgb, var(--card) 90%, var(--lav) 10%);
+  --focus-ring:0 0 0 3px rgba(185,199,240,.4);
+  --card-paper:color-mix(in srgb, var(--card) 90%, var(--lav) 10%);
 }
 /* 无滤镜 · GBC 荧光硬派（2026-11-21 整套替换）：冷灰纸 × 荧光洋红 × 冷青，方角示人。
    荧光色只做装饰（白字 3.4:1 不达 AA），交互色压到 #C2187A。结构 token 不覆盖。 */
@@ -384,6 +397,7 @@
   --bg:#EDEFF1; --bg-sub:#E0E3E7; --card:#FFFFFF;
   --text:#16181D; --text-2:#4A5260; --text-3:#5A6270;
   --pink-400:#FF2D9B;              /* 装饰：荧光洋红，禁作交互、禁作正文 */
+  --scene-band:var(--pink-400);
   --pink-600:#C2187A;              /* 交互：压深的洋红（白字 5.67:1） */
   --pink-650:#A8146A; --pink-700:#8E1058;
   --lav:#0E7C92; --mint:#3FA7BC;   /* 冷青：次交互 / 装饰 */
@@ -405,7 +419,7 @@
   --paper-grid:radial-gradient(rgba(22,24,29,.22) 1px,transparent 1.2px) 0 0/6px 6px; /* 半调网点 */
   --grain-opacity:.5;
   --art-a:#F6E6EF; --art-b:#E1E6E9; --art-c:#DCEFF2;              /* 占位封面：冷灰 + 淡洋红/冷青 */
-  --stage-card:color-mix(in srgb, var(--card) 92%, var(--mint) 8%);  /* 队列/歌词卡：冷灰纸掺一线冷青 */
+  --card-paper:color-mix(in srgb, var(--card) 92%, var(--mint) 8%);  /* 队列/歌词卡：冷灰纸掺一线冷青 */
 }
 :root[data-theme="dark"][data-palette="gbc"]{
   --bg:#0E1116; --bg-sub:#161B22; --card:#1C222B;
@@ -420,17 +434,21 @@
   --shadow-lift:0 16px 36px rgba(0,0,0,.4);
   --shadow-pop:0 8px 32px rgba(0,0,0,.42);
   --focus-ring:0 0 0 3px rgba(255,79,168,.4);
-  --stage-card:color-mix(in srgb, var(--card) 92%, var(--mint) 8%);
+  --card-paper:color-mix(in srgb, var(--card) 92%, var(--mint) 8%);
   --grain-opacity:.65; --grain-blend:overlay;
   --paper-grid:none;
   --dur-fast:140ms; --dur-base:250ms; --ease:var(--ease-curtain); /* 节奏：短促硬切，不废话 */
 }
-/* 墙角 · 孤独摇滚牛皮纸（2026-11-21 整套替换）：炭灰 × 浅橘棕 × 牛皮纸底。
-   橘棕做装饰（贴纸、胶带），交互用压深的棕（白字 5.6:1）。结构 token 不覆盖。 */
+/* 墙角 · 孤独摇滚牛皮纸（2026-11-21，2026-11-23 补波奇粉/舞台黄）：
+   牛皮纸底不变，橘棕做装饰，交互压深棕；粉黄蓝只做小面积识别色。 */
 :root[data-palette="btr"]{
   --bg:#F1EEEA; --bg-sub:#E6E0D7; --card:#FBF9F6;
   --text:#3A2E26; --text-2:#6B5A4C; --text-3:#6F5F52;   /* 设计稿：暖墨替代冷炭灰；text-3 压到 AA 4.5 以上 */
   --pink-400:#E8A87C;              /* 装饰：浅橘棕（贴纸/胶带），禁作交互、禁作正文 */
+  --btr-pink:#E75C8D;              /* 波奇粉：只做红心/指示条等小面积识别色 */
+  --btr-yellow:#FFC53D;            /* 舞台黄：进度/灯 */
+  --btr-blue:#4EA8C9;              /* 冷蓝：次级点缀 */
+  --scene-band:var(--btr-yellow);
   --pink-600:#A0522D;              /* 交互：深棕（白字 5.62:1） */
   --pink-650:#8A4524; --pink-700:#743A1E;
   --lav:#3E3A44; --mint:#7A7480;   /* 炭灰：次级线与标签 */
@@ -441,7 +459,7 @@
   --shadow-soft:0 2px 8px rgba(120,80,40,.12);
   --shadow-lift:0 14px 30px rgba(120,80,40,.20);
   --shadow-pop:0 8px 32px rgba(120,80,40,.20);
-  --gradient-tri:linear-gradient(90deg,#38383D,#E8A87C);
+  --gradient-tri:linear-gradient(90deg,#FFC53D,#E75C8D,#4EA8C9);
   --focus-ring:0 0 0 3px rgba(160,82,45,.35);
   --radius-card:14px; --radius-sheet:18px; --radius-btn:999px;  /* 形状语言：软软的圆（阶段1不动形状） */
   --hover-lift:-2px;
@@ -454,12 +472,14 @@
   --ink-on-pastel:#26262B;         /* 浅橘棕渐变上的墨 */
   --ease:var(--ease-spring);       /* 节奏：阶段1不动，保持原回弹 */
   --art-a:#FBEFDE; --art-b:#F1DCC4; --art-c:#E9D9C9;              /* 占位封面：牛皮纸暖调 */
-  --stage-card:color-mix(in srgb, var(--card) 84%, var(--pink-400) 16%);  /* 队列/歌词卡：牛皮纸掺橘棕 */
+  --card-paper:color-mix(in srgb, var(--card) 84%, var(--pink-400) 16%);  /* 队列/歌词卡：牛皮纸掺橘棕 */
 }
 :root[data-theme="dark"][data-palette="btr"]{
   --bg:#18171A; --bg-sub:#201F24; --card:#27262C;
   --text:#EFEDEA; --text-2:#B3B0AA; --text-3:#A3A09A;
   --pink-400:#E8A87C; --pink-600:#E8A87C; --pink-650:#F0BC96; --pink-700:#F0BC96;
+  --btr-pink:#F08AA8; --btr-yellow:#FFD166; --btr-blue:#6FC6DE;
+  --scene-band:var(--btr-yellow);
   --lav:#C9C5CE; --mint:#A6A1AE;
   --coral:#F08A6E; --coral-deco:#E8A87C;
   --line:rgba(239,237,234,.12); --line-strong:rgba(239,237,234,.22);
@@ -469,7 +489,7 @@
   --shadow-lift:0 16px 36px rgba(0,0,0,.4);
   --shadow-pop:0 8px 32px rgba(0,0,0,.42);
   --focus-ring:0 0 0 3px rgba(232,168,124,.4);
-  --stage-card:color-mix(in srgb, var(--card) 90%, var(--pink-400) 10%);
+  --card-paper:color-mix(in srgb, var(--card) 90%, var(--pink-400) 10%);
   --grain-opacity:.25; --grain-blend:overlay;
   --paper-grid:none;
   --ease:var(--ease-spring);

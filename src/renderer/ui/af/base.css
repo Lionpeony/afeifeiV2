@@ -35,7 +35,7 @@ img{display:block;max-width:100%}
 a{color:var(--lav);text-decoration:none}
 
 /* scrollbar */
-.scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(61,43,57,.16) transparent}
+.scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--text) 16%,transparent) transparent}
 .scroll::-webkit-scrollbar{width:8px}
 .scroll::-webkit-scrollbar-thumb{background:rgba(61,43,57,.14);border-radius:var(--r-pill);border:2px solid transparent;background-clip:content-box}
 .scroll::-webkit-scrollbar-track{background:transparent}

@@ -58,6 +58,7 @@ export function ShareCard({ onClose }: { onClose(): void }) {
   const t = af.track;
   const link = shareLinkOf(t.id);
   const [copied, setCopied] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
 
   const copyLink = async (): Promise<void> => {
     if (!link) return;
@@ -67,6 +68,18 @@ export function ShareCard({ onClose }: { onClose(): void }) {
       setTimeout(() => setCopied(false), 1600);
     } catch {
       /* 剪贴板不可用就算了，卡还在 */
+    }
+  };
+
+  /* 传单文案：歌名 · 艺人 + 链接，一次贴进聊天框，比单条链接更像人说的话 */
+  const copyText = async (): Promise<void> => {
+    const text = link ? `${t.title} — ${t.artist} ${link}` : `${t.title} — ${t.artist}`;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 1600);
+    } catch {
+      /* 同上 */
     }
   };
 
@@ -101,11 +114,18 @@ export function ShareCard({ onClose }: { onClose(): void }) {
       <div className="share-card" onClick={(e) => e.stopPropagation()}>
         <Tape style={{ top: -10, left: "50%", marginLeft: -40 }} w={80} rot={-4} />
         <button className="share-card__x" onClick={onClose} title="收起"><IconX size={14} /></button>
-        <div className="share-card__eyebrow">BACKSTAGE · SONG MESSAGE</div>
-        <div className="share-card__title">点歌分享</div>
-        <div className="share-card__track">
-          <span className="share-card__song">{t.title}</span>
-          <span className="share-card__artist">{t.artist}</span>
+        <div className="share-card__head">
+          <span className="share-card__thumb" aria-hidden="true">
+            {t.cover ? <img src={t.cover} alt="" referrerPolicy="no-referrer" /> : <i className="share-card__thumb-pick"></i>}
+          </span>
+          <span className="share-card__meta">
+            <span className="share-card__eyebrow">BACKSTAGE · SONG MESSAGE</span>
+            <span className="share-card__title">点歌分享</span>
+            <span className="share-card__track">
+              <span className="share-card__song">{t.title}</span>
+              <span className="share-card__artist">{t.artist}</span>
+            </span>
+          </span>
         </div>
         <div className="share-card__grid">
           {apps.map((app) => {
@@ -133,10 +153,19 @@ export function ShareCard({ onClose }: { onClose(): void }) {
             <button className={"share-card__copy hand" + (copied ? " is-done" : "")} onClick={() => void copyLink()}>
               {copied ? "抄好了" : "复制链接"}
             </button>
+            <button className={"share-card__copy hand" + (copiedText ? " is-done" : "")} onClick={() => void copyText()}>
+              {copiedText ? "抄好了" : "复制文案"}
+            </button>
           </div>
         ) : (
-          <div className="share-card__none">本地文件没有公开链接，先收藏成诗吧。</div>
+          <div className="share-card__link">
+            <span className="share-card__none">本地文件没有公开链接</span>
+            <button className={"share-card__copy hand" + (copiedText ? " is-done" : "")} onClick={() => void copyText()}>
+              {copiedText ? "抄好了" : "复制文案"}
+            </button>
+          </div>
         )}
+        <div className="share-card__hint hand">截图就能带走，链接点开就能听。</div>
         <div className="share-card__note">{packLineCopy(af.palette, "shareNote")}</div>
       </div>
     </div>

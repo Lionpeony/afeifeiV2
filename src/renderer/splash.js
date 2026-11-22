@@ -21,7 +21,7 @@
   }
   var dark =
     pref === "dark" ||
-    (pref !== "light" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    (pref === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
   root.dataset.theme = dark ? "dark" : "light";
   root.style.colorScheme = dark ? "dark" : "light";
 

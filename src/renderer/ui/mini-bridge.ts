@@ -128,7 +128,7 @@ export function startMiniBridge(services: Services, opts: { onLike?: () => void 
     // 暂停/没歌：不需要推送，store 变化的那次 push 足够
     if (s.player.status !== "playing") return;
     lastT = ms;
-    lastDur = services.engine.durationMs();
+    lastDur = services.durationMs();
     const line = desktopLyricState(doc, lastT);
     const key = `${line.text}\u0000${line.translation}\u0000${line.lit}`;
     if (key !== lastLyricKey) {
@@ -146,7 +146,7 @@ export function startMiniBridge(services: Services, opts: { onLike?: () => void 
 
   onTick((t) => {
     lastT = t;
-    lastDur = services.engine.durationMs();
+    lastDur = services.durationMs();
     const now = performance.now();
     if (now - lastPush >= 500) {
       lastPush = now;

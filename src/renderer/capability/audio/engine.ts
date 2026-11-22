@@ -1,6 +1,7 @@
 import type { ErrorCode } from "../../../contracts/index.js";
 import type { MediaPort } from "../../../contracts/ports.js";
 import { clock } from "../../kernel/clock.js";
+import { translateError } from "../errors.js";
 import { createGraph, resumeGraph, setEq as applyEq, setPreamp as applyPreamp, type AudioGraph } from "./graph.js";
 import { createLeveler, type Leveler } from "./loudness.js";
 import { fadeCurves } from "./crossfade.js";
@@ -394,9 +395,34 @@ export class AudioEngine {
    * 代理地址同样必须在 CSP 的 `media-src` 白名单里，否则会被静默拦掉。
    */
   private async resolveSrc(track: string): Promise<string | null> {
-    const src = await this.resolveSrcQuiet(track);
-    if (!src) this.hooks.onError?.("track-missing");
+    const { src, error } = await this.resolveSrcDetailed(track);
+    if (!src) this.hooks.onError?.(error);
     return src;
+  }
+
+  /**
+   * 取源并带回错误码：登录过期 / 网络失败要显示对应的话，
+   * 不能一律收敛成「这首歌找不到了」（那会误导用户去换一首）。
+   */
+  private async resolveSrcDetailed(track: string): Promise<{ src: string | null; error: ErrorCode }> {
+    if (/^https?:\/\//i.test(track)) return { src: streamSrcOf(track), error: "track-missing" };
+    // 在线曲目：队列里存的是 `remote:<音源>:<歌 id>`，直链一次性，起播时才换
+    // （重试也走这里 —— 直链过期时 `reload()` 会重新解析拿到新地址）
+    if (this.resolver) {
+      try {
+        const url = await this.resolver(track);
+        if (url) return { src: /^https?:\/\//i.test(url) ? streamSrcOf(url) : url, error: "track-missing" };
+      } catch (err) {
+        // 未登录 / 无版权 / 网络：交给失败自愈，但保留真实错误码
+        return { src: null, error: translateError(err) };
+      }
+    }
+    try {
+      const token = await this.media.grant(track);
+      return { src: token ? this.media.urlOf(token) : null, error: "track-missing" };
+    } catch (err) {
+      return { src: null, error: translateError(err) };
+    }
   }
 
   /**
@@ -405,24 +431,7 @@ export class AudioEngine {
    * 这里吞掉并返回 null，否则预取会变成未捕获的 promise 异常。
    */
   private async resolveSrcQuiet(track: string): Promise<string | null> {
-    if (/^https?:\/\//i.test(track)) return streamSrcOf(track);
-    // 在线曲目：队列里存的是 `remote:<音源>:<歌 id>`，直链一次性，起播时才换
-    // （重试也走这里 —— 直链过期时 `reload()` 会重新解析拿到新地址）
-    if (this.resolver) {
-      try {
-        const url = await this.resolver(track);
-        if (url) return /^https?:\/\//i.test(url) ? streamSrcOf(url) : url;
-      } catch {
-        // 未登录 / 无版权：当作取源失败，交给失败自愈（重试或跳下一首）
-        return null;
-      }
-    }
-    try {
-      const token = await this.media.grant(track);
-      return token ? this.media.urlOf(token) : null;
-    } catch {
-      return null;
-    }
+    return (await this.resolveSrcDetailed(track)).src;
   }
 
   /**

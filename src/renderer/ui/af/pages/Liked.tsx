@@ -11,6 +11,7 @@ import { likedEmptyCopy } from "../copy.js";
 import { TrackArt } from "../art.js";
 import { IconHeart, IconHeartFill, IconPickOutline, IconPlay } from "../icons.js";
 import { EmptySetlist, PageHead } from "../ui.js";
+import { RefreshSkeleton, useSourceRefresh } from "../RefreshTape.js";
 
 export interface LikedPageProps {
   onPlayGroup(tracks: Track[], startAt: number): void;
@@ -40,6 +41,7 @@ export function LikedPage(props: LikedPageProps) {
     likeState.status === "ready" ? acct.songs.filter((t) => isAccountLiked(t.sourceId)) : acct.songs;
   const localLiked = getTracks().filter((t) => getLikes().has(t.id));
   const total = acctSongs.length + localLiked.length;
+  const rf = useSourceRefresh(acct.sourceId, acct.loading);
 
   return (
     <div className="page likes" data-screen-label="我喜欢的音乐">
@@ -84,7 +86,13 @@ export function LikedPage(props: LikedPageProps) {
               <span className="tbl__c-time">TIME</span>
             </div>
 
-            {acctSongs.map((t, i) => (
+            {acct.loading && acctSongs.length === 0 ? (
+              <div className="rf is-refreshing" aria-busy="true">
+                <RefreshSkeleton rows={6} />
+              </div>
+            ) : (
+              <div className={"rf" + (rf === "loading" ? " is-refreshing" : rf === "fresh" ? " is-fresh" : "")}>
+                {acctSongs.map((t, i) => (
               <div key={"a" + t.sourceId + i} className="tbl__row" role="button" tabIndex={0} onClick={() => { props.onPlayRemote(acct.sourceId, t, acctSongs); af.openPlayer(); }} onKeyDown={(e) => { if (e.key === "Enter") { props.onPlayRemote(acct.sourceId, t, acctSongs); af.openPlayer(); } }}>
                 <span className="tbl__c-no num">{pad(i + 1)}</span>
                 <span className="tbl__c-title">
@@ -101,7 +109,9 @@ export function LikedPage(props: LikedPageProps) {
                   <span className="num">{fmtDur(t.durationMs)}</span>
                 </span>
               </div>
-            ))}
+                ))}
+              </div>
+            )}
 
             {localLiked.map((t, i) => (
               <div key={"l" + t.id} className="tbl__row" role="button" tabIndex={0} onClick={() => { props.onPlayGroup(localLiked, i); af.openPlayer(); }} onKeyDown={(e) => { if (e.key === "Enter") { props.onPlayGroup(localLiked, i); af.openPlayer(); } }}>

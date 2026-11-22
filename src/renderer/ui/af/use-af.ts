@@ -104,7 +104,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [onomas, setOnomas] = useState<OnomaItem[]>([]);
   const [focusKey, setFocusKey] = useState(0);
   const [boot, setBoot] = useState(true);
-  const [srcSwap, setSrcSwap] = useState<{ id: string; phase: "close" | "hold" | "open"; scope?: "pill" } | null>(null);
+  const [srcSwap, setSrcSwap] = useState<{ id: string; phase: "close" | "hold" | "open" | "sync" | "done"; scope?: "pill" | "content"; dir?: "l" | "r" } | null>(null);
   const swapTimers = useRef<number[]>([]);
   /** 换源序号：连续换源时，旧定时器即使漏清也不许再改相位或弹 toast。 */
   const swapSeq = useRef(0);
@@ -282,7 +282,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
 
   /* ---------- 播放控制 ---------- */
   const positionMs = (): number => services.current?.positionMs() ?? 0;
-  const durationMs = (): number => services.current?.engine.durationMs() ?? 0;
+  const durationMs = (): number => services.current?.durationMs() ?? 0;
   const setPlaying = (v: boolean): void => {
     if (v === playing) return;
     dispatch({ type: v ? "player/play" : "player/pause" });
@@ -290,62 +290,48 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const togglePlay = (): void => dispatch({ type: "player/toggle" });
   const seekTo = (sec: number): void => dispatch({ type: "player/seek", positionMs: Math.max(0, Math.round(sec * 1000)) });
 
-  /** 换音源：幕间动效。幕布合上后才真正切源，拉开时已是新界面。 */
-  const switchSource = (id: string, opts: { scope?: "pill"; quiet?: boolean } = {}): void => {
+  /** 换音源：整屏「换台 · 换场」—— 灯暗、拨片弹出，揭幕时已是新界面。 */
+  const switchSource = (id: string, opts: { scope?: "pill" | "content"; quiet?: boolean } = {}): void => {
     if (id === source) {
       toast("已经在这边的台上了。", { hand: true });
       return;
     }
     const name = sources.find((s) => s.id === id)?.name ?? id;
-    if (reduce) {
-      input.setSource(id);
-      if (!opts.quiet) toast(`换到 ${name} 了`, { hand: true });
-      return;
-    }
     swapTimers.current.forEach((t) => clearTimeout(t));
     swapTimers.current = [];
     const seq = (swapSeq.current += 1);
     const live = (): boolean => seq === swapSeq.current;
-    if (opts.scope === "pill") {
-      setSrcSwap({ id, phase: "close", scope: "pill" });
-      swapTimers.current.push(
-        window.setTimeout(() => {
-          if (!live()) return;
-          input.setSource(id);
-          setSrcSwap({ id, phase: "open", scope: "pill" });
-          Sound.paper();
-        }, 170),
-      );
-      swapTimers.current.push(
-        window.setTimeout(() => {
-          if (live()) setSrcSwap(null);
-        }, 400),
-      );
+    if (reduce) {
+      /* 减少动效：不铺幕，直接换源；状态正确优先于表演。 */
+      input.setSource(id);
+      if (!opts.quiet) toast(`换到 ${name} 了`, { hand: true });
       return;
     }
-    setSrcSwap({ id, phase: "close" });
-    onoma("ザッ…", { tone: "mint", x: window.innerWidth / 2, y: window.innerHeight * 0.34 });
-    /* 390 合拢 → 640 拉开（hold 250ms）→ 1060 收尾。
-       原来 hold 510ms、总 1320ms，视觉上像卡住；幕布本身 380/400ms 不变。 */
+    /* 分镜横移：140ms 纸带盖满 → hold 40ms → 换源 → 140ms 扫出；总 320ms。 */
+    const scope = opts.scope ? ({ scope: opts.scope } as const) : {};
+    const fromIndex = sources.findIndex((s) => s.id === source);
+    const toIndex = sources.findIndex((s) => s.id === id);
+    const dir: "l" | "r" = fromIndex >= 0 && toIndex >= 0 && toIndex > fromIndex ? "r" : "l";
+    setSrcSwap({ id, phase: "close", dir, ...scope });
+    Sound.paper();
+    swapTimers.current.push(
+      window.setTimeout(() => {
+        if (!live()) return;
+        setSrcSwap({ id, phase: "hold", dir, ...scope });
+      }, 140),
+    );
     swapTimers.current.push(
       window.setTimeout(() => {
         if (!live()) return;
         input.setSource(id);
-        setSrcSwap({ id, phase: "hold" });
-        Sound.paper();
-      }, 390),
+        setSrcSwap({ id, phase: "open", dir, ...scope });
+        Sound.pluck();
+      }, 180),
     );
     swapTimers.current.push(
       window.setTimeout(() => {
-        if (live()) setSrcSwap({ id, phase: "open" });
-      }, 640),
-    );
-    swapTimers.current.push(
-      window.setTimeout(() => {
-        if (!live()) return;
-        setSrcSwap(null);
-        toast(`幕拉开了，现在放的是 ${name}`, { hand: true });
-      }, 1060),
+        if (live()) setSrcSwap(null);
+      }, 320),
     );
   };
   const openScan = (id: string): void => input.loginFor(id);
@@ -551,18 +537,39 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     return true;
   };
 
-  /* 换包过渡：每个包有专属的开场动画（eggs.css packfx--*），换包瞬间整站换色被动画盖住 */
-  const [packFx, setPackFx] = useState<string | null>(null);
-  const packFxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* 换主题：和换页/换源共用「换景」幕布；色板在幕布合上后落，拉开时已经是新世界。 */
+  const [themeScene, setThemeScene] = useState<{ id: string; phase: "close" | "hold" | "open"; dir: "l" | "r" } | null>(null);
+  const themeTimers = useRef<number[]>([]);
+  useEffect(() => () => themeTimers.current.forEach((t) => window.clearTimeout(t)), []);
   const switchPalette = (id: string): void => {
     if (id === palette) return;
-    setPalette(id);
     Sound.tap();
     const label = PALETTES.find((p) => p.id === id)?.label ?? id;
     toast(packToastCopy(palette, label), { icon: "check" });
-    setPackFx(id);
-    if (packFxTimer.current) clearTimeout(packFxTimer.current);
-    packFxTimer.current = setTimeout(() => setPackFx(null), 1500);
+    if (reduce) {
+      setPalette(id);
+      return;
+    }
+    themeTimers.current.forEach((t) => window.clearTimeout(t));
+    themeTimers.current = [];
+    const fromIndex = PALETTES.findIndex((p) => p.id === palette);
+    const toIndex = PALETTES.findIndex((p) => p.id === id);
+    const dir: "l" | "r" = fromIndex >= 0 && toIndex >= 0 && toIndex > fromIndex ? "r" : "l";
+    setThemeScene({ id, phase: "close", dir });
+    themeTimers.current.push(
+      window.setTimeout(() => {
+        setThemeScene({ id, phase: "hold", dir });
+      }, 140),
+    );
+    themeTimers.current.push(
+      window.setTimeout(() => {
+        setPalette(id);
+        setThemeScene({ id, phase: "open", dir });
+      }, 180),
+    );
+    themeTimers.current.push(
+      window.setTimeout(() => setThemeScene(null), 320),
+    );
   };
 
   const logoClicks = useRef<number[]>([]);
@@ -879,7 +886,7 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     discover,
     palette,
     setPalette: switchPalette,
-    packFx,
+    themeScene,
     unlocked,
     tryCode,
     themePref: input.themePref,

@@ -87,9 +87,19 @@ import { NowPlaying } from "./af/NowPlaying.js";
 import { Auth, DemoPanel, EggLayer, FocusLines, OnomaLayer } from "./af/layers.js";
 import { ScanLogin } from "./af/ScanLogin.js";
 import { RowMenu } from "./af/RowMenu.js";
+import { SourceSwap } from "./af/SourceSwap.js";
+import { SceneSwitch } from "./af/SceneSwitch.js";
 import { useSystemReduce } from "./af/prefs.js";
 import { activeQuality } from "./quality-pref.js";
 import { sourceShort, sourceTone } from "./af/data.js";
+
+/** 一级导航顺序：换页时只按这个顺序判方向，不猜布局像素。 */
+const PAGE_ORDER: PageId[] = ["online", "roam", "local", "downloads", "mine", "history", "playlists", "settings", "archive", "stage"];
+function pageDir(from: PageId, to: PageId): "l" | "r" {
+  const a = PAGE_ORDER.indexOf(from);
+  const b = PAGE_ORDER.indexOf(to);
+  return a >= 0 && b >= 0 && b > a ? "r" : "l";
+}
 
 function baseName(p: string | null): string {
   if (!p) return "未选择";
@@ -118,9 +128,47 @@ function App() {
   const reduce = effectiveMotion !== "full";
   // 外壳只有一种：边栏 + 内容 + 控制台
   const [page, setPageState] = useState<PageId>("online");
-  /* 切页走 transition：新页渲染让位给点击/滚动/动画，重页面不再卡住输入那一下 */
+  const [pageScene, setPageScene] = useState<{ to: PageId; phase: "close" | "hold" | "open"; dir: "l" | "r" } | null>(null);
+  const navPageRef = useRef(page);
+  navPageRef.current = page;
+  const pageSceneTimers = useRef<number[]>([]);
+  const pageSceneSeq = useRef(0);
+  useEffect(() => () => pageSceneTimers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  /* 换页也走「换景」：幕布合上 → 换内容 → 拉开。stage 是播放页自己的幕布，不能再套一层；
+     减动效直接切。 */
   const setPage = (p: PageId): void => {
-    startTransition(() => setPageState(p));
+    if (p === navPageRef.current) return;
+    if (reduce || p === "stage" || navPageRef.current === "stage") {
+      startTransition(() => setPageState(p));
+      return;
+    }
+    pageSceneTimers.current.forEach((t) => window.clearTimeout(t));
+    pageSceneTimers.current = [];
+    const seq = (pageSceneSeq.current += 1);
+    const live = (): boolean => seq === pageSceneSeq.current;
+    const dir = pageDir(navPageRef.current, p);
+    setPageScene({ to: p, phase: "close", dir });
+    pageSceneTimers.current.push(
+      window.setTimeout(() => {
+        if (!live()) return;
+        // 先让纸带在 140ms 完全盖住，再停 40ms：内容一定在动画之后才换
+        setPageScene({ to: p, phase: "hold", dir });
+      }, 140),
+    );
+    pageSceneTimers.current.push(
+      window.setTimeout(() => {
+        if (!live()) return;
+        // 盖满的 hold 结束时才提交；新页在纸带后面只移 12px 落位
+        setPageState(p);
+        setPageScene({ to: p, phase: "open", dir });
+      }, 180),
+    );
+    pageSceneTimers.current.push(
+      window.setTimeout(() => {
+        if (live()) setPageScene(null);
+      }, 320),
+    );
   };
   const [localTab, setLocalTab] = useState<"library" | "downloads" | "radio">("library");
   // 启动层只盖首屏：本地装配完成即放行，联网数据在后台补（见 bootAndPrefetch）
@@ -137,15 +185,6 @@ function App() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountProfiles, setAccountProfiles] = useState<Record<string, AccountProfile | undefined>>({});
   const [loginFor, setLoginFor] = useState<string | null>(null);
-  /* 切源「换台闪变」：>0 时渲染全页扫描线覆盖层，动画结束（或 600ms 兜底）归零。
-     key 用计数值——连切两次也能重播。 */
-  const [tuneFlash, setTuneFlash] = useState(0);
-  const flashTimer = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    if (tuneFlash <= 0) return;
-    flashTimer.current = window.setTimeout(() => setTuneFlash(0), 600);
-    return () => window.clearTimeout(flashTimer.current);
-  }, [tuneFlash]);
   /* key={page} 换页 remount 会丢滚动位置：每页各记一份 scrollTop，
      换页后立刻还原（列表滚到一半返回再进来，不从头开始）。 */
   const pageRef = useRef<HTMLDivElement | null>(null);
@@ -215,15 +254,18 @@ function App() {
     const svc = services.current;
     if (!svc) return;
     const position = svc.positionMs();
-    const duration = svc.engine.durationMs();
+    const duration = svc.durationMs();
     // 拖动中不写已播时间：那时显示的应该是"要跳到哪儿"，不是"现在在哪"（P0-03）
     if (timeEl.current && !dragging.current) timeEl.current.textContent = fmt(position);
     if (totalEl.current) totalEl.current.textContent = fmt(duration);
     if (barEl.current && !dragging.current) {
-      barEl.current.max = String(Math.max(1, Math.round(duration)));
-      barEl.current.value = String(Math.round(Math.min(position, duration || position)));
+      /* 恢复暂停时引擎还没解码：时长先回落到队列/曲库记住的值；两边都没有
+         就把轨道撑到已恢复的位置，至少让进度条停在正确位置，不被 max=1 夹回 0。 */
+      const span = duration > 0 ? duration : Math.max(1, position);
+      barEl.current.max = String(Math.max(1, Math.round(span)));
+      barEl.current.value = String(Math.round(Math.min(position, span)));
       // 已播比例喂给 CSS 渐变（细线 seek 的墨色填充），不触发渲染
-      const pct = duration > 0 ? Math.min(100, (position / duration) * 100) : 0;
+      const pct = span > 0 ? Math.min(100, (position / span) * 100) : 0;
       barEl.current.style.setProperty("--fill", `${pct.toFixed(2)}%`);
       // 原型轨道是 div + i/knob：宽度与滑块位置都从父级 --fill 计算
       barEl.current.parentElement?.style.setProperty("--fill", `${pct.toFixed(2)}%`);
@@ -294,7 +336,7 @@ function App() {
         refreshAccountProfiles();
         syncPosition();
         startMiniBridge(s, { onLike: () => likeActionRef.current() });
-        startLyricBridge(s);
+        startLyricBridge(s, { onLike: () => likeActionRef.current() });
 
         // 首屏就绪：本地装配完成就放行，联网预取在后台继续。
         // 旧实现要等每日/红心/FM 三份数据（或 12 秒超时）才退场，弱网下整页空白十几秒。
@@ -667,7 +709,7 @@ function App() {
         seekPercent: (percent) => {
           const svc = services.current;
           if (!svc) return;
-          const dur = svc.engine.durationMs();
+          const dur = svc.durationMs();
           if (dur <= 0) return; // 还没解码出时长：宁可不跳，也不要跳到 0
           dispatch({ type: "player/seek", positionMs: Math.round((dur * percent) / 100) });
         },
@@ -1207,7 +1249,6 @@ function App() {
             loginByCaptcha={id === "netease" ? (phone, code) => services.current!.loginByCaptcha(phone, code) : undefined}
             onSuccess={() => {
               setLoginFor(null);
-              setTuneFlash((k) => k + 1); // 接入成功也是一次换台
               setActiveSource(id);
               // 新账号的数据不能沿用上一个账号的缓存
               invalidateAccountData(`account:${id}:`);
@@ -1222,7 +1263,6 @@ function App() {
           setLoginFor(null); // 弹层关了，内嵌登录流程一并收回
         }}
         onSwitch={(id) => {
-          setTuneFlash((k) => k + 1); // 换台闪变先落弦，数据换源在动画后半程接上
           setActiveSource(id);
         }}
         onLogin={(id) => setLoginFor(id)}
@@ -1239,13 +1279,8 @@ function App() {
         }}
       />
 
-      {/* 切源换台闪变：琥珀扫描线扫过全页 + 轻微压暗（animationend 或 600ms 兜底移除） */}
-      {tuneFlash > 0 ? (
-        <div className="tune-flash" key={tuneFlash} aria-hidden="true" onAnimationEnd={() => setTuneFlash(0)} />
-      ) : null}
-
           <div
-            className="main__page scroll live-room"
+            className={"main__page scroll live-room" + (pageScene?.phase === "open" ? " is-wipe-" + pageScene.dir : "")}
             key={page}
             ref={pageRef}
             onScroll={(e) => { pageScrolls.current[page] = e.currentTarget.scrollTop; }}
@@ -1323,6 +1358,21 @@ function App() {
       </div>
 
       <Toaster />
+      <SourceSwap stage={page === "stage"} />
+      <SceneSwitch
+        scene={
+          pageScene
+            ? {
+                kind: "page",
+                phase: pageScene.phase,
+                label: PAGE_LABEL[pageScene.to],
+                sub: "换景 · SCENE CHANGE",
+                dir: pageScene.dir,
+                inset: "content",
+              }
+            : null
+        }
+      />
       {page === "stage" ? <NowPlaying /> : null}
       <RowMenu />
       <Auth />
@@ -1347,7 +1397,6 @@ function App() {
           const id = loginFor;
           if (!id) return;
           setLoginFor(null);
-          setTuneFlash((k) => k + 1);
           setActiveSource(id);
           invalidateAccountData(`account:${id}:`);
           ensureAccount(id);

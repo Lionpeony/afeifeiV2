@@ -5,7 +5,7 @@ import { dispatch } from "../../kernel/index.js";
 import { trackById } from "../../domain/library/state.js";
 import type { Services } from "../services.js";
 import { onFrame } from "../compositor.js";
-import { createMediaSession, type MediaSessionController } from "../media-session.js";
+import { createMediaSession, fallbackArtwork, toSystemArtwork, type MediaSessionController } from "../media-session.js";
 
 /** 在线曲目的元信息（与 contracts 里 `player.remote` 同形）。 */
 export type PlayerRemote = { sourceId: string; songId: string; coverUrl?: string } | null;
@@ -32,6 +32,10 @@ export function useMediaSession(input: {
   const [npCover, setNpCover] = useState<string | null>(null);
   const npCoverRef = useRef<string | null>(null);
   npCoverRef.current = npCover;
+  /* 交给系统媒体面板的封面：本地封面转成 data URL，没封面用程序化拨片图，永远不留白板 */
+  const [sysArt, setSysArt] = useState<string>(() => fallbackArtwork(trackId ?? "afeifei"));
+  const sysArtRef = useRef<string>(sysArt);
+  sysArtRef.current = sysArt;
   const mediaSessionRef = useRef<MediaSessionController | null>(null);
 
   /* console 的 56px 封面：本地曲目走文件封面，在线曲目用音源给的封面地址。 */
@@ -55,6 +59,23 @@ export function useMediaSession(input: {
     };
   }, [trackId, remote?.coverUrl]);
 
+  /* 封面 → 系统媒体面板：本地文件封面在系统侧取不到，先转 data URL；没有封面给程序化拨片图 */
+  useEffect(() => {
+    let alive = true;
+    const seed = trackId ?? "afeifei";
+    const raw = remote?.coverUrl ?? npCover;
+    if (!raw) {
+      setSysArt(fallbackArtwork(seed));
+      return;
+    }
+    void toSystemArtwork(raw, seed).then((url) => {
+      if (alive) setSysArt(url);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [trackId, npCover, remote?.coverUrl]);
+
   useEffect(() => {
     const ctrl = createMediaSession({
       read: () => {
@@ -66,10 +87,10 @@ export function useMediaSession(input: {
           title: st.player.trackTitle ?? baseName(id),
           artist: track?.artist ?? "",
           album: track?.album ?? "",
-          artwork: st.player.remote?.coverUrl ?? npCoverRef.current,
+          artwork: sysArtRef.current || fallbackArtwork(id),
           playbackState: st.player.status === "playing" ? "playing" : "paused",
           positionMs: services.current?.positionMs() ?? 0,
-          durationMs: services.current?.engine.durationMs() ?? 0,
+          durationMs: services.current?.durationMs() ?? 0,
         };
       },
       play: () => dispatch({ type: "player/play" }),
@@ -95,7 +116,7 @@ export function useMediaSession(input: {
   /* 曲目 / 播放态 / 封面变化 → 立刻同步系统媒体会话 */
   useEffect(() => {
     mediaSessionRef.current?.update();
-  }, [trackId, trackTitle, status, npCover, remote?.coverUrl]);
+  }, [trackId, trackTitle, status, npCover, sysArt, remote?.coverUrl]);
 
   /* 位置推进：每 500ms 同步一次 positionState（系统面板的进度条）。不跟帧走 —— 那是白烧。 */
   useEffect(() => {

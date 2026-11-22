@@ -164,6 +164,10 @@ if (!locked) {
     if (!win.isVisible()) win.show();
     if (win.isMinimized()) win.restore();
     win.focus();
+    /* 开发态：× 只是收进托盘、进程不退，再启动唤回的是旧渲染层。
+       刚改完代码/重新 build 的人看到的还是上一版界面（实测踩过），
+       所以非打包环境在唤回时重载一次页面，让磁盘上的新构建立刻生效。 */
+    if (!app.isPackaged) win.webContents.reload();
     const url = schemeFromArgv(argv);
     if (url) dispatchSchemeUrl(url); // 热启动
   });

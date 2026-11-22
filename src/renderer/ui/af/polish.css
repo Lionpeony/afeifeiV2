@@ -167,18 +167,18 @@ body{letter-spacing:.008em}
    这里不再对 .page 重复定义，避免双层嵌套动画叠加。 */
 
 /* ---------------- 8. 自定义滚动条 ---------------- */
-.main__page{scrollbar-width:thin;scrollbar-color:rgba(214,51,132,.3) rgba(255,248,245,.7)}
+.main__page{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--pink-600) 30%,transparent) color-mix(in srgb,var(--bg-sub) 80%,transparent)}
 .main__page::-webkit-scrollbar{width:8px;height:8px}
-.main__page::-webkit-scrollbar-track{background:rgba(255,240,238,.9);border-radius:var(--r-pill)}
+.main__page::-webkit-scrollbar-track{background:color-mix(in srgb,var(--bg-sub) 72%,transparent);border-radius:var(--r-pill)}
 .main__page::-webkit-scrollbar-thumb{
-  background:rgba(214,51,132,.3);border-radius:var(--r-pill);border:2px solid transparent;background-clip:content-box;
+  background:color-mix(in srgb,var(--pink-600) 34%,transparent);border-radius:var(--r-pill);border:2px solid transparent;background-clip:content-box;
 }
-.main__page::-webkit-scrollbar-thumb:hover{background:rgba(214,51,132,.55);background-clip:content-box}
-:root[data-theme="dark"] .main__page{scrollbar-color:rgba(255,133,176,.34) rgba(42,36,56,.6)}
-:root[data-theme="dark"] .main__page::-webkit-scrollbar-track{background:rgba(52,44,70,.8)}
-:root[data-theme="dark"] .main__page::-webkit-scrollbar-thumb{background:rgba(255,133,176,.34);background-clip:content-box}
+.main__page::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--pink-600) 58%,transparent);background-clip:content-box}
+:root[data-theme="dark"] .main__page{scrollbar-color:color-mix(in srgb,var(--pink-400) 34%,transparent) color-mix(in srgb,var(--bg-sub) 60%,transparent)}
+:root[data-theme="dark"] .main__page::-webkit-scrollbar-track{background:color-mix(in srgb,var(--bg-sub) 72%,transparent)}
+:root[data-theme="dark"] .main__page::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--pink-400) 34%,transparent);background-clip:content-box}
 .toplists::-webkit-scrollbar{height:6px}
-.toplists::-webkit-scrollbar-thumb{background:rgba(214,51,132,.24);border-radius:var(--r-pill)}
+.toplists::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--pink-600) 24%,transparent);border-radius:var(--r-pill)}
 
 /* ---------------- 9. 便签 idle 微动（装饰层） ---------------- */
 .empty-sheet{
@@ -318,6 +318,34 @@ body{letter-spacing:.008em}
   :root[data-palette="mygo"] .np__art-img{animation:artIn .6s var(--ease) both}
   :root[data-palette="btr"] .main__page{transition:none}
 }
+
+/* ---------------- 15.1 包识别色：核心控件也必须跟包 ----------------
+   背景和卡片换了、播放键/进度/红心/导航仍是品牌粉，包就只是 tint。
+   这里只补小面积识别色，主交互色仍走 --pink-600 保证对比度。 */
+:root[data-palette="mygo"] .bar__seek-track i{
+  background:linear-gradient(90deg,var(--lav),var(--mint));
+}
+:root[data-palette="mygo"] .bar__play{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--mint) 42%,transparent),
+             0 6px 16px color-mix(in srgb,var(--pink-600) 34%,transparent);
+}
+:root[data-palette="gbc"] .bar__seek-track i{
+  background:linear-gradient(90deg,var(--pink-600),var(--mint));
+}
+:root[data-palette="btr"] .bar__seek-track i{
+  background:linear-gradient(90deg,var(--btr-yellow),var(--btr-pink));
+}
+:root[data-palette="btr"] .bar__play{
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--btr-pink) 42%,transparent),
+             0 6px 16px color-mix(in srgb,var(--pink-600) 30%,transparent);
+}
+:root[data-palette="gbc"] .bar__heart.is-on,
+:root[data-palette="gbc"] .tbl__heart.is-on{color:var(--pink-600)}
+:root[data-palette="btr"] .bar__heart.is-on,
+:root[data-palette="btr"] .tbl__heart.is-on{color:var(--btr-pink)}
+:root[data-palette="btr"] .sidebar .nav-item.is-active::before{background:var(--btr-pink)}
+:root[data-palette="btr"] .sidebar .nav-item.is-active .nav-ico{color:var(--btr-pink)}
+:root[data-palette="btr"] .mix__bigdate{color:var(--btr-yellow);opacity:.26}
 
 /* ---------------- 16. 发现页「今日一句」手写便签 ----------------
    纸面/墨色走 --note-* 固定 token（不随包翻色），内容随包换口气。 */

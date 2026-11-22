@@ -1,9 +1,9 @@
-/* 桌面歌词窗（2026-11-18 重做）：「歌词纸签」。
+/* 桌面歌词窗（2026-11-21 轻量化）：「歌词纸签」。
    上一版是暗玻璃胶囊：透明窗里 backdrop-filter 拿不到桌面像素，Electron 直接
-   画出一块发黑的长方形 —— 用户看到的就是「黑框框」。现在改成不依赖磨砂的纸签：
-   近乎不透明的奶油卡 + 发丝描边，任何壁纸上都读得清，也不需要背景滤镜。
-   纸色跟随主窗主题（lyric-bridge 把 data-theme 带过来），文字用 tokens 里的
-   交互粉 / 正文色，窗口本体透明。 */
+   画出一块发黑的长方形 —— 用户看到的就是「黑框框」。现在改成不依赖磨砂的纸签。
+   这一版把纸签做轻：默认半透纸 + 发丝描边 + 一条细装饰线，主句用行内进度平滑
+   扫过；另外给三档底色（纸签 / 半透 / 纯文字）和固定深色「夜纸」。
+   文字颜色全部走 tokens，窗口本体透明。 */
 * { box-sizing: border-box; }
 html,
 body {
@@ -30,28 +30,59 @@ body {
 .lyric-capsule {
   position: relative;
   max-width: 100%;
-  min-width: 140px;
-  padding: 16px 28px 14px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--pink-400) 30%, var(--line-strong));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--pink-400) 6%, var(--card)), var(--card) 42%);
+  min-width: 300px; /* 够放整条工具条，空态也不至于被裁 */
+  padding: 16px 28px 15px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
   box-shadow:
-    0 12px 34px color-mix(in srgb, var(--text) 22%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.5);
+    0 8px 24px color-mix(in srgb, var(--text) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--card) 65%, transparent);
   -webkit-app-region: drag; /* 只有看得见的胶囊可以拖窗口 */
-  overflow: hidden;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
-/* 顶部三色胶带：和迷你窗、底栏同一套装饰语言 */
+/* 顶部一条细装饰线：比三色胶带轻，保留一点纸签的身份 */
 .lyric-capsule::before {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
   top: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--pink-400), var(--lav) 55%, var(--mint));
-  opacity: 0.85;
+  left: 50%;
+  width: 34%;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--pink-400) 62%, transparent),
+    transparent
+  );
+  opacity: 0.9;
+}
+
+/* 底色三档 + 固定深色：只改纸，不改字。 */
+.lyric[data-paper="glass"] .lyric-capsule {
+  background: color-mix(in srgb, var(--card) 76%, transparent);
+  border-color: color-mix(in srgb, var(--text) 16%, transparent);
+}
+.lyric[data-paper="night"] .lyric-capsule {
+  background: color-mix(in srgb, var(--card) 82%, transparent);
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+}
+.lyric[data-paper="text"] .lyric-capsule {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.lyric[data-paper="text"] .lyric-capsule::before { display: none; }
+
+/* 透明纸 / 纯文字直接压在壁纸上：给字加一层同底色柔光，深色浅色壁纸都尽量读得清。 */
+.lyric[data-paper="glass"] :is(.lyric-base, .lyric-fill, .on, .off, .lyric-tr, .lyric-idle, .lyric-lock),
+.lyric[data-paper="night"] :is(.lyric-base, .lyric-fill, .on, .off, .lyric-tr, .lyric-idle, .lyric-lock),
+.lyric[data-paper="text"] :is(.lyric-base, .lyric-fill, .on, .off, .lyric-tr, .lyric-idle, .lyric-lock) {
+  text-shadow:
+    0 1px 2px color-mix(in srgb, var(--bg) 72%, transparent),
+    0 0 12px color-mix(in srgb, var(--bg) 58%, transparent);
 }
 
 /* 两行一组：主句在上、译文在下；没有词时胶囊缩成一小条台标 */
@@ -61,7 +92,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 
 .lyric-line {
@@ -69,16 +100,42 @@ body {
   max-width: 100%;
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1.2;
+  line-height: 1.18;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
 }
-/* 逐字：唱过的用交互粉，没唱的压到次要色。切成两个 span 而不是逐字标签 ——
-   桌面条只要"进度感"，每个字一个盒模型在 720px 宽的窗口里只会让排版更容易抖。 */
-.lyric-line .on { color: var(--pink-700); }
-.lyric-line .off { color: var(--text-3); }
+.lyric-line--single { white-space: nowrap; }
+
+/* 单行：底层压暗 + 上层粉色按行内进度裁剪。裁的是「文字盒」而不是整行，
+   所以字居中时扫过边界仍然贴着第一个/最后一个字。 */
+.lyric-stack {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.lyric-base {
+  display: block;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.lyric-fill {
+  position: absolute;
+  inset: 0;
+  color: var(--pink-700);
+  white-space: nowrap;
+  clip-path: inset(0 calc((1 - var(--p, 0)) * 100%) 0 0);
+  transition: clip-path 110ms linear;
+  pointer-events: none;
+}
+
+/* 两行：缩到 24px 还放不下才折行；进度退回按字前缀点亮（折行后逐行扫会错位）。 */
+.lyric-line--wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.lyric-line--wrap .on { color: var(--pink-700); }
+.lyric-line--wrap .off { color: var(--text-3); }
 
 /* 空态：一行小小的台标，让"这里有个歌词窗"在屏幕上可发现、可拖走 */
 .lyric-idle {
@@ -91,9 +148,9 @@ body {
 .lyric-tr {
   margin: 0;
   max-width: 100%;
-  font-size: 14px;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--text-2);
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -107,76 +164,112 @@ body {
   bottom: 5px;
   height: 2px;
   border-radius: 2px;
-  background: var(--line-strong);
+  background: color-mix(in srgb, var(--text) 12%, transparent);
 }
 .lyric-bar i {
   display: block;
   height: 100%;
   border-radius: 2px;
   background: linear-gradient(90deg, var(--pink-600), var(--pink-400));
-  transition: width 0.2s linear;
+  transition: width 0.16s linear;
 }
 
-/* 工具条：交互态悬停浮现（胶囊右上角内侧）。纸签底色，不再是黑板按钮。 */
+/* 工具条：交互态悬停浮现（胶囊右上角内侧）。24px 点击目标，图标按钮。 */
 .lyric-tools {
   position: absolute;
-  top: 4px;
+  top: 6px;
   right: 8px;
   display: flex;
-  gap: 3px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--text) 12%, transparent);
   -webkit-app-region: no-drag;
   opacity: 0;
+  pointer-events: none;
   transform: translateY(-3px);
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
-.lyric-capsule:hover .lyric-tools {
+.lyric-capsule:hover .lyric-tools,
+.lyric-tools:focus-within {
   opacity: 1;
+  pointer-events: auto;
   transform: none;
 }
 .lyric-tools button {
-  padding: 1px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 86%, var(--bg-sub));
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
   color: var(--text-2);
-  font-size: 10px;
-  line-height: 15px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
 }
 .lyric-tools button:hover {
-  border-color: color-mix(in srgb, var(--pink-600) 55%, transparent);
+  background: color-mix(in srgb, var(--pink-400) 14%, transparent);
   color: var(--pink-700);
 }
-.lyric-tools__lock { font-family: var(--font-hand); }
+.lyric-tools button.is-on { color: var(--pink-700); }
+.lyric-tools button:focus-visible {
+  outline: 2px solid var(--pink-600);
+  outline-offset: 1px;
+}
+.lyric-tools svg { width: 14px; height: 14px; display: block; }
+.lyric-tools__sep {
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
 
 /* 锁定态：窗口已经收不到鼠标，只留一枚看得见的小锁 + 解锁说明 */
 .lyric-lock {
   position: absolute;
-  top: 4px;
-  right: 12px;
+  top: 6px;
+  right: 10px;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--text-3);
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
-.lyric-lock svg { width: 9px; height: 9px; }
+.lyric-lock svg { width: 10px; height: 10px; }
 
 /* 刚锁上时的 4 秒提示：放在底部进度线那一带，不遮歌词 */
 .lyric-hint {
   position: absolute;
   left: 50%;
-  bottom: 1px;
+  bottom: 2px;
   transform: translateX(-50%);
-  padding: 0 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: var(--card);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
   color: var(--pink-700);
   font-family: var(--font-hand);
-  font-size: 9.5px;
-  line-height: 13px;
+  font-size: 10px;
+  line-height: 14px;
   white-space: nowrap;
   box-shadow: 0 1px 6px color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyric-capsule,
+  .lyric-tools,
+  .lyric-fill,
+  .lyric-bar i {
+    transition: none;
+  }
 }

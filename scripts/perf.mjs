@@ -17,6 +17,9 @@ const PORT = 9334;
 const PROFILE = path.join(os.tmpdir(), `afeifei-perf-${process.pid}`);
 const COUNT = 5000;
 const BASELINE_FILE = "perf-baseline.json";
+
+// 每轮性能测试都从独立干净配置开始，避免上次中断留下主题或索引状态。
+cleanupProfile(PROFILE);
 /** 劣化超过基线 20% 即红（docs/04 M8 第 4 项；I5 的"预算进 CI"补完）。 */
 const REGRESSION = 1.2;
 

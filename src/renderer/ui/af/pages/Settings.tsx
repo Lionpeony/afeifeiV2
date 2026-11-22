@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { dispatch, getState } from "../../../kernel/index.js";
 import { useAf } from "../context.js";
-import { SourceSwap } from "../SourceSwap.js";
+
 import { PageHead } from "../ui.js";
 import { EGGS, PALETTES } from "../data.js";
 import {
@@ -37,11 +37,10 @@ export function SettingsPage() {
       />
 
       <div className="set-card set-card--wide acct-card" style={{ marginBottom: 18 }}>
-        <SourceSwap />
         <div className="set-card__head">
           <IconCloud size={17} />
           <h2 className="h2">音源账号</h2>
-          <span className="acct-head-note hand">换台会拉一次幕布</span>
+          <span className="acct-head-note hand">换台会关一次灯，像换场</span>
         </div>
         <p className="set-card__desc">播放器本身不带音乐。两个账号登录之后，歌单、每日推荐和榜单才从你那边同步过来。</p>
         <div className="acct-list">
@@ -95,6 +94,15 @@ export function SettingsPage() {
         <div className="set-card">
           <div className="set-card__head"><IconSun size={17} /><h2 className="h2">后台光线</h2></div>
           <p className="set-card__desc">白天是奶油色的排练室，晚上就熄灯，留一盏音箱的指示灯。</p>
+          {/* 后台光线预览：跟着当前主题与调色板实时变色，不用切出去看 */}
+          <div className="glow-preview" aria-hidden="true">
+            <span className="glow-preview__beam"></span>
+            <span className="glow-preview__rig"><i></i><i></i><i></i></span>
+            <span className="glow-preview__lamp"></span>
+            <span className="glow-preview__note hand">
+              {themePref === "dark" ? "熄灯了，只剩音箱的指示灯" : themePref === "system" ? "跟着系统的天光走" : "排练室的下午四点"}
+            </span>
+          </div>
           <div className="segmented" role="group" aria-label="主题">
             {[
               { id: "light" as const, label: "明亮" },
@@ -159,10 +167,10 @@ export function SettingsPage() {
                   : motionPref === "system"
                     ? "跟随系统：当前系统允许动效。"
                     : motionPref === "off"
-                      ? "动效已关闭；选「完整」恢复幕布与呼吸。"
+                      ? "动效已关闭；选「完整」恢复换场与呼吸。"
                       : motionPref === "light"
                         ? "轻档去掉循环与大幅位移，只留状态切换。"
-                        : "完整含呼吸与幕布，轻档只留状态切换。"}
+                        : "完整含呼吸与换场，轻档只留状态切换。"}
               </div>
             </div>
             <div className="segmented" role="group" aria-label="动效档位">

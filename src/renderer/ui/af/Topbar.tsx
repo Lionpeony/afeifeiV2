@@ -348,8 +348,13 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
 }
 
 export function Topbar() {
-  const { sources, source, switchSource, tryCode } = useAf();
+  const { sources, source, srcSwap, switchSource, tryCode } = useAf();
+  /* 换台时台标先走：不等 160ms 后的 setSource，纸片从点击那一刻就开始滑。 */
+  const inkId = srcSwap && (srcSwap.scope === "pill" || srcSwap.scope === "content") ? srcSwap.id : source;
+  const inkIndex = Math.max(0, sources.findIndex((s) => s.id === inkId));
   const [maximized, setMaximized] = useState(false);
+  /** 点当前源时给一个「已经在这边」的圈，避免什么都没发生。 */
+  const [nudge, setNudge] = useState(0);
   useEffect(() => {
     let alive = true;
     void window.api.windowIsMaximized().then((v) => {
@@ -437,19 +442,48 @@ export function Topbar() {
       </div>
 
       <div className="topbar__right">
-        <div className="src-switch" title="当前音源">
-          <PillWipe />
-          {sources.map((s) => (
-            <button
-              key={s.id}
-              className={"src-switch__btn" + (source === s.id ? " is-on" : "")}
-              onClick={() => switchSource(s.id, { scope: "pill", quiet: true })}
-              title={s.name}
-            >
-              <i style={{ background: sourceTone(s.id) }}></i>
-              {sourceShort(s.id, s.name)}
-            </button>
-          ))}
+        <div className="src-switch-wrap">
+          <div
+            className={"src-switch" + (srcSwap && (srcSwap.scope === "pill" || srcSwap.scope === "content") ? " is-swapping" : "")}
+            title="当前音源"
+            role="group"
+            aria-label="音源切换"
+          >
+            <span
+              className="src-switch__ink"
+              aria-hidden="true"
+              style={{
+                ["--src-tone" as string]: sourceTone(inkId),
+                transform:
+                  inkIndex === 0 ? "none" : "translateX(calc(100% + var(--space-2xs)))",
+              }}
+            />
+            <PillWipe />
+            {nudge > 0 ? (
+              <span
+                key={nudge}
+                className="src-switch__nudge"
+                aria-hidden="true"
+                style={{ ["--src-tone" as string]: sourceTone(source) }}
+                onAnimationEnd={() => setNudge(0)}
+              />
+            ) : null}
+            {sources.map((s) => (
+              <button
+                key={s.id}
+                className={"src-switch__btn" + (source === s.id ? " is-on" : "")}
+                onClick={() => {
+                  if (s.id === source) setNudge((n) => n + 1);
+                  switchSource(s.id, { scope: "content", quiet: true });
+                }}
+                title={s.name}
+                aria-pressed={source === s.id}
+              >
+                <i style={{ background: sourceTone(s.id) }}></i>
+                {sourceShort(s.id, s.name)}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"

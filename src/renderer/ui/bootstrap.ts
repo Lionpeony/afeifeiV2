@@ -785,6 +785,16 @@ export async function bootstrap(): Promise<Services> {
     syncWindowOverlay, // 切页后重算：三键跟「当前可见页面」走（播放页恒深色）
     pick: () => media.pickFiles(),
     positionMs: () => clock.t(performance.now()),
+    durationMs: () => {
+      const loaded = engine.durationMs();
+      if (loaded > 0) return loaded;
+      const s = getState();
+      const id = s.player.trackId;
+      if (!id) return 0;
+      const remote = s.queue.remote[id];
+      if (remote?.durationMs) return remote.durationMs;
+      return trackById(id)?.durationMs ?? 0;
+    },
     cover: (id, path) => loadCover(library, id, path),
 
     sources: () =>
@@ -1282,6 +1292,12 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
   if (n.trackId && n.trackId !== p.trackId) {
     if (n.volume !== p.volume) engine.setVolume(n.volume);
     if (n.muted !== p.muted) engine.setMuted(n.muted);
+    /* 恢复/暂停态：在线曲目先别碰网络（直链会过期，点播放再解析）；
+       本地曲目加载只读盘，顺手把时长/文件存在性确认掉，缺失时直接进 error。 */
+    if (n.status === "paused" && /^remote:/i.test(n.trackId)) {
+      clock.seek(n.positionMs, now);
+      return;
+    }
     // crossfade 预判必须在 load 之前同步做：grant 是异步的，事后问就晚了。
     // 走 crossfade 时时钟继续跟出场曲，归零由切点回调 onSwitched 负责（00 §3.2 #5）。
     const keepClock = engine.willCrossfade(n.trackId);
@@ -1307,13 +1323,26 @@ function reconcile(prev: AppState, next: AppState, engine: AudioEngine): void {
     if (n.status === "playing") {
       // crossfade 中入场曲已经在响，clock 归零由切点 onSwitched 负责，这里别重复起表
       if (!engine.isFading()) {
-        // 元素里还没装着这首（换曲的取源窗口）：起播权归换歌分支的 load 回调，
-        // 这里 play() 只会对空元素报 NotSupported，把好好的切歌打成 error
-        if (engine.currentTrack() === n.trackId) {
+        const loaded = engine.currentTrack() === n.trackId;
+        if (loaded && p.status !== "error") {
           // 续播从停表处起：store 的 positionMs 只是"最后一次 seek / 切歌"的位置，
           // 拿它起表会让进度条闪回 0（I1）。从 ended 复播则是引擎重绕到 0
           clock.start(p.status === "ended" ? 0 : clock.t(now), now);
           void engine.play();
+        } else if (n.trackId && p.status !== "loading") {
+          /* 恢复态/错误态点播放：trackId 没变，也必须重新取源。
+             ① 恢复态：引擎里根本没装过这首；② 错误态：装的是过期直链/失败元素。
+             这是"重开播放器点播放没反应"的根因。 */
+          const pending = loaded ? engine.reload() : engine.load(n.trackId);
+          clock.seek(n.positionMs, now);
+          void pending.then((changed) => {
+            if (!changed) return;
+            const live = getState().player;
+            if (live.trackId !== n.trackId || live.status !== "playing") return;
+            if (live.positionMs > 0) engine.seek(live.positionMs);
+            clock.start(live.positionMs, performance.now());
+            void engine.play();
+          });
         }
       }
     } else if (

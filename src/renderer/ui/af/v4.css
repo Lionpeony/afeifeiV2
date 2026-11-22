@@ -132,11 +132,19 @@
   width:34px;height:34px;border-radius:50%;
   display:grid;place-items:center;
   font-family:var(--font-mono);font-size:12px;
-  color:var(--on-gradient);background:rgba(214,51,132,.85);
+  color:var(--on-gradient);background:var(--pink-600);
 }
 .mix__title{font-family:var(--font-display);font-size:30px;line-height:1.2;margin-top: var(--space-2xs)}
 .mix__meta{font-size:12px;color:var(--text-3);margin-top: var(--space-2xs)}
 .mix__list{margin-top: var(--space-md);display:flex;flex-direction:column;gap: var(--space-3xs);max-width:640px}
+.mix__all{
+  display:inline-flex;align-items:center;gap: var(--space-2xs);
+  margin-top: var(--space-sm);font-size:var(--fs-micro);color:var(--text-3);
+  transition:color .16s var(--ease);
+}
+.mix__all:hover{color:var(--pink-700)}
+.mix__all svg{transition:transform .18s var(--ease)}
+.mix__all:hover svg{transform:translateX(2px)}
 .mix-row{
   display:grid;grid-template-columns:20px 28px minmax(0,1fr) 110px 44px;
   gap: var(--space-xs);align-items:center;height:32px;padding: 0 var(--space-xs);border-radius:var(--r-sm);
@@ -266,6 +274,73 @@
 .tbl__row:hover .tbl__heart{opacity:1}
 .tbl__heart:hover{color:var(--coral);transform:scale(1.14)}
 .tbl__heart.is-on{opacity:1;color:var(--coral)}
+
+/* ---------------- Live Setlist：今晚的演出单 ---------------- */
+.tbl--setlist{padding-top:var(--space-xs)}
+.setlist-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-md);
+  margin:0 var(--space-xs) var(--space-md);padding:var(--space-md) var(--space-md);
+  border:1px solid var(--line);border-radius:var(--r-lg);
+  background:linear-gradient(110deg,color-mix(in srgb,var(--pink-400) 10%,var(--card)),var(--card) 64%);
+  box-shadow:var(--shadow-soft);position:relative;overflow:hidden;
+}
+.setlist-head::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pink-600)}
+.setlist-head__copy{display:flex;flex-direction:column;gap:var(--space-3xs);min-width:0}
+.setlist-head__copy strong{font-family:var(--font-display);font-size:22px;font-weight:400;line-height:1.25;color:var(--text)}
+.setlist-head__copy>span:last-child{font-size:var(--fs-caption);color:var(--text-3)}
+.setlist-head__cue{flex:none;font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.16em;color:var(--pink-700);border:1px solid color-mix(in srgb,var(--pink-600) 32%,transparent);border-radius:var(--r-pill);padding:var(--space-3xs) var(--space-sm);background:color-mix(in srgb,var(--pink-400) 9%,transparent)}
+.setlist-entry{position:relative}
+.setlist-act{display:flex;align-items:center;gap:var(--space-xs);height:30px;padding:var(--space-xs) var(--space-md) 0;color:var(--text-3);font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.12em}
+.setlist-act i{height:1px;flex:1;background:repeating-linear-gradient(90deg,var(--line-strong) 0 4px,transparent 4px 8px)}
+.setlist-act b{font-weight:500;color:var(--pink-700);letter-spacing:.08em}
+.tbl--setlist .tbl__row{height:58px}
+.tbl--setlist .tbl__row.is-current{background:linear-gradient(90deg,color-mix(in srgb,var(--pink-400) 17%,var(--card)),color-mix(in srgb,var(--pink-400) 5%,transparent));box-shadow:inset 3px 0 0 var(--pink-600),0 5px 18px color-mix(in srgb,var(--pink-600) 10%,transparent)}
+.tbl--setlist .tbl__row.is-current::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:var(--r-pill);background:var(--pink-600);animation:setlistBeam 1.8s var(--ease-out-soft) infinite}
+.tbl--setlist .tbl__row.is-next{background:color-mix(in srgb,var(--lav) 5%,transparent)}
+.tbl--setlist .tbl__row.is-next::after{opacity:1;right:18px;background:linear-gradient(180deg,color-mix(in srgb,var(--lav) 55%,transparent),transparent);transform:rotate(-5deg)}
+.tbl--setlist .tbl__row.is-current .tbl__name{font-size:var(--fs-caption)}
+.tbl--setlist .tbl__row.is-current .tbl__cover{outline:2px solid color-mix(in srgb,var(--pink-600) 42%,transparent);outline-offset:1px}
+.setlist-status{display:block;margin-top:1px;font-family:var(--font-mono);font-size:var(--fs-micro);line-height:1.3;letter-spacing:.12em;color:var(--pink-700)}
+.setlist-status.is-next{color:var(--lav)}
+@keyframes setlistBeam{0%,100%{opacity:.45;transform:scaleY(.72)}50%{opacity:1;transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){.tbl--setlist .tbl__row.is-current::before{animation:none}.tbl--setlist .tbl__row.is-current::before{opacity:.75}}
+
+/* Setlist 主题包：同一份演出单，不同的后台性格。 */
+:root[data-palette="mygo"] .tbl--setlist .setlist-head{
+  border-style:dashed;border-color:color-mix(in srgb,var(--lav) 30%,var(--line));
+  background:linear-gradient(112deg,color-mix(in srgb,var(--lav) 12%,var(--card)),var(--card) 68%);
+}
+:root[data-palette="mygo"] .tbl--setlist .setlist-head::before,
+:root[data-palette="mygo"] .tbl--setlist .tbl__row.is-current::before{background:var(--lav)}
+:root[data-palette="mygo"] .tbl--setlist .setlist-head__cue,
+:root[data-palette="mygo"] .tbl--setlist .setlist-act b,
+:root[data-palette="mygo"] .tbl--setlist .setlist-status{color:var(--lav)}
+:root[data-palette="mygo"] .tbl--setlist .tbl__row.is-current{background:linear-gradient(90deg,color-mix(in srgb,var(--lav) 13%,var(--card)),transparent);box-shadow:inset 3px 0 0 var(--lav),0 5px 18px color-mix(in srgb,var(--lav) 10%,transparent)}
+:root[data-palette="mygo"] .tbl--setlist .tbl__row.is-next{transform:translateX(2px);border-left:1px dashed color-mix(in srgb,var(--lav) 38%,transparent)}
+
+:root[data-palette="gbc"] .tbl--setlist .setlist-head{
+  border-color:color-mix(in srgb,var(--mint) 36%,var(--line));
+  background:linear-gradient(105deg,color-mix(in srgb,var(--mint) 12%,var(--card)),var(--card) 68%);
+}
+:root[data-palette="gbc"] .tbl--setlist .setlist-head::before,
+:root[data-palette="gbc"] .tbl--setlist .tbl__row.is-current::before{background:var(--mint)}
+:root[data-palette="gbc"] .tbl--setlist .setlist-head__cue,
+:root[data-palette="gbc"] .tbl--setlist .setlist-act b,
+:root[data-palette="gbc"] .tbl--setlist .setlist-status{color:color-mix(in srgb,var(--mint) 72%,var(--text))}
+:root[data-palette="gbc"] .tbl--setlist .tbl__row.is-current{background:linear-gradient(90deg,color-mix(in srgb,var(--mint) 14%,var(--card)),transparent);box-shadow:inset 3px 0 0 var(--mint),0 5px 18px color-mix(in srgb,var(--mint) 12%,transparent)}
+:root[data-palette="gbc"] .tbl--setlist .tbl__row.is-next{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--mint) 5%,transparent) 0 2px,transparent 2px 12px)}
+
+:root[data-palette="btr"] .tbl--setlist .setlist-head{
+  border-color:color-mix(in srgb,var(--btr-yellow) 42%,var(--line));
+  background:linear-gradient(110deg,color-mix(in srgb,var(--btr-yellow) 18%,var(--card)),var(--card) 68%);
+}
+:root[data-palette="btr"] .tbl--setlist .setlist-head::before,
+:root[data-palette="btr"] .tbl--setlist .tbl__row.is-current::before{background:var(--btr-pink)}
+:root[data-palette="btr"] .tbl--setlist .setlist-head__cue,
+:root[data-palette="btr"] .tbl--setlist .setlist-act b{color:color-mix(in srgb,var(--btr-pink) 82%,var(--text))}
+:root[data-palette="btr"] .tbl--setlist .setlist-status{color:color-mix(in srgb,var(--btr-pink) 78%,var(--text))}
+:root[data-palette="btr"] .tbl--setlist .tbl__row.is-current{background:linear-gradient(90deg,color-mix(in srgb,var(--btr-yellow) 17%,var(--card)),transparent);box-shadow:inset 3px 0 0 var(--btr-pink),0 5px 18px color-mix(in srgb,var(--btr-yellow) 13%,transparent)}
+:root[data-palette="btr"] .tbl--setlist .tbl__row.is-next::after{background:linear-gradient(180deg,color-mix(in srgb,var(--btr-yellow) 70%,transparent),transparent)}
 
 /* ---------------- 歌单页 ---------------- */
 .pl__switch{display:flex;align-items:center;gap: var(--space-sm);margin-bottom: var(--space-md);flex-wrap:wrap}
@@ -443,7 +518,7 @@
 .bar__play{
   width:42px;height:42px;border-radius:50%;display:grid;place-items:center;
   background:var(--pink-600);color:var(--on-accent);margin: 0 var(--space-3xs);
-  box-shadow:0 6px 16px rgba(214,51,132,.34);
+  box-shadow:0 6px 16px color-mix(in srgb,var(--pink-600) 34%,transparent);
   transition:transform .16s var(--ease-spring),background .18s var(--ease);
 }
 .bar__play:hover{transform:scale(1.06)}
@@ -488,14 +563,49 @@
 .side-user__meta b{font-size:12px;color:var(--text-2);font-weight:600}
 .side-user__meta span{font-size:var(--fs-micro);color:var(--text-3)}
 .topbar__right{display:flex;align-items:center;gap: var(--space-sm);margin-left:auto}
-.src-switch{display:inline-flex;align-items:center;gap: var(--space-2xs);padding: var(--space-3xs);border-radius:var(--r-pill);background:var(--wash);border:1px solid var(--line)}
+.src-switch{
+  position:relative;display:inline-grid;grid-template-columns:1fr 1fr;align-items:center;
+  gap: var(--space-2xs);padding: var(--space-3xs);border-radius:var(--r-pill);
+  background:var(--wash);border:1px solid var(--line)
+}
+/* 当前台标：一块会在两个源之间滑动的纸片，换源时先藏进幕后、揭幕时滑到位 */
+.src-switch__ink{
+  position:absolute;top:var(--space-3xs);bottom:var(--space-3xs);left:var(--space-3xs);
+  width:calc((100% - 2 * var(--space-3xs) - var(--space-2xs)) / 2);
+  z-index:var(--z-base);border-radius:var(--r-pill);
+  background:var(--card);border:1px solid color-mix(in srgb,var(--src-tone,var(--pink-600)) 38%,var(--line));
+  box-shadow:var(--shadow-soft);
+  transition:transform var(--scene-in) var(--scene-ease-out),border-color var(--scene-in) var(--scene-ease-out);
+  will-change:transform;
+}
 .src-switch__btn{
-  display:inline-flex;align-items:center;gap: var(--space-2xs);height:24px;padding: 0 var(--space-xs);border-radius:var(--r-pill);
-  font-size:var(--fs-micro);color:var(--text-3);transition:background .18s var(--ease),color .18s var(--ease);
+  position:relative;z-index:var(--z-row);
+  display:inline-flex;align-items:center;justify-content:center;gap: var(--space-2xs);
+  height:24px;padding: 0 var(--space-xs);border-radius:var(--r-pill);
+  font-size:var(--fs-micro);color:var(--text-3);transition:color .18s var(--ease)
 }
 .src-switch__btn i{width:6px;height:6px;border-radius:50%;display:block;opacity:.5}
-.src-switch__btn.is-on{background:var(--card);color:var(--text);box-shadow:var(--shadow-soft)}
+.src-switch__btn.is-on{color:var(--text)}
 .src-switch__btn.is-on i{opacity:1}
+.src-switch__btn:focus-visible{outline:2px solid var(--pink-600);outline-offset:2px}
+/* 点当前源：圈一下，配一句 toast，别让人以为按钮坏了 */
+.src-switch__nudge{
+  position:absolute;inset:0;z-index:var(--z-tape);pointer-events:none;
+  border:2px solid color-mix(in srgb,var(--src-tone,var(--pink-600)) 58%,var(--line));
+  border-radius:var(--r-pill);animation:srcNudge 360ms var(--scene-ease-out) both;
+}
+@keyframes srcNudge{
+  0%{opacity:.9;transform:scale(.96)}
+  55%{opacity:.7;transform:scale(1.035)}
+  100%{opacity:0;transform:scale(1.06)}
+}
+@media (prefers-reduced-motion: reduce){.src-switch__nudge{animation:none;opacity:0}}
+:root[data-motion="off"] .src-switch__nudge{animation:none;opacity:0}
+/* 换台时控件自己先「按一下」：小控件也要有手感，不能只换里面的字 */
+.src-switch.is-swapping{animation:srcPress var(--scene-out) var(--scene-ease) both}
+@keyframes srcPress{0%,100%{transform:scale(1)}45%{transform:scale(.965)}}
+@media (prefers-reduced-motion: reduce){.src-switch.is-swapping{animation:none}}
+:root[data-motion="off"] .src-switch.is-swapping{animation:none}
 .win-ctrl{display:flex;align-items:center;gap: var(--space-3xs)}
 /* 迷你窗开关：QQ/网易云习惯把「进小窗」放在最右上、系统三键左边 */
 .topbar__mini{

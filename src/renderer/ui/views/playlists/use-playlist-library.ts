@@ -46,6 +46,8 @@ export function usePlaylistLibrary(ports: PlaylistLibraryPorts) {
   /** 取曲目失败单独记一份：note 也用于收藏/导入，右栏要分清「没有」和「没取到」 */
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  /** 账号歌单列表本身的等待（换源 / 刷新），曲目等待仍走 busy，两者分开好让页面只做一次刷新 */
+  const [listsBusy, setListsBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [tick, setTick] = useState(0);
   const seq = useRef(0);
@@ -70,14 +72,19 @@ export function usePlaylistLibrary(ports: PlaylistLibraryPorts) {
     let alive = true;
     const key = `playlists:list:${sourceId}`;
     // 命中缓存先摆出来：先清空再等回包会闪一下空白列表
-    setPlaylists(getNet<OnlinePlaylist[]>(key) ?? []);
+    const cached = getNet<OnlinePlaylist[]>(key);
+    setPlaylists(cached ?? []);
     setNote("");
+    setListsBusy(!cached);
     loadNet(key, () => listPlaylists(sourceId))
       .then((list) => {
         if (alive) setPlaylists(list);
       })
       .catch((err: unknown) => {
         if (alive) setNote(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (alive) setListsBusy(false);
       });
     return () => {
       alive = false;
@@ -249,6 +256,7 @@ export function usePlaylistLibrary(ports: PlaylistLibraryPorts) {
     note,
     loadError,
     busy,
+    listsBusy,
     importing,
     isSaved,
     changeSource,

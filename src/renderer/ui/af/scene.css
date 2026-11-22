@@ -1,0 +1,93 @@
+/* ============================================================
+   换景 v3 · 分镜横移 (2026-11-22)
+   一张带墨边与网点边的纸，从“来的方向”扫进，盖满时换内容，
+   再往“去的方向”扫出；页面只在自己那侧移 12px 落位。
+   没有全屏盖幕、没有 hold、没有第二层装饰。只动 transform。
+   ============================================================ */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scene);
+  overflow: hidden;
+  pointer-events: auto;
+  contain: strict;
+}
+/* 换页只盖主内容区：侧栏、顶栏、底栏保持可读，换景不遮住窗口三键 */
+.scene--content {
+  left: var(--sidebar-w);
+  top: var(--topbar-h);
+  bottom: var(--console-h);
+}
+
+/* ---------- 纸带：默认是排练室纸，换源/换装才用乐队色 ---------- */
+.scene__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--text) 5%, transparent) 1px, transparent 1.35px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--scene-band) 16%, var(--bg));
+  box-shadow: 0 0 40px color-mix(in srgb, var(--scene-tone) 26%, transparent);
+  will-change: transform;
+  transform: translate3d(-102%, 0, 0);
+}
+.scene--source .scene__band,
+.scene--theme .scene__band {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--text) 4%, transparent) 1px, transparent 1.35px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--scene-band) 30%, var(--bg));
+}
+.scene--stage .scene__band {
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--stage-fg) 5%, transparent) 1px, transparent 1.35px) 0 0 / 9px 9px,
+    color-mix(in srgb, var(--scene-band) 18%, var(--stage-bg));
+}
+
+/* 来边：2px 墨线 + 18px 网点带，让纸像从漫画格子里抽出来 */
+.scene--dir-r .scene__band { border-right: 2px solid var(--scene-tone); }
+.scene--dir-l .scene__band { border-left: 2px solid var(--scene-tone); }
+.scene__band::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  opacity: .55;
+  background: radial-gradient(circle, color-mix(in srgb, var(--scene-band) 72%, var(--text)) 1.1px, transparent 1.45px) 0 0 / 6px 6px;
+}
+.scene--dir-r .scene__band::before { right: 0; }
+.scene--dir-l .scene__band::before { left: 0; }
+
+/* ---------- 扫入：来的方向 → 盖满（140ms） ---------- */
+.scene--dir-r.scene--close .scene__band { animation: wipeInR var(--scene-cut) var(--scene-ease) both; }
+.scene--dir-l.scene--close .scene__band { animation: wipeInL var(--scene-cut) var(--scene-ease) both; }
+.scene--hold .scene__band { transform: none; animation: none; }
+
+/* ---------- 扫出：盖满 → 去的方向（140ms） ---------- */
+.scene--dir-r.scene--open .scene__band { animation: wipeOutR var(--scene-cut) var(--scene-ease-out) both; }
+.scene--dir-l.scene--open .scene__band { animation: wipeOutL var(--scene-cut) var(--scene-ease-out) both; }
+
+@keyframes wipeInR {
+  from { transform: translate3d(-102%, 0, 0); }
+  to { transform: none; }
+}
+@keyframes wipeInL {
+  from { transform: translate3d(102%, 0, 0); }
+  to { transform: none; }
+}
+@keyframes wipeOutR {
+  from { transform: none; }
+  to { transform: translate3d(102%, 0, 0); }
+}
+@keyframes wipeOutL {
+  from { transform: none; }
+  to { transform: translate3d(-102%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene { display: none; }
+}
+:root[data-motion="off"] .scene { display: none; }

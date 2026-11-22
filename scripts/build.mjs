@@ -229,6 +229,7 @@ const cssFiles = [
   "src/renderer/ui/af/lyrics.css",
   "src/renderer/ui/af/typography.css",
   "src/renderer/ui/af/sidebar.css",
+  "src/renderer/ui/af/scene.css",
   "src/renderer/ui/af/splash.css",
   "src/renderer/ui/af/responsive.css",
 ];

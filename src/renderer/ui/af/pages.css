@@ -302,6 +302,43 @@
 .set-card__head{display:flex;align-items:center;gap: var(--space-xs);margin-bottom: var(--space-2xs)}
 .set-card__head svg{color:var(--pink-600)}
 .set-card__desc{font-size:12px;color:var(--text-3);margin-bottom: var(--space-md);line-height:1.7}
+
+/* 后台光线预览：一小段舞台山墙，跟着包和明暗实时变 */
+.glow-preview{
+  position:relative;height:96px;margin-bottom:var(--space-md);border-radius:var(--r-md);overflow:hidden;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--card) 86%, var(--pink-100)) 0%, var(--wash) 100%);
+  box-shadow:inset 0 0 0 1px var(--line);
+}
+.glow-preview__beam{
+  position:absolute;left:50%;top:-40%;width:78%;height:120%;transform:translateX(-50%);
+  background:radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, var(--pink-400) 30%, transparent), transparent 72%);
+}
+.glow-preview__rig{
+  position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+  display:flex;align-items:flex-end;gap:5px;height:26px;
+}
+.glow-preview__rig i{
+  width:4px;border-radius:var(--r-2);background:var(--pink-600);opacity:.72;
+  animation:glowPreviewBar 2.4s var(--ease-out-soft) infinite;
+}
+.glow-preview__rig i:nth-child(1){height:38%;animation-delay:-.6s}
+.glow-preview__rig i:nth-child(2){height:88%;animation-delay:-1.4s}
+.glow-preview__rig i:nth-child(3){height:56%;animation-delay:-.2s}
+@keyframes glowPreviewBar{0%,100%{transform:scaleY(.55)}50%{transform:scaleY(1)}}
+.glow-preview__lamp{
+  position:absolute;right:14px;bottom:14px;width:7px;height:7px;border-radius:50%;
+  background:var(--coral);box-shadow:0 0 10px 2px color-mix(in srgb, var(--coral) 55%, transparent);
+}
+.glow-preview__note{
+  position:absolute;left:14px;bottom:12px;font-size:var(--fs-micro);color:var(--text-3);letter-spacing:.04em;
+}
+:root[data-theme="dark"] .glow-preview{
+  background:linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, var(--pink-100)) 0%, color-mix(in srgb, var(--card) 70%, transparent) 100%);
+}
+:root[data-theme="dark"] .glow-preview__beam{opacity:.5}
+@media (prefers-reduced-motion: reduce){.glow-preview__rig i{animation:none}}
+:root[data-motion="off"] .glow-preview__rig i,
+:root[data-motion="light"] .glow-preview__rig i{animation:none}
 .set-line{
   display:flex;align-items:center;justify-content:space-between;gap: var(--space-md);
   padding: var(--space-sm) 0;border-top:1px solid var(--line);

@@ -1,36 +1,34 @@
 /* ============================================================
-   AFEIFEI · v5 播放页大歌词 + 后台通行证悬浮卡
-   仅使用 design.md 既有 Token
+   AFEIFEI · 播放页歌词「舞台字幕投影」
+   播放页中间那根柱子：当前句就是投影本身，上下句是还没唱到的回声。
+   只用 design.md 既有 Token。
    ============================================================ */
 
-/* ---------------- 播放页栅格微调（给歌词让出整行） ---------------- */
-.np__stage{display:flex;flex-direction:column;gap: var(--space-md);width:100%;justify-self:stretch}
-.np__stage-top{display:grid;grid-template-columns:auto minmax(0,1fr);gap: var(--space-3xl);align-items:center;width:100%}
+.np__lyric-swap{display:flex;min-width:0;min-height:0;width:100%}
 
-/* ============================================================
-   1. 歌词墙
-   ============================================================ */
 .lw{
-  position:relative;display:flex;gap: var(--space-sm);width:100%;
-  padding: var(--space-sm) var(--space-md) var(--space-xs) var(--space-xs);border-radius:var(--r-xl);
-  /* 与队列卡同一块料（--stage-card），顶部加 4% 白光提亮，不再写死暖白 */
-  background:linear-gradient(180deg,color-mix(in srgb, var(--stage-card) 96%, var(--white) 4%),var(--stage-card));
-  border:1px solid var(--line);
-  box-shadow:0 14px 34px rgba(61,43,57,.08);
+  position:relative;display:flex;gap:var(--space-sm);width:100%;min-width:0;height:100%;min-height:0;
+  padding:var(--space-sm) var(--space-md) var(--space-xs) var(--space-xs);
+  border-radius:var(--r-xl);
+  /* 舞台透光的一层薄纸：能看见背后的灯光，但不至于读不清字 */
+  background:color-mix(in srgb, var(--card) 78%, transparent);
+  border:1px solid color-mix(in srgb, var(--line) 80%, transparent);
   overflow:hidden;
 }
+/* 一盏从顶上打下来的弱聚光——只帮视线落在当前句，不做装饰 */
 .lw::before{
-  content:"";position:absolute;left:0;right:0;top:0;height:3px;
-  background:var(--gradient-tri);opacity:.9;
+  content:"";position:absolute;left:50%;top:-46%;width:124%;height:92%;
+  transform:translateX(-50%);pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--pink-400) 13%, transparent), transparent 72%);
 }
-:root[data-theme="dark"] .lw{
-  box-shadow:0 14px 34px rgba(0,0,0,.34);
-}
+:root[data-palette="gbc"] .lw::before{background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--mint) 14%, transparent), transparent 72%)}
+:root[data-palette="mygo"] .lw::before{background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--lav) 15%, transparent), transparent 72%)}
+:root[data-palette="btr"] .lw::before{background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--btr-yellow) 18%, transparent), transparent 72%)}
 
 /* 左侧竖排书脊 */
 .lw__rail{
-  flex:none;width:26px;display:flex;flex-direction:column;align-items:center;gap: var(--space-xs);
-  padding: var(--space-2xs) 0 var(--space-2xs);
+  flex:none;width:26px;display:flex;flex-direction:column;align-items:center;gap:var(--space-xs);
+  padding:var(--space-2xs) 0;position:relative;z-index:var(--z-row);
 }
 .lw__rail-jp{
   writing-mode:vertical-rl;font-family:var(--font-display);
@@ -38,57 +36,52 @@
 }
 .lw__rail-line{flex:1;width:1px;background:repeating-linear-gradient(180deg,var(--line-strong) 0 4px,transparent 4px 8px)}
 
-.lw__main{flex:1;min-width:0;display:flex;flex-direction:column;gap: var(--space-2xs)}
+.lw__main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:var(--space-2xs);position:relative;z-index:var(--z-row)}
 
-.lw__head{display:flex;align-items:center;gap: var(--space-xs)}
-.lw__head-title{display:flex;align-items:baseline;gap: var(--space-xs)}
-.lw__head-title b{font-family:var(--font-display);font-size:14px;letter-spacing:.08em;color:var(--text)}
-.lw__tools{margin-left:auto;display:flex;align-items:center;gap: var(--space-2xs)}
+.lw__head{display:flex;align-items:center;gap:var(--space-xs);flex:none;padding-right:var(--space-2xs)}
+.lw__head-title{display:flex;align-items:baseline;gap:var(--space-xs);min-width:0}
+.lw__head-title b{font-family:var(--font-display);font-size:14px;letter-spacing:.08em;color:var(--text-2)}
+.lw__head-sub{font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-3)}
+.lw__tools{margin-left:auto;display:flex;align-items:center;gap:var(--space-2xs)}
 .lw__tool{
-  height:22px;min-width:22px;padding: 0 var(--space-xs);border-radius:var(--r-pill);
+  height:24px;min-width:24px;padding:0 var(--space-xs);border-radius:var(--r-pill);
   display:inline-flex;align-items:center;justify-content:center;gap:3px;
   font-size:var(--fs-micro);color:var(--text-3);border:1px solid transparent;
-  transition:color var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),
-             background var(--dur-fast) var(--ease);
+  transition:color var(--dur-fast) var(--ease),border-color var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease);
 }
 .lw__tool:hover{color:var(--pink-700);border-color:color-mix(in srgb, var(--pink-600) 34%, transparent);background:var(--wash)}
 .lw__tool.is-on{color:var(--pink-700);border-color:color-mix(in srgb, var(--pink-600) 40%, transparent);background:var(--wash)}
 :root[data-theme="dark"] .lw__tool:hover,
 :root[data-theme="dark"] .lw__tool.is-on{color:var(--pink-400);border-color:color-mix(in srgb, var(--pink-400) 40%, transparent)}
+.lw__tool:focus-visible{outline:2px solid var(--pink-400);outline-offset:2px}
 
-/* 歌词视口 */
+/* 歌词视口：整根柱子的富余高度都给它 */
 .lw__view{
-  position:relative;height:272px;min-height:0;overflow:hidden;
-  -webkit-mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 16%,var(--mask-ink) 82%,transparent);
-  mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 16%,var(--mask-ink) 82%,transparent);
+  position:relative;flex:1;min-height:0;overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 84%,transparent);
+  mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 84%,transparent);
 }
 .lw__spot{
-  position:absolute;left:0;right:0;top:50%;height:120px;transform:translateY(-50%);
-  background:radial-gradient(58% 90% at 42% 50%,color-mix(in srgb, var(--pink-400) 10%, transparent),transparent 76%);
+  position:absolute;left:0;right:0;top:50%;height:44%;transform:translateY(-50%);
+  background:radial-gradient(52% 88% at 46% 50%, color-mix(in srgb, var(--pink-400) 11%, transparent), transparent 76%);
   pointer-events:none;
 }
-.lw__scroll{
-  position:relative;will-change:transform;
-  transition:transform var(--dur-base) var(--ease-out-soft);
-}
+.lw__scroll{position:relative;will-change:transform;transition:transform var(--dur-base) var(--ease-out-soft)}
 
 .lw-line{
-  position:relative;display:flex;align-items:center;justify-content:center;gap: var(--space-xs);width:100%;
-  height:var(--row-h);padding: 0 var(--space-xs);border-radius:var(--r-md);text-align:left;
+  position:relative;display:flex;align-items:center;justify-content:flex-start;gap:var(--space-xs);width:100%;
+  height:var(--row-h);padding:0 var(--space-sm);border-radius:var(--r-md);text-align:left;
   transition:opacity var(--dur-fast) var(--ease),background var(--dur-fast) var(--ease);
 }
-.lw-line:hover{background:var(--wash)}
-.lw-line__no{
-  position:absolute;left:6px;top:50%;transform:translateY(-50%);
-  font-size:var(--fs-micro);color:var(--text-3);opacity:.5;font-variant-numeric:tabular-nums;
-}
+.lw-line:hover{background:color-mix(in srgb, var(--wash) 70%, transparent)}
+.lw-line:focus-visible{outline:2px solid var(--pink-400);outline-offset:-2px}
 .lw-line__body{
-  flex:0 1 auto;min-width:0;max-width:84%;
-  display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center;
+  flex:0 1 auto;min-width:0;max-width:100%;
+  display:flex;flex-direction:column;align-items:flex-start;gap:1px;
 }
 .lw-line__jp{
   position:relative;display:inline-block;max-width:100%;
-  font-family:var(--font-jp),var(--font-body);font-size:14px;line-height:1.35;
+  font-family:var(--font-jp),var(--font-body);font-size:16px;line-height:1.4;
   letter-spacing:.03em;color:var(--text-2);
   /* 字号变化不走 transition（动画 font-size 每帧 reflow），颜色仍淡入 */
   transition:color var(--dur-fast) var(--ease);
@@ -99,14 +92,16 @@
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .lw-line.is-past{opacity:.42}
-.lw-line.is-next{opacity:.6}
-.lw-line.is-cur{
-  opacity:1;
-}
+.lw-line.is-next{opacity:.62}
+.lw-line.is-cur{opacity:1}
 .lw-line.is-cur .lw-line__jp{
-  font-size:26px;font-weight:500;color:var(--text-2);
-  letter-spacing:.02em;
+  font-size:clamp(26px,2.4vw,36px);font-weight:500;color:var(--text);
+  line-height:1.28;letter-spacing:.01em;
+  text-wrap:balance;
 }
+.np--mygo .lw-line.is-cur .lw-line__jp{color:var(--lav);text-shadow:0 0 18px color-mix(in srgb,var(--lav) 22%,transparent)}
+.np--gbc .lw-line.is-cur .lw-line__jp{color:color-mix(in srgb,var(--mint) 74%,var(--text));text-shadow:0 0 18px color-mix(in srgb,var(--mint) 22%,transparent)}
+.np--btr .lw-line.is-cur .lw-line__jp{color:var(--btr-pink);text-shadow:0 0 18px color-mix(in srgb,var(--btr-pink) 22%,transparent)}
 .lw-line.is-cur .lw-line__tr{font-size:12px;color:var(--text-3);opacity:.95}
 .lw-line__fill{
   position:absolute;left:0;top:0;white-space:nowrap;
@@ -115,45 +110,74 @@
   transition:clip-path 120ms linear;
   pointer-events:none;
 }
-:root[data-theme="dark"] .lw-line.is-cur .lw-line__jp{color:rgba(244,234,242,.62)}
+.np--mygo .lw-line__fill{color:var(--lav);text-shadow:0 0 18px color-mix(in srgb,var(--lav) 24%,transparent)}
+.np--gbc .lw-line__fill{color:var(--mint);text-shadow:0 0 18px color-mix(in srgb,var(--mint) 24%,transparent)}
+.np--btr .lw-line__fill{color:var(--btr-pink);text-shadow:0 0 18px color-mix(in srgb,var(--btr-pink) 24%,transparent)}
+:root[data-theme="dark"] .lw-line.is-cur .lw-line__jp{color:var(--text)}
 :root[data-theme="dark"] .lw-line__fill{color:var(--pink-400);text-shadow:0 0 20px color-mix(in srgb, var(--pink-400) 40%, transparent)}
-.lw-line__mark{
-  flex:none;font-size:var(--fs-micro);color:var(--pink-600);opacity:.85;
-  animation:markNudge 1.6s var(--ease-out-soft) infinite;
+
+.lw__mask{position:absolute;left:0;right:0;height:26px;pointer-events:none;z-index:var(--z-tape)}.lw__mask--top{top:0;background:linear-gradient(180deg,color-mix(in srgb, var(--card) 88%, transparent),transparent)}
+.lw__mask--bottom{bottom:0;background:linear-gradient(0deg,color-mix(in srgb, var(--card) 88%, transparent),transparent)}
+
+/* 这首没有歌词：舞台还剩一个人，别只留「暂无歌词」四个字 */
+.lw-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--space-xs);padding:var(--space-lg);text-align:center;
 }
-@keyframes markNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(-3px)}}
+.lw-empty__glyph{
+  width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  color:var(--pink-600);background:var(--wash);box-shadow:inset 0 0 0 1px var(--line);
+}
+.lw-empty b{font-family:var(--font-display);font-size:var(--fs-heading);color:var(--text-2);letter-spacing:.04em}
+.lw-empty .hand{font-size:12px;color:var(--text-3);line-height:1.8;max-width:26ch}
 
-.lw__mask{position:absolute;left:0;right:0;height:22px;pointer-events:none;z-index:var(--z-tape)}
-.lw__mask--top{top:0;background:linear-gradient(180deg,rgba(255,252,250,.92),transparent)}
-.lw__mask--bottom{bottom:0;background:linear-gradient(0deg,rgba(255,252,250,.92),transparent)}
-:root[data-theme="dark"] .lw__mask--top{background:linear-gradient(180deg,rgba(56,48,76,.92),transparent)}
-:root[data-theme="dark"] .lw__mask--bottom{background:linear-gradient(0deg,rgba(56,48,76,.92),transparent)}
-
-.lw__foot{display:flex;align-items:center;gap: var(--space-xs)}
+.lw__foot{display:flex;align-items:center;gap:var(--space-xs);flex:none;padding-right:var(--space-2xs)}
 .lw__foot-progress{flex:1;height:2px;border-radius:var(--r-2);background:var(--line);overflow:hidden}
 .lw__foot-progress i{display:block;width:100%;height:100%;background:var(--pink-600);border-radius:var(--r-2);transform:scaleX(var(--p,0));transform-origin:0 50%;transition:transform 220ms linear}
 .lw__foot-num{font-size:var(--fs-micro);color:var(--text-3);font-family:var(--font-mono)}
 
-/* 关掉歌词时的窄条 */
+/* 关掉歌词时的「台口」：不是一条窄条，是空下来的舞台 */
 .lw--off{
-  align-items:center;justify-content:space-between;gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);background:transparent;border:1px dashed var(--line-strong);box-shadow:none;
+  align-items:stretch;justify-content:stretch;height:100%;min-height:0;
+  padding:0;background:transparent;border:1px dashed var(--line-strong);
 }
 .lw--off::before{display:none}
-.lw--off__text{color:var(--text-3);font-size:12px}
+.lw--off__inner{
+  position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--space-sm);padding:var(--space-2xl) var(--space-xl) var(--space-3xl);text-align:center;
+}
+.lw--off__lamp{
+  position:absolute;left:50%;top:-18%;width:min(72%,420px);height:62%;transform:translateX(-50%);
+  background:radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--pink-400) 20%, transparent), transparent 74%);
+  pointer-events:none;
+}
+.lw--off__kicker{
+  position:relative;font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.24em;color:var(--text-3);
+}
+.lw--off__text{position:relative;color:var(--text-2);font-size:14px;line-height:1.7;max-width:26ch}
+.lw--off__acts{position:relative;display:flex;align-items:center;gap:var(--space-xs);margin-top:var(--space-2xs)}
+.lw--off__floor{
+  position:absolute;left:12%;right:12%;bottom:var(--space-lg);height:1px;
+  background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--line-strong) 70%,transparent) 0 6px,transparent 6px 12px);
+}
+.lw--off__floor::after{
+  content:"";position:absolute;left:50%;top:-3px;width:40%;height:7px;transform:translateX(-50%);
+  border-radius:var(--r-pill);background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb,var(--pink-600) 16%,transparent), transparent 78%);
+}
 
-/* 全屏大歌词 */
-.np--lyrics-full .np__stage-top,
-.np--lyrics-full .np__queue,
-.np--lyrics-full .np__timeline{display:none}
-.np--lyrics-full .np__main{grid-template-columns:minmax(0,1fr);padding:0 60px}
-.np--lyrics-full .np__stage{height:100%}
-.np--lyrics-full .lw{flex:1;min-height:0;padding: var(--space-lg) var(--space-xl) var(--space-sm) var(--space-sm)}
-.np--lyrics-full .lw__main{height:100%}
-.np--lyrics-full .lw__view{flex:1;height:auto}
+/* ============================================================
+   2. 大歌词（整屏）
+   ============================================================ */
+.np__main{transition:grid-template-columns 520ms var(--scene-ease-out),gap 520ms var(--scene-ease-out),padding 520ms var(--scene-ease-out)}
+.np__poster{transition:opacity 220ms var(--scene-ease),transform 520ms var(--scene-ease-out)}
+.np__queue{transition:opacity 220ms var(--scene-ease),transform 520ms var(--scene-ease-out)}
+.np--lyrics-full .np__main{grid-template-columns:0 minmax(0,1fr) 0;grid-template-rows:minmax(0,1fr);gap:0;padding:0 var(--space-4xl)}
+.np--lyrics-full .np__poster,
+.np--lyrics-full .np__queue{opacity:0;transform:translateX(-24px);pointer-events:none;overflow:hidden}
+.np--lyrics-full .np__lyric-swap{grid-column:2;grid-row:1;min-height:0}
+.np--lyrics-full .lw{padding:var(--space-lg) var(--space-xl) var(--space-sm) var(--space-sm)}
 .np--lyrics-full .lw-line__jp{font-size:18px}
-.np--lyrics-full .lw-line.is-cur .lw-line__jp{font-size:36px}
-.np--lyrics-full .lw-line.is-cur .lw-line__tr{font-size:12px}
+.np--lyrics-full .lw-line.is-cur .lw-line__jp{font-size:44px}
 .np--lyrics-full .lw__rail-jp{font-size:14px;letter-spacing:.42em}
 
 /* ============================================================
@@ -180,33 +204,32 @@
 .np-hint__close{width:20px;height:20px;border-radius:var(--r-sm);display:grid;place-items:center;color:var(--text-3)}
 .np-hint__close:hover{color:var(--text);background:var(--wash)}
 
-/* 缩窄时让歌词让位 */
-@media (max-width:1200px){
-  .np__stage-top{gap: var(--space-xl)}
-  .lw__view{height:180px}
-  .lw-line.is-cur .lw-line__jp{font-size:22px}
-}
+/* ============================================================
+   4. 动效档位
+   ============================================================ */
 @media (prefers-reduced-motion:reduce){
-  .pass,.np-hint{animation-duration:.001s !important}
-  .lw-line__mark{animation:none}
+  .np-hint{animation-duration:.001s !important}
   .lw__scroll{transition:none !important}
+  .np__main,.np__poster,.np__queue,.np__lyric-swap{transition:none}
 }
+:root[data-motion="off"] .np__main,
+:root[data-motion="off"] .np__poster,
+:root[data-motion="off"] .np__queue,
+:root[data-motion="off"] .np__lyric-swap{transition:none}
 
-/* 全屏大歌词：顶部身份条 */
+/* ============================================================
+   5. 大歌词顶部身份条
+   ============================================================ */
 .lw__fullhead{display:flex;align-items:center;gap: var(--space-sm);padding: var(--space-3xs) var(--space-2xs) var(--space-xs)}
 .lw__fullhead img{
   width:56px;height:56px;border-radius:var(--r-sm);object-fit:cover;flex:none;
-  outline:1px solid rgba(61,43,57,.12);outline-offset:-1px;
-  box-shadow:0 6px 16px rgba(61,43,57,.14);
+  outline:1px solid color-mix(in srgb, var(--text) 12%, transparent);outline-offset:-1px;
+  box-shadow:var(--shadow-soft);
 }
 .lw__fullhead-text{display:flex;flex-direction:column;gap: var(--space-3xs);min-width:0}
 .lw__fullhead-text b{font-family:var(--font-display);font-size:18px;color:var(--text)}
 .lw__fullhead-text span{font-size:var(--fs-micro);color:var(--text-3);letter-spacing:.06em}
 .lw__fullhead-hint{margin-left:auto;font-size:12px;color:var(--text-3)}
-.np--lyrics-full .lw__view{
-  -webkit-mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 88%,transparent);
-  mask-image:linear-gradient(180deg,transparent,var(--mask-ink) 12%,var(--mask-ink) 88%,transparent);
-}
 
 /* ---- 主题包 · 歌词墙的「字」：每包自己的字（token 管不了字重的性格，包级覆盖） ---- */
 :root[data-palette="mygo"] .lw-line__jp{font-style:italic;letter-spacing:.05em}

@@ -57,6 +57,7 @@ export function AccountMenu({
   /* 左栏选中查看的源；默认跟 active。打开弹层时重置。 */
   const [sel, setSel] = useState<string>(active);
   const leaveTimer = useRef<number | undefined>(undefined);
+  const switchTimer = useRef<number | undefined>(undefined);
   const signOutTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -73,6 +74,7 @@ export function AccountMenu({
   useEffect(
     () => () => {
       window.clearTimeout(leaveTimer.current);
+      window.clearTimeout(switchTimer.current);
       window.clearTimeout(signOutTimer.current);
     },
     [],
@@ -80,6 +82,8 @@ export function AccountMenu({
 
   const requestClose = (): void => {
     if (leaving) return;
+    window.clearTimeout(switchTimer.current);
+    setTuning(null);
     setLeaving(true);
     leaveTimer.current = window.setTimeout(() => {
       setLeaving(false);
@@ -88,13 +92,16 @@ export function AccountMenu({
   };
 
   const handleSwitch = (id: string): void => {
-    if (tuning) return;
+    if (id === active) return;
+    window.clearTimeout(switchTimer.current);
     setTuning(id);
-    leaveTimer.current = window.setTimeout(() => {
+    setSel(id);
+    switchTimer.current = window.setTimeout(() => {
       // 右栏先播「交棒」帧，真切源（父级 onSwitch 会置 open=false + 全页换台闪变）
       setLeaving(true);
       leaveTimer.current = window.setTimeout(() => {
         setLeaving(false);
+        setTuning(null);
         onClose();
       }, 160);
       onSwitch(id);
@@ -126,7 +133,12 @@ export function AccountMenu({
   return (
     <>
       <button type="button" className={`acct-scrim${leaving ? " leaving" : ""}`} aria-label="关闭账号弹层" onClick={requestClose} />
-      <div className={`acct-menu${leaving ? " leaving" : ""}`} role="dialog" aria-label="账号">
+      <div
+        className={`acct-menu${leaving ? " leaving" : ""}${tuning ? " is-tuning" : ""}`}
+        role="dialog"
+        aria-label="账号"
+        aria-busy={Boolean(tuning || signingOut)}
+      >
         {/* 左栏：音源列表。行点击只换右栏，不切源。 */}
         <div className="acct-left">
           <header className="acct-head">
@@ -147,13 +159,14 @@ export function AccountMenu({
                 /* --row-i 是进场错落的节拍：每行晚 40ms 浮入（纯展示延迟） */
                 <button
                   type="button"
-                  className={`acct-row${viewed ? " on" : ""}${tuning === source.id ? " tuning" : ""}${
+                    className={`acct-row${viewed ? " on" : ""}${source.id === active ? " is-current" : ""}${tuning === source.id ? " tuning" : ""}${
                     signingOut === source.id ? " signout" : ""
                   }`}
                   key={source.id}
                   style={{ "--row-i": i } as CSSProperties}
-                  onClick={() => {
-                    setSel(source.id);
+                   onClick={() => {
+                     if (tuning || signingOut) return;
+                     setSel(source.id);
                     // 换行看 = 取消正在开的登录面板（loginFor 挂在父级，这里显式交还）
                     if (loginFor && loginFor !== source.id) onLogin(null);
                   }}
@@ -174,7 +187,7 @@ export function AccountMenu({
         </div>
 
         {/* 右栏：跟随左栏选中态。key 换一次 = 内容转场一次（pane-swap）。 */}
-        <div className="acct-right">
+        <div className={`acct-right${tuning ? " is-tuning" : ""}`}>
           <button type="button" className="acct-menu-x" aria-label="关闭" onClick={requestClose}>
             ×
           </button>
@@ -191,7 +204,7 @@ export function AccountMenu({
                 {selected.id === active ? <span className="onair-badge">使用中</span> : null}
                 <div className="acct-acts">
                   {selected.id === active ? null : (
-                    <button type="button" className="acct-act" onClick={() => handleSwitch(selected.id)}>
+                   <button type="button" className="acct-act" onClick={() => handleSwitch(selected.id)}>
                       切换到此账号
                     </button>
                   )}

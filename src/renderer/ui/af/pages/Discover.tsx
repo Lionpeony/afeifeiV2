@@ -1,6 +1,6 @@
 /* 发现页 · 原型 .page.disc（每日推荐 / 榜单 / 热门 / 传单墙 + 搜索态）
    数据逻辑沿用现有 DiscoverView：账号每日推荐、榜单、搜索、下载。 */
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { HomeSection, RemoteTrack, Toplist } from "../../../../contracts/capability.js";
 import { getNet, invalidatePrefix, loadNet, refreshNet } from "../../../domain/net-cache/index.js";
 import { subscribeAccountInvalidation, useAccountBundle, type AccountBundle } from "../../account-data.js";
@@ -13,6 +13,7 @@ import { PALETTES } from "../data.js";
 import { TrackArt } from "../art.js";
 import { IconArrowRight, IconBack, IconPlay, IconRefresh, IconSparkle, IconDownload } from "../icons.js";
 import { Tape } from "../ui.js";
+import { RefreshMixSkeleton, useSourceRefresh } from "../RefreshTape.js";
 
 export interface AfSourceOption {
   id: string;
@@ -91,7 +92,7 @@ function NoteLine({ palette }: { palette: string }) {
   );
 }
 
-type DetailKind = "chart" | "playlist" | "artist" | "album";
+type DetailKind = "chart" | "playlist" | "artist" | "album" | "daily";
 interface DetailRef {
   id: string;
   name: string;
@@ -115,6 +116,29 @@ export function DiscoverPage(props: DiscoverPageProps) {
   const sourceName = currentSource?.name ?? sourceId;
   const canLogin = currentSource?.canAuth === true;
   const acct = useAccountBundle(props.daily, "daily");
+  const rf = useSourceRefresh(acct.sourceId, acct.loading);
+  /** 每日推荐是“一天一份”的固定 30 首；换一批 = 在今天的列表里换下一组 4 首，而不是假装上游会给新歌。 */
+  const [dailyTurn, setDailyTurn] = useState(0);
+  const dailySig = acct.songs.map((t) => t.sourceId).join("|");
+  const dailySigRef = useRef(dailySig);
+  useEffect(() => {
+    if (dailySigRef.current === dailySig) return;
+    dailySigRef.current = dailySig;
+    setDailyTurn(0);
+  }, [dailySig]);
+  const dailySongs = useMemo(() => {
+    const all = acct.songs;
+    if (all.length < 2) return all;
+    const offset = (dailyTurn * 4) % all.length;
+    return offset === 0 ? all : [...all.slice(offset), ...all.slice(0, offset)];
+  }, [acct.songs, dailyTurn]);
+  const dailyOffset = acct.songs.length ? (dailyTurn * 4) % acct.songs.length : 0;
+  /** 末页不绕回开头：28 号页就只显示 29、30，下一批再回 01。 */
+  const dailyPreview = dailySongs.slice(0, Math.min(4, Math.max(0, acct.songs.length - dailyOffset)));
+  const reloadDaily = (): void => {
+    setDailyTurn((t) => t + 1);
+    acct.reload();
+  };
 
   const [loginOpen, setLoginOpen] = useState(false);
   const [note, setNote] = useState("");
@@ -228,10 +252,25 @@ export function DiscoverPage(props: DiscoverPageProps) {
     setDetailNote("");
     setDetailShown(0);
     if (main) main.scrollTop = 0;
+    /* 每日推荐是页面已经持有的数据：直接铺开，不再发一次网络请求。 */
+    if (item.kind === "daily") {
+      setDetailTracks(acct.songs);
+      setDetailShown(acct.songs.length);
+      setDetailNote(acct.songs.length > 0 ? "" : "今天的推荐还没到。");
+      return;
+    }
     void loadDetail(item.kind, item.id, 0);
   };
 
   const loadDetail = async (kind: DetailKind, listId: string, page: number): Promise<void> => {
+    if (kind === "daily") {
+      setDetailBusy(false);
+      setDetailTracks(acct.songs);
+      setDetailNext(undefined);
+      setDetailShown(acct.songs.length);
+      setDetailNote(acct.songs.length > 0 ? "" : "今天的推荐还没到。");
+      return;
+    }
     const key = `charts:tracks:${sourceId}:${kind}:${listId}:${page}`;
     const req = detailReq.current;
     const cached = page === 0 ? getNet<{ items: RemoteTrack[]; nextPage?: number }>(key) : undefined;
@@ -408,13 +447,13 @@ export function DiscoverPage(props: DiscoverPageProps) {
   const dayNum = pad(today.getDate());
   const monStr = MONTHS[today.getMonth()];
   const weekday = WEEKDAYS[today.getDay()];
-  const dailyCover = acct.songs[0]?.coverUrl ?? null;
+  const dailyCover = dailySongs[0]?.coverUrl ?? null;
   const dailySub = acct.hint
     ? acct.hint
     : acct.loading
       ? "正在取今天的推荐…"
       : `来自${sourceName}账号 · ${acct.songs.length} 首 · 每天 06:00 换新`;
-  const hot = acct.songs.slice(0, 8);
+  const hot = dailySongs.slice(0, 8);
   const hotOrigin = "今日推荐";
 
   /* 传单墙来自真实播放历史：按天归档，最多三张；没有记录就不摆假海报 */
@@ -449,11 +488,11 @@ export function DiscoverPage(props: DiscoverPageProps) {
     const dateLabel = `${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
     const loadedMin = Math.round(detailTracks.reduce((sum, t) => sum + t.durationMs, 0) / 60000);
     const playedAll = detailNext === undefined && detailShown >= detailTracks.length && detailTracks.length > 0;
-    const kicker = detail.kind === "chart" ? "榜单" : detail.kind === "playlist" ? "歌单" : detail.kind === "artist" ? "歌手" : "专辑";
+    const kicker = detail.kind === "chart" ? "榜单" : detail.kind === "playlist" ? "歌单" : detail.kind === "artist" ? "歌手" : detail.kind === "daily" ? "每日推荐" : "专辑";
     const heroCover = detail.coverUrl ?? visibleTracks[0]?.coverUrl;
 
     return (
-      <div className="page disc disc-detail page-setlist" data-screen-label="榜单详情">
+      <div className="page disc disc-detail page-setlist pg-push" data-screen-label={detail.kind === "daily" ? "每日推荐" : "榜单详情"}>
         <button type="button" className="setlist-back" onClick={closeDetail}>
           <IconBack size={14} />返回
         </button>
@@ -606,7 +645,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
   }
 
   return (
-    <div className="page disc" data-screen-label="发现">
+    <div className="page disc pg-hand" data-screen-label="发现">
       <div className="disc__head">
         <div>
           <div className="eyebrow disc__eyebrow">DISCOVER · {sourceName}{acct.hint ? " · 未登录" : " · 已登录"}</div>
@@ -716,6 +755,10 @@ export function DiscoverPage(props: DiscoverPageProps) {
         </section>
       ) : (
         <>
+          <div
+            className={"rf" + (rf === "loading" ? " is-refreshing" : rf === "fresh" ? " is-fresh" : "")}
+            aria-busy={acct.loading || undefined}
+          >
           <section className="mix disc-hero" aria-label="每日推荐">
             <div className="mix__cover">
               {dailyCover ? <img src={dailyCover} alt="" referrerPolicy="no-referrer" /> : <TrackArt id="daily-mix" size={224} radius={14} />}
@@ -728,22 +771,30 @@ export function DiscoverPage(props: DiscoverPageProps) {
               <div className="mix__meta">{dailySub}</div>
               {acct.error ? <div className="mix__meta" style={{ color: "var(--coral)" }}>{acct.error}</div> : null}
               <div className="row gap10" style={{ marginTop: 16 }}>
-                {acct.songs.length > 0 ? (
-                  <button className="btn btn-primary" onClick={() => { void props.onPlay(acct.sourceId, acct.songs[0]!, acct.songs, "每日推荐"); af.openPlayer(); }}>
+                {dailySongs.length > 0 ? (
+                  <button className="btn btn-primary" onClick={() => { void props.onPlay(acct.sourceId, dailySongs[0]!, dailySongs, "每日推荐"); af.openPlayer(); }}>
                     <IconPlay size={14} />今日开播
                   </button>
                 ) : null}
                 {acct.hint && canLogin ? (
                   <button className="btn btn-primary" onClick={() => setLoginOpen(true)}>登录{sourceName}</button>
                 ) : null}
-                <button className="btn btn-ghost" onClick={acct.reload} disabled={acct.loading}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={reloadDaily}
+                  disabled={acct.loading}
+                  title="在今天的推荐里换下一组"
+                >
                   <IconRefresh size={14} />换一批
                 </button>
               </div>
               <div className="mix__list">
-                {acct.songs.slice(0, 4).map((t, i) => (
-                  <button key={`${t.sourceId}-${i}`} className="mix-row" onClick={() => { void props.onPlay(acct.sourceId, t, acct.songs, "每日推荐"); af.openPlayer(); }}>
-                    <span className="mix-row__no num">{pad(i + 1)}</span>
+                {acct.loading && dailySongs.length === 0 ? (
+                  <RefreshMixSkeleton rows={4} />
+                ) : (
+                  dailyPreview.map((t, i) => (
+                  <button key={`${t.sourceId}-${i}`} className="mix-row" onClick={() => { void props.onPlay(acct.sourceId, t, dailySongs, "每日推荐"); af.openPlayer(); }}>
+                    <span className="mix-row__no num">{pad(dailyOffset + i + 1)}</span>
                     <span className="mix-row__art" aria-hidden="true">
                       {t.coverUrl ? <img src={thumb(t.coverUrl, 64)} alt="" loading="lazy" referrerPolicy="no-referrer" /> : <TrackArt id={t.sourceId} size={26} radius={5} />}
                     </span>
@@ -751,8 +802,18 @@ export function DiscoverPage(props: DiscoverPageProps) {
                     <span className="mix-row__artist truncate">{t.artist}</span>
                     <span className="mix-row__dur num">{fmtDur(t.durationMs)}</span>
                   </button>
-                ))}
+                  ))
+                )}
               </div>
+              {acct.songs.length > 4 ? (
+                <button
+                  className="mix__all"
+                  onClick={() => openDetail({ id: "daily", name: "每日推荐", coverUrl: acct.songs[0]?.coverUrl, kind: "daily" })}
+                >
+                  查看全部 {acct.songs.length} 首
+                  <IconArrowRight size={13} />
+                </button>
+              ) : null}
             </div>
             <div className="mix__bigdate" aria-hidden="true"><b>{dayNum}</b><span>{monStr}</span></div>
           </section>
@@ -951,6 +1012,7 @@ export function DiscoverPage(props: DiscoverPageProps) {
               ) : null}
             </div>
           ) : null}
+          </div>
 
           {/* 今日一句挪到传单墙前：开场让位给内容，收尾留给情绪（安可词） */}
           <NoteLine palette={af.palette} />

@@ -29,6 +29,7 @@ const AF = [
   "af/lyrics.css",
   "af/typography.css",
   "af/sidebar.css",
+  "af/scene.css",
   "af/splash.css",
 ];
 

@@ -62,12 +62,12 @@ export const DEMO_INFO: Record<string, string> = {
 };
 
 export const PALETTES = [
-  /* swatch 取自各包 tokens 实值：bg=纸底、sub=印章点、band=该包 --gradient-tri（舞台幕布）——
-     选色器要能一眼分清四个世界，单色圆点分不清（默认粉 #D63384 和墙角粉 #C43F70 几乎同族）。 */
+  /* swatch 直接取各包 tokens 实值：bg=纸底、sub=纸底次层、band=该包 --gradient-tri（舞台幕布）。
+     色卡必须和实际 UI 同色，否则用户选的是色卡、看到的是另一套。 */
   { id: "default", label: "默认 · 奶油粉白", swatch: { bg: "#FFF8F5", sub: "#FFE8EF", band: "linear-gradient(90deg,#FF9EBB,#B8A9E8,#7EC8E3)" }, locked: false, origin: "" },
-  { id: "mygo", label: "迷子 · 雨夜", swatch: { bg: "#F5F4FE", sub: "#EAE8FA", band: "linear-gradient(90deg,#4FA3E3,#8C6FD9,#E8618C)" }, locked: true, origin: "《BanG Dream! It's MyGO!!!!!》（迷途之子！！！！！）" },
-  { id: "gbc", label: "无滤镜 · 冷灰", swatch: { bg: "#F0EFED", sub: "#E5E3E0", band: "linear-gradient(90deg,#D92534,#2C55A8)" }, locked: true, origin: "《GIRLS BAND CRY》（少女乐队的呐喊）" },
-  { id: "btr", label: "墙角 · 暖米", swatch: { bg: "#F8F1E2", sub: "#F0E5D0", band: "linear-gradient(90deg,#FFC53D,#E75C8D,#4EA8C9)" }, locked: true, origin: "《ぼっち・ざ・ろっく！》（孤独摇滚！）" },
+  { id: "mygo", label: "迷子 · 雨夜", swatch: { bg: "#E9EFF8", sub: "#DDE6F3", band: "linear-gradient(90deg,#6F8FB5,#8E88A8,#B5A8B8)" }, locked: true, origin: "《BanG Dream! It's MyGO!!!!!》（迷途之子！！！！！）" },
+  { id: "gbc", label: "无滤镜 · 冷灰", swatch: { bg: "#EDEFF1", sub: "#E0E3E7", band: "linear-gradient(90deg,#FF2D9B,#0E7C92)" }, locked: true, origin: "《GIRLS BAND CRY》（少女乐队的呐喊）" },
+  { id: "btr", label: "墙角 · 暖米", swatch: { bg: "#F1EEEA", sub: "#E6E0D7", band: "linear-gradient(90deg,#FFC53D,#E75C8D,#4EA8C9)" }, locked: true, origin: "《ぼっち・ざ・ろっく！》（孤独摇滚！）" },
 ];
 
 export const SECRET_CODES: Record<string, { palette: string; label: string }> = {

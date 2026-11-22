@@ -101,6 +101,11 @@ contextBridge.exposeInMainWorld("api", {
   openLyric: (): Promise<void> => ipcRenderer.invoke("lyric:open"),
   unlockLyric: (): Promise<void> => ipcRenderer.invoke("lyric:unlock"),
   pushLyricState: (json: string): void => ipcRenderer.send("lyric:state", json),
+  onLyricAction: (cb: (action: string) => void): void => {
+    ipcRenderer.on("lyric:forward", (_e, action: unknown) => {
+      if (typeof action === "string") cb(action);
+    });
+  },
 
   // afeifei:// 冷/热启动：主进程解析后的结构化 intent（渲染层不碰原始 URL）
   onSchemeUrl: (

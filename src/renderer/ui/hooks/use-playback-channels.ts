@@ -58,7 +58,7 @@ export function usePlaybackChannels(input: {
   const seekByDelta = (deltaMs: number): void => {
     const svc = services.current;
     if (!svc) return;
-    const dur = svc.engine.durationMs();
+    const dur = svc.durationMs();
     const target = svc.positionMs() + deltaMs;
     const next = Math.max(0, dur > 0 ? Math.min(dur, target) : target);
     dispatch({ type: "player/seek", positionMs: next });

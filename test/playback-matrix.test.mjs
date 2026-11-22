@@ -153,7 +153,7 @@ test("矩阵 · 删到空：进空态，之后点播放不许假装在播", () =
 test("矩阵 · 重启恢复：cue 停暂停，点播放才响", () => {
   dispatch({ type: "queue/set", items: ["a", "b"], startAt: 1 });
   dispatch({ type: "player/cue", trackId: "b", positionMs: 0 });
-  assert.equal(P().status, "loading");
+  assert.equal(P().status, "paused", "恢复不取源，直接停在暂停");
   inv("cue");
 
   dispatch({ type: "player/ready" });

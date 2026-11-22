@@ -4,8 +4,7 @@
 .np{
   position:fixed;inset:0;z-index:var(--z-np);
   background:var(--bg);overflow:hidden;
-  display:grid;grid-template-rows:auto minmax(0,1fr) auto;
-  animation:fadeIn .2s var(--ease) both;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;
 }
 /* 舞台双光晕：左上装饰色、右下次色，全部由 token 派生（docs/30 §36）——
    换包自动换光，不再写死粉紫。 */
@@ -25,27 +24,39 @@
   -webkit-app-region:drag;   /* 播放页盖住了顶栏，这条顶带兼任标题栏拖拽区 */
 }
 .np__top button,.np__top kbd{-webkit-app-region:no-drag}
-.np__windiv{width:1px;height:16px;background:var(--line-strong);opacity:.7}
+.np__ops{display:flex;align-items:center;gap:var(--space-3xs)}
+.np__windiv{width:1px;height:16px;margin-left:var(--space-xs);background:var(--line-strong);opacity:.7}
+/* 窗口钮降到内容钮之后：同排但低一档存在感，扫读时不再和「分享/全屏」抢 */
+.np__winops{display:flex;align-items:center;gap:var(--space-3xs);opacity:.72;transition:opacity var(--dur-fast) var(--ease-out-soft)}
+.np__winops:hover,.np__winops:focus-within{opacity:1}
 .np__winbtn{width:28px;height:28px;border-radius:var(--r-sm)}
 .np__winclose:hover{color:var(--white);background:var(--coral)}
 .np__top-label{display:flex;align-items:center;gap: var(--space-xs);font-size:var(--fs-micro);letter-spacing:.16em;color:var(--text-3)}
+.np__top-sep{width:1px;height:16px;background:var(--line);flex:none}
+/* 三根柱子：海报（这一场的身份）/ 歌词舞台（此刻的主角）/ 演出单（今晚的顺序）。
+   控制台独占底部一整条，播放页不再把「歌」和「控制」挤在同一列里。 */
 .np__main{
   position:relative;z-index:var(--z-card-top);
-  display:grid;grid-template-columns:minmax(0,1fr) 348px;
-  gap:56px;align-items:center;
-  padding: 0 var(--space-3xl) 0 var(--space-3xl);min-height:0;
+  display:grid;
+  grid-template-columns:minmax(228px,300px) minmax(0,1fr) minmax(228px,296px);
+  gap:var(--space-3xl);
+  align-items:stretch;
+  padding: var(--space-md) var(--space-3xl) var(--space-xs);
+  min-height:0;
 }
-.np__stage{display:grid;grid-template-columns:auto minmax(0,1fr);gap: var(--space-3xl);align-items:center;width:100%;justify-self:stretch}
-.np__info{display:flex;flex-direction:column;align-items:flex-start;min-width:0;max-width:470px}
+.np__poster{display:flex;flex-direction:column;gap:var(--space-md);align-items:flex-start;justify-content:center;min-width:0;min-height:0}
+.np__info{display:flex;flex-direction:column;align-items:flex-start;min-width:0;width:100%}
 
-/* 封面 */
-.np__art{position:relative;width:min(40vh,352px);aspect-ratio:1;margin-bottom:0}
+/* 封面（海报栏宽度 = 列的宽度，不再吃掉中间那一半） */
+.np__art{position:relative;width:100%;aspect-ratio:1;margin-bottom:0;flex:none}
 .np__art-img{
   width:100%;height:100%;object-fit:cover;border-radius:var(--r-xl);
   box-shadow:0 28px 60px rgba(61,43,57,.26);
   transform:rotate(-1deg);
   animation:artIn .6s var(--ease) both;
 }
+/* 无封面时程序化场景按容器缩放（SVG 的 width/height 属性只管默认尺寸，这里接管几何） */
+.np__art-img .art-scene,.np__art-img.art-scene{width:100%;height:100%;display:block}
 @keyframes artIn{from{opacity:0;transform:rotate(-1deg) translateY(14px) scale(.97)}to{opacity:1;transform:rotate(-1deg)}}
 .np__art.is-breathing{animation:breatheScale 6s var(--ease-out-soft) infinite}
 .wander__cover-wrap.is-breathing{animation:breatheScale 6s var(--ease-out-soft) infinite}
@@ -57,12 +68,37 @@
   box-shadow:0 8px 22px rgba(61,43,57,.16);transform:rotate(6deg);
   color:var(--coral);
 }
+.np__stage-tag{
+  position:absolute;left:12px;bottom:12px;z-index:var(--z-card-top);
+  padding:var(--space-3xs) var(--space-xs);border-radius:var(--r-xs);
+  font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.12em;
+  color:var(--on-accent);background:var(--pink-600);
+  box-shadow:0 4px 12px color-mix(in srgb,var(--pink-600) 28%,transparent);
+  animation:stageTagIn 380ms var(--ease-spring) both;
+}
+@keyframes stageTagIn{from{opacity:0;transform:translateY(6px) rotate(-3deg)}68%{opacity:1;transform:translateY(-1px) rotate(-1deg)}to{opacity:1;transform:none}}
 .np__art-badge b{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3);display:block;text-align:center;line-height:1}
 
 /* 曲目信息 */
 .np__kicker{display:flex;align-items:center;gap: var(--space-xs);margin-bottom: var(--space-sm);min-width:0;max-width:100%}
+.np__setline{display:flex;align-items:center;gap:var(--space-xs);width:100%;margin-bottom:var(--space-sm);font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.12em;color:var(--pink-700)}
+.np__setline-rule{height:1px;flex:1;background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--pink-600) 34%,transparent) 0 4px,transparent 4px 8px)}
+.np__setline-cue{color:var(--text-3);letter-spacing:.08em}
+:root[data-palette="mygo"] .np__stage-tag,
+.np--mygo .np__stage-tag{background:var(--lav);box-shadow:0 4px 12px color-mix(in srgb,var(--lav) 28%,transparent)}
+:root[data-palette="mygo"] .np__setline,.np--mygo .np__setline{color:var(--lav)}
+:root[data-palette="mygo"] .np__setline-rule,.np--mygo .np__setline-rule{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--lav) 38%,transparent) 0 3px,transparent 3px 8px)}
+:root[data-palette="gbc"] .np__stage-tag,.np--gbc .np__stage-tag{background:var(--mint);color:var(--text);box-shadow:0 4px 12px color-mix(in srgb,var(--mint) 28%,transparent)}
+:root[data-palette="gbc"] .np__setline,.np--gbc .np__setline{color:color-mix(in srgb,var(--mint) 78%,var(--text))}
+:root[data-palette="gbc"] .np__setline-rule,.np--gbc .np__setline-rule{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--mint) 46%,transparent) 0 2px,transparent 2px 6px)}
+:root[data-palette="btr"] .np__stage-tag,.np--btr .np__stage-tag{background:var(--btr-pink);box-shadow:0 4px 12px color-mix(in srgb,var(--btr-pink) 28%,transparent)}
+:root[data-palette="btr"] .np__setline,.np--btr .np__setline{color:color-mix(in srgb,var(--btr-pink) 82%,var(--text))}
+:root[data-palette="btr"] .np__setline-rule,.np--btr .np__setline-rule{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--btr-yellow) 55%,transparent) 0 5px,transparent 5px 9px)}
 .np__kicker .eyebrow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np__title{font-family:var(--font-display);font-size:var(--fs-hero);line-height:var(--lh-hero);letter-spacing:.01em;text-wrap:balance}
+.np__title{font-family:var(--font-display);font-size:clamp(20px,1.85vw,28px);line-height:var(--lh-hero);letter-spacing:.01em;text-wrap:balance}
+/* 专辑只留一行小字，歌名/艺人不重复报第二遍 */
+.np__album{margin-top:var(--space-xs);min-width:0;max-width:100%}
+.np__album .eyebrow{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np__band{margin-top: var(--space-xs);display:flex;align-items:center;gap: var(--space-xs);font-size:12px;color:var(--text-2);max-width:100%;min-width:0}
 .np__band > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np__band > span:first-child{flex:0 1 auto}
@@ -71,9 +107,18 @@
 .np__band-link{padding:0;border:0;background:none;font:inherit;color:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 .np__band-link:hover,.np__band-link:focus-visible{text-decoration:underline;text-decoration-color:var(--pink-600);text-underline-offset:4px}
 .np__band i{width:3px;height:3px;border-radius:50%;background:var(--text-3);display:block}
+/* 歌词开关是辅助控制，放在艺人行尾，不挤进 transport 主行 */
+.np__lyric-toggle{
+  flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:var(--space-3xs);
+  height:22px;padding:0 var(--space-xs);border:1px solid var(--line);border-radius:var(--r-pill);
+  font-size:var(--fs-micro);color:var(--text-3);
+  transition:color var(--dur-fast) var(--ease-out-soft),border-color var(--dur-fast) var(--ease-out-soft),background-color var(--dur-fast) var(--ease-out-soft);
+}
+.np__lyric-toggle:hover{color:var(--text);border-color:var(--line-strong)}
+.np__lyric-toggle.is-on{color:var(--pink-700);border-color:color-mix(in srgb,var(--pink-600) 38%,var(--line));background:var(--wash)}
 
-/* 进度 */
-.np__progress-wrap{width:100%;max-width:560px;margin-top: var(--space-xl);position:relative}
+/* 进度（控制台的中列：一条贯穿整块的进度尺） */
+.np__seek{width:100%;min-width:0;position:relative}
 .np__chorus-hint{
   position:absolute;top:-22px;left:0;
   font-family:var(--font-hand);font-size:12px;color:var(--pink-600);
@@ -97,6 +142,12 @@
   transform:scaleX(var(--p,0));transform-origin:0 50%;
   transition:transform .22s linear;
 }
+.np--mygo .np__progress-fill{background:linear-gradient(90deg,var(--lav),var(--pastel-iris))}
+.np--gbc .np__progress-fill{background:linear-gradient(90deg,var(--mint),var(--pink-600))}
+.np--btr .np__progress-fill{background:linear-gradient(90deg,var(--btr-yellow),var(--btr-pink))}
+.np--mygo .np__progress-knob{border-color:var(--lav)}
+.np--gbc .np__progress-knob{border-color:var(--mint)}
+.np--btr .np__progress-knob{border-color:var(--btr-pink)}
 .np__progress.is-dragging .np__progress-fill{transition:none}
 .np__progress-knob{
   position:absolute;top:50%;left:0;width:11px;height:11px;border-radius:50%;
@@ -113,14 +164,23 @@
   position:absolute;top:50%;transform:translate(-50%,-50%) rotate(-8deg);
   color:var(--coral);pointer-events:none;
 }
-.np__times{display:flex;justify-content:space-between;margin-top: var(--space-3xs)}
-/* 播放页音量（2026-11-21）：进度区右侧静音钮 + 连续滑杆（复用底栏 .vol__range），QQ 同位 */
-.np__times-vol{display:flex;align-items:center;gap: var(--space-xs);margin-left:auto;padding-left: var(--space-xs)}
-.np__times-vol .vol__range{width:72px}
-.np__ctrl--sm{width:28px;height:28px}
+.np__times{display:flex;align-items:baseline;justify-content:space-between;gap: var(--space-sm);margin-top: var(--space-3xs)}
+.np__times .num{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3);white-space:nowrap}
+.np__times .np__times-pos{color:var(--text-2)}
+.np__ctrl--sm{width:24px;height:24px}
+.np__vol{display:flex;align-items:center;gap:var(--space-2xs);flex:none}
+.np__vol .vol__range{width:76px}
+
+/* 控制台：上沿整场时间线，下面一条「传输 · 进度 · 音量」 */
+.np__console{
+  position:relative;z-index:var(--z-card-top);
+  padding:0 var(--space-3xl) var(--space-lg);
+  display:flex;flex-direction:column;gap:var(--space-sm);
+}
+.np__deck{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-2xl)}
 
 /* 控制条 */
-.np__controls{display:flex;align-items:center;gap: var(--space-md);margin-top: var(--space-lg)}
+.np__controls{display:flex;align-items:center;gap: var(--space-sm)}
 .np__ctrl{
   width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
   color:var(--text-2);transition:all .18s var(--ease);
@@ -145,29 +205,49 @@
 }
 .np__ctrl-sep{width:1px;height:22px;background:var(--line);margin: 0 var(--space-3xs)}
 
-/* 队列 */
+/* 队列 = 今晚的演出单（右柱，跟着主区一起长高） */
 .np__queue{
-  background:var(--stage-card);border-radius:var(--r-xl);
-  box-shadow:0 16px 44px color-mix(in srgb, var(--text) 16%, transparent);
+  background:var(--card-paper);border-radius:var(--r-xl);border:1px solid var(--line);
+  box-shadow:0 14px 34px color-mix(in srgb, var(--text) 7%, transparent);
   padding:20px 18px 14px;position:relative;
-  height:min(72vh,608px);display:flex;flex-direction:column;
+  height:100%;min-height:0;display:flex;flex-direction:column;
   transform:rotate(.5deg);
 }
-/* 卡面材质由 --stage-card 统一给（tokens.css 按包定义），歌词卡共用同一块料。
+/* 卡面材质由 --card-paper 统一给（tokens.css 按包定义），歌词卡共用同一块料与同一个描边/投影。
    贴纸改由 JSX 里的 <Tape> 提供（base.css 的 .tape 已按包换料）。 */
-.np__queue-head{display:flex;align-items:flex-start;justify-content:space-between;padding: 0 var(--space-2xs) var(--space-sm);flex:none}
-.np__queue-title{font-family:var(--font-display);font-size:16px}
-.np__queue-sub{font-size:var(--fs-micro);color:var(--text-3);margin-top: var(--space-3xs);font-family:var(--font-hand)}
+.np__queue.is-collapsed{
+  height:auto;align-self:start;padding:14px 16px;transform:none;
+  box-shadow:0 10px 26px color-mix(in srgb, var(--text) 6%, transparent);
+}
+.np__queue.is-collapsed .np__queue-head{padding:0;align-items:center}
+.np__queue.is-collapsed .np__queue-title{font-size:14px}
+.np__queue.is-collapsed .np__queue-eyebrow{display:none}
+.np__queue-head{display:flex;align-items:flex-start;justify-content:space-between;gap: var(--space-xs);padding: 0 var(--space-2xs) var(--space-sm);flex:none}
+.np__queue-headmain{min-width:0;flex:1}
+.np__queue-eyebrow{font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.22em;color:var(--text-3)}
+.np__queue-title{font-family:var(--font-display);font-size:16px;margin-top:var(--space-3xs)}
+.np__queue-sub{font-size:var(--fs-micro);color:var(--text-3);margin-top: var(--space-3xs);font-family:var(--font-hand);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np__queue-count{flex:none;color:var(--text-3);font-size:var(--fs-micro);margin-top:var(--space-2xs)}
+.np__queue.is-collapsed .np__queue-count{margin-top:0}
+.np__queue-toggle{
+  flex:none;width:24px;height:24px;min-width:24px;border-radius:50%;display:grid;place-items:center;
+  color:var(--text-3);transition:color var(--dur-fast) var(--ease-out-soft),background-color var(--dur-fast) var(--ease-out-soft);
+}
+.np__queue-toggle:hover,.np__queue-toggle:focus-visible{color:var(--pink-700);background:var(--wash)}
+.np__queue-toggle svg{transition:transform var(--dur-base) var(--ease-out-soft)}
+.np__queue.is-open .np__queue-toggle svg{transform:rotate(180deg)}
 .np__queue-list{overflow-y:auto;overflow-x:hidden;position:relative;padding: 0 var(--space-3xs) 0 var(--space-md);flex:1;min-height:0;}
 .np__queue-list::-webkit-scrollbar{width:6px}
 .np__queue-list::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:var(--r-pill)}
 
 .qrow{
-  display:grid;grid-template-columns:20px minmax(0,1fr) auto;
+  display:grid;grid-template-columns:20px 24px minmax(0,1fr) auto;
   gap: var(--space-xs);align-items:center;width:100%;text-align:left;
   padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);border-radius:var(--r-sm);position:relative;
   transition:background .16s var(--ease);
 }
+.qrow__art{width:22px;height:22px;border-radius:var(--r-xs);overflow:hidden;background:var(--wash);outline:1px solid color-mix(in srgb,var(--text) 9%,transparent);outline-offset:-1px}
+.qrow__art img{width:100%;height:100%;object-fit:cover;display:block}
 .qrow{overflow:hidden}
 .qrow::before{
   content:"";position:absolute;inset:0;border-radius:var(--r-sm);z-index:var(--z-base);
@@ -188,7 +268,18 @@
 }
 @keyframes pickSlide{from{opacity:0;transform:rotate(-8deg) translateX(-6px)}to{opacity:1;transform:rotate(-8deg) translateX(0)}}
 .qrow__no{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3)}
-.qrow__title{font-size:12px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qrow__name{display:flex;align-items:center;gap:var(--space-xs);min-width:0;overflow:hidden}
+.qrow__title{font-size:12px;color:var(--text-2);min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 演出单要说得出口的只有两句提示：现在这首、下一首 */
+.qrow__cue{
+  flex:none;font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.14em;
+  color:var(--pink-700);padding:0 var(--space-3xs);border-radius:var(--r-xs);
+  border:1px solid color-mix(in srgb, var(--pink-600) 34%, transparent);
+}
+.qrow__cue--next{color:var(--text-3);border-color:var(--line-strong)}
+:root[data-theme="dark"] .qrow__cue{color:var(--pink-400);border-color:color-mix(in srgb, var(--pink-400) 36%, transparent)}
+:root[data-theme="dark"] .qrow__cue--next{color:var(--text-3);border-color:var(--line-strong)}
+.qrow.is-next .qrow__no{color:var(--text-2)}
 .qrow__dur{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3)}
 .qrow.is-struck .qrow__title{opacity:.35;transform:translateY(2px)}
 .qrow__title{transition:opacity var(--dur-base) var(--ease-out-soft),transform var(--dur-base) var(--ease-out-soft)}
@@ -207,6 +298,7 @@
 .act-sep__num{
   font-family:var(--font-display);font-size:12px;letter-spacing:.18em;color:var(--text-3);
 }
+.act-sep__name{font-family:var(--font-hand);font-size:var(--fs-micro);letter-spacing:.08em;color:var(--text-3);padding-right:var(--space-2xs)}
 .act-sep__bar{flex:1;height:3px;border-radius:var(--r-2);opacity:.5}
 .act-sep__bar--1{background:linear-gradient(90deg,var(--pink-400),transparent)}
 .act-sep__bar--2{background:linear-gradient(90deg,var(--lav),transparent)}
@@ -222,13 +314,13 @@
 .qpath__detour{stroke:var(--mint);stroke-width:1.8;stroke-dasharray:520;stroke-dashoffset:520;opacity:0}
 .qpath__detour.is-on{opacity:.95;stroke-dashoffset:0}
 
-/* 演出时间线 */
+/* 演出时间线：控制台上沿的一根「整场」，不再是单独占一行的第三条进度 */
 .np__timeline{
   position:relative;z-index:var(--z-card-top);
-  padding: var(--space-md) var(--space-3xl) var(--space-xl);display:flex;align-items:center;gap: var(--space-sm);
+  display:flex;align-items:center;gap: var(--space-sm);min-width:0;
 }
 .np__timeline-label{font-family:var(--font-hand);font-size:var(--fs-micro);color:var(--text-3);flex:none}
-.np__timeline-track{flex:1;display:flex;gap:3px;height:8px;align-items:stretch}
+.np__timeline-track{flex:1;display:flex;gap:3px;height:6px;align-items:stretch;min-width:0}
 .tl-seg{
   border-radius:var(--r-2);background:var(--line-strong);opacity:.55;
   transition:flex .4s var(--ease),background .3s var(--ease),opacity .3s var(--ease);
@@ -236,48 +328,45 @@
 }
 .tl-seg.is-past{background:var(--pink-400);opacity:.55}
 .tl-seg.is-current{background:var(--pink-600);opacity:1;flex-grow:1.6 !important}
-.np__timeline-time{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3);flex:none}
 
 /* 幕布 E08 */
 .curtain{
   position:fixed;top:0;bottom:0;width:51%;z-index:var(--z-curtain);pointer-events:none;
-  background:
-    repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 2px,transparent 2px 26px),
-    linear-gradient(160deg,var(--pastel-pink),var(--pastel-lav) 62%,var(--pastel-iris));
+  background:linear-gradient(160deg,color-mix(in srgb,var(--pink-400) 26%,var(--card)),color-mix(in srgb,var(--lav) 20%,var(--card)) 62%,color-mix(in srgb,var(--mint) 16%,var(--card)));
   box-shadow:0 0 40px rgba(61,43,57,.18);
   will-change:transform;
 }
 .curtain::after{
-  content:"";position:absolute;top:0;bottom:0;width:7px;
-  background:repeating-linear-gradient(180deg,rgba(255,255,255,.85) 0 7px,transparent 7px 14px);
+  content:"";position:absolute;top:0;bottom:0;width:1px;
+  background:color-mix(in srgb,var(--text) 18%,transparent);
   opacity:.55;
 }
 .curtain--l{left:0;border-radius:0 var(--r-md) var(--r-md) 0;transform-origin:left center;
-  animation:curtainL var(--dur-curtain) var(--ease-curtain) both}
+  animation:curtainL var(--scene-in) var(--scene-ease-out) both}
 .curtain--l::after{right:0}
 .curtain--r{right:0;border-radius:var(--r-md) 0 0 var(--r-md);transform-origin:right center;
-  animation:curtainR var(--dur-curtain) var(--ease-curtain) both}
+  animation:curtainR var(--scene-in) var(--scene-ease-out) both}
 .curtain--r::after{left:0}
 @keyframes curtainL{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 @keyframes curtainR{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 
-/* 舞台内容在幕布后先就位，60% 时呼吸浮现 */
-.np__main{animation:stageBreathe 460ms var(--ease-out-soft) 240ms both}
-.np__top{animation:fadeIn 300ms var(--ease-out-soft) 180ms both}
-.np__timeline{animation:fadeUp 420ms var(--ease-out-soft) 320ms both}
-@keyframes stageBreathe{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+/* 舞台内容也走 scene 节奏：幕布已经打开时，内容只做一次短浮入 */
+.np__main{animation:stageRise var(--scene-in) var(--scene-ease-out) both}
+.np__top{animation:stageRise var(--scene-in) var(--scene-ease-out) both}
+.np__timeline{animation:stageRise var(--scene-in) var(--scene-ease-out) both}
+@keyframes stageRise{from{opacity:0;transform:translateY(var(--scene-rise))}to{opacity:1;transform:none}}
+
+/* 舞台进出也交给 scene token：出场快、入场慢 */
+.np{animation:stageSceneIn var(--scene-in) var(--scene-ease-out) both}
+@keyframes stageSceneIn{from{opacity:0;transform:translateY(var(--scene-rise))}to{opacity:1;transform:none}}
 
 /* ---------------- 全屏播放模式（docs/30 §22；body[data-fs] 由 NowPlaying 挂） ----------------
    对齐 QQ/网易全屏语法：画面为主、chrome 隐退——鼠标静止 2.8s 顶带淡出、封面放大，
    时间线常驻（底部管歌那一层在全屏里也不许消失）；Esc 退出。 */
 body[data-fs] .np__top{transition:opacity .32s var(--ease-out-soft)}
 body[data-fs].np-idle .np__top{opacity:0;pointer-events:none}
-/* 高度预算：封面 44vh + 歌词墙限高 + 台侧备注让位，保证列高 ≤ 中排 1fr，不再压进时间线 */
-body[data-fs] .np__art{width:min(44vh,408px)}
-body[data-fs] .np__stage-note{display:none}
-body[data-fs] .lw__view{height:clamp(120px,22vh,240px)}
-body[data-fs] .np__stage{gap:56px;align-content:center}
-body[data-fs] .np__info{max-width:560px}
+/* 高度预算：海报栏吃掉富余高度，歌词柱永远 flex:1，控制台留在底部 */
+body[data-fs] .np__poster{gap:var(--space-lg)}
 body[data-fs] .np__title{font-size:var(--fs-hero-xl)}
 body[data-fs].np-idle .np__main{cursor:none}
 body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
@@ -329,9 +418,18 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 .np__queue-foot .hand{font-size:12px;color:var(--text-3);line-height:1.9}
 .np__stagecall{display:inline-flex;align-items:center;gap: var(--space-xs)}
 
-.np__stage-note{display:flex;align-items:center;gap: var(--space-sm);margin-top: var(--space-3xl);width:100%}
-.np__stage-note .hand{font-size:12px;color:var(--text-3);letter-spacing:.06em;white-space:nowrap}
-.np__stage-note__line{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+/* 空演出单 */
+.np__queue-empty{
+  flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--space-sm);
+  padding:var(--space-lg) var(--space-md);text-align:center;
+  border:1px dashed var(--line);border-radius:var(--r-lg);
+}
+.np__queue-empty__pick{
+  width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  color:var(--pink-600);background:var(--wash);box-shadow:inset 0 0 0 1px var(--line);
+}
+.np__queue-empty b{font-family:var(--font-display);font-size:16px;color:var(--text)}
+.np__queue-empty .hand{font-size:12px;line-height:1.9;color:var(--text-3);max-width:24ch}
 
 /* 收起播放页：幕布镜像逆放 400ms */
 .curtain--close-l{left:0;transform-origin:left center;animation:curtainClose var(--dur-base) var(--ease-curtain) both}
@@ -339,8 +437,8 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 @keyframes curtainClose{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .np--closing .np__main,
 .np--closing .np__top,
-.np--closing .np__timeline{animation:npFadeOut 300ms var(--ease-out-soft) both}
-@keyframes npFadeOut{to{opacity:0;transform:scale(.995)}}
+.np--closing .np__timeline{animation:npFadeOut var(--scene-out) var(--scene-ease) both}
+@keyframes npFadeOut{to{opacity:0;transform:translateY(calc(var(--scene-rise) * -.6))}}
 
 /* ============================================================
    MAIGO 主题包 · 播放页舞台皮肤「雨夜窗」
@@ -429,3 +527,50 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 :root[data-hour="dusk"][data-palette="gbc"] .np::after{filter:brightness(1.08) saturate(1.12)}
 :root[data-hour="night"][data-palette="btr"] .np::after{filter:brightness(1.35)}
 :root[data-hour="dusk"][data-palette="btr"] .np::after{filter:brightness(1.15) saturate(1.08)}
+
+/* ============================================================
+   播放页三柱的宽度/高度适配
+   （应用默认 1.2 倍缩放：1440 的窗口 ≈ 1200 CSS px，断点按 CSS 宽来算）
+   宽屏：海报 / 歌词舞台 / 演出单 三柱并排。
+   中窗：三柱按比例收窄，仍是三柱。
+   窄窗：海报折成一条「胸牌」，歌词舞台与演出单并排。
+   矮窗：封面按视口高度封顶，别顶到控制台。
+   ============================================================ */
+@media (max-width:1300px){
+  .np__main{
+    grid-template-columns:minmax(190px,240px) minmax(0,1fr) minmax(190px,232px);
+    gap:var(--space-lg) var(--space-2xl);
+  }
+  .np__deck{gap:var(--space-xl)}
+}
+@media (max-height:820px){
+  .np__art{max-width:min(100%,38vh)}
+}
+@media (max-height:700px){
+  .np__poster{gap:var(--space-sm)}
+  .np__title{font-size:var(--fs-title)}
+}
+@media (max-width:1160px){
+  .np__main{
+    grid-template-columns:minmax(0,1fr) minmax(184px,216px);
+    grid-template-rows:auto minmax(0,1fr);
+    gap:var(--space-md) var(--space-xl);
+  }
+  /* 横条：封面像别在胸前的胸牌，信息铺满剩下的整行；演出单继续守右边、占满两行 */
+  .np__poster{
+    grid-column:1;grid-row:1;flex-direction:row;align-items:center;gap:var(--space-lg);
+    padding-bottom:var(--space-md);
+    border-bottom:1px dashed color-mix(in srgb,var(--line-strong) 70%,transparent);
+  }
+  .np__art{width:104px;max-width:104px;flex:none}
+  .np__art-tape,.np__art-badge{display:none}
+  .np__stage-tag{left:6px;bottom:6px;padding:0 var(--space-2xs);letter-spacing:.06em}
+  .np__info{flex:1;min-width:0}
+  .np__title{font-size:clamp(22px,3vw,32px)}
+  body[data-fs] .np__poster .np__title{font-size:clamp(22px,3vw,32px)}
+  .np__lyric-swap{grid-column:1;grid-row:2}
+  .np__queue{grid-column:2;grid-row:1 / span 2}
+  /* 窄演出单：把副标题收掉，优先把高度让给曲目 */
+  .np__queue-sub{display:none}
+  .np__queue-title{font-size:14px}
+}

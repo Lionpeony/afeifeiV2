@@ -23,6 +23,9 @@ const PROFILE = path.join(os.tmpdir(), `afeifei-smoke-${process.pid}`);
 const EXE = path.join("node_modules", "electron", "dist", process.platform === "win32" ? "electron.exe" : "electron");
 const MEDIA_DIR = "C:\\Windows\\Media";
 
+// 每次冒烟都从干净的独立配置开始，避免异常退出遗留主题偏好。
+fs.rmSync(PROFILE, { recursive: true, force: true });
+
 if (!fs.existsSync(EXE)) {
   console.error(`✗ 找不到 Electron：${EXE}（先 npm install）`);
   process.exit(1);
@@ -145,10 +148,13 @@ async function evaluateInWindow(urlPart, expression, timeoutMs = 8000) {
 }
 
 async function launch(extraArgs = [], reloadFirst = true) {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  env.PORTABLE_EXECUTABLE_DIR = PROFILE;
   const child = spawn(
     EXE,
     ["dist/main.js", `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`, ...extraArgs],
-    { stdio: ["ignore", "pipe", "pipe"] },
+    { env, stdio: ["ignore", "pipe", "pipe"] },
   );
 
   let log = "";
@@ -165,6 +171,24 @@ async function launch(extraArgs = [], reloadFirst = true) {
   await client.send("Runtime.enable");
   await client.send("Log.enable");
   await client.send("Page.enable");
+
+  // 冒烟固定「本地 12:00」：02–04 点的深夜彩蛋会自动切暗色，
+  // 会把「默认亮色」判据打成假红。这里只改 new Date() 的钟点，
+  // Date.now() 仍走真实时间，历史/缓存时间戳不受影响。
+  await client.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const RealDate = Date;
+      const fixed = new RealDate();
+      fixed.setHours(12, 0, 0, 0);
+      class TestDate extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) super(fixed.getTime());
+          else super(...args);
+        }
+      }
+      Object.defineProperty(window, "Date", { value: TestDate, configurable: true, writable: true });
+    })();`,
+  });
 
   if (reloadFirst) await client.send("Page.reload", { ignoreCache: true });
 
@@ -556,7 +580,9 @@ async function main() {
 
     /* 页面（v5.6）：喜欢页是 likes 表格；最近/统计并进「播放历史」 */
     await app2.evaluate(`document.querySelector('[data-page="mine"]')?.click()`);
-    assert.ok(await app2.waitFor(`!!document.querySelector(".likes__sheet, .likes__head")`, 3000), "我的·喜欢 应有喜欢页");
+    /* 空态是合法的：没有红心时渲染 EmptySetlist，不出现 likes__sheet。
+       判「喜欢页在」认页根，不认表格，避免把空账号判成页面没打开。 */
+    assert.ok(await app2.waitFor(`!!document.querySelector(".page.likes")`, 3000), "我的·喜欢 应有喜欢页");
     await app2.evaluate(`document.querySelector('.side-item[data-page="history"]')?.click()`);
     assert.ok(await app2.waitFor(`!!document.querySelector(".hist__stats")`, 3000), "播放历史页应有统计条");
     await app2.evaluate(`document.querySelector('[data-page="local"]')?.click()`);

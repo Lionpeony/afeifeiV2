@@ -91,7 +91,11 @@ export async function launch({ port, profile, extraArgs = [], reloadFirst = true
     ...(profile ? [`--user-data-dir=${profile}`] : []),
     ...extraArgs,
   ];
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  if (profile) env.PORTABLE_EXECUTABLE_DIR = profile;
   const child = spawn(exe, args, {
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
 

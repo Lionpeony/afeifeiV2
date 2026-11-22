@@ -135,8 +135,8 @@ export interface AfApi {
   source: string;
   sources: AfSource[];
   setSource(id: string): void;
-  switchSource(id: string, opts?: { scope?: "pill"; quiet?: boolean }): void;
-  srcSwap: { id: string; phase: "close" | "hold" | "open"; scope?: "pill" } | null;
+  switchSource(id: string, opts?: { scope?: "pill" | "content"; quiet?: boolean }): void;
+  srcSwap: { id: string; phase: "close" | "hold" | "open" | "sync" | "done"; scope?: "pill" | "content"; dir?: "l" | "r" } | null;
   loginSrc: string | null;
   openScan(id: string): void;
   closeScan(): void;
@@ -161,7 +161,8 @@ export interface AfApi {
   palette: string;
   setPalette(p: string): void;
   /** 换包过渡动画当前播放的包 id（空 = 没在播） */
-  packFx: string | null;
+  /** 换主题的换景状态（页面/换源/换主题共用幕布） */
+  themeScene: { id: string; phase: "close" | "hold" | "open"; dir: "l" | "r" } | null;
   unlocked: string[];
   tryCode(code: string): boolean;
   /* 偏好 */

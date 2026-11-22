@@ -34,9 +34,9 @@
   display:flex;flex-direction:column;
   background:var(--card);border-left:1px solid var(--line);
   box-shadow:-18px 0 48px rgba(61,43,57,.16);
-  animation:studioIn 300ms var(--ease-out-soft) both;
+  animation:studioIn var(--scene-in) var(--scene-ease-out) both;
 }
-@keyframes studioIn{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes studioIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
 :root[data-theme="dark"] .studio{box-shadow:-18px 0 48px rgba(0,0,0,.4)}
 
 .studio__head{position:relative;padding: var(--space-lg) var(--space-xl) var(--space-md);border-bottom:1px solid var(--line)}

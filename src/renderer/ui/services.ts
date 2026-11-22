@@ -92,6 +92,8 @@ export interface Api {
   openLyric(): Promise<void>;
   unlockLyric(): Promise<void>;
   pushLyricState(json: string): void;
+  /** 歌词窗的播控意图（上一首 / 播放暂停 / 下一首 / 喜欢），经主进程转手 */
+  onLyricAction(cb: (action: string) => void): void;
   onSchemeUrl(cb: (intent: { action: string; id: string; source?: string }) => void): void;
   schemePoll(): Promise<{ action: string; id: string; source?: string } | null>;
   /** 媒体键与托盘发来的命令名（A-24）：`toggle` / `next` / `prev`，语义在命令注册表里 */
@@ -156,6 +158,8 @@ export interface Services {
   syncWindowOverlay(): void;
   pick(): Promise<string[]>;
   positionMs(): number;
+  /** 当前曲时长：引擎还没解码时回落到队列里记住的时长（重启恢复暂停态要用）。 */
+  durationMs(): number;
   /** 按已保存的目录列表扫描；一个都没有时先让你选一个（M9）。取消返回 null。 */
   scan(onProgress?: (done: number, total: number) => void): Promise<ScanStats | null>;
   /**

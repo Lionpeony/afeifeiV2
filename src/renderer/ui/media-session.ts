@@ -60,6 +60,48 @@ const SILENT_WAV =
 
 const SEEK_STEP_MS = 5000;
 
+/**
+ * 没有封面时也别把系统媒体面板留成一块白板。
+ * 这里就地画一张 512 的「拨片 + 音符」SVG（data URL，无需资源文件），
+ * 底色按曲目种子在莓粉/珊瑚区间里轻微变化，冷启动、本地无封面曲目也认得出是我们。
+ */
+export function fallbackArtwork(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const hue = 336 + (h % 26);
+  const hue2 = 12 + (h % 14);
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
+    '<defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1">' +
+    `<stop offset="0" stop-color="hsl(${hue} 82% 74%)"/><stop offset="1" stop-color="hsl(${hue2} 72% 60%)"/>` +
+    "</linearGradient></defs>" +
+    '<rect width="512" height="512" fill="#fdf6ef"/>' +
+    '<path d="M256 92c88 0 156 58 156 142 0 76-54 132-156 186-102-54-156-110-156-186 0-84 68-142 156-142z" fill="url(#p)"/>' +
+    '<path d="M292 148c-19 0-31 13-31 31v100a37 37 0 1037 37V208c15 11 30 15 45 12l-2-27c-17 2-32-4-49-45z" fill="#fff"/>' +
+    "</svg>";
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+
+/** 系统能直接取的封面：http(s)/data/blob 原样用；本地 appmedia:// 换成 data URL 再给。 */
+export async function toSystemArtwork(raw: string | null, seed: string): Promise<string> {
+  const fallback = fallbackArtwork(seed);
+  if (!raw) return fallback;
+  if (/^(https?|data|blob):/i.test(raw)) return raw;
+  try {
+    const res = await fetch(raw);
+    if (!res.ok) return fallback;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result));
+      fr.onerror = () => reject(fr.error);
+      fr.readAsDataURL(blob);
+    });
+  } catch {
+    return fallback;
+  }
+}
+
 export function createMediaSession(deps: MediaSessionDeps): MediaSessionController {
   const session = typeof navigator === "undefined" ? undefined : navigator.mediaSession;
   if (!session) {
@@ -129,12 +171,13 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
     }
   }
 
-  /** 上一次的封面 URL：换图期间防止旧图的 onload 覆盖新 metadata（lx 同款处理）。 */
-  let lastArtwork: string | null = null;
+  /** 上一次写入系统的元信息签名：只有换了曲目/封面才重建（光比封面会让改名的曲目一直显示旧标题）。 */
+  let lastSign = "";
 
   const update = (): void => {
     const snap = deps.read();
     if (!snap) {
+      lastSign = "";
       session.metadata = null;
       session.playbackState = "none";
       return;
@@ -142,26 +185,16 @@ export function createMediaSession(deps: MediaSessionDeps): MediaSessionControll
     session.playbackState = snap.playbackState;
 
     const artwork = snap.artwork;
-    if (artwork !== lastArtwork) {
-      lastArtwork = artwork;
+    const sign = [snap.title, snap.artist, snap.album, artwork ?? ""].join("\u0001");
+    if (sign !== lastSign) {
+      lastSign = sign;
       const metadata: MediaMetadataInit = {
         title: snap.title,
         artist: snap.artist,
         album: snap.album,
-        artwork: artwork ? [{ src: artwork }] : [],
+        artwork: artwork ? [{ src: artwork, sizes: "512x512" }] : [],
       };
-      if (artwork) {
-        // 先设无图版本，图片加载完再换带图的 —— 直接等 onload 会有一段时间面板是空的
-        session.metadata = new MediaMetadata(metadata);
-        const img = new Image();
-        img.src = artwork;
-        img.onload = () => {
-          if (lastArtwork !== artwork) return; // 已经换曲了，这张图过期
-          session.metadata = new MediaMetadata({ ...metadata, artwork: [{ src: artwork }] });
-        };
-      } else {
-        session.metadata = new MediaMetadata(metadata);
-      }
+      session.metadata = new MediaMetadata(metadata);
     }
 
     // 顺序要紧：folia 的坑 —— 先 setPositionState 再换 metadata，反了 Chromium 会清会话
