@@ -138,6 +138,15 @@
   --glass-shadow:var(--shadow);
   --grain-opacity:0;
   --grain-blend:multiply;
+  /* 纸感噪点纹理（SVG feTurbulence，无外部资源）。只给播放页舞台底与封面卡消费。 */
+  --grain-img:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* 播放页三栏布局框架（三包各自覆盖，见 docs/30 §38）：
+     组件实例不变，只换栅格与摆放 —— 海报 / 歌词舞台 / 演出单 */
+  --np-cols:minmax(228px,300px) minmax(0,1fr) minmax(228px,296px);
+  --np-rows:minmax(0,1fr);
+  --np-areas:"poster lyric queue";
+  --np-art-max:100%;
+  --np-spot-x:22%;  --np-spot-y:18%;
   --paper-grid:none;            /* 材质：稿纸横线等底层网格，只在包内声明 */
   /* 包级组件 token（默认值 = 旧行为；各包在下方覆盖） */
   --hover-lift:0px;             /* .paper--lift 悬停位移 */
@@ -374,6 +383,12 @@
   --card-border-style:dashed;                                    /* 迷路的手绘虚线 */
   --art-a:#E7EDF6; --art-b:#DCE6F0; --art-c:#E8E6F2;              /* 占位封面：雨雾蓝灰 */
   --card-paper:color-mix(in srgb, var(--card) 86%, var(--pink-400) 14%);  /* 队列/歌词卡：冷纸掺一点雨紫 */
+  /* 布局：隔窗旁观 —— 排练计划表守左，窗内舞台居中，提词纸贴右（三柱换位） */
+  --np-cols:minmax(240px,290px) minmax(0,1fr) minmax(240px,300px);
+  --np-rows:minmax(0,1fr);
+  --np-areas:"queue poster lyric";
+  --np-art-max:min(100%,36vh);
+  --np-spot-x:52%;  --np-spot-y:20%;
 }
 :root[data-theme="dark"][data-palette="mygo"]{
   --bg:#1D2233; --bg-sub:#252C40; --card:#2C354A;
@@ -420,6 +435,12 @@
   --grain-opacity:.5;
   --art-a:#F6E6EF; --art-b:#E1E6E9; --art-c:#DCEFF2;              /* 占位封面：冷灰 + 淡洋红/冷青 */
   --card-paper:color-mix(in srgb, var(--card) 92%, var(--mint) 8%);  /* 队列/歌词卡：冷灰纸掺一线冷青 */
+  /* 布局：导播监视器 —— 字幕条压在上沿，主监视器在下（横排：画面 + 参数），时序表守右 */
+  --np-cols:minmax(0,1fr) minmax(228px,300px);
+  --np-rows:auto minmax(0,1fr);
+  --np-areas:"lyric queue" "poster queue";
+  --np-art-max:min(100%,34vh);
+  --np-spot-x:76%;  --np-spot-y:22%;
 }
 :root[data-theme="dark"][data-palette="gbc"]{
   --bg:#0E1116; --bg-sub:#161B22; --card:#1C222B;
@@ -473,6 +494,12 @@
   --ease:var(--ease-spring);       /* 节奏：阶段1不动，保持原回弹 */
   --art-a:#FBEFDE; --art-b:#F1DCC4; --art-c:#E9D9C9;              /* 占位封面：牛皮纸暖调 */
   --card-paper:color-mix(in srgb, var(--card) 84%, var(--pink-400) 16%);  /* 队列/歌词卡：牛皮纸掺橘棕 */
+  /* 布局：台下观众视角 —— 舞台居中，提词屏挂左侧窄条，节目单守最右 */
+  --np-cols:minmax(176px,224px) minmax(0,1fr) minmax(228px,280px);
+  --np-rows:minmax(0,1fr);
+  --np-areas:"lyric poster queue";
+  --np-art-max:min(100%,42vh);
+  --np-spot-x:52%;  --np-spot-y:-6%;
 }
 :root[data-theme="dark"][data-palette="btr"]{
   --bg:#18171A; --bg-sub:#201F24; --card:#27262C;

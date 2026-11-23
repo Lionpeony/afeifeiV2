@@ -178,6 +178,9 @@ export interface AfApi {
   setDensity(d: AfDensity): void;
   sfx: boolean;
   setSfx(v: boolean): void;
+  /** 演出彩蛋总开关（追光偏移 / 雨势变大 / 信号撕裂），默认开 */
+  stageFx: boolean;
+  setStageFx(v: boolean): void;
   /* 歌词 / 窗口 */
   lyricsOn: boolean;
   setLyricsOn(v: boolean): void;

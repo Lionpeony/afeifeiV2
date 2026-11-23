@@ -90,8 +90,9 @@ export function useAfUi(input: AfUiInput): AfUiResult {
   const [chorus, setChorus] = usePref<Record<string, number>>("chorus", {});
   const [plays, setPlays] = usePref<Record<string, number>>("plays", {});
   const [sfx, setSfx] = usePref<boolean>("sfx", true);
+  const [stageFx, setStageFx] = usePref<boolean>("stageFx", true);
   const [density, setDensity] = usePref<AfDensity>("density", "cozy");
-  const [lyricsOn, setLyricsOn] = usePref<boolean>("lyricsOn", false);
+  const [lyricsOn, setLyricsOn] = usePref<boolean>("lyricsOn", true);
   const playerOpen = input.page === "stage";
   const [playerClosing, setPlayerClosing] = useState(false);
   const [rowMenu, setRowMenu] = useState<{ trackId: string; x: number; y: number } | null>(null);
@@ -900,6 +901,8 @@ export function useAfUi(input: AfUiInput): AfUiResult {
     setDensity,
     sfx,
     setSfx,
+    stageFx,
+    setStageFx,
     lyricsOn,
     setLyricsOn,
     playerOpen,

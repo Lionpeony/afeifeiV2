@@ -3,12 +3,13 @@ import { useMemo, useRef, useState, useEffect } from "react";
 
 import { useAf } from "./context.js";
 import { TrackArt, artPaletteOf } from "./art.js";
-import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconVolume, IconX, IconShare, IconKeys, IconMini, IconMin, IconMax, IconRestore, IconExpand } from "./icons.js";
+import { IconChevronDown, IconNote, IconNext, IconPrev, IconRepeat, IconRepeatOne, IconShuffle, IconPick, IconPickOutline, IconVolume, IconX, IconShare, IconKeys, IconMini, IconMin, IconMax, IconRestore, IconExpand, GuitarFigure } from "./icons.js";
 import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
 import { ShareCard } from "./ShareCard.js";
 import { usePosition } from "./use-position.js";
-import { eggText } from "./copy.js";
+import { eggText, stageCopy } from "./copy.js";
+import { segmentOf, stageOf, pickStageEgg, type StageEgg } from "./stage.js";
 
 function fmt(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -20,8 +21,6 @@ function dedupeActor(name: string): string {
   const parts = name.split(" · ").map((p) => p.trim()).filter(Boolean);
   return parts.length > 1 && parts.every((p) => p === parts[0]) ? parts[0]! : name;
 }
-
-const ACT_NAMES = ["开演", "中场", "续演", "再来一首"];
 
 export function NowPlaying() {
   const api = useAf();
@@ -52,12 +51,12 @@ export function NowPlaying() {
     sheerSide,
     onomaAt,
     lyricsOn,
-    setLyricsOn,
     lyricsFull,
     setKeysOpen,
     keysHintSeen,
     dismissKeysHint,
     reduce,
+    stageFx,
     volume,
     setVolume,
     muted,
@@ -69,12 +68,40 @@ export function NowPlaying() {
   const bandName = dedupeActor(track.artist || "未知艺人");
   const albumText = track.album && track.album !== track.artist && track.album !== track.title ? track.album : "";
   const barRef = useRef<HTMLDivElement>(null);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressed = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   /* 演出单是这版播放页的第三根柱子，默认摊开；窄窗或想安静时收成一条 */
   const [queueOpen, setQueueOpen] = useState(true);
+  /* 演出状态机（docs/30 §41）：开演标记 / 换场 0.9s / 跨半场 8s 中场窗口 */
+  const [seenPlay, setSeenPlay] = useState(playing);
+  const [changeFx, setChangeFx] = useState(false);
+  const [intermissionFx, setIntermissionFx] = useState(false);
+  /* 演出彩蛋（§43）：副歌进一次掷一次，换场另掷断弦；总开关与减弱动效都拦在外面 */
+  const [stageEgg, setStageEgg] = useState<StageEgg | null>(null);
+  const eggTimer = useRef<number | null>(null);
+  const chorusRolled = useRef<string | null>(null);
+  const firstTrackEgg = useRef(true);
+  useEffect(() => () => { if (eggTimer.current) window.clearTimeout(eggTimer.current); }, []);
+  const prevIndex = useRef(queueIndex);
+  const firstTrack = useRef(true);
+  useEffect(() => {
+    if (playing) setSeenPlay(true);
+  }, [playing]);
+  useEffect(() => {
+    if (firstTrack.current) { firstTrack.current = false; return; }
+    setChangeFx(true);
+    const id = setTimeout(() => setChangeFx(false), 900);
+    return () => clearTimeout(id);
+  }, [track.id]);
+  useEffect(() => {
+    const half = Math.ceil(queue.length / 2);
+    const crossed = playing && queue.length > 2 && prevIndex.current < half && queueIndex >= half;
+    prevIndex.current = queueIndex;
+    if (!crossed) return;
+    setIntermissionFx(true);
+    const id = setTimeout(() => setIntermissionFx(false), 8000);
+    return () => clearTimeout(id);
+  }, [queueIndex, queue.length, playing]);
   /* 播放页盖住了顶栏，窗口控制得自己带（最大化/还原态与主窗口同步） */
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
@@ -123,6 +150,8 @@ export function NowPlaying() {
     };
   }, [fs]);
   const liked = isLiked(track);
+  /* 演出话术随包（docs/30 §39）：状态行 / 幕名 / 演出单抬头 / 空态 / 散场倒计时 */
+  const sc = stageCopy(palette);
 
   /* 红心飞出：点喜欢（或长按盖火焰时顺手点亮）就从按钮上方飘一颗心 */
   const [heartSeq, setHeartSeq] = useState(0);
@@ -145,19 +174,11 @@ export function NowPlaying() {
   const seek = (e: React.PointerEvent): void => {
     api.seekTo(ratioFromEvent(e) * total);
   };
-  const onDown = (e: React.PointerEvent): void => {
-    longPressed.current = false;
+  const onDown = (): void => {
     setDragging(true);
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-    const r = ratioFromEvent(e);
-    pressTimer.current = setTimeout(() => {
-      longPressed.current = true;
-      markChorus(r * total);
-    }, 550);
   };
   const onUp = (e: React.PointerEvent): void => {
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-    if (!longPressed.current) seek(e);
+    seek(e);
     setDragging(false);
   };
 
@@ -171,6 +192,8 @@ export function NowPlaying() {
     for (let i = 0; i < queue.length; i += 4) out.push(queue.slice(i, i + 4));
     return out;
   }, [queue]);
+  const actSize = acts[0]?.length ?? 0;
+  const actIndex = actSize > 0 ? Math.min(acts.length - 1, Math.floor(queueIndex / actSize)) : 0;
 
   const nextTrack = queue.length > 1 ? queue[(queueIndex + 1) % queue.length] : null;
   const totalDur = queue.reduce((s, t) => s + t.dur, 0);
@@ -179,9 +202,50 @@ export function NowPlaying() {
   const playedDur =
     queue.slice(0, queueIndex).reduce((s, t) => s + t.dur, 0) + Math.min(pos, track.dur || dur || 0);
   const remainMin = Math.max(0, Math.ceil((totalDur - playedDur) / 60));
+  /* 状态行与舞台节点同源（§39 话术 × §41 状态机）；换场那 0.9s 也说出来 */
+  const started = seenPlay || playing || pos > 0 || queueIndex > 0;
+  const stage = changeFx
+    ? "change"
+    : stageOf({ queueLength: queue.length, index: queueIndex, playing, started, pos, dur: total, intermission: intermissionFx });
+  const seg = segmentOf(pos, total);
+  const stageLabel = stage === "idle"
+    ? sc.idle
+    : stage === "curtain"
+      ? sc.curtain
+      : stage === "intermission"
+        ? sc.intermission
+        : stage === "paused"
+          ? sc.paused
+          : stage === "change"
+            ? sc.trackChange
+            : stage === "encore"
+              ? sc.encore
+              : sc.live;
+
+  const fireEgg = (egg: StageEgg): void => {
+    setStageEgg(egg);
+    const ms = egg === "rain-up" ? 8000 : egg === "spot-slip" ? 800 : 500;
+    if (eggTimer.current) window.clearTimeout(eggTimer.current);
+    eggTimer.current = window.setTimeout(() => setStageEgg(null), ms);
+  };
+  useEffect(() => {
+    if (firstTrackEgg.current) { firstTrackEgg.current = false; return; }
+    if (reduce || !stageFx) return;
+    const egg = pickStageEgg(palette, queueIndex + 1, "change");
+    if (egg) fireEgg(egg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.id]);
+  useEffect(() => {
+    if (!stageFx || reduce || !playing || seg !== "chorus") return;
+    if (chorusRolled.current === track.id) return;
+    chorusRolled.current = track.id;
+    const egg = pickStageEgg(palette, queueIndex + 1, "chorus");
+    if (egg) fireEgg(egg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seg, playing, track.id, palette, queueIndex, stageFx, reduce]);
 
   return (
-    <div className={["np", `np--${palette}`, playerClosing ? "np--closing" : "", lyricsFull && lyricsOn ? "np--lyrics-full" : ""].filter(Boolean).join(" ")} data-screen-label="播放页" role="dialog" aria-label="播放页">
+    <div className={["np", `np--${palette}`, playing ? "np--playing" : "np--paused", playerClosing ? "np--closing" : "", lyricsFull && lyricsOn ? "np--lyrics-full" : ""].filter(Boolean).join(" ")} data-stage={stage} data-seg={seg} data-egg={stageEgg ?? undefined} data-screen-label="播放页" role="dialog" aria-label="播放页">
       {!reduce && !playerClosing && (
         <>
           <div className="curtain curtain--l"></div>
@@ -195,14 +259,28 @@ export function NowPlaying() {
         </>
       )}
 
+      {/* 氛围层：位于内容之下，歌词与操作区零噪点；材质与漂浮物随包（docs/30 §35） */}
+      <div className="np__amb" aria-hidden="true">
+        <span className="np__amb-float" />
+        <span className="np__amb-prop"><GuitarFigure w={220} h={113} /></span>
+        <span className="np__amb-tri" />
+        <span className="np__egg np__egg--spot" />
+        <span className="np__egg np__egg--tear" />
+        <span className="np__egg np__egg--rain" />
+        <span key={track.id} className="np__cutbar" />
+      </div>
+
       <div className="np__top">
         <button className="np__close" onClick={closePlayer}>
           <IconChevronDown size={17} />收起
         </button>
         <span className="np__top-sep" aria-hidden="true"></span>
-        <span className="np__top-label">
+        <span className="np__top-label" title={stage === "intermission" ? sc.intermissionTip : undefined}>
           <IconNote size={13} />
-          正在演出 · SETLIST {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}
+          {stageLabel}
+          {queue.length > 0 ? (
+            <> · SETLIST {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</>
+          ) : null}
         </span>
         <span className="spacer"></span>
         {palette === "gbc" && (
@@ -211,8 +289,8 @@ export function NowPlaying() {
         {/* 右上 = 视窗/环境操作带（对齐主流播放器「左上离开 / 右上管窗 / 底部管歌」分区；docs/30 §20/§21）
             内容操作（分享/快捷键/迷你/全屏）与窗口操作分组，窗口组降一档存在感 */}
         <div className="np__ops">
-          <button className="icon-btn" onClick={() => setShareOpen(true)} title="把这首做成分享卡片" aria-label="分享卡片"><IconShare size={16} /></button>
-          <button className="icon-btn" onClick={() => setKeysOpen(true)} title="键盘快捷键清单（?）" aria-label="快捷键"><IconKeys size={16} /></button>
+          <button className="icon-btn np__op-labeled" onClick={() => setShareOpen(true)} title="把这首做成分享卡片" aria-label="分享卡片"><IconShare size={16} /><span>分享</span></button>
+          <button className="icon-btn np__op-labeled" onClick={() => setKeysOpen(true)} title="键盘快捷键清单（?）" aria-label="快捷键"><IconKeys size={16} /><span>快捷键</span></button>
           <button className="icon-btn" onClick={() => { void window.api.toggleMini(); }} title="迷你模式（K）" aria-label="迷你模式"><IconMini size={16} /></button>
           <button
             className="icon-btn"
@@ -259,15 +337,14 @@ export function NowPlaying() {
               <IconPick size={40} style={{ position: "absolute", opacity: 0.16 }} />
               <b style={{ position: "relative" }}>{String(queueIndex + 1).padStart(2, "0")}</b>
             </span>
-            <span className="np__stage-tag">NOW ON STAGE</span>
+            <span className="np__stage-tag">{sc.artTag}</span>
             {struckId && <span className={"sheer is-on sheer--" + (sheerSide || "r")}></span>}
           </div>
 
           <div key={track.id} className="np__info np__track-swap">
             <div className="np__setline" aria-label="演出状态">
-              <span className="np__setline-act">{queueIndex >= queue.length - 2 ? "ENCORE" : "MAIN SET"}</span>
+              <span className="np__setline-act">{queueIndex >= queue.length - 2 ? sc.setEncore : sc.setMain}</span>
               <span className="np__setline-rule" aria-hidden="true"></span>
-              <span className="np__setline-cue">SET {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</span>
             </div>
             <h1 key={track.id} className="np__title">{track.title}</h1>
             <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
@@ -286,14 +363,6 @@ export function NowPlaying() {
               ) : (
                 <span>{bandName}</span>
               )}
-              <button
-                className={"np__lyric-toggle" + (lyricsOn ? " is-on" : "")}
-                onClick={() => setLyricsOn(!lyricsOn)}
-                title={lyricsOn ? "关掉歌词字幕" : "打开歌词字幕"}
-                aria-pressed={lyricsOn}
-              >
-                <IconNote size={12} />歌词
-              </button>
             </div>
             {albumText ? (
               <div className="np__album" title={albumText}>
@@ -312,7 +381,7 @@ export function NowPlaying() {
           <div className="np__queue-head">
             <div className="np__queue-headmain">
               <div className="np__queue-eyebrow">RUNNING ORDER</div>
-              <div className="np__queue-title">今晚的演出单</div>
+              <div className="np__queue-title">{sc.setlistTitle}</div>
               <div className="np__queue-sub">
                 {queueOpen
                   ? acts.length > 1
@@ -341,8 +410,8 @@ export function NowPlaying() {
                 /* 空演出单：别只留一片灰，给个能立刻开演的下一步 */
                 <div className="np__queue-empty">
                   <span className="np__queue-empty__pick" aria-hidden="true"><IconPick size={30} /></span>
-                  <b>演出单还空着</b>
-                  <span className="hand">今晚的曲目从「发现」里挑，挑中哪首，这一场就从哪首开演。</span>
+                  <b>{sc.emptyTitle}</b>
+                  <span className="hand">{sc.emptySub}</span>
                   <button className="btn btn-primary btn-sm" onClick={() => { setPage("online"); closePlayer(); }}>去发现挑歌</button>
                 </div>
               ) : (
@@ -360,7 +429,7 @@ export function NowPlaying() {
                     {acts.length > 1 && (
                       <div className="act-sep">
                         <span className="act-sep__num">{["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"][gi] ?? String(gi + 1)}</span>
-                        <span className="act-sep__name">{ACT_NAMES[gi] ?? "续演"}</span>
+                        <span className="act-sep__name">{sc.actNames[gi] ?? sc.actNames[3]}</span>
                         <span className={"act-sep__bar act-sep__bar--" + ((gi % 3) + 1)}></span>
                       </div>
                     )}
@@ -387,7 +456,7 @@ export function NowPlaying() {
                             )}
                           </span>
                           <span className="qrow__name">
-                            <span className="qrow__title">{t.title}</span>
+                            <span className="qrow__title" title={t.title}>{t.title}</span>
                             {isCur ? <span className="qrow__cue">NOW</span> : isNext ? <span className="qrow__cue qrow__cue--next">NEXT</span> : null}
                           </span>
                           <span className="qrow__dur">{fmt(t.dur)}</span>
@@ -402,7 +471,7 @@ export function NowPlaying() {
               {queue.length > 0 ? (
                 <div className="np__queue-foot">
                   <span className="np__stagecall">
-                    <span className="hand">还剩 {remainMin} 分钟就散场</span>
+                    <span className="hand">{sc.remain(remainMin)}</span>
                     <IconPickOutline size={13} style={{ color: "var(--coral)", opacity: 0.6 }} />
                   </span>
                 </div>
@@ -423,18 +492,33 @@ export function NowPlaying() {
       {/* 控制台：上层是整场演出时间线，下层是「传输 · 进度 · 音量」一条 */}
       <footer className="np__console">
         <div className="np__timeline">
-          <span className="np__timeline-label">演出时间线 · {queueIndex + 1} / {queue.length}</span>
+          <span className="np__timeline-label">
+            {acts.length > 1
+              ? `演出时间线 · 第 ${actIndex + 1} 幕 / 共 ${acts.length} 幕`
+              : `演出时间线 · ${queueIndex + 1} / ${queue.length}`}
+          </span>
           <div className="np__timeline-track">
-            {queue.map((t, i) => (
-              <button
-                key={t.id + i}
-                className={"tl-seg" + (t.id === track.id ? " is-current" : "") + (i < queueIndex ? " is-past" : "")}
-                style={{ flexGrow: Math.max(0.4, t.dur / 60) }}
-                onClick={() => goTo(t.id)}
-                title={t.title}
-                aria-label={t.title}
-              ></button>
-            ))}
+            {acts.length > 1
+              ? acts.map((group, gi) => (
+                  <button
+                    key={group[0]?.id ?? gi}
+                    className={"tl-seg" + (gi === actIndex ? " is-current" : "") + (gi < actIndex ? " is-past" : "")}
+                    style={{ flexGrow: group.length }}
+                    onClick={() => { const first = group[0]; if (first) goTo(first.id); }}
+                    title={`第 ${gi + 1} 幕 · ${group[0]?.title ?? ""}`}
+                    aria-label={`第 ${gi + 1} 幕`}
+                  ></button>
+                ))
+              : queue.map((t, i) => (
+                  <button
+                    key={t.id + i}
+                    className={"tl-seg" + (t.id === track.id ? " is-current" : "") + (i < queueIndex ? " is-past" : "")}
+                    style={{ flexGrow: Math.max(0.4, t.dur / 60) }}
+                    onClick={() => goTo(t.id)}
+                    title={t.title}
+                    aria-label={t.title}
+                  ></button>
+                ))}
           </div>
         </div>
 
@@ -500,16 +584,28 @@ export function NowPlaying() {
             <div
               className={"np__progress" + (dragging ? " is-dragging" : "")}
               ref={barRef}
+              role="slider"
+              tabIndex={0}
+              aria-label="播放进度"
+              aria-valuemin={0}
+              aria-valuemax={Math.max(1, Math.round(total))}
+              aria-valuenow={Math.round(pos)}
+              aria-valuetext={`${fmt(pos)} / ${fmt(total)}`}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight" && e.key !== "Home" && e.key !== "End") return;
+                e.preventDefault();
+                e.stopPropagation();
+                const step = e.shiftKey ? 15 : 5;
+                const next = e.key === "Home" ? 0 : e.key === "End" ? total : pos + (e.key === "ArrowRight" ? step : -step);
+                api.seekTo(Math.max(0, Math.min(total, next)));
+              }}
               onPointerDown={onDown}
               onPointerUp={onUp}
-              onPointerLeave={() => {
-                if (pressTimer.current) clearTimeout(pressTimer.current);
-                setDragging(false);
-              }}
+              onPointerLeave={() => setDragging(false)}
               onPointerMove={(e) => {
                 if (dragging) api.seekTo(ratioFromEvent(e) * total);
               }}
-              title="点击跳转，长按标记副歌点"
+              title="点击跳转 · ←→ 5s · Shift 15s"
             >
               <div className="np__progress-track" style={{ ["--p" as string]: String(pct / 100) }}>
                 <div className="np__progress-fill"></div>
@@ -523,6 +619,15 @@ export function NowPlaying() {
             </div>
             <div className="np__times">
               <span className="num np__times-pos">{fmt(pos)}</span>
+              <button
+                type="button"
+                className="np__chorus-btn"
+                onClick={() => markChorus(pos)}
+                title="把当前进度记作副歌点"
+                aria-label="把当前进度记作副歌点"
+              >
+                <IconPick size={12} />标副歌
+              </button>
               <span className="num np__times-end">-{fmt(Math.max(0, total - pos))}</span>
             </div>
           </div>
@@ -550,6 +655,13 @@ export function NowPlaying() {
             />
           </div>
         </div>
+        {palette === "gbc" ? (
+          <div className="np__stream" aria-label="推流状态">
+            <span className="np__stream-live"><i aria-hidden="true"></i>STREAM</span>
+            <span className="num">{String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</span>
+            <span className="np__stream-remain">剩余 {remainMin} 分</span>
+          </div>
+        ) : null}
       </footer>
 
       {shareOpen ? <ShareCard onClose={() => setShareOpen(false)} /> : null}

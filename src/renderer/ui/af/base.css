@@ -14,14 +14,8 @@ body{
 }
 ::selection{background:rgba(255,209,102,.55);color:var(--text)}
 
-/* grain 纸感噪点层：只读 token，--grain-opacity 为 0 的包（基座/MAIGO）不可见 */
-body::after{
-  content:"";position:fixed;inset:0;z-index:var(--z-grain);pointer-events:none;
-  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size:140px 140px;
-  opacity:var(--grain-opacity);
-  mix-blend-mode:var(--grain-blend);
-}
+/* 纸感噪点不再是全局层：只铺在播放页舞台底与封面卡内（player.css §35），
+   歌词与操作区永远干净。--grain-opacity 为 0 的包（基座/MAIGO）不可见。 */
 /* 材质网格层（和纸稿纹）：--paper-grid 默认 none，只有声明了的包才出现；pointer-events 穿透 */
 body::before{
   content:"";position:fixed;inset:0;z-index:var(--z-base);pointer-events:none;

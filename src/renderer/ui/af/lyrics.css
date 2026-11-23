@@ -91,8 +91,16 @@
   color:var(--text-3);opacity:.75;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.lw-line.is-past{opacity:.42}
-.lw-line.is-next{opacity:.62}
+/* 非当前句不能靠整体降透明度：past .42 / next .62 在淡彩底上只有 1.9 / 2.7:1。
+   改成实色混墨（text 20% / 45% + text-2），三套底色下都过 4.5:1；
+   层级由字号与颜色区分，不再牺牲可读性。 */
+.lw-line.is-past,.lw-line.is-next{opacity:1}
+.lw-line.is-past .lw-line__jp{color:color-mix(in srgb, var(--text) 20%, var(--text-2))}
+.lw-line.is-next .lw-line__jp{color:color-mix(in srgb, var(--text) 45%, var(--text-2))}
+.lw-line:not(.is-cur) .lw-line__jp{letter-spacing:.02em}
+.lw-line.is-past .lw-line__tr,.lw-line.is-next .lw-line__tr{
+  color:color-mix(in srgb, var(--text) 30%, var(--text-3));opacity:.92;
+}
 .lw-line.is-cur{opacity:1}
 .lw-line.is-cur .lw-line__jp{
   font-size:clamp(26px,2.4vw,36px);font-weight:500;color:var(--text);
@@ -103,18 +111,14 @@
 .np--gbc .lw-line.is-cur .lw-line__jp{color:color-mix(in srgb,var(--mint) 74%,var(--text));text-shadow:0 0 18px color-mix(in srgb,var(--mint) 22%,transparent)}
 .np--btr .lw-line.is-cur .lw-line__jp{color:var(--btr-pink);text-shadow:0 0 18px color-mix(in srgb,var(--btr-pink) 22%,transparent)}
 .lw-line.is-cur .lw-line__tr{font-size:12px;color:var(--text-3);opacity:.95}
-.lw-line__fill{
-  position:absolute;left:0;top:0;white-space:nowrap;
-  color:var(--pink-700);text-shadow:0 0 18px color-mix(in srgb, var(--pink-600) 24%, transparent);
-  clip-path:inset(0 calc(100% - var(--p,0%)) 0 0);
-  transition:clip-path 120ms linear;
-  pointer-events:none;
-}
-.np--mygo .lw-line__fill{color:var(--lav);text-shadow:0 0 18px color-mix(in srgb,var(--lav) 24%,transparent)}
-.np--gbc .lw-line__fill{color:var(--mint);text-shadow:0 0 18px color-mix(in srgb,var(--mint) 24%,transparent)}
-.np--btr .lw-line__fill{color:var(--btr-pink);text-shadow:0 0 18px color-mix(in srgb,var(--btr-pink) 24%,transparent)}
-:root[data-theme="dark"] .lw-line.is-cur .lw-line__jp{color:var(--text)}
-:root[data-theme="dark"] .lw-line__fill{color:var(--pink-400);text-shadow:0 0 20px color-mix(in srgb, var(--pink-400) 40%, transparent)}
+/* 逐字上色：字符本身着色，跟着正常文本流换行。
+   旧实现是「单行副本 + 横向 clip-path」，遇到自动换行时副本不换行，颜色会跑出原句。 */
+.lw-line.is-cur .lw-line__jp{--lw-accent:var(--pink-700)}
+.np--mygo .lw-line.is-cur .lw-line__jp{--lw-accent:var(--lav)}
+.np--gbc .lw-line.is-cur .lw-line__jp{--lw-accent:color-mix(in srgb, var(--mint) 74%, var(--text))}
+.np--btr .lw-line.is-cur .lw-line__jp{--lw-accent:var(--btr-pink)}
+:root[data-theme="dark"] .lw-line.is-cur .lw-line__jp{--lw-accent:var(--pink-400)}
+.lw-ch{color:color-mix(in srgb, var(--lw-accent, var(--pink-700)) calc(var(--k, 0) * 100%), var(--text))}
 
 .lw__mask{position:absolute;left:0;right:0;height:26px;pointer-events:none;z-index:var(--z-tape)}.lw__mask--top{top:0;background:linear-gradient(180deg,color-mix(in srgb, var(--card) 88%, transparent),transparent)}
 .lw__mask--bottom{bottom:0;background:linear-gradient(0deg,color-mix(in srgb, var(--card) 88%, transparent),transparent)}
@@ -185,7 +189,10 @@
    ============================================================ */
 .np-hint{
   display:flex;align-items:center;gap: var(--space-2xs);
-  padding:0 var(--space-3xl);margin-bottom: calc(var(--space-xs) * -1);
+  padding:0 var(--space-3xl);
+  /* 负 margin 会把 20px 的提示盒塞进 12px 的网格行，实际绘制压到控制台上；
+     让它占满自己的行，控制台从下一行开始（2026-11-23 用户截图：底栏被盖） */
+  margin:0;
   font-size:var(--fs-micro);color:var(--text-3);letter-spacing:.04em;
   animation:fadeUp .45s var(--ease-out-soft) .35s both;
 }

@@ -1,0 +1,750 @@
+/* ============================================================
+   播放页三主题舞台化（2026-11-23）
+   依据：三份主题规范（布局 / 演出状态 / 特色强化）
+   叠加在 player.css 之上，加载顺序在 responsive.css 之后：
+   - 主题布局在 1200 CSS 宽（1440×900@1.2）直接生效
+   - 只改视觉与栅格，不动组件与功能
+   - 所有氛围动画走 transform / opacity，减动效与 light 档全部可降级
+   ============================================================ */
+
+/* ---------- 1. 三套栅格：同一组组件，三种场地 ---------- */
+/* 海报区只允许一张封面：旧构建/异常数据留下多张 .np__art 时，后几张直接不显示，
+   避免它们叠成一列压到标题、字幕和底部控制栏。 */
+.np__poster > .np__art ~ .np__art{display:none !important}
+:root[data-palette="btr"] .np__main{
+  grid-template-columns:minmax(220px,270px) minmax(0,1fr) minmax(240px,290px);
+  grid-template-rows:minmax(0,1fr);
+  grid-template-areas:"poster lyric queue";
+  gap:var(--space-2xl) var(--space-3xl);
+  padding:var(--space-md) var(--space-3xl) var(--space-xs);
+}
+:root[data-palette="mygo"] .np__main{
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr);
+  grid-template-areas:"queue queue" "poster lyric";
+  gap:var(--space-md) var(--space-2xl);
+  padding:var(--space-sm) var(--space-3xl) var(--space-xs);
+}
+:root[data-palette="gbc"] .np__main{
+  grid-template-columns:minmax(0,1fr) minmax(240px,286px);
+  grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"poster queue" "lyric queue";
+  gap:var(--space-md) var(--space-2xl);
+  padding:var(--space-md) var(--space-3xl) var(--space-xs);
+}
+:root[data-palette="btr"] .np__poster{grid-area:poster}
+:root[data-palette="btr"] .np__lyric-swap{grid-area:lyric}
+:root[data-palette="btr"] .np__queue{grid-area:queue}
+:root[data-palette="mygo"] .np__poster{grid-area:poster}
+:root[data-palette="mygo"] .np__lyric-swap{grid-area:lyric}
+:root[data-palette="mygo"] .np__queue{grid-area:queue}
+:root[data-palette="gbc"] .np__poster{grid-area:poster}
+:root[data-palette="gbc"] .np__lyric-swap{grid-area:lyric}
+:root[data-palette="gbc"] .np__queue{grid-area:queue}
+
+/* 大歌词仍是整屏：主题栅格不能盖掉它 */
+.np.np--lyrics-full .np__main{
+  grid-template-columns:0 minmax(0,1fr) 0;
+  grid-template-rows:minmax(0,1fr);
+  grid-template-areas:none;
+  gap:0;
+  padding:0 var(--space-4xl);
+}
+
+/* ---------- 2. 孤独摇滚：暖水泥墙 + 单束追光 ---------- */
+:root[data-palette="btr"] .np{
+  background:
+    radial-gradient(1150px 720px at 18% -12%, color-mix(in srgb, var(--btr-yellow) 20%, var(--card)) 0%, color-mix(in srgb, var(--btr-yellow) 52%, transparent) 26%, transparent 60%),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 94%, var(--text) 6%) 0%,color-mix(in srgb, var(--bg) 88%, var(--text) 12%) 62%,color-mix(in srgb, var(--bg) 82%, var(--text) 18%) 100%);
+}
+/* 背景光晕改成墙角压暗：追光之外的区域必须暗下来 */
+/* 追光锥：从顶部落向海报，带一层地面反光 */
+:root[data-palette="btr"] .np::after{
+  content:"";position:absolute;inset:0;z-index:var(--z-row);pointer-events:none;
+  mix-blend-mode:screen;
+  background:
+    conic-gradient(from 170deg at 20% -16%, transparent 0 38%, color-mix(in srgb, var(--btr-yellow) 58%, transparent) 44%, color-mix(in srgb, var(--btr-yellow) 20%, transparent) 56%, transparent 65%),
+    radial-gradient(680px 240px at 20% 101%, color-mix(in srgb, var(--btr-yellow) 30%, transparent), transparent 72%);
+  animation:none;
+}
+:root[data-palette="btr"] .np::before{
+  background:radial-gradient(118% 90% at 50% 44%, transparent 46%, color-mix(in srgb, var(--text) 30%, transparent) 100%);
+}
+:root[data-palette="btr"]:not([data-motion="off"]) .np::after{
+  animation:btrBeam 6s var(--ease-out-soft) infinite alternate;
+}
+@keyframes btrBeam{from{opacity:.72;transform:translateX(-3px)}to{opacity:1;transform:translateX(3px)}}
+:root[data-palette="btr"] .np[data-seg="chorus"]::after{opacity:1}
+:root[data-palette="btr"] .np[data-stage="paused"]::after{opacity:.42}
+
+/* 胶带只贴实体物：玻璃窗与监视器上不贴纸胶带 */
+:root[data-palette="mygo"] .np__art .tape,
+:root[data-palette="gbc"] .np__art .tape{display:none}
+
+/* 木质海报框：底部垫高 6px，像真的立在舞台上 */
+:root[data-palette="btr"] .np__poster{position:relative}
+:root[data-palette="btr"] .np__poster::before{
+  content:"";position:absolute;left:-14%;top:-10%;width:132%;height:76%;
+  background:radial-gradient(58% 58% at 44% 34%, color-mix(in srgb, var(--btr-yellow) 55%, transparent), transparent 74%);
+  filter:blur(7px);pointer-events:none;
+}
+:root[data-palette="btr"] .np__art{
+  padding:var(--space-xs) var(--space-xs) var(--space-sm);background:linear-gradient(180deg,color-mix(in srgb, var(--btr-yellow) 22%, var(--bg)),color-mix(in srgb, var(--btr-yellow) 34%, var(--bg-sub)));
+  border-radius:var(--r-xs);
+  box-shadow:0 9px 0 color-mix(in srgb, var(--text) 26%, var(--bg-sub)), 0 26px 44px color-mix(in srgb, var(--text) 30%, transparent), 0 0 70px color-mix(in srgb, var(--btr-yellow) 40%, transparent);
+}
+:root[data-palette="btr"] .np__art-img{border-radius:0;transform:rotate(-.5deg);box-shadow:none}
+:root[data-palette="btr"] .np__art-badge{background:var(--card);color:color-mix(in srgb, var(--pink-600) 82%, var(--text));box-shadow:0 8px 18px color-mix(in srgb, var(--text) 18%, transparent)}
+:root[data-palette="btr"] .np__stage-tag{
+  background:color-mix(in srgb, var(--btr-yellow) 26%, var(--card));color:var(--text);box-shadow:0 3px 0 color-mix(in srgb, var(--text) 26%, var(--bg-sub));
+  font-family:var(--font-mono);letter-spacing:.16em;
+}
+/* 歌词提词纸：米白卡片 + 两枚挂钩 */
+:root[data-palette="btr"] .lw{
+  background:var(--card);border:1px solid color-mix(in srgb, var(--text) 18%, var(--bg));border-radius:var(--r-sm);
+  box-shadow:0 16px 34px color-mix(in srgb, var(--text) 12%, transparent);
+}
+:root[data-palette="btr"] .lw::before,
+:root[data-palette="btr"] .lw::after{
+  content:"";position:absolute;top:-7px;width:10px;height:14px;
+  border:2px solid color-mix(in srgb, var(--text) 30%, var(--bg-sub));border-bottom:0;border-radius:var(--r-sm) var(--r-sm) 0 0;
+}
+:root[data-palette="btr"] .lw::before{left:26px}
+:root[data-palette="btr"] .lw::after{left:74px}
+:root[data-palette="btr"] .lw-line.is-cur .lw-line__jp{color:var(--text)}
+/* 演出单：牛皮纸手卡 */
+:root[data-palette="btr"] .np__queue{
+  background:color-mix(in srgb, var(--btr-yellow) 14%, var(--card));border:1px solid color-mix(in srgb, var(--text) 22%, var(--bg-sub));border-radius:var(--r-sm);
+  box-shadow:0 12px 28px color-mix(in srgb, var(--text) 14%, transparent);
+}
+:root[data-palette="btr"] .np__queue-eyebrow{color:var(--text-2)}
+:root[data-palette="btr"] .qrow.is-current{background:color-mix(in srgb, var(--btr-yellow) 30%, var(--card))}
+:root[data-palette="btr"] .qrow__cue{background:color-mix(in srgb, var(--pink-600) 82%, var(--text));color:var(--card)}
+/* 控制台：舞台脚灯 */
+:root[data-palette="btr"] .np__console{position:relative}
+:root[data-palette="btr"] .np__console::before{
+  content:"";position:absolute;left:var(--space-3xl);right:var(--space-3xl);top:-7px;height:4px;
+  background:radial-gradient(circle at 3px 50%, var(--btr-yellow) 2px, transparent 2.6px) 0 0/18px 4px;
+  opacity:.55;pointer-events:none;
+}
+:root[data-palette="btr"] .np__timeline-track{background:color-mix(in srgb, var(--text) 10%, transparent)}
+:root[data-palette="btr"] .tl-seg.is-current{background:var(--btr-yellow)}
+:root[data-palette="btr"] .tl-seg.is-past{background:color-mix(in srgb, var(--text) 26%, var(--bg-sub))}
+
+/* ---------- 3. MyGO：磨砂玻璃 + 雨丝 + 顶部排练纸带 ---------- */
+:root[data-palette="mygo"] .np{
+  background:
+    radial-gradient(900px 620px at 74% 16%, color-mix(in srgb, var(--lav) 20%, transparent), transparent 66%),
+    radial-gradient(700px 480px at 16% 86%, color-mix(in srgb, var(--lav) 14%, transparent), transparent 70%),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 86%, var(--lav) 14%) 0%,color-mix(in srgb, var(--bg) 80%, var(--lav) 20%) 58%,color-mix(in srgb, var(--bg) 74%, var(--lav) 26%) 100%);
+}
+:root[data-palette="mygo"] .np::before{
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 42%, transparent), transparent 26%),
+    radial-gradient(80% 60% at 50% 50%, transparent 58%, color-mix(in srgb, var(--text-2) 10%, transparent));
+}
+/* 雨夜不是稿纸：MyGO 关掉全局横格线，雨改成短斜痕 + 水珠 */
+:root[data-palette="mygo"] body::before{background:none}
+:root[data-palette="mygo"] .np::after{
+  background:
+    radial-gradient(1.6px 7px at 50% 8%, color-mix(in srgb, var(--lav) 38%, transparent), transparent 72%) 0 0/96px 180px,
+    radial-gradient(1.2px 5px at 50% 40%, color-mix(in srgb, var(--lav) 26%, transparent), transparent 72%) 48px 80px/128px 220px,
+    radial-gradient(14px 10px at 16% 26%, color-mix(in srgb, var(--mint) 22%, transparent), transparent 70%),
+    radial-gradient(9px 7px at 76% 20%, color-mix(in srgb, var(--pink-400) 14%, transparent), transparent 70%),
+    radial-gradient(16px 9px at 90% 78%, color-mix(in srgb, var(--mint) 18%, transparent), transparent 70%);
+  transform:rotate(8deg);
+}
+:root[data-palette="mygo"]:not([data-motion="off"]) .np::after{animation:mygoFall 9s linear infinite}
+@keyframes mygoFall{to{transform:rotate(8deg) translateY(180px)}}
+:root[data-palette="mygo"] .np[data-seg="chorus"]::after{opacity:1;filter:brightness(1.08)}
+:root[data-palette="mygo"] .np[data-stage="paused"]::after{opacity:.55}
+
+/* 顶部排练纸带：演出单横过来，压在玻璃上方 */
+:root[data-palette="mygo"] .np__queue{
+  display:flex;flex-direction:row;align-items:stretch;gap:var(--space-md);
+  max-height:118px;padding:var(--space-xs) var(--space-md);overflow:hidden;border-radius:var(--r-md);
+  background:color-mix(in srgb, var(--card) 46%, transparent);
+  border:1px solid color-mix(in srgb, var(--card) 72%, transparent);
+  box-shadow:0 14px 30px color-mix(in srgb, var(--text-2) 10%, transparent);
+  backdrop-filter:blur(10px);
+}
+:root[data-palette="mygo"] .np__queue .tape{display:none}
+:root[data-palette="mygo"] .np__queue-head{flex:none;width:196px;display:flex;flex-direction:column;justify-content:center;gap:var(--space-3xs)}
+:root[data-palette="mygo"] .np__queue-count{display:none}
+:root[data-palette="mygo"] .np__queue-list{
+  flex:1;display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;
+  gap:var(--space-xs);padding:var(--space-3xs) 0 var(--space-2xs);
+  scrollbar-width:thin;scrollbar-color:color-mix(in srgb, var(--lav) 42%, transparent) transparent;
+  mask-image:linear-gradient(90deg, transparent 0, black 14px, black calc(100% - 18px), transparent 100%);
+}
+:root[data-palette="mygo"] .np__queue-list::-webkit-scrollbar{height:4px;display:block}
+:root[data-palette="mygo"] .np__queue-list::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--lav) 42%, transparent);border-radius:var(--r-pill);
+}
+:root[data-palette="mygo"] .np__queue-list > div{display:flex;gap:var(--space-xs)}
+:root[data-palette="mygo"] .np__queue-list .qpath,
+:root[data-palette="mygo"] .np__queue-list .act-sep,
+:root[data-palette="mygo"] .np__queue-foot{display:none}
+:root[data-palette="mygo"] .qrow{
+  flex:none;width:224px;height:54px;padding:var(--space-2xs) var(--space-xs);border-radius:var(--r-sm);
+  background:color-mix(in srgb, var(--card) 34%, transparent);
+}
+:root[data-palette="mygo"] .qrow__title{
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;white-space:normal;line-height:1.25;
+}
+:root[data-palette="mygo"] .qrow.is-current{background:color-mix(in srgb, var(--card) 72%, transparent);box-shadow:inset 3px 0 0 var(--lav)}
+:root[data-palette="mygo"] .qrow.is-next{box-shadow:inset 3px 0 0 color-mix(in srgb, var(--lav) 45%, transparent)}
+:root[data-palette="mygo"] .qrow__dur,
+:root[data-palette="mygo"] .qrow__cue{display:none}
+:root[data-palette="mygo"] .qrow__name{flex:1;min-width:0}
+
+/* 窗内：海报与歌词隔玻璃并置 */
+:root[data-palette="mygo"] .np__poster{
+  justify-content:center;padding-right:var(--space-lg);
+  border-right:1px dashed color-mix(in srgb, var(--lav) 42%, transparent);
+}
+:root[data-palette="mygo"] .np__art{
+  border-radius:0;padding:0;
+  box-shadow:0 22px 46px color-mix(in srgb, var(--text-2) 18%, transparent);
+  -webkit-mask-image:linear-gradient(180deg,black 74%,color-mix(in srgb, black 72%, transparent) 92%,transparent);
+  mask-image:linear-gradient(180deg,black 74%,color-mix(in srgb, black 72%, transparent) 92%,transparent);
+}
+:root[data-palette="mygo"] .np__art-img{border-radius:0;transform:none;box-shadow:none}
+:root[data-palette="mygo"] .np__stage-tag{
+  background:color-mix(in srgb, var(--card) 72%, transparent);color:var(--text-2);box-shadow:none;
+  border:1px solid color-mix(in srgb, var(--lav) 34%, transparent);
+}
+:root[data-palette="mygo"] .np__lyric-swap{border-left:0;padding-left:var(--space-lg)}
+:root[data-palette="mygo"] .lw{
+  background:color-mix(in srgb, var(--card) 40%, transparent);
+  border:1px solid color-mix(in srgb, var(--card) 68%, transparent);
+  border-radius:var(--r-sm);
+  backdrop-filter:blur(12px);
+  box-shadow:0 18px 38px color-mix(in srgb, var(--text-2) 10%, transparent);
+}
+/* 折纸三角挪到海报与歌词之间的地面，能看见 */
+:root[data-palette="mygo"] .np__amb-tri{
+  inset:auto 34% 10% auto;width:84px;height:74px;
+  background:color-mix(in srgb, var(--lav) 22%, transparent);
+  filter:drop-shadow(0 6px 10px color-mix(in srgb, var(--text-2) 14%, transparent));
+}
+/* 控制台：磨砂调音台 */
+:root[data-palette="mygo"] .np__console{
+  margin:0 var(--space-xl);padding:var(--space-sm) var(--space-xl) var(--space-md);
+  background:color-mix(in srgb, var(--card) 34%, transparent);
+  border:1px solid color-mix(in srgb, var(--card) 62%, transparent);
+  border-bottom:0;border-radius:var(--r-lg) var(--r-lg) 0 0;
+  backdrop-filter:blur(10px);
+}
+
+/* ---------- 4. GBC：冷灰导播台 + 主监视器 ---------- */
+:root[data-palette="gbc"] .np{
+  background:
+    radial-gradient(820px 500px at 84% 14%, color-mix(in srgb, var(--mint) 26%, transparent), transparent 64%),
+    radial-gradient(620px 420px at 8% 88%, color-mix(in srgb, var(--mint) 18%, transparent), transparent 68%),
+    radial-gradient(120% 90% at 50% 50%, transparent 54%, color-mix(in srgb, var(--text) 9%, transparent)),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 94%, var(--mint) 6%) 0%,var(--bg) 58%,color-mix(in srgb, var(--bg) 90%, var(--text) 10%) 100%);
+}
+:root[data-palette="gbc"] .np::before{
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 30%, transparent), transparent 22%),
+    radial-gradient(100% 80% at 50% 50%, transparent 62%, color-mix(in srgb, var(--text) 8%, transparent));
+}
+:root[data-palette="gbc"] .np::after{
+  inset:22px;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent)),
+    linear-gradient(color-mix(in srgb, var(--pink-400) 55%, transparent),color-mix(in srgb, var(--pink-400) 55%, transparent));
+  background-size:38px 2px,2px 38px,38px 2px,2px 38px,38px 2px,2px 38px,38px 2px,2px 38px;
+}
+/* 主监视器：海报必须竖排，标题才不会被挤成竖文 */
+:root[data-palette="gbc"] .np__poster{
+  flex-direction:column;align-items:center;justify-content:center;gap:var(--space-sm);
+}
+:root[data-palette="gbc"] .np__info{width:100%}
+:root[data-palette="gbc"] .np__art{
+  width:auto;max-width:min(100%,34vh);align-self:center;padding:var(--space-sm);
+  background:color-mix(in srgb, var(--text) 88%, black);border:2px solid var(--pink-400);border-radius:0;
+  box-shadow:0 0 0 6px color-mix(in srgb, var(--text) 8%, transparent), 0 24px 48px color-mix(in srgb, var(--text) 24%, transparent);
+}
+:root[data-palette="gbc"] .np__art-img{border-radius:0;transform:none;box-shadow:none}
+:root[data-palette="gbc"] .np__art::before{
+  /* 监视器扫描线：只在画面里 */
+  background:repeating-linear-gradient(180deg,transparent 0 3px, color-mix(in srgb, var(--mint) 22%, transparent) 3px 4px);
+  opacity:.55;
+}
+:root[data-palette="gbc"] .np__stage-tag{
+  left:8px;bottom:8px;background:var(--pink-400);color:var(--on-accent);border-radius:0;
+  box-shadow:none;letter-spacing:.18em;
+}
+:root[data-palette="gbc"] .np__art-badge{background:color-mix(in srgb, var(--text) 88%, black);color:var(--pink-400);box-shadow:none;border:1px solid color-mix(in srgb, var(--pink-400) 55%, transparent)}
+/* 下方滚动字幕条：贴着监视器，不是第三列 */
+:root[data-palette="gbc"] .np__lyric-swap{
+  grid-area:lyric;max-height:150px;padding:0;
+  border-left:0;border-top:2px solid color-mix(in srgb, var(--pink-400) 34%, transparent);
+}
+:root[data-palette="gbc"] .lw__rail,
+:root[data-palette="gbc"] .lw__head,
+:root[data-palette="gbc"] .lw__foot{display:none}
+:root[data-palette="gbc"] .lw__view{flex:1}
+:root[data-palette="gbc"] .lw{
+  background:color-mix(in srgb, var(--card) 66%, transparent);
+  border:1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  border-radius:0;
+  box-shadow:none;
+}
+:root[data-palette="gbc"] .lw__rail-jp,
+:root[data-palette="gbc"] .lw__head-sub,
+:root[data-palette="gbc"] .lw__foot-num{font-family:var(--font-mono)}
+:root[data-palette="gbc"] .lw-line.is-cur .lw-line__jp{color:color-mix(in srgb, var(--pink-400) 82%, var(--text));font-weight:700}
+/* 时序表：导播数据表 */
+:root[data-palette="gbc"] .np__queue{
+  background:color-mix(in srgb, var(--card) 62%, transparent);border:1px solid color-mix(in srgb, var(--text) 18%, transparent);border-radius:0;
+  box-shadow:none;
+}
+:root[data-palette="gbc"] .np__queue .tape{display:none}
+:root[data-palette="gbc"] .np__queue-eyebrow{color:var(--pink-600)}
+:root[data-palette="gbc"] .qrow{border-radius:0;border-bottom:1px solid color-mix(in srgb, var(--text) 10%, transparent)}
+:root[data-palette="gbc"] .qrow.is-current{background:color-mix(in srgb, var(--pink-400) 10%, transparent);box-shadow:inset 2px 0 0 var(--pink-400)}
+:root[data-palette="gbc"] .qrow__dur{font-family:var(--font-mono)}
+/* 控制台：导播台冷灰条 */
+:root[data-palette="gbc"] .np__console{
+  border-top:1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--card) 30%, transparent), color-mix(in srgb, var(--bg) 72%, transparent));
+}
+:root[data-palette="gbc"] .np__times .num{color:var(--text-2)}
+
+/* ---------- 5. 歌词收起态：不再占一整块空板 ---------- */
+.lw--off{
+  border-style:solid;border-color:transparent;background:transparent;
+}
+.lw--off__inner{max-width:460px;margin:auto}
+:root[data-palette="btr"] .lw--off__lamp{background:radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--btr-yellow) 24%, transparent), transparent 74%)}
+:root[data-palette="mygo"] .lw--off__lamp{background:radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--lav) 26%, transparent), transparent 74%)}
+:root[data-palette="gbc"] .lw--off__lamp{background:radial-gradient(50% 50% at 50% 0%, color-mix(in srgb, var(--mint) 22%, transparent), transparent 74%)}
+
+/* ---------- 6. 段落灯光：副歌比主歌亮，尾奏回落 ---------- */
+:root[data-palette="btr"] .np[data-seg="intro"] .np__amb,
+.np--btr[data-seg="intro"] .np__amb{filter:brightness(.94)}
+:root[data-palette="btr"] .np[data-seg="outro"] .np__amb,
+.np--btr[data-seg="outro"] .np__amb{filter:brightness(.88)}
+:root[data-palette="mygo"] .np[data-seg="intro"] .np::after,
+.np--mygo[data-seg="intro"] .np::after{opacity:.72}
+:root[data-palette="mygo"] .np[data-seg="outro"] .np::after,
+.np--mygo[data-seg="outro"] .np::after{opacity:.62}
+:root[data-palette="gbc"] .np[data-seg="chorus"] .np__art::before,
+.np--gbc[data-seg="chorus"] .np__art::before{opacity:.8}
+:root[data-palette="gbc"] .np[data-stage="paused"] .np__art::before,
+.np--gbc[data-stage="paused"] .np__art::before{opacity:.25;animation-play-state:paused}
+
+/* ---------- 7. 窄窗回退：两列海报+演出单，歌词下沉 ---------- */
+@media (max-width:1120px){
+  :root[data-palette="btr"] .np__main,
+  :root[data-palette="mygo"] .np__main,
+  :root[data-palette="gbc"] .np__main{
+    grid-template-columns:minmax(0,1fr) minmax(200px,260px);
+    grid-template-rows:auto minmax(0,1fr);
+    grid-template-areas:"poster queue" "lyric queue";
+    gap:var(--space-md) var(--space-xl);
+    padding:var(--space-sm) var(--space-xl) var(--space-xs);
+  }
+  :root[data-palette="mygo"] .np__queue{display:flex;flex-direction:column;max-height:none;padding:var(--space-md) var(--space-sm)}
+  :root[data-palette="mygo"] .np__queue-head{width:auto}
+  :root[data-palette="mygo"] .np__queue-list{flex-direction:column;overflow-x:hidden;overflow-y:auto}
+  :root[data-palette="mygo"] .np__queue-list > div{flex-direction:column}
+  :root[data-palette="mygo"] .qrow{width:auto}
+  :root[data-palette="btr"] .np__art,
+  :root[data-palette="mygo"] .np__art,
+  :root[data-palette="gbc"] .np__art{max-width:min(100%,32vh)}
+}
+
+/* ---------- 8. 减动效：氛围层静止，保留明暗 ---------- */
+:root[data-motion="off"] .np::after,
+:root[data-motion="off"] .np__amb-float,
+:root[data-motion="off"] .np__amb-tri,
+:root[data-motion="off"] .np__art::before{animation:none !important}
+@media (prefers-reduced-motion:reduce){
+  .np::after,.np__amb-float,.np__amb-tri,.np__art::before{animation:none !important}
+}
+
+/* ---------- 9. 气质再推一档（critique 后：三套都别收在同一个“柔和”里） ---------- */
+/* BTR：追光外更暗、贴纸退场，舞台只剩灯和木框 */
+:root[data-palette="btr"] .np{
+  background:
+    radial-gradient(1050px 680px at 20% -14%, color-mix(in srgb, var(--btr-yellow) 24%, var(--card)) 0%, color-mix(in srgb, var(--btr-yellow) 10%, transparent) 30%, transparent 62%),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 86%, var(--text) 14%) 0%,color-mix(in srgb, var(--bg) 76%, var(--text) 24%) 64%,color-mix(in srgb, var(--bg) 68%, var(--text) 32%) 100%);
+}
+:root[data-palette="btr"] .np::before{
+  background:radial-gradient(116% 90% at 50% 44%, transparent 42%, color-mix(in srgb, var(--text) 40%, transparent) 100%);
+}
+:root[data-palette="btr"] .np::after{
+  background:
+    conic-gradient(from 170deg at 20% -16%, transparent 0 44%, color-mix(in srgb, var(--btr-yellow) 52%, transparent) 47%, color-mix(in srgb, var(--btr-yellow) 16%, transparent) 55%, transparent 61%),
+    radial-gradient(640px 220px at 20% 101%, color-mix(in srgb, var(--btr-yellow) 36%, transparent), transparent 72%);
+}
+:root[data-palette="btr"] .np__art .tape{display:none}
+:root[data-palette="btr"] .np__queue{
+  background:color-mix(in srgb, var(--btr-yellow) 10%, color-mix(in srgb, var(--text) 6%, var(--card)));
+}
+:root[data-palette="btr"] .np__stage-tag{
+  background:color-mix(in srgb, var(--btr-yellow) 18%, var(--card));
+  color:color-mix(in srgb, var(--text) 88%, transparent);
+}
+
+/* GBC：字幕条改黑底信号条；冷灰更沉，洋红只做信号 */
+:root[data-palette="gbc"] .np{
+  background:
+    radial-gradient(760px 460px at 84% 12%, color-mix(in srgb, var(--mint) 30%, transparent), transparent 62%),
+    radial-gradient(560px 380px at 8% 90%, color-mix(in srgb, var(--mint) 20%, transparent), transparent 66%),
+    radial-gradient(120% 92% at 50% 50%, transparent 46%, color-mix(in srgb, var(--text) 16%, transparent)),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 90%, var(--mint) 10%) 0%,color-mix(in srgb, var(--bg) 86%, var(--text) 14%) 62%,color-mix(in srgb, var(--bg) 78%, var(--text) 22%) 100%);
+}
+:root[data-palette="gbc"] .np__lyric-swap{
+  background:color-mix(in srgb, var(--text) 92%, black);
+  border-top:2px solid var(--pink-400);
+}
+:root[data-palette="gbc"] .lw{background:transparent;border:0}
+:root[data-palette="gbc"] .lw-line__jp,
+:root[data-palette="gbc"] .lw-line.is-past .lw-line__jp,
+:root[data-palette="gbc"] .lw-line.is-next .lw-line__jp{color:color-mix(in srgb, var(--card) 78%, var(--text))}
+:root[data-palette="gbc"] .lw-line.is-past .lw-line__jp{color:color-mix(in srgb, var(--card) 58%, var(--text))}
+:root[data-palette="gbc"] .lw-line.is-cur .lw-line__jp{color:var(--pink-400);text-shadow:0 0 14px color-mix(in srgb, var(--pink-400) 42%, transparent)}
+:root[data-palette="gbc"] .lw-ch{
+  color:color-mix(in srgb, var(--pink-400) calc(var(--k, 0) * 100%), color-mix(in srgb, var(--card) 74%, var(--text)));
+}
+:root[data-palette="gbc"] .lw__mask{display:none}
+:root[data-palette="gbc"] .lw__mask--top{background:linear-gradient(180deg, color-mix(in srgb, var(--text) 92%, black), transparent)}
+:root[data-palette="gbc"] .lw__mask--bottom{background:linear-gradient(0deg, color-mix(in srgb, var(--text) 92%, black), transparent)}
+:root[data-palette="gbc"] .np__art{box-shadow:0 0 0 7px color-mix(in srgb, var(--text) 12%, transparent), 0 26px 52px color-mix(in srgb, var(--text) 30%, transparent)}
+:root[data-palette="gbc"] .np__queue{background:color-mix(in srgb, var(--card) 74%, transparent)}
+
+/* MyGO：玻璃更厚、卡片少白、折纸三角更清楚 */
+:root[data-palette="mygo"] .np{
+  background:
+    radial-gradient(920px 620px at 74% 14%, color-mix(in srgb, var(--lav) 28%, transparent), transparent 64%),
+    radial-gradient(720px 500px at 14% 88%, color-mix(in srgb, var(--lav) 20%, transparent), transparent 68%),
+    linear-gradient(180deg,color-mix(in srgb, var(--bg) 78%, var(--lav) 22%) 0%,color-mix(in srgb, var(--bg) 70%, var(--lav) 30%) 58%,color-mix(in srgb, var(--bg) 62%, var(--lav) 38%) 100%);
+}
+:root[data-palette="mygo"] .lw{background:color-mix(in srgb, var(--card) 28%, transparent);backdrop-filter:blur(14px)}
+:root[data-palette="mygo"] .np__queue{background:color-mix(in srgb, var(--card) 34%, transparent);backdrop-filter:blur(14px)}
+:root[data-palette="mygo"] .np__amb-tri{
+  width:96px;height:84px;background:color-mix(in srgb, var(--lav) 34%, transparent);
+}
+:root[data-palette="mygo"] .lw-line.is-past .lw-line__jp{color:color-mix(in srgb, var(--text) 34%, var(--text-2))}
+:root[data-palette="mygo"] .lw-line.is-next .lw-line__jp{color:color-mix(in srgb, var(--text) 56%, var(--text-2))}
+:root[data-palette="mygo"] .lw__mask--top{background:linear-gradient(180deg, color-mix(in srgb, var(--bg) 64%, transparent), transparent)}
+:root[data-palette="mygo"] .lw__mask--bottom{background:linear-gradient(0deg, color-mix(in srgb, var(--bg) 64%, transparent), transparent)}
+
+/* ---------- 10. GBC：控制台搬进左侧推流面板（critique P1） ----------
+   同一批控件，不再共用底部通栏：左列 = 时序 + 播控 + 进度 + 音量，右区 = 监视器 + 字幕 + 时序表。 */
+.np--gbc{
+  grid-template-columns:196px minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"top top" "console main" "hint hint";
+}
+.np--gbc .np__top{grid-area:top}
+.np--gbc .np__main{grid-area:main}
+.np--gbc .np-hint{grid-area:hint}
+:root[data-palette="gbc"] .np__console{
+  grid-area:console;
+  display:flex;flex-direction:column;justify-content:space-between;gap:var(--space-md);
+  padding:var(--space-md) var(--space-md) var(--space-md) var(--space-lg);
+  border-top:0;border-right:1px solid color-mix(in srgb, var(--pink-400) 42%, transparent);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--text) 94%, black), color-mix(in srgb, var(--text) 86%, black));
+}
+:root[data-palette="gbc"] .np__console .np__ctrl{color:color-mix(in srgb, var(--card) 68%, var(--text))}
+:root[data-palette="gbc"] .np__console .np__ctrl:hover{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 12%, transparent)}
+:root[data-palette="gbc"] .np__console .np__ctrl.is-on{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 14%, transparent)}
+:root[data-palette="gbc"] .np__console .np__timeline-label{color:color-mix(in srgb, var(--card) 66%, var(--text))}
+:root[data-palette="gbc"] .np__console .np__times .num{color:color-mix(in srgb, var(--card) 62%, var(--text))}
+:root[data-palette="gbc"] .np__console .np__chorus-btn{
+  color:color-mix(in srgb, var(--card) 66%, var(--text));
+  border-color:color-mix(in srgb, var(--card) 26%, transparent);
+}
+:root[data-palette="gbc"] .np__console .np__chorus-btn:hover{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 12%, transparent)}
+:root[data-palette="gbc"] .np__console .np__progress-track{background:color-mix(in srgb, var(--card) 22%, transparent)}
+:root[data-palette="gbc"] .np__console .np__timeline{width:100%}
+:root[data-palette="gbc"] .np__console .np__timeline-track{width:100%;height:4px;flex:none;background:color-mix(in srgb, var(--card) 18%, transparent)}
+:root[data-palette="gbc"] .np__console .tl-seg{background:color-mix(in srgb, var(--card) 30%, transparent)}
+:root[data-palette="gbc"] .np__console .tl-seg.is-past{background:color-mix(in srgb, var(--card) 46%, transparent)}
+:root[data-palette="gbc"] .np__console .tl-seg.is-current{background:var(--pink-400)}
+:root[data-palette="gbc"] .np__console .np__controls{
+  display:grid;grid-template-columns:1fr 1.15fr 1fr;grid-template-rows:auto auto;
+  grid-template-areas:"prev play next" "shuffle repeat like";
+  gap:var(--space-2xs);justify-items:center;
+}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(1){grid-area:shuffle}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(2){grid-area:prev}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(3){grid-area:play}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(4){grid-area:next}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(5){grid-area:repeat}
+:root[data-palette="gbc"] .np__console .np__ctrl:nth-of-type(6){grid-area:like}
+:root[data-palette="gbc"] .np__console .np__ctrl--main{
+  width:100%;max-width:64px;height:48px;
+}
+:root[data-palette="gbc"] .np__console .np__deck{gap:var(--space-lg)}
+:root[data-palette="gbc"] .np__main{row-gap:var(--space-xs)}
+:root[data-palette="gbc"] .np__console input[type="range"]{accent-color:var(--pink-400)}
+:root[data-palette="gbc"] .lw-line.is-cur{
+  background:color-mix(in srgb, var(--pink-400) 7%, transparent);
+  box-shadow:inset 2px 0 0 var(--pink-400);
+}
+:root[data-palette="gbc"] .lw-ch{
+  color:color-mix(in srgb, var(--pink-400) calc(var(--k, 0) * 100%), color-mix(in srgb, var(--card) 84%, var(--text)));
+}
+.np__stream{
+  display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;
+  align-items:center;gap:var(--space-3xs) var(--space-xs);
+  padding-top:var(--space-xs);
+  border-top:1px solid color-mix(in srgb, var(--card) 18%, transparent);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;
+  color:color-mix(in srgb, var(--card) 64%, var(--text));
+  white-space:nowrap;
+}
+.np__stream .num{grid-column:2;grid-row:1;text-align:right;white-space:nowrap}
+.np__stream-live{grid-column:1;grid-row:1;display:inline-flex;align-items:center;gap:var(--space-3xs);color:var(--pink-400);flex:none}
+.np__stream-live i{width:5px;height:5px;border-radius:50%;background:var(--pink-400)}
+.np__stream-remain{grid-column:1 / span 2;grid-row:2;text-align:right;white-space:nowrap;font-size:var(--fs-micro)}
+.np--gbc .np__timeline{flex-direction:column;align-items:stretch;gap:var(--space-2xs)}
+.np--gbc .np__timeline-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em}
+.np--gbc .np__timeline-track{height:4px;gap:2px}
+.np--gbc .np__deck{
+  display:flex;flex-direction:column;align-items:stretch;gap:var(--space-md);
+}
+.np--gbc .np__controls{
+  display:grid;grid-template-columns:repeat(3, 1fr);gap:var(--space-2xs);
+  justify-items:center;
+}
+.np--gbc .np__ctrl-sep{display:none}
+.np--gbc .np__seek{width:100%}
+.np--gbc .np__times .num{font-size:10px}
+.np--gbc .np__vol{width:100%;justify-content:flex-start}
+.np--gbc .np__vol input[type="range"]{flex:1;min-width:0}
+.np--gbc .np__lyric-swap{max-height:132px}
+
+/* ============================================================
+   11. GBC 完全重设计 · Broadcast Brutalism
+   深色导播间：单块主监视器 + 底部广播控制带 + 右侧 rundown。
+   去掉左栏仪表盘；锐角、1px 硬边、单色信号，不用软圆角与柔光。
+   ============================================================ */
+.np--gbc{
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1fr) auto auto;
+  grid-template-areas:none;
+}
+.np--gbc .np__top,
+.np--gbc .np__main,
+.np--gbc .np__console,
+.np--gbc .np-hint{grid-area:auto}
+/* 旧的左栏规则是 :root[data-palette] .np__console{grid-area:console}，
+   优先级高于上面的 .np--gbc，必须同权重清掉，否则命名区会撑出隐式网格。 */
+:root[data-palette="gbc"] .np__console{grid-area:auto}
+
+:root[data-palette="gbc"] .np{
+  background:
+    radial-gradient(720px 460px at 82% 10%, color-mix(in srgb, var(--mint) 20%, transparent), transparent 62%),
+    radial-gradient(520px 380px at 6% 94%, color-mix(in srgb, var(--pink-400) 12%, transparent), transparent 66%),
+    radial-gradient(120% 96% at 50% 50%, transparent 44%, color-mix(in srgb, black 46%, transparent)),
+    color-mix(in srgb, var(--gbc-bg) 92%, black);
+  color:var(--gbc-text);
+}
+:root[data-palette="gbc"] .np::before{
+  background:repeating-linear-gradient(180deg, transparent 0 3px, color-mix(in srgb, var(--mint) 4%, transparent) 3px 4px);
+  opacity:.5;
+}
+:root[data-palette="gbc"] .np::after{
+  inset:18px;
+  background-image:
+    linear-gradient(var(--pink-400),var(--pink-400)),linear-gradient(var(--pink-400),var(--pink-400)),
+    linear-gradient(var(--pink-400),var(--pink-400)),linear-gradient(var(--pink-400),var(--pink-400)),
+    linear-gradient(var(--pink-400),var(--pink-400)),linear-gradient(var(--pink-400),var(--pink-400)),
+    linear-gradient(var(--pink-400),var(--pink-400)),linear-gradient(var(--pink-400),var(--pink-400));
+  background-size:44px 2px,2px 44px,44px 2px,2px 44px,44px 2px,2px 44px,44px 2px,2px 44px;
+}
+
+/* 顶栏：导播台状态条，所有字走 mono */
+:root[data-palette="gbc"] .np__top,
+:root[data-palette="gbc"] .np__top-label,
+:root[data-palette="gbc"] .np__close{color:color-mix(in srgb, var(--gbc-text) 76%, var(--gbc-bg))}
+:root[data-palette="gbc"] .np__top-label{font-family:var(--font-mono);letter-spacing:.12em}
+:root[data-palette="gbc"] .np__top-sep,
+:root[data-palette="gbc"] .np__windiv{background:color-mix(in srgb, var(--gbc-text) 28%, transparent)}
+:root[data-palette="gbc"] .np__top .icon-btn,
+:root[data-palette="gbc"] .np__top .np__winbtn{color:color-mix(in srgb, var(--gbc-text) 66%, var(--gbc-bg))}
+:root[data-palette="gbc"] .np__top .icon-btn:hover{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 12%, transparent)}
+:root[data-palette="gbc"] .np__rec{color:var(--pink-400);border-color:color-mix(in srgb, var(--pink-400) 62%, transparent)}
+
+/* 主区：监视器 + rundown；字幕压成 lower-third */
+:root[data-palette="gbc"] .np__main{
+  grid-template-columns:minmax(0,1fr) minmax(268px,304px);
+  grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"poster queue" "lyric queue";
+  gap:var(--space-sm) var(--space-xl);
+  padding:var(--space-xs) var(--space-2xl) var(--space-xs);
+}
+:root[data-palette="gbc"] .np__poster{
+  flex-direction:column;align-items:center;justify-content:center;gap:var(--space-sm);
+}
+:root[data-palette="gbc"] .np__art{
+  width:auto;max-width:min(100%,34vh);align-self:center;
+  padding:var(--space-xs);
+  background:color-mix(in srgb, var(--gbc-bg) 96%, black);
+  border:2px solid var(--pink-400);border-radius:0;
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--gbc-text) 12%, transparent), 0 24px 48px color-mix(in srgb, black 55%, transparent);
+}
+:root[data-palette="gbc"] .np__art-img{border-radius:0;transform:none;box-shadow:none}
+:root[data-palette="gbc"] .np__art::before{
+  background:repeating-linear-gradient(180deg, transparent 0 3px, color-mix(in srgb, var(--mint) 30%, transparent) 3px 4px);
+  opacity:.4;
+}
+:root[data-palette="gbc"] .np__stage-tag{
+  left:0;bottom:0;background:var(--pink-400);color:color-mix(in srgb, black 88%, var(--gbc-bg));
+  border-radius:0;box-shadow:none;font-family:var(--font-mono);letter-spacing:.2em;
+}
+:root[data-palette="gbc"] .np__art-badge{
+  background:color-mix(in srgb, var(--gbc-bg) 96%, black);color:var(--pink-400);
+  border:1px solid var(--pink-400);border-radius:0;box-shadow:none;
+}
+:root[data-palette="gbc"] .np__info{width:100%;align-items:flex-start}
+:root[data-palette="gbc"] .np__setline{color:var(--mint)}
+:root[data-palette="gbc"] .np__setline-rule{background:repeating-linear-gradient(90deg, color-mix(in srgb, var(--pink-400) 55%, transparent) 0 6px, transparent 6px 10px)}
+:root[data-palette="gbc"] .np__title{
+  color:var(--gbc-text);font-family:var(--font-display);
+  font-size:clamp(26px,2.2vw,34px);line-height:1.05;letter-spacing:.01em;
+}
+:root[data-palette="gbc"] .np__band,
+:root[data-palette="gbc"] .np__album{color:color-mix(in srgb, var(--gbc-text) 58%, var(--gbc-bg))}
+
+/* 字幕 = lower-third：贴在监视器下沿，黑底硬边 */
+:root[data-palette="gbc"] .np__lyric-swap{
+  background:color-mix(in srgb, black 76%, transparent);
+  border-top:2px solid var(--pink-400);
+  border-left:0;padding:0 var(--space-md);
+  max-height:150px;
+}
+:root[data-palette="gbc"] .lw{background:transparent;border:0;box-shadow:none}
+:root[data-palette="gbc"] .lw-line.is-cur{background:color-mix(in srgb, var(--pink-400) 8%, transparent)}
+:root[data-palette="gbc"] .lw-ch{
+  color:color-mix(in srgb, var(--pink-400) calc(var(--k, 0) * 100%), color-mix(in srgb, var(--gbc-text) 82%, var(--gbc-bg)));
+}
+:root[data-palette="gbc"] .lw__mask{display:none}
+:root[data-palette="gbc"] .lw__mask--top{background:linear-gradient(180deg, color-mix(in srgb, black 82%, transparent), transparent)}
+:root[data-palette="gbc"] .lw__mask--bottom{background:linear-gradient(0deg, color-mix(in srgb, black 82%, transparent), transparent)}
+
+/* rundown：右侧暗面板，mono 数据表 */
+:root[data-palette="gbc"] .np__queue{
+  background:color-mix(in srgb, var(--gbc-bg) 90%, black);
+  border:1px solid color-mix(in srgb, var(--pink-400) 30%, transparent);
+  border-radius:0;box-shadow:none;
+}
+:root[data-palette="gbc"] .np__queue .tape{display:none}
+:root[data-palette="gbc"] .np__queue-eyebrow{color:var(--pink-400)}
+:root[data-palette="gbc"] .np__queue-title{color:var(--gbc-text)}
+:root[data-palette="gbc"] .np__queue-sub,
+:root[data-palette="gbc"] .np__queue-count,
+:root[data-palette="gbc"] .np__queue-foot{color:color-mix(in srgb, var(--gbc-text) 54%, var(--gbc-bg))}
+:root[data-palette="gbc"] .qrow{color:var(--gbc-text);border-bottom:1px solid color-mix(in srgb, var(--gbc-text) 10%, transparent)}
+:root[data-palette="gbc"] .qrow__no,
+:root[data-palette="gbc"] .qrow__dur{color:color-mix(in srgb, var(--gbc-text) 46%, var(--gbc-bg));font-family:var(--font-mono)}
+:root[data-palette="gbc"] .qrow__artist{color:color-mix(in srgb, var(--gbc-text) 44%, var(--gbc-bg))}
+:root[data-palette="gbc"] .qrow.is-current{background:color-mix(in srgb, var(--pink-400) 12%, transparent);box-shadow:inset 2px 0 0 var(--pink-400)}
+:root[data-palette="gbc"] .qrow__cue{background:var(--pink-400);color:color-mix(in srgb, black 88%, var(--gbc-bg))}
+:root[data-palette="gbc"] .act-sep__num,
+:root[data-palette="gbc"] .act-sep__name{color:var(--mint)}
+
+/* 底部：一条广播控制带（不再是左栏） */
+:root[data-palette="gbc"] .np__console{
+  display:flex;flex-direction:column;gap:var(--space-2xs);
+  padding:var(--space-2xs) var(--space-2xl) var(--space-md);
+  border-top:1px solid color-mix(in srgb, var(--pink-400) 26%, transparent);
+  border-right:0;
+  background:linear-gradient(180deg, color-mix(in srgb, black 18%, transparent), color-mix(in srgb, var(--gbc-bg) 88%, black));
+}
+:root[data-palette="gbc"] .np__timeline{flex-direction:row;align-items:center;gap:var(--space-sm)}
+:root[data-palette="gbc"] .np__timeline-label{color:color-mix(in srgb, var(--gbc-text) 58%, var(--gbc-bg));font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;flex:none}
+:root[data-palette="gbc"] .np__timeline-track{flex:1;height:4px;background:color-mix(in srgb, var(--gbc-text) 16%, transparent);gap:3px}
+:root[data-palette="gbc"] .np__timeline-track .tl-seg{background:color-mix(in srgb, var(--gbc-text) 26%, transparent)}
+:root[data-palette="gbc"] .np__timeline-track .tl-seg.is-past{background:color-mix(in srgb, var(--mint) 46%, transparent)}
+:root[data-palette="gbc"] .np__timeline-track .tl-seg.is-current{background:var(--pink-400)}
+:root[data-palette="gbc"] .np__deck{
+  display:grid;grid-template-columns:auto minmax(0,1fr) minmax(140px,180px);
+  align-items:center;gap:var(--space-2xl);
+}
+:root[data-palette="gbc"] .np__console .np__controls{
+  display:flex;flex-wrap:nowrap;align-items:center;gap:var(--space-2xs);
+}
+:root[data-palette="gbc"] .np__controls .np__ctrl{grid-area:auto;color:color-mix(in srgb, var(--gbc-text) 68%, var(--gbc-bg))}
+:root[data-palette="gbc"] .np__controls .np__ctrl:hover{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 12%, transparent)}
+:root[data-palette="gbc"] .np__controls .np__ctrl.is-on{color:var(--pink-400);background:color-mix(in srgb, var(--pink-400) 14%, transparent)}
+:root[data-palette="gbc"] .np__controls .np__ctrl--main{
+  width:54px;height:44px;border-radius:0;
+  background:var(--pink-400);color:color-mix(in srgb, black 90%, var(--gbc-bg));
+  border:0;box-shadow:none;
+}
+:root[data-palette="gbc"] .np__controls .np__ctrl--main::before{display:none}
+:root[data-palette="gbc"] .np__controls .np__ctrl--main.is-playing::after{inset:-3px;border-radius:0;border-color:color-mix(in srgb, var(--pink-400) 40%, transparent)}
+:root[data-palette="gbc"] .np__ctrl-sep{display:block;background:color-mix(in srgb, var(--gbc-text) 20%, transparent)}
+:root[data-palette="gbc"] .np__seek{width:100%}
+:root[data-palette="gbc"] .np__progress-track{height:6px;border-radius:0;background:color-mix(in srgb, var(--gbc-text) 16%, transparent)}
+:root[data-palette="gbc"] .np__progress-fill{border-radius:0;background:linear-gradient(90deg, var(--mint), var(--pink-400))}
+:root[data-palette="gbc"] .np__progress-knob{border-radius:0;background:var(--pink-400);border-color:var(--pink-400)}
+:root[data-palette="gbc"] .np__times .num{color:color-mix(in srgb, var(--gbc-text) 54%, var(--gbc-bg))}
+:root[data-palette="gbc"] .np__chorus-btn{color:color-mix(in srgb, var(--gbc-text) 62%, var(--gbc-bg));border-color:color-mix(in srgb, var(--gbc-text) 22%, transparent);border-radius:0}
+:root[data-palette="gbc"] .np__vol{justify-content:flex-end}
+:root[data-palette="gbc"] .np__vol .np__ctrl{color:color-mix(in srgb, var(--gbc-text) 64%, var(--gbc-bg))}
+:root[data-palette="gbc"] .np__vol input[type="range"]{accent-color:var(--pink-400);max-width:120px}
+:root[data-palette="gbc"] .np__stream{display:none}
+:root[data-palette="gbc"] .np-hint{color:color-mix(in srgb, var(--gbc-text) 40%, var(--gbc-bg));padding-left:var(--space-2xl);padding-right:var(--space-2xl)}
+:root[data-palette="gbc"] .np-hint kbd{color:color-mix(in srgb, var(--gbc-text) 62%, var(--gbc-bg));border-color:color-mix(in srgb, var(--gbc-text) 22%, transparent)}
+
+/* ---------- 12. GBC 对比度收口（critique P1） ---------- */
+:root[data-palette="gbc"] .qrow__title{color:color-mix(in srgb, var(--gbc-text) 78%, var(--gbc-bg))}
+:root[data-palette="gbc"] .qrow.is-next .qrow__title{color:color-mix(in srgb, var(--gbc-text) 86%, var(--gbc-bg))}
+:root[data-palette="gbc"] .qrow.is-current .qrow__title{color:var(--gbc-text);font-weight:600}
+:root[data-palette="gbc"] .qrow__no,
+:root[data-palette="gbc"] .qrow__dur{color:color-mix(in srgb, var(--gbc-text) 64%, var(--gbc-bg))}
+:root[data-palette="gbc"] .qrow.is-current .qrow__no{color:var(--pink-400)}
+:root[data-palette="gbc"] .np__art-badge b{color:var(--pink-400)}
+:root[data-palette="gbc"] .np__stagecall .hand{color:color-mix(in srgb, var(--gbc-text) 62%, var(--gbc-bg))}
+
+/* ---------- 13. GBC 舞台 token：不跟随应用明暗翻转 ---------- */
+.np--gbc{
+  --gbc-bg: color-mix(in srgb, var(--text) 92%, black);
+  --gbc-text: var(--card);
+}
+:root[data-theme="dark"][data-palette="gbc"] .np--gbc{
+  --gbc-bg: var(--bg);
+  --gbc-text: var(--text);
+}
+
+/* ---------- 14. critique 修复：监视器 / 歌词 / live 语义 ---------- */
+:root[data-palette="gbc"] .np__art{
+  max-width:min(100%,34vh);
+  border-color:var(--mint);
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--mint) 22%, transparent), 0 24px 48px color-mix(in srgb, black 55%, transparent);
+}
+:root[data-palette="gbc"] .np__queue{border-color:color-mix(in srgb, var(--mint) 30%, transparent)}
+:root[data-palette="gbc"] .np__lyric-swap{max-height:180px}
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur,
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-line__jp,
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-ch{opacity:1 !important;filter:none !important;mix-blend-mode:normal !important}
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-line__jp{color:var(--gbc-text);text-shadow:0 0 14px color-mix(in srgb, var(--pink-400) 38%, transparent)}
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-ch{
+  color:color-mix(in srgb, var(--pink-400) calc(var(--k, 0) * 100%), var(--gbc-text)) !important;
+  text-shadow:none !important;
+}
+:root[data-palette="gbc"] .np:not(.np--playing) .np__rec{opacity:.45}
+:root[data-palette="gbc"] .np:not(.np--playing) .np__rec i{animation:none}
+
+/* GBC lower-third：去掉所有可能盖住当前句的伪元素与文字阴影 */
+:root[data-palette="gbc"] .np__lyric-swap .lw::before,
+:root[data-palette="gbc"] .np__lyric-swap .lw__spot{display:none}
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur{background:transparent}
+:root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-line__jp{text-shadow:none !important}

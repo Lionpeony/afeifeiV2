@@ -23,7 +23,7 @@ import {
 
 export function SettingsPage() {
   const af = useAf();
-  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, packEggs, sfx, setSfx, motionPref, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
+  const { accounts, sources, source, switchSource, openScan, logout, themePref, setThemePref, palette, setPalette, unlocked, eggs, packEggs, sfx, setSfx, stageFx, setStageFx, motionPref, setMotion, density, setDensity, volume, setVolume, tryCode, toast, setDemoOpen, setPage, setMineTab } = af;
   const [code, setCode] = useState("");
   const sleepEndsAt = getState().sleep.endsAt;
   const allEmpty = sources.every((s) => !accounts[s.id]);
@@ -157,6 +157,19 @@ export function SettingsPage() {
               <div className="set-line__hint">拨弦、纸页、清脆的叮。</div>
             </div>
             <button className={"switch" + (sfx ? " is-on" : "")} onClick={() => setSfx(!sfx)} aria-label="交互音效开关" aria-pressed={sfx}></button>
+          </div>
+          <div className="set-line">
+            <div>
+              <div className="set-line__label">演出彩蛋</div>
+              <div className="set-line__hint">
+                {!stageFx
+                  ? "已关：追光、雨势、信号都保持稳定。"
+                  : af.reduce
+                    ? "系统减弱动效时自动静默。"
+                    : "追光偶尔偏一下、雨忽然变大、画面闪一下—低概率，不影响播放。"}
+              </div>
+            </div>
+            <button className={"switch" + (stageFx ? " is-on" : "")} onClick={() => setStageFx(!stageFx)} aria-label="演出彩蛋开关" aria-pressed={stageFx}></button>
           </div>
           <div className="set-line">
             <div>

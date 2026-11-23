@@ -25,6 +25,16 @@
 }
 .np__top button,.np__top kbd{-webkit-app-region:no-drag}
 .np__ops{display:flex;align-items:center;gap:var(--space-3xs)}
+.np__op-labeled{
+  width:auto;height:28px;padding:0 var(--space-xs);
+  display:inline-flex;align-items:center;gap:var(--space-3xs);
+  border-radius:var(--r-pill);font-size:var(--fs-micro);color:var(--text-2);
+}
+.np__op-labeled:hover{color:var(--text);background:var(--wash)}
+@media (max-width:1240px){
+  .np__op-labeled{width:28px;padding:0}
+  .np__op-labeled > span{display:none}
+}
 .np__windiv{width:1px;height:16px;margin-left:var(--space-xs);background:var(--line-strong);opacity:.7}
 /* 窗口钮降到内容钮之后：同排但低一档存在感，扫读时不再和「分享/全屏」抢 */
 .np__winops{display:flex;align-items:center;gap:var(--space-3xs);opacity:.72;transition:opacity var(--dur-fast) var(--ease-out-soft)}
@@ -38,17 +48,25 @@
 .np__main{
   position:relative;z-index:var(--z-card-top);
   display:grid;
-  grid-template-columns:minmax(228px,300px) minmax(0,1fr) minmax(228px,296px);
+  grid-template-columns:var(--np-cols);
+  grid-template-rows:var(--np-rows);
+  grid-template-areas:var(--np-areas);
   gap:var(--space-3xl);
   align-items:stretch;
   padding: var(--space-md) var(--space-3xl) var(--space-xs);
   min-height:0;
+  /* 控制台独占底部：三柱内容再高也必须在中间这一行收口，不能画到底栏上 */
+  overflow:hidden;
 }
+/* 组件实例不变，只靠栅格区域换位置（三包布局见 docs/30 §38） */
+.np__poster{grid-area:poster}
+.np__lyric-swap{grid-area:lyric}
+.np__queue{grid-area:queue}
 .np__poster{display:flex;flex-direction:column;gap:var(--space-md);align-items:flex-start;justify-content:center;min-width:0;min-height:0}
 .np__info{display:flex;flex-direction:column;align-items:flex-start;min-width:0;width:100%}
 
 /* 封面（海报栏宽度 = 列的宽度，不再吃掉中间那一半） */
-.np__art{position:relative;width:100%;aspect-ratio:1;margin-bottom:0;flex:none}
+.np__art{position:relative;width:100%;max-width:var(--np-art-max);aspect-ratio:1;margin-bottom:0;flex:none}
 .np__art-img{
   width:100%;height:100%;object-fit:cover;border-radius:var(--r-xl);
   box-shadow:0 28px 60px rgba(61,43,57,.26);
@@ -132,6 +150,8 @@
   height:26px;display:flex;align-items:center;cursor:pointer;position:relative;
   touch-action:none;
 }
+.np__progress:focus-visible{outline:none}
+.np__progress:focus-visible .np__progress-track{outline:2px solid var(--pink-400);outline-offset:4px}
 .np__progress-track{
   height:4px;width:100%;border-radius:var(--r-pill);background:var(--line-strong);
   position:relative;overflow:visible;container-type:inline-size;
@@ -167,6 +187,15 @@
 .np__times{display:flex;align-items:baseline;justify-content:space-between;gap: var(--space-sm);margin-top: var(--space-3xs)}
 .np__times .num{font-family:var(--font-mono);font-size:var(--fs-micro);color:var(--text-3);white-space:nowrap}
 .np__times .np__times-pos{color:var(--text-2)}
+.np__chorus-btn{
+  display:inline-flex;align-items:center;gap:var(--space-3xs);
+  margin-left:auto;height:20px;padding:0 var(--space-xs);
+  border:1px solid var(--line);border-radius:var(--r-pill);
+  font-size:var(--fs-micro);color:var(--text-3);
+  transition:color var(--dur-fast) var(--ease-out-soft),background-color var(--dur-fast) var(--ease-out-soft),border-color var(--dur-fast) var(--ease-out-soft),transform var(--dur-tap) var(--ease-spring);
+}
+.np__chorus-btn:hover{color:var(--pink-700);border-color:var(--line-strong);background:var(--wash)}
+.np__chorus-btn:active{transform:scale(.97)}
 .np__ctrl--sm{width:24px;height:24px}
 .np__vol{display:flex;align-items:center;gap:var(--space-2xs);flex:none}
 .np__vol .vol__range{width:76px}
@@ -494,8 +523,8 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
   border-radius:var(--r-xs);padding: var(--space-3xs) var(--space-xs) var(--space-3xs) var(--space-xs);
 }
 .np__rec i{width:7px;height:7px;border-radius:50%;background:var(--pink-600)}
-:root:not([data-motion="off"]) .np__rec i{animation:recBlink 1.4s steps(1) infinite}
-@keyframes recBlink{0%,100%{opacity:1}50%{opacity:.15}}
+:root:not([data-motion="off"]) .np__rec i{animation:recBreathe 4.5s ease-in-out infinite}
+@keyframes recBreathe{0%,100%{opacity:.3}50%{opacity:.7}}
 
 /* ============================================================
    KADO 主题包 · 播放页舞台皮肤「地下室砖墙 + 顶灯」
@@ -516,6 +545,12 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
   content:"";position:absolute;inset:0;z-index:var(--z-row);pointer-events:none;mix-blend-mode:screen;
   background:radial-gradient(540px 640px at 50% -6%,rgba(255,197,61,.26),rgba(255,197,61,.09) 52%,transparent 74%);
 }
+/* 新手灯光师：追光低频呼吸 + 极小的手抖（±3px），3.6s */
+:root[data-palette="btr"]:not([data-motion="off"]) .np::after{animation:btrSpot 3.6s ease-in-out infinite}
+@keyframes btrSpot{
+  0%,100%{opacity:.72;transform:translateX(-3px)}
+  50%{opacity:1;transform:translateX(3px)}
+}
 
 /* ============================================================
    世界随时间走：时段微调（use-af 落 data-hour，每分钟对表）。
@@ -529,6 +564,148 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 :root[data-hour="dusk"][data-palette="btr"] .np::after{filter:brightness(1.15) saturate(1.08)}
 
 /* ============================================================
+   氛围层（docs/30 §35）：三包共用一根骨架，材质/漂浮物随包
+   - 位于内容之下（--z-base）：歌词与操作区永远零噪点
+   - 噪点只铺舞台底 + 封面卡内，不再做全局层
+   - 全部 keyframes 受 data-motion="off" 与 reduced-motion 双重降级
+   ============================================================ */
+.np__amb{position:absolute;inset:0;z-index:var(--z-base);pointer-events:none;overflow:hidden}
+/* 舞台底噪点（氛围层透明度上限 .3，见规范 4.4） */
+.np__amb::after{
+  content:"";position:absolute;inset:0;
+  background-image:var(--grain-img);background-size:140px 140px;
+  opacity:calc(var(--grain-opacity) * .45);
+  mix-blend-mode:var(--grain-blend);
+}
+/* 封面卡内噪点（贴纸质感随包） */
+.np__art::after{
+  content:"";position:absolute;inset:0;border-radius:var(--r-xl);z-index:var(--z-row);pointer-events:none;
+  background-image:var(--grain-img);background-size:140px 140px;
+  opacity:calc(var(--grain-opacity) * .40);
+  mix-blend-mode:var(--grain-blend);
+}
+.np__art-badge{z-index:var(--z-card-top)}
+.np__amb-float,.np__amb-prop,.np__cutbar,.np__amb-tri{position:absolute;inset:0}
+.np__amb::before{position:absolute;inset:0;opacity:0;content:""}
+.np__amb-prop,.np__amb-tri{display:none}
+.np__cutbar{opacity:0}
+
+/* ---- MAIGO：玻璃上的水珠（7s）+ 薄雾平移（15s）+ 折纸三角慢转（22s） ---- */
+:root[data-palette="mygo"] .np__amb-float{
+  opacity:.28;
+  background-image:
+    radial-gradient(2px 4px at 50% 8%,color-mix(in srgb,var(--lav) 40%,transparent),transparent 70%),
+    radial-gradient(1.5px 3px at 50% 42%,color-mix(in srgb,var(--lav) 28%,transparent),transparent 70%);
+  background-size:132px 180px,84px 140px;
+  background-position:0 0,42px 60px;
+}
+:root[data-palette="mygo"]:not([data-motion="off"]) .np__amb-float{animation:maigoDrip 7s linear infinite}
+@keyframes maigoDrip{to{background-position:0 180px,42px 200px}}
+:root[data-palette="mygo"] .np__amb::before{
+  opacity:.18;
+  background:radial-gradient(60% 40% at 30% 60%,color-mix(in srgb,var(--lav) 22%,transparent),transparent 72%);
+}
+:root[data-palette="mygo"]:not([data-motion="off"]) .np__amb::before{animation:maigoMist 15s ease-in-out infinite alternate}
+@keyframes maigoMist{to{transform:translateX(34px)}}
+:root[data-palette="mygo"] .np__amb-tri{
+  display:block;inset:auto auto 12% 7%;width:64px;height:58px;
+  background:color-mix(in srgb,var(--lav) 26%,transparent);
+  clip-path:polygon(50% 4%,96% 92%,4% 92%);
+  transform-origin:50% 62%;
+}
+:root[data-palette="mygo"]:not([data-motion="off"]) .np__amb-tri{animation:maigoFold 22s linear infinite}
+@keyframes maigoFold{to{transform:rotate(360deg)}}
+
+/* ---- RAW：冷青路灯光（慢呼吸）+ 抽象碎片 + 切歌荧光扫描条 ---- */
+:root[data-palette="gbc"] .np__amb-float{
+  background:
+    radial-gradient(140px 100px at 12% 80%,color-mix(in srgb,var(--mint) 22%,transparent),transparent 72%),
+    radial-gradient(110px 84px at 84% 66%,color-mix(in srgb,var(--mint) 14%,transparent),transparent 72%),
+    radial-gradient(90px 70px at 62% 22%,color-mix(in srgb,var(--pink-400) 9%,transparent),transparent 72%);
+}
+:root[data-palette="gbc"]:not([data-motion="off"]) .np__amb-float{animation:gbcLamp 5s ease-in-out infinite}
+@keyframes gbcLamp{0%,100%{opacity:.45}50%{opacity:.85}}
+/* 监视器内的极慢扫描线（8s，低透明度，只在封面里扫） */
+:root[data-palette="gbc"] .np__art::before{
+  content:"";position:absolute;inset:0;border-radius:var(--r-xl);z-index:var(--z-row);pointer-events:none;
+  background:repeating-linear-gradient(180deg,transparent 0 3px,color-mix(in srgb,var(--mint) 14%,transparent) 3px 4px);
+  opacity:.5;background-size:100% 96px;
+}
+:root[data-palette="gbc"]:not([data-motion="off"]) .np__art::before{animation:gbcScan 8s linear infinite}
+@keyframes gbcScan{to{background-position:0 96px}}
+:root[data-palette="gbc"] .np__amb::before{
+  content:"//      ◇      ▮      ·      //      ·      ▮";
+  padding:9% 3%;opacity:.16;color:var(--mint);
+  font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.5em;line-height:3.6;
+  white-space:pre-wrap;word-break:break-all;
+}
+:root[data-palette="gbc"]:not([data-motion="off"]) .np__amb::before{animation:gbcTicker 24s ease-in-out infinite alternate}
+@keyframes gbcTicker{to{transform:translateY(-10px)}}
+.np--gbc .np__cutbar{
+  inset:auto 0 auto 0;height:36%;top:-36%;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--pink-400) 20%,transparent) 50%,transparent);
+  animation:gbcCutScan 1s ease-out both;
+}
+@keyframes gbcCutScan{0%{opacity:0;transform:translateY(0)}16%{opacity:.5}100%{opacity:0;transform:translateY(360%)}}
+
+/* ---- KADO：墙角斜靠的吉他剪影（纯道具）+ 铅笔涂鸦 ---- */
+:root[data-palette="btr"] .np__amb-prop{
+  display:block;inset:auto auto 9% 3%;width:min(30vw,300px);height:auto;
+  color:color-mix(in srgb,var(--text) 14%,transparent);
+  transform:rotate(-14deg);transform-origin:left bottom;
+}
+:root[data-palette="btr"] .np__amb::before{
+  content:"✧        ♪        ∿        ✧        〜";
+  padding:8% 4%;opacity:.22;color:color-mix(in srgb,var(--text) 30%,transparent);
+  font-family:var(--font-hand);font-size:var(--fs-caption);letter-spacing:.6em;line-height:4.4;
+}
+:root[data-palette="btr"]:not([data-motion="off"]) .np__amb::before{animation:btrDrift 19s ease-in-out infinite alternate}
+@keyframes btrDrift{to{transform:translateY(-8px) rotate(-1deg)}}
+
+/* ---- 布局收口（三包各自摆放的细节；栅格本体在 tokens 的 --np-* 里） ---- */
+/* BTR 舞台居中：海报列居中、封面按 --np-art-max 收；提词屏作为左侧窄条压低存在感 */
+:root[data-palette="btr"] .np__poster{align-items:center;justify-content:center}
+:root[data-palette="btr"] .np__info{max-width:34ch}
+:root[data-palette="btr"] .np__lyric-swap{max-height:100%;opacity:.92}
+/* MAIGO 隔窗：计划表在左，提词纸贴右侧玻璃，用虚线分缝 */
+:root[data-palette="mygo"] .np__lyric-swap{
+  border-left:1px dashed color-mix(in srgb,var(--line-strong) 70%,transparent);
+  padding-left:var(--space-md);min-height:0;
+}
+/* GBC 导播：字幕条压在上沿，主监视器在下横排（画面 + 参数区） */
+:root[data-palette="gbc"] .np__main{row-gap:var(--space-lg)}
+:root[data-palette="gbc"] .np__lyric-swap{max-height:min(24vh,200px);align-self:start}
+:root[data-palette="gbc"] .np__poster{
+  flex-direction:row;align-items:center;gap:var(--space-2xl);justify-content:flex-start;
+}
+:root[data-palette="gbc"] .np__info{flex:1;min-width:0}
+
+/* 播放页状态：暂停 = 停演。动效冻结、氛围压暗（规范第二部分） */
+.np:not(.np--playing) .np__amb-float,
+.np:not(.np--playing) .np__amb::before,
+.np:not(.np--playing) .np__amb-tri,
+.np:not(.np--playing) .np__art::before,
+.np:not(.np--playing) .np__rec i,
+.np:not(.np--playing) .np__cutbar{animation-play-state:paused}
+.np:not(.np--playing) .np__amb{filter:brightness(.82)}
+.np:not(.np--playing) .np__rec i{opacity:.2}
+
+/* 减弱动效：全部氛围动画停住，漂浮层归零（噪点纹理是静态的，保留） */
+:root[data-motion="off"] .np__amb::before,
+:root[data-motion="off"] .np__amb-float,
+:root[data-motion="off"] .np__amb-tri,
+:root[data-motion="off"] .np__art::before,
+:root[data-motion="off"] .np__cutbar{animation:none;opacity:0}
+:root[data-motion="off"] .np__rec i{animation:none}
+@media (prefers-reduced-motion:reduce){
+  .np__amb::before,.np__amb-float,.np__amb-tri,.np__art::before,.np__cutbar,.np__rec i,
+  :root[data-palette="mygo"] .np::after,
+  :root[data-palette="btr"] .np::after{animation:none!important}
+  .np__cutbar{opacity:0!important}
+  .np:not(.np--playing) .np__amb{filter:none}
+}
+
+/* ============================================================
    播放页三柱的宽度/高度适配
    （应用默认 1.2 倍缩放：1440 的窗口 ≈ 1200 CSS px，断点按 CSS 宽来算）
    宽屏：海报 / 歌词舞台 / 演出单 三柱并排。
@@ -539,8 +716,13 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 @media (max-width:1300px){
   .np__main{
     grid-template-columns:minmax(190px,240px) minmax(0,1fr) minmax(190px,232px);
+    grid-template-rows:minmax(0,1fr);
+    grid-template-areas:none;   /* 中窗起退回 DOM 顺序，避免三包两列区与三列宽打架 */
     gap:var(--space-lg) var(--space-2xl);
   }
+  /* 栅格区名被清掉后，三柱必须同时清掉 grid-area；否则命名区失效，
+     海报/歌词会被丢进隐式网格（1440×900@1.2 实测只剩演出单）。 */
+  .np__poster,.np__lyric-swap,.np__queue{grid-area:auto}
   .np__deck{gap:var(--space-xl)}
 }
 @media (max-height:820px){
@@ -573,4 +755,214 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
   /* 窄演出单：把副标题收掉，优先把高度让给曲目 */
   .np__queue-sub{display:none}
   .np__queue-title{font-size:14px}
+}
+
+/* ---------- 40 · 控件形态分化（docs/30 §40） ----------
+   同一套功能控件，三种场地的物件：木舞台按键 / 磨砂玻璃键 / 监看推流键；
+   进度条：脚灯灯带 / 折痕细线 / 录制计时条。全部静态形态，不新增 keyframes。 */
+
+/* 主控键 */
+.np--btr .np__ctrl--main{
+  background:
+    repeating-linear-gradient(102deg, color-mix(in srgb, var(--text) 7%, transparent) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, color-mix(in srgb, var(--coral-deco) 88%, var(--btr-yellow)), color-mix(in srgb, var(--coral-deco) 62%, var(--text)));
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--btr-yellow) 30%, transparent), 0 10px 22px color-mix(in srgb, var(--text) 20%, transparent);
+}
+.np--btr .np__ctrl--main:hover{filter:brightness(1.07);color:var(--text)}
+.np--btr .np__ctrl--main.is-playing::after{border-color:color-mix(in srgb, var(--btr-yellow) 40%, transparent)}
+
+.np--mygo .np__ctrl--main{
+  width:58px;height:58px;border-radius:var(--r-md);
+  background: color-mix(in srgb, var(--card) 62%, transparent);
+  border:1px solid color-mix(in srgb, var(--lav) 34%, transparent);
+  color: color-mix(in srgb, var(--lav) 74%, var(--text));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lav) 20%, transparent), 0 8px 20px color-mix(in srgb, var(--lav) 18%, transparent);
+  backdrop-filter: blur(8px);
+}
+.np--mygo .np__ctrl--main:hover{
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  color: var(--lav);
+}
+.np--mygo .np__ctrl--main.is-playing::after{inset:-4px;border-radius:var(--r-lg);border-color:color-mix(in srgb, var(--lav) 26%, transparent)}
+
+.np--gbc .np__ctrl--main{
+  width:64px;height:52px;border-radius:var(--r-xs);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--text) 88%, var(--card)), color-mix(in srgb, var(--text) 74%, var(--card)));
+  border:1px solid color-mix(in srgb, var(--mint) 40%, transparent);
+  color: var(--mint);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mint) 12%, transparent), 0 6px 14px color-mix(in srgb, var(--text) 22%, transparent);
+  position:relative;
+}
+.np--gbc .np__ctrl--main::before{
+  content:"";position:absolute;top:6px;left:8px;width:5px;height:5px;border-radius:50%;
+  background: color-mix(in srgb, var(--coral-deco) 78%, transparent);
+}
+.np--gbc .np__ctrl--main:hover{border-color:color-mix(in srgb, var(--coral-deco) 55%, transparent);color:var(--coral-deco)}
+.np--gbc .np__ctrl--main.is-playing::after{inset:-5px;border-radius:var(--r-xs);border-color:color-mix(in srgb, var(--coral-deco) 30%, transparent)}
+
+/* 进度条 */
+.np--btr .np__progress-track{
+  height:6px;border-radius:0;
+  background:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--btr-yellow) 26%, transparent) 0 2px, transparent 2px 12px),
+    var(--line-strong);
+}
+.np--btr .np__progress-fill{
+  border-radius:0;
+  background: repeating-linear-gradient(90deg, var(--btr-yellow) 0 6px, color-mix(in srgb, var(--btr-yellow) 40%, transparent) 6px 11px);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--btr-yellow) 45%, transparent);
+}
+.np--btr .np__progress-knob{
+  width:14px;height:15px;border:none;border-radius:0;background:var(--btr-yellow);
+  clip-path: polygon(50% 0, 100% 34%, 82% 100%, 18% 100%, 0 34%);
+  rotate:-10deg;box-shadow:0 2px 6px color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+.np--mygo .np__progress-track{
+  height:2px;border-radius:0;
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--lav) 30%, transparent) 0 5px, transparent 5px 9px);
+}
+.np--mygo .np__progress-fill{background:var(--lav);border-radius:0}
+.np--mygo .np__progress-knob{
+  width:10px;height:10px;border:1.5px solid var(--lav);border-radius:0;background:var(--card);
+  rotate:45deg;box-shadow:none;
+}
+
+.np--gbc .np__progress-track{
+  height:5px;border-radius:0;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent);
+}
+.np--gbc .np__progress-fill{background:linear-gradient(90deg, var(--mint), var(--coral-deco));border-radius:0}
+.np--gbc .np__progress-knob{
+  width:6px;height:13px;border:none;border-radius:0;background:var(--coral-deco);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--coral-deco) 55%, transparent);
+}
+
+/* 演出单滚动条 */
+.np--btr .np__queue-list::-webkit-scrollbar{width:5px}
+.np--btr .np__queue-list::-webkit-scrollbar-thumb{
+  background: color-mix(in srgb, var(--coral-deco) 40%, transparent);
+  border-radius:0;
+}
+.np--mygo .np__queue-list::-webkit-scrollbar{width:5px}
+.np--mygo .np__queue-list::-webkit-scrollbar-thumb{
+  background: color-mix(in srgb, var(--lav) 30%, transparent);
+  border-radius:var(--r-pill);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lav) 16%, transparent);
+}
+.np--gbc .np__queue-list::-webkit-scrollbar{width:7px}
+.np--gbc .np__queue-list::-webkit-scrollbar-thumb{
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+  border-radius:0;
+  background-clip:padding-box;
+  border:2px solid transparent;
+}
+
+/* 分享弹窗边框 */
+.np--btr .share-card{
+  border:2px solid color-mix(in srgb, var(--btr-yellow) 52%, var(--text) 14%);
+  border-radius:var(--r-md);
+}
+.np--mygo .share-card{
+  border:1px solid color-mix(in srgb, var(--lav) 22%, transparent);
+  box-shadow: 0 26px 60px color-mix(in srgb, var(--lav) 24%, transparent);
+  backdrop-filter: blur(2px);
+}
+.np--gbc .share-card{
+  border:1px solid color-mix(in srgb, var(--mint) 42%, transparent);
+  border-radius:0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 8%, transparent), 0 24px 48px color-mix(in srgb, var(--text) 26%, transparent);
+}
+
+/* 暗色档：主控键的材质要在暗场里各自成立，不被基座暗色规则盖掉 */
+:root[data-theme="dark"] .np--btr .np__ctrl--main{
+  background:
+    repeating-linear-gradient(102deg, color-mix(in srgb, var(--bg) 16%, transparent) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, color-mix(in srgb, var(--coral-deco) 60%, var(--bg)), color-mix(in srgb, var(--coral-deco) 38%, var(--bg)));
+  border:none;
+  color: var(--bg);
+}
+:root[data-theme="dark"] .np--mygo .np__ctrl--main{
+  background: color-mix(in srgb, var(--card) 26%, transparent);
+  border-color: color-mix(in srgb, var(--lav) 34%, transparent);
+  color: var(--lav);
+}
+:root[data-theme="dark"] .np--gbc .np__ctrl--main{
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 78%, var(--text) 10%), color-mix(in srgb, var(--bg) 90%, var(--text) 4%));
+  border-color: color-mix(in srgb, var(--mint) 38%, transparent);
+  color: var(--mint);
+}
+
+/* ---------- 41 · 演出状态机（data-stage / data-seg） ----------
+   节点：idle 候场 / playing 正场 / paused 暂停 / change 换场 0.9s /
+   intermission 跨半场 8s / encore 末两首 / curtain 散场。
+   段落：intro 0–30% / chorus 30–70% / outro 70–100%，只调氛围层明暗，不动文字与控件。 */
+
+.np__amb{transition:filter .6s var(--ease-out-soft), opacity .6s var(--ease-out-soft)}
+
+.np[data-stage="idle"] .np__amb{opacity:.62}
+.np[data-stage="curtain"] .np__amb{opacity:.45;filter:grayscale(.25) brightness(.78)}
+.np[data-stage="intermission"] .np__amb{opacity:.68;filter:brightness(.86)}
+.np[data-stage="curtain"] .np__art{filter:saturate(.72) brightness(.92)}
+.np[data-stage="change"] .np__art{filter:brightness(1.05)}
+
+.np.np--playing[data-seg="chorus"] .np__amb{filter:brightness(1.07)}
+.np.np--playing[data-seg="intro"] .np__amb{filter:brightness(.96)}
+
+/* ---------- 43 · 演出彩蛋（data-egg） ----------
+   低概率、一次性、可关：追光偏移 / 弦断一抖 / 雨势变大 / 信号撕裂。
+   三个空图层常驻 opacity:0，只由根节点的 data-egg 点亮，不抢现有动画的 keyframes。 */
+.np__egg{position:absolute;inset:0;pointer-events:none;opacity:0}
+
+.np[data-egg="spot-slip"] .np__egg--spot{
+  background: radial-gradient(46% 62% at 52% 6%, color-mix(in srgb, var(--btr-yellow) 42%, transparent), transparent 72%);
+  animation: eggSpot 800ms var(--ease-out-soft) both;
+}
+@keyframes eggSpot{
+  0%{opacity:0;transform:translateX(0)}
+  16%{opacity:.55}
+  34%{opacity:.5;transform:translateX(-30px)}
+  74%{opacity:.44;transform:translateX(-30px)}
+  100%{opacity:0;transform:translateX(0)}
+}
+
+.np[data-egg="signal-tear"] .np__egg--tear{
+  inset:34% 0 46% 0;
+  background:
+    linear-gradient(180deg, transparent 0 34%, color-mix(in srgb, var(--coral-deco) 46%, transparent) 34% 35.5%, transparent 35.5% 62%, color-mix(in srgb, var(--mint) 32%, transparent) 62% 63%, transparent 63%);
+  animation: eggTear 500ms var(--ease-out-soft) both;
+}
+@keyframes eggTear{
+  0%{opacity:0;transform:translateX(0)}
+  22%{opacity:.5;transform:translateX(-6px)}
+  52%{opacity:.34;transform:translateX(4px)}
+  100%{opacity:0;transform:translateX(0)}
+}
+
+.np[data-egg="rain-up"] .np__egg--rain{
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--lav) 26%, transparent) 0 1px, transparent 1px 84px);
+  animation: eggRain 8s ease-in-out both;
+}
+@keyframes eggRain{
+  0%{opacity:0}
+  12%{opacity:.18}
+  68%{opacity:.2}
+  100%{opacity:0}
+}
+
+.np[data-egg="string-snap"] .np__poster{animation:eggSnap 320ms var(--ease-out-soft) both}
+@keyframes eggSnap{
+  0%,100%{transform:none}
+  20%{transform:translateX(-3px) rotate(-.2deg)}
+  46%{transform:translateX(2px) rotate(.15deg)}
+  72%{transform:translateX(-1px)}
+}
+
+[data-motion="off"] .np__egg{animation:none;opacity:0}
+[data-motion="off"] .np[data-egg="string-snap"] .np__poster{animation:none}
+@media (prefers-reduced-motion: reduce){
+  .np__egg{animation:none;opacity:0}
+  .np[data-egg="string-snap"] .np__poster{animation:none}
 }

@@ -91,3 +91,49 @@
   .scene { display: none; }
 }
 :root[data-motion="off"] .scene { display: none; }
+
+/* ---------- 换装签名（docs/30 §42） ----------
+   换主题时旧的幕布扫过（SceneSwitch）之后，新场地自己的 620ms 特征：
+   btr 追光落下 / mygo 薄雾漫过 / gbc 信号雪花。一次性，不循环。 */
+.packfx{position:fixed;inset:0;z-index:var(--z-scene);pointer-events:none;contain:strict}
+
+.packfx--btr{
+  background:
+    radial-gradient(60% 46% at 50% 0%, color-mix(in srgb, var(--btr-yellow) 34%, transparent), transparent 74%);
+  clip-path: polygon(38% 0, 62% 0, 78% 100%, 22% 100%);
+  animation: packSpot 620ms var(--ease-out-soft) both;
+}
+@keyframes packSpot{
+  0%{opacity:0;transform:translateY(-16%) scaleY(.72)}
+  32%{opacity:.82}
+  100%{opacity:0;transform:translateY(4%) scaleY(1)}
+}
+
+.packfx--mygo{
+  background:
+    radial-gradient(78% 58% at 42% 46%, color-mix(in srgb, var(--lav) 28%, transparent), transparent 72%),
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--lav) 12%, transparent) 50%, transparent);
+  animation: packMist 620ms var(--ease-out-soft) both;
+}
+@keyframes packMist{
+  0%{opacity:0;transform:translateX(-9%)}
+  34%{opacity:.74}
+  100%{opacity:0;transform:translateX(7%)}
+}
+
+.packfx--gbc{
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--mint) 20%, transparent) 0 1px, transparent 1px 4px);
+  animation: packStatic 620ms var(--ease-out-soft) both;
+}
+@keyframes packStatic{
+  0%{opacity:0}
+  24%{opacity:.52}
+  58%{opacity:.2}
+  100%{opacity:0}
+}
+
+[data-motion="off"] .packfx{animation:none;opacity:0}
+@media (prefers-reduced-motion: reduce){
+  .packfx{animation:none;opacity:0}
+}

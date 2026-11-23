@@ -59,6 +59,8 @@ if (TEST) {
       "listening-stats": "src/renderer/projection/stats.ts",
       "ui-theme": "src/renderer/ui/theme.ts",
       "global-theme": "src/renderer/ui/global-theme.ts",
+      "theme-copy": "src/renderer/ui/af/copy.ts",
+      "play-stage": "src/renderer/ui/af/stage.ts",
       "active-source": "src/renderer/ui/active-source.ts",
       recommend: "src/renderer/domain/recommend/index.ts",
       "recommend-salt": "src/renderer/domain/recommend/salt.ts",
@@ -232,6 +234,7 @@ const cssFiles = [
   "src/renderer/ui/af/scene.css",
   "src/renderer/ui/af/splash.css",
   "src/renderer/ui/af/responsive.css",
+  "src/renderer/ui/af/stage-themes.css",
 ];
 
 const css = cssFiles.map((f) => fs.readFileSync(f, "utf8")).join("\n");

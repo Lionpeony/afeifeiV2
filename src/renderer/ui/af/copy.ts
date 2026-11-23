@@ -6,7 +6,39 @@
  *  - 37 个槽位分期接线：已落漫游轮换、我喜欢空态、红心 toast，以及 E18–E22 行为彩蛋五处。
  */
 
+/* 演出话术（docs/30 §39）：同一台播放器，三种场地身份。
+ * labels 进状态行/幕名/演出单抬头，六句系统话术给 §40 演出状态机用。 */
+interface StageCopy {
+  /* 播放页顶栏状态行（候场 / 演出中 / 暂停 / 中场 / 安可 / 散场） */
+  idle: string;
+  live: string;
+  paused: string;
+  intermission: string;
+  encore: string;
+  curtain: string;
+  /* 幕标：常规段 / 返场段 */
+  setMain: string;
+  setEncore: string;
+  /* 四幕的名字（演出单里的分隔带） */
+  actNames: readonly string[];
+  /* 演出单抬头 + 散场倒计时 */
+  setlistTitle: string;
+  remain(n: number): string;
+  /* 封面上那枚角标 */
+  artTag: string;
+  /* 空演出单 */
+  emptyTitle: string;
+  emptySub: string;
+  /* 系统话术六场景（加载/失败/切场/散场/中场） */
+  loading: string;
+  loadFail: string;
+  trackChange: string;
+  finished: string;
+  intermissionTip: string;
+}
+
 interface PackCopy {
+  stage: StageCopy;
   roam: readonly string[];
   likedEmpty: { title: string; sub: string; cta: string };
   likeToast(added: boolean): string;
@@ -59,6 +91,27 @@ interface PackCopy {
 
 /** 基座文案（现行粉色场刊），也是未解锁包的回落值。 */
 const BELLE: PackCopy = {
+  stage: {
+    idle: "候场 · 灯还没亮",
+    live: "正在演出",
+    paused: "演出暂停",
+    intermission: "中场休息",
+    encore: "安可返场",
+    curtain: "演出结束",
+    setMain: "MAIN SET",
+    setEncore: "ENCORE",
+    actNames: ["开演", "中场", "续演", "再来一首"],
+    setlistTitle: "今晚的演出单",
+    remain: (n: number): string => `还剩 ${n} 分钟就散场`,
+    artTag: "NOW ON STAGE",
+    emptyTitle: "演出单还空着",
+    emptySub: "今晚的曲目从「发现」里挑，挑中哪首，这一场就从哪首开演。",
+    loading: "正在准备今晚的舞台…",
+    loadFail: "舞台稍作调整，再试一次",
+    trackChange: "下一首登场",
+    finished: "本场演出结束，感谢观看",
+    intermissionTip: "中场休息，片刻后继续",
+  },
   roam: ["还在找今晚的那首歌？♡", "不知道听什么的话，就让它自己走。", "切歌也算一种走路方式。"],
   likedEmpty: {
     title: "还没有留下印记的歌。",
@@ -102,6 +155,27 @@ const BELLE: PackCopy = {
 
 /** MAIGO「迷子 · 雨夜」：温柔、迷路、慢半拍。 */
 const MAIGO: PackCopy = {
+  stage: {
+    idle: "窗外 · 还没开灯",
+    live: "正在排练",
+    paused: "排练暂停",
+    intermission: "休息中",
+    encore: "再来一遍",
+    curtain: "今日排练结束",
+    setMain: "PRACTICE",
+    setEncore: "ONCE MORE",
+    actNames: ["第一遍", "重来", "再一遍", "最后一遍"],
+    setlistTitle: "今晚的排练单",
+    remain: (n: number): string => `再练 ${n} 分钟就收工`,
+    artTag: "BEHIND THE GLASS",
+    emptyTitle: "排练单还空着",
+    emptySub: "从「发现」里挑一首，今晚就从它开始练。",
+    loading: "正在调试设备…",
+    loadFail: "暂时迷路了，再找一次",
+    trackChange: "换一首练习",
+    finished: "今日排练结束",
+    intermissionTip: "休息一下，再继续",
+  },
   roam: ["不知道听什么，就先走走看。", "走错路也是一种风景。", "迷路的时候，跟着风走。"],
   likedEmpty: {
     title: "还没有记在诗里的歌。",
@@ -145,6 +219,27 @@ const MAIGO: PackCopy = {
 
 /** RAW「无滤镜」（GBC 气质）：短句、命令式、不卖萌。 */
 const RAW: PackCopy = {
+  stage: {
+    idle: "预热中 · 信号待接入",
+    live: "正在直播",
+    paused: "直播暂停",
+    intermission: "中场休息",
+    encore: "临时加播",
+    curtain: "本次直播结束",
+    setMain: "LIVE",
+    setEncore: "RE-RUN",
+    actNames: ["接入", "切段", "续流", "加播"],
+    setlistTitle: "今晚的时序表",
+    remain: (n: number): string => `距下播还有 ${n} 分钟`,
+    artTag: "ON AIR",
+    emptyTitle: "时序表还是空的",
+    emptySub: "去「发现」挑一段画面，信号就有了。",
+    loading: "正在连接信号…",
+    loadFail: "信号波动，稍后重试",
+    trackChange: "下一段画面",
+    finished: "本次直播结束",
+    intermissionTip: "中场休息，马上回来",
+  },
   roam: ["没想法就让它自己走。", "跳歌不丢人。", "想听什么直说，不然我决定。"],
   likedEmpty: {
     title: "还没记下任何一首。",
@@ -188,6 +283,27 @@ const RAW: PackCopy = {
 
 /** KADO「墙角英雄」（孤独摇滚气质）：社恐独白，感叹号只给成功反馈。 */
 const KADO: PackCopy = {
+  stage: {
+    idle: "候场 · 灯还没亮",
+    live: "正在演出",
+    paused: "演出暂停",
+    intermission: "中场休息",
+    encore: "安可返场",
+    curtain: "本场演出结束",
+    setMain: "MAIN SET",
+    setEncore: "ENCORE",
+    actNames: ["开演", "中场", "续演", "安可"],
+    setlistTitle: "今晚的演出单",
+    remain: (n: number): string => `还剩 ${n} 分钟就散场`,
+    artTag: "3RD ROW",
+    emptyTitle: "演出单还空着",
+    emptySub: "从「发现」里挑一首，这一场就从它开演。",
+    loading: "正在准备舞台…",
+    loadFail: "舞台稍作调整，再试一次",
+    trackChange: "下一首登场",
+    finished: "本场演出结束，感谢观看",
+    intermissionTip: "中场休息，片刻后继续",
+  },
   roam: ["不知道听什么的话…交给它吧。", "切歌也算一种说话方式。", "墙角视角，别有一番风景。"],
   likedEmpty: {
     title: "这里还空着…",
@@ -236,6 +352,11 @@ const PACKS: Record<string, Pack> = { BELLE, mygo: MAIGO, gbc: RAW, btr: KADO };
 /** 按 palette 取文案包；未登记的 palette 回落基座。 */
 export function packCopy(palette: string): Pack {
   return PACKS[palette] ?? BELLE;
+}
+
+/** 演出话术（状态行 / 幕名 / 演出单抬头 / 六场景），未登记的 palette 回落基座。 */
+export function stageCopy(palette: string): StageCopy {
+  return packCopy(palette).stage;
 }
 
 /** 漫游页轮换文案：按队列序号轮换。 */

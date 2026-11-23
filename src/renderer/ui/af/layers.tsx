@@ -63,7 +63,18 @@ export function useLyricLines(): { text: string; startMs: number }[] {
 
 /* ---------- 彩蛋层 ---------- */
 export function EggLayer() {
-  const { overlay, corner, palette, themeScene, setOverlay } = useAf();
+  const { overlay, corner, palette, themeScene, setOverlay, reduce } = useAf();
+  /* 换装签名（docs/30 §42）：色板落地后 620ms 的「场地特征」，一包一种，只演一次 */
+  const [packFx, setPackFx] = useState<string | null>(null);
+  const prevPalette = useRef(palette);
+  useEffect(() => {
+    if (prevPalette.current === palette) return;
+    prevPalette.current = palette;
+    if (reduce || palette === "default") return;
+    setPackFx(palette);
+    const id = window.setTimeout(() => setPackFx(null), 620);
+    return () => window.clearTimeout(id);
+  }, [palette, reduce]);
   return (
     <>
       {overlay === "river" && (
@@ -151,6 +162,8 @@ export function EggLayer() {
           }}
         />
       ) : null}
+
+      {packFx && !reduce ? <div key={packFx} className={"packfx packfx--" + packFx} aria-hidden="true" /> : null}
 
       {corner && (
         <>
