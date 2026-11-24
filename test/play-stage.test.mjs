@@ -57,17 +57,21 @@ test("末曲播到最后一秒且已停 → 散场；中场窗口优先于其他
   assert.equal(stageOf({ ...base, queueLength: 0, intermission: true }), "idle");
 });
 
-test("演出彩蛋概率按包分流，换场只给 btr 断弦", async () => {
+test("演出彩蛋概率按包分流，换场 btr 断弦 / mygo 水痕", async () => {
   const { pickStageEgg } = await import("../dist-test/play-stage.mjs");
   const roll = (v) => () => v;
   assert.equal(pickStageEgg("btr", 1, "chorus", roll(0.04)), "spot-slip");
   assert.equal(pickStageEgg("btr", 1, "chorus", roll(0.06)), null);
   assert.equal(pickStageEgg("gbc", 1, "chorus", roll(0.03)), "signal-tear");
-  assert.equal(pickStageEgg("gbc", 1, "chorus", roll(0.05)), null);
+  assert.equal(pickStageEgg("gbc", 1, "chorus", roll(0.05)), "passerby");
+  assert.equal(pickStageEgg("gbc", 1, "chorus", roll(0.09)), "danmaku");
+  assert.equal(pickStageEgg("gbc", 1, "chorus", roll(0.2)), null);
   assert.equal(pickStageEgg("mygo", 3, "chorus", roll(0.99)), "rain-up");
   assert.equal(pickStageEgg("mygo", 4, "chorus", roll(0)), null);
   assert.equal(pickStageEgg("default", 3, "chorus", roll(0)), null);
   assert.equal(pickStageEgg("btr", 1, "change", roll(0.005)), "string-snap");
   assert.equal(pickStageEgg("btr", 1, "change", roll(0.02)), null);
+  assert.equal(pickStageEgg("mygo", 1, "change", roll(0.05)), "glass-streak");
+  assert.equal(pickStageEgg("mygo", 1, "change", roll(0.09)), null);
   assert.equal(pickStageEgg("gbc", 1, "change", roll(0)), null);
 });

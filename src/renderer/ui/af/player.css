@@ -960,6 +960,46 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
   72%{transform:translateX(-1px)}
 }
 
+/* §44 三颗补齐彩蛋：mygo 玻璃水痕 / gbc 路人光斑 / gbc 弹幕碎片 */
+.np[data-egg="glass-streak"] .np__egg--streak{
+  inset:-12% auto auto 63%;width:3px;height:74%;border-radius:var(--r-pill);
+  background:linear-gradient(180deg, transparent, color-mix(in srgb, var(--lav) 60%, transparent) 22%, color-mix(in srgb, var(--lav) 30%, transparent) 76%, transparent);
+  filter:blur(.5px);
+  animation:eggStreak 2.4s var(--ease-out-soft) both;
+}
+@keyframes eggStreak{
+  0%{opacity:0;transform:translateY(-18%) scaleY(.5)}
+  14%{opacity:.6}
+  64%{opacity:.5;transform:translateY(9%) scaleY(1)}
+  100%{opacity:0;transform:translateY(16%) scaleY(1)}
+}
+
+.np[data-egg="passerby"] .np__egg--walk{
+  inset:auto auto 32% -18%;width:clamp(90px,12vw,150px);height:clamp(90px,12vw,150px);
+  border-radius:50%;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--mint) 32%, transparent), transparent 76%);
+  filter:blur(6px);
+  animation:eggWalk 9s linear both;
+}
+@keyframes eggWalk{
+  0%{opacity:0;transform:translateX(0)}
+  12%{opacity:.5}
+  78%{opacity:.4}
+  100%{opacity:0;transform:translateX(140vw)}
+}
+
+.np[data-egg="danmaku"] .np__egg--chat{animation:eggChatFade 7s linear both}
+.np[data-egg="danmaku"] .np__egg--chat::before,
+.np[data-egg="danmaku"] .np__egg--chat::after{
+  content:"▮   ◇   ·   ▮   ·   ◇";
+  position:absolute;white-space:nowrap;font-family:var(--font-mono);font-size:12px;
+  letter-spacing:.5em;color:color-mix(in srgb, var(--mint) 60%, transparent);
+}
+.np[data-egg="danmaku"] .np__egg--chat::before{top:12%;left:-28%;animation:eggChat 7s linear both}
+.np[data-egg="danmaku"] .np__egg--chat::after{top:64%;left:-58%;font-size:10px;opacity:.8;animation:eggChat 7s linear .6s both}
+@keyframes eggChatFade{0%,100%{opacity:0}8%,82%{opacity:1}}
+@keyframes eggChat{0%{opacity:0;transform:translateX(0)}10%{opacity:.55}80%{opacity:.45}100%{opacity:0;transform:translateX(120vw)}}
+
 [data-motion="off"] .np__egg{animation:none;opacity:0}
 [data-motion="off"] .np[data-egg="string-snap"] .np__poster{animation:none}
 @media (prefers-reduced-motion: reduce){

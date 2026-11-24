@@ -43,9 +43,17 @@ export function stageOf(f: StageFacts): StageNode {
   return "playing";
 }
 
-/* ---------- 演出彩蛋（docs/30 §43） ----------
- * 低概率、行为级、可关闭；概率与「第几首」都走参数，便于测试固定随机数。 */
-export type StageEgg = "spot-slip" | "string-snap" | "rain-up" | "signal-tear";
+/* ---------- 演出彩蛋（docs/30 §43 / §44） ----------
+ * 低概率、行为级、可关闭；概率与「第几首」都走参数，便于测试固定随机数。
+ * §44 补上规范 2.x.4 里没做的三颗：mygo 玻璃水痕、gbc 路人光斑、gbc 弹幕碎片。 */
+export type StageEgg =
+  | "spot-slip"
+  | "string-snap"
+  | "rain-up"
+  | "signal-tear"
+  | "glass-streak"
+  | "passerby"
+  | "danmaku";
 
 export function pickStageEgg(
   palette: string,
@@ -54,10 +62,18 @@ export function pickStageEgg(
   rng: () => number = Math.random,
 ): StageEgg | null {
   if (moment === "change") {
-    return palette === "btr" && rng() < 0.01 ? "string-snap" : null;
+    if (palette === "btr") return rng() < 0.01 ? "string-snap" : null;
+    if (palette === "mygo") return rng() < 0.08 ? "glass-streak" : null;
+    return null;
   }
   if (palette === "btr") return rng() < 0.05 ? "spot-slip" : null;
-  if (palette === "gbc") return rng() < 0.04 ? "signal-tear" : null;
+  if (palette === "gbc") {
+    const r = rng();
+    if (r < 0.04) return "signal-tear";
+    if (r < 0.075) return "passerby";
+    if (r < 0.11) return "danmaku";
+    return null;
+  }
   if (palette === "mygo") return trackNo > 0 && trackNo % 3 === 0 ? "rain-up" : null;
   return null;
 }

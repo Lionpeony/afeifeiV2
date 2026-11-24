@@ -224,7 +224,13 @@ export function NowPlaying() {
 
   const fireEgg = (egg: StageEgg): void => {
     setStageEgg(egg);
-    const ms = egg === "rain-up" ? 8000 : egg === "spot-slip" ? 800 : 500;
+    const ms =
+      egg === "rain-up" ? 8000
+        : egg === "passerby" ? 9000
+          : egg === "danmaku" ? 7000
+            : egg === "glass-streak" ? 2400
+              : egg === "spot-slip" ? 800
+                : 500;
     if (eggTimer.current) window.clearTimeout(eggTimer.current);
     eggTimer.current = window.setTimeout(() => setStageEgg(null), ms);
   };
@@ -267,8 +273,14 @@ export function NowPlaying() {
         <span className="np__egg np__egg--spot" />
         <span className="np__egg np__egg--tear" />
         <span className="np__egg np__egg--rain" />
+        <span className="np__egg np__egg--streak" />
+        <span className="np__egg np__egg--walk" />
+        <span className="np__egg np__egg--chat" />
         <span key={track.id} className="np__cutbar" />
       </div>
+
+      {/* 换场扫光（docs/30 §44）：btr 柔暗场 / mygo 水雾漫过 / gbc 洋红横扫 */}
+      <span className="np__change" aria-hidden="true" />
 
       <div className="np__top">
         <button className="np__close" onClick={closePlayer}>
@@ -319,7 +331,7 @@ export function NowPlaying() {
       {/* 三根柱子：左海报 / 中歌词舞台 / 右演出单 */}
       <div className="np__main">
         <section className="np__poster" aria-label="本场海报">
-          <div key={track.id} className={"np__art np__track-swap" + (playing ? " loop is-breathing" : "")}>
+          <div key={"art-" + track.id} className={"np__art np__track-swap" + (playing ? " loop is-breathing" : "")}>
             <Tape w={78} rot={-4} style={{ top: -11, left: 34 }} />
             {track.cover ? (
               <img key={track.id} className="np__art-img" src={track.cover} alt="" referrerPolicy="no-referrer" />
@@ -341,7 +353,7 @@ export function NowPlaying() {
             {struckId && <span className={"sheer is-on sheer--" + (sheerSide || "r")}></span>}
           </div>
 
-          <div key={track.id} className="np__info np__track-swap">
+          <div key={"info-" + track.id} className="np__info np__track-swap">
             <div className="np__setline" aria-label="演出状态">
               <span className="np__setline-act">{queueIndex >= queue.length - 2 ? sc.setEncore : sc.setMain}</span>
               <span className="np__setline-rule" aria-hidden="true"></span>

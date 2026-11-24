@@ -8,8 +8,8 @@
    ============================================================ */
 
 /* ---------- 1. 三套栅格：同一组组件，三种场地 ---------- */
-/* 海报区只允许一张封面：旧构建/异常数据留下多张 .np__art 时，后几张直接不显示，
-   避免它们叠成一列压到标题、字幕和底部控制栏。 */
+/* 海报区只允许一张封面：正常情况下只挂一张（换歌靠唯一 key 重挂载）。
+   这根保险丝只兜「历史遗留 DOM / 扩展注入」的多余封面，避免叠成一列压到标题与控台。 */
 .np__poster > .np__art ~ .np__art{display:none !important}
 :root[data-palette="btr"] .np__main{
   grid-template-columns:minmax(220px,270px) minmax(0,1fr) minmax(240px,290px);
@@ -748,3 +748,93 @@
 :root[data-palette="gbc"] .np__lyric-swap .lw__spot{display:none}
 :root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur{background:transparent}
 :root[data-palette="gbc"] .np__lyric-swap .lw-line.is-cur .lw-line__jp{text-shadow:none !important}
+
+/* ============================================================
+   15. 全流程状态层 + 换场扫光（docs/30 §44）
+   规范 2.x.3 的候场 / 中场 / 散场 / 安可只做「同一批灯与材质换个状态」，
+   不新增图层；换场用一枚 .np__change 扫光，随 data-stage="change" 重放。
+   ============================================================ */
+.np__change{position:absolute;inset:0;z-index:var(--z-swap);pointer-events:none;opacity:0}
+
+/* ---- BTR：候场只留脚灯 30%，中场只留出口绿光，散场收灯，安可更亮 ---- */
+/* btrSpot 的 keyframes 带 opacity，动画优先级高于普通声明：
+   候场/中场/散场要压暗，必须先 animation:none，否则 opacity 写了也不生效。 */
+/* 背景那层暖黄是 .np 自己的 radial，不压它的话「灯灭」只灭光锥，桌面还是亮的 */
+:root[data-palette="btr"] .np[data-stage="idle"]{filter:brightness(.9)}
+:root[data-palette="btr"] .np[data-stage="intermission"]{filter:brightness(.82)}
+:root[data-palette="btr"] .np[data-stage="curtain"]{filter:brightness(.72) saturate(.9)}
+:root[data-palette="btr"] .np[data-stage="idle"]::after{animation:none;opacity:.22}
+:root[data-palette="btr"] .np[data-stage="idle"] .np__console::before{opacity:.3}
+:root[data-palette="btr"] .np[data-stage="intermission"]::after{animation:none;opacity:.06}
+:root[data-palette="btr"] .np[data-stage="intermission"] .np__console::before{opacity:.06}
+:root[data-palette="btr"] .np[data-stage="intermission"] .np__change{
+  opacity:.12;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--state-success) 62%, transparent), transparent 7%),
+    linear-gradient(270deg, color-mix(in srgb, var(--state-success) 62%, transparent), transparent 7%);
+}
+:root[data-palette="btr"] .np[data-stage="curtain"]::after{animation:none;opacity:0}
+:root[data-palette="btr"] .np[data-stage="curtain"] .np__console::before{opacity:0}
+:root[data-palette="btr"] .np[data-stage="encore"]::after{opacity:1;filter:brightness(1.15)}
+:root[data-palette="btr"] .np[data-stage="encore"] .np__amb{filter:brightness(1.06)}
+:root[data-palette="btr"] .np[data-stage="change"] .np__change{
+  background:
+    radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--btr-yellow) 24%, transparent), transparent 62%),
+    color-mix(in srgb, var(--text) 30%, transparent);
+  animation:stageDip 900ms var(--ease-out-soft) both;
+}
+@keyframes stageDip{0%{opacity:0}24%{opacity:.4}100%{opacity:0}}
+
+/* ---- MyGO：候场雨慢、中场水汽退、散场雨与折纸定格、安可灯更亮 ---- */
+:root[data-palette="mygo"] .np[data-stage="idle"]{filter:brightness(.94)}
+:root[data-palette="mygo"] .np[data-stage="intermission"]{filter:brightness(.88)}
+:root[data-palette="mygo"] .np[data-stage="curtain"]{filter:brightness(.8) saturate(.92)}
+:root[data-palette="mygo"] .np[data-stage="idle"]::after{opacity:.5}
+:root[data-palette="mygo"] .np[data-stage="intermission"]::after{opacity:.26}
+:root[data-palette="mygo"] .np[data-stage="intermission"] .np__amb{opacity:.5;filter:brightness(.82)}
+:root[data-palette="mygo"] .np[data-stage="curtain"]::after,
+:root[data-palette="mygo"] .np[data-stage="curtain"] .np__amb-float,
+:root[data-palette="mygo"] .np[data-stage="curtain"] .np__amb-tri{animation-play-state:paused}
+:root[data-palette="mygo"] .np[data-stage="curtain"]::after{opacity:.3}
+:root[data-palette="mygo"] .np[data-stage="encore"]::after{filter:brightness(1.12)}
+:root[data-palette="mygo"] .np[data-stage="change"] .np__change{
+  background:linear-gradient(100deg, transparent 8%, color-mix(in srgb, var(--card) 60%, transparent) 44%, color-mix(in srgb, var(--lav) 22%, transparent) 58%, transparent 88%);
+  animation:stageMist 900ms var(--ease-out-soft) both;
+}
+@keyframes stageMist{
+  0%{opacity:0;transform:translateX(-14%)}
+  38%{opacity:.78}
+  100%{opacity:0;transform:translateX(10%)}
+}
+
+/* ---- GBC：候场监视器失焦、中场待机、散场雪花、安可回清晰并补亮度 ---- */
+:root[data-palette="gbc"] .np[data-stage="idle"] .np__art{filter:blur(2.5px) saturate(.72) brightness(.78)}
+:root[data-palette="gbc"] .np[data-stage="idle"] .np__rec{opacity:.35}
+:root[data-palette="gbc"] .np[data-stage="intermission"] .np__art{filter:blur(3px) saturate(.6) brightness(.66)}
+:root[data-palette="gbc"] .np[data-stage="intermission"] .np__rec{opacity:1}
+:root[data-palette="gbc"] .np[data-stage="intermission"] .np__rec i{animation:none;opacity:1}
+:root[data-palette="gbc"] .np[data-stage="curtain"]{filter:brightness(.82)}
+:root[data-palette="gbc"] .np[data-stage="curtain"] .np__art{filter:grayscale(.9) brightness(.42) contrast(1.1)}
+:root[data-palette="gbc"] .np[data-stage="curtain"] .np__change{
+  z-index:var(--z-base);
+  opacity:.3;
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--mint) 30%, transparent) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--pink-400) 16%, transparent) 0 1px, transparent 1px 2px);
+}
+:root[data-palette="gbc"] .np[data-stage="encore"] .np__art{filter:brightness(1.08) contrast(1.04)}
+:root[data-palette="gbc"] .np[data-stage="change"] .np__change{
+  background:linear-gradient(180deg, transparent 46%, color-mix(in srgb, var(--pink-400) 32%, transparent) 48% 52%, transparent 54%);
+  animation:stageSweep 900ms linear both;
+}
+@keyframes stageSweep{
+  0%{opacity:0;transform:translateY(-100%)}
+  20%{opacity:.55}
+  100%{opacity:0;transform:translateY(100%)}
+}
+
+/* 减动效：扫光与暗场直接不演，只留静态明暗 */
+:root[data-motion="off"] .np__change{animation:none;opacity:0}
+@media (prefers-reduced-motion: reduce){
+  .np__change{animation:none;opacity:0}
+}
