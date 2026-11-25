@@ -72,6 +72,28 @@ test("三路都空 → 抛「纯音乐」，不返回空 doc（界面要的是�
   );
 });
 
+test("本地与 LRCLIB 都空时，由 scrapeOnline 在线刮削兜底成功出词", async () => {
+  const mockDoc = {
+    trackId: TRACK.id,
+    source: "netease",
+    hasWordTiming: false,
+    lines: [{ index: 0, startMs: 1500, endMs: 3000, text: "云端刮削歌词", words: [] }],
+    segments: [],
+    offsetMs: 0,
+    quality: "estimated",
+    fetchedAt: 1000,
+  };
+
+  const doc = await resolveLocalLyric(TRACK.path, TRACK, {
+    read: async () => null,
+    http: fakeHttp([]).http,
+    scrapeOnline: async () => mockDoc,
+  });
+
+  assert.equal(doc.source, "netease");
+  assert.equal(doc.lines[0].text, "云端刮削歌词");
+});
+
 test("绑定原文 → doc：来源 manual，[offset:] 照旧换算（P0-19）", () => {
   const doc = bindingToDoc("[offset:+250]\n[00:01.00]挑的", "c:/music/a.mp3", 200_000);
   assert.equal(doc.source, "manual");

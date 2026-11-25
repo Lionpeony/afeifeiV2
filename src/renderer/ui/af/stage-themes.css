@@ -590,10 +590,10 @@
   padding:var(--space-xs) var(--space-2xl) var(--space-xs);
 }
 :root[data-palette="gbc"] .np__poster{
-  flex-direction:column;align-items:center;justify-content:center;gap:var(--space-sm);
+  flex-direction:row;align-items:center;justify-content:flex-start;gap:var(--space-xl);
 }
 :root[data-palette="gbc"] .np__art{
-  width:auto;max-width:min(100%,34vh);align-self:center;
+  width:min(100%,34vh);max-width:min(100%,34vh);align-self:center;
   padding:var(--space-xs);
   background:color-mix(in srgb, var(--gbc-bg) 96%, black);
   border:2px solid var(--pink-400);border-radius:0;
@@ -612,7 +612,7 @@
   background:color-mix(in srgb, var(--gbc-bg) 96%, black);color:var(--pink-400);
   border:1px solid var(--pink-400);border-radius:0;box-shadow:none;
 }
-:root[data-palette="gbc"] .np__info{width:100%;align-items:flex-start}
+:root[data-palette="gbc"] .np__info{width:auto;flex:1 1 0;min-width:0;align-items:flex-start}
 :root[data-palette="gbc"] .np__setline{color:var(--mint)}
 :root[data-palette="gbc"] .np__setline-rule{background:repeating-linear-gradient(90deg, color-mix(in srgb, var(--pink-400) 55%, transparent) 0 6px, transparent 6px 10px)}
 :root[data-palette="gbc"] .np__title{
@@ -838,3 +838,32 @@
 @media (prefers-reduced-motion: reduce){
   .np__change{animation:none;opacity:0}
 }
+
+/* ============================================================
+   16. 排版收敛（2026-11-24）：空的地方给意义，主次排对
+   - GBC 监视器 + 右侧读数栏：窄窗回落成上下，别把读数挤成竖条
+   - MyGO 雨夜加浓度 + 歌单夹补回时长，别再是一条 9px 小字
+   - 大歌词 / 短词：卡片有富余高度时靠中间，不把字顶在上沿
+   ============================================================ */
+@media (max-width:980px){
+  :root[data-palette="gbc"] .np__poster{flex-direction:column;align-items:flex-start;gap:var(--space-md)}
+  :root[data-palette="gbc"] .np__art{align-self:flex-start}
+}
+
+/* MyGO：雨丝再实一档（原来太淡，读不出「雨夜」），仍压在内容之下 */
+:root[data-palette="mygo"] .np::after{
+  background:
+    radial-gradient(1.8px 9px at 50% 8%, color-mix(in srgb, var(--lav) 54%, transparent), transparent 72%) 0 0/96px 180px,
+    radial-gradient(1.3px 6px at 50% 40%, color-mix(in srgb, var(--lav) 40%, transparent), transparent 72%) 48px 80px/128px 220px,
+    radial-gradient(1px 4px at 50% 70%, color-mix(in srgb, var(--card) 34%, transparent), transparent 70%) 22px 30px/72px 140px,
+    radial-gradient(16px 11px at 16% 26%, color-mix(in srgb, var(--mint) 26%, transparent), transparent 70%),
+    radial-gradient(10px 8px at 76% 20%, color-mix(in srgb, var(--pink-400) 18%, transparent), transparent 70%),
+    radial-gradient(18px 10px at 90% 78%, color-mix(in srgb, var(--mint) 22%, transparent), transparent 70%);
+}
+
+/* MyGO：排练单当歌单夹用——行尾补回时长，行宽跟着卡片走，别定死 224 */
+:root[data-palette="mygo"] .qrow{width:auto;min-width:0}
+:root[data-palette="mygo"] .qrow__dur{display:block;font-size:12px;letter-spacing:.04em}
+/* 横向 peek 用的左右渐隐会把竖排列的时长吃掉：竖向列表不需要这层遮罩 */
+:root[data-palette="mygo"] .np__queue-list{-webkit-mask-image:none;mask-image:none}
+

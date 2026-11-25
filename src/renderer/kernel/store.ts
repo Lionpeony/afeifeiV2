@@ -556,6 +556,28 @@ function reduce(current: AppState, intent: Intent): AppState {
       return { ...current, queue: { ...queue, failed } };
     }
 
+    case "queue/swap": {
+      const at = Math.floor(intent.index);
+      if (!Number.isFinite(at) || at < 0 || at >= queue.items.length) return current;
+      const oldId = queue.items[at];
+      if (oldId === undefined || oldId === intent.trackId) return current;
+
+      const items = [...queue.items];
+      items[at] = intent.trackId;
+      // 旧音源的元数据与失败标记一起清：留着会让同一 id 重新入队时带脏状态
+      const remote = { ...queue.remote };
+      delete remote[oldId];
+      remote[intent.trackId] = intent.meta;
+      const failed = queue.failed.filter((id) => id !== oldId && id !== intent.trackId);
+      // context 存的是"队列从哪来"，同样含着旧 id；换掉才能让播放页按新 id 找邻曲
+      const context = queue.context.map((id) => (id === oldId ? intent.trackId : id));
+      const swapped: AppState = { ...current, queue: { ...queue, items, context, remote, failed } };
+      // 换的不是当前曲：只改队列，别动播放器
+      if (queue.cursor !== at) return swapped;
+      // 换的就是正在放这首：重载并沿用原状态（在放接着放，暂停保持暂停）
+      return switchTo(swapped, at, player.status === "playing" ? "play" : "pause");
+    }
+
     case "queue/move": {
       const { from, to } = intent;
       const len = queue.items.length;

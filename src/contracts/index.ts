@@ -330,6 +330,12 @@ export type Intent =
   /** 标记 / 取消「这首播不出来」（P0-16）。成功播放 500ms 后由装配层取消。 */
   | { type: "queue/fail"; trackId: TrackId; failed: boolean }
   /**
+   * 把队列里某一格换到别的音源（P1-2 在线源去单点）：失败行「换源」用它。
+   * items / context 里的旧 id 一起替换，旧元数据与失败标记清掉；
+   * 换的正是当前曲时光标留在原位并重载（在放就接着放，暂停就保持暂停）。
+   */
+  | { type: "queue/swap"; index: number; trackId: TrackId; meta: RemoteTrackMeta }
+  /**
    * 装载但不播（恢复上次状态用）。
    * 带标题与在线标识：从快照恢复时没有它们，顶栏会显示一串签名直链（P0-13）。
    */

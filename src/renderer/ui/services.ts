@@ -31,6 +31,10 @@ export interface Api {
   libraryRoots(): Promise<string[]>;
   /** 弹目录选择器并加入列表；取消返回 null */
   addLibraryRoot(): Promise<string[] | null>;
+  /** 拖进来的 File 换真路径（沙箱下只能走 preload 的 webUtils） */
+  pathForFile(file: File): string;
+  /** 把拖进来的路径并进曲库目录列表（文件取所在目录），返回合并后的列表 */
+  addLibraryRoots(paths: string[]): Promise<string[]>;
   removeLibraryRoot(dir: string): Promise<string[]>;
   /** 系统通知（窗口在后台时才有意义） */
   notify(payload: { title: string; body: string }): Promise<boolean>;
@@ -108,6 +112,9 @@ export interface Api {
   ): void;
   /** 托盘显示用（A-25）：只推「在播什么 / 是否在播」，主进程不做判断 */
   pushTrayState(state: { playing: boolean; title: string | null }): void;
+  /** 任务栏（P1）：缩略图按钮状态 + 任务栏进度（0..1，null 清掉） */
+  pushTaskbarState(state: { playing: boolean; title: string | null }): void;
+  pushTaskbarProgress(value: number | null): void;
   exportTheme(json: string): Promise<boolean>;
   importTheme(): Promise<unknown>;
 

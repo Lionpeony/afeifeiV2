@@ -74,7 +74,10 @@ test("空输入 → 空数组；输入数组不被修改", () => {
   assert.deepEqual(groupByAlbum([]), []);
   assert.deepEqual(groupByArtist([]), []);
   const input = [t("1", "A", "甲", "X")];
-  const frozen = structuredClone(input);
+  const clone = typeof structuredClone === "function"
+    ? structuredClone
+    : (x) => JSON.parse(JSON.stringify(x));
+  const frozen = clone(input);
   groupByAlbum(input);
   groupByArtist(input);
   assert.deepEqual(input, frozen);

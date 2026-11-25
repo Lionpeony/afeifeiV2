@@ -31,7 +31,8 @@ export interface FetchJsonResult {
   setCookie: string[];
 }
 
-const DEFAULT_TIMEOUT = 15000;
+/** 默认超时。网易云走的第三方 axios 没有超时，也复用这个值（P1-2 统一收口）。 */
+export const DEFAULT_TIMEOUT = 15000;
 
 /** 只放行 https 与本机回环 http（QQ 后端是 127.0.0.1 上的本地服务），不接受超长 URL。 */
 function validate(url: string): void {

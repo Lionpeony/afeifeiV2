@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 
 import { useAf } from "./context.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { IconX } from "./icons.js";
 
 const SHORTCUT_GROUPS = [
@@ -21,6 +22,8 @@ const SHORTCUT_GROUPS = [
 
 export function KeysSheet() {
   const { keysOpen, setKeysOpen } = useAf();
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(keysOpen, sheetRef);
   useEffect(() => {
     const fn = (e: KeyboardEvent): void => { if (e.key === "Escape") setKeysOpen(false); };
     if (keysOpen) document.addEventListener("keydown", fn);
@@ -30,7 +33,7 @@ export function KeysSheet() {
   return (
     <>
       <div className="keys-mask" onClick={() => setKeysOpen(false)}></div>
-      <div className="keys" role="dialog" aria-modal="true" aria-label="键盘快捷键">
+      <div ref={sheetRef} tabIndex={-1} className="keys" role="dialog" aria-modal="true" aria-label="键盘快捷键">
         <div className="keys__head">
           <h2 style={{ fontFamily: "var(--font-display)", fontSize: 26 }}>键盘也弹得了</h2>
           <span className="eyebrow" style={{ marginBottom: 6 }}>KEYBOARD · 不用离开琴键</span>

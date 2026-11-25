@@ -245,21 +245,27 @@ export function createQqProvider(api: LocalApiPort): SourceProvider {
       // QRC 逐字优先（main 直连 GetPlayLyricInfo + 3DES 解密，匿名可读）；
       // 上游 24001 = 无 QRC 权限，回落 yakult 包的 LRC 路由
       try {
-        const qrc = await qq<{ qrc?: string; trans?: string }>("qrc", { songmid: sourceId });
+        const qrc = await qq<{ qrc?: string; trans?: string; roma?: string }>("qrc", { songmid: sourceId });
         const text = (qrc?.qrc ?? "").trim();
         if (text) {
-          const doc = parseLyrics(text, { trackId: sourceId, source: "qq" });
+          let doc = parseLyrics(text, { trackId: sourceId, source: "qq" });
           const trans = (qrc?.trans ?? "").trim();
-          return trans ? withTranslation(doc, trans, "zh") : doc;
+          if (trans) doc = withTranslation(doc, trans, "zh");
+          const roma = (qrc?.roma ?? "").trim();
+          if (roma) doc = withTranslation(doc, roma, "roma");
+          return doc;
         }
       } catch {
         // QRC 链路失败不致命：走 LRC 兜底
       }
       // yakult 包实测：{ response: { lyric: LRC 文本 } }（旧包是 { code: 0, lrc }）
-      const body = await qq<{ response?: { lyric?: string } }>("lyric", { songmid: sourceId });
+      const body = await qq<{ response?: { lyric?: string; trans?: string } }>("lyric", { songmid: sourceId });
       const lrc = body?.response?.lyric?.trim();
       if (!lrc) throw err("track-missing", "这首歌没有歌词");
-      return parseLyrics(lrc, { trackId: sourceId, source: "qq" });
+      let doc = parseLyrics(lrc, { trackId: sourceId, source: "qq" });
+      const trans = body?.response?.trans?.trim();
+      if (trans) doc = withTranslation(doc, trans, "zh");
+      return doc;
     },
 
     async login(): Promise<void> {

@@ -4,10 +4,12 @@ import {
   FILTER_PRESETS,
   filterLyricDoc,
   invalidPatterns,
+  isMetaLine,
   parseFilters,
   rulesFromText,
   rulesToText,
   serializeFilters,
+  stripMetaLines,
 } from "../dist-test/lyric-filter.mjs";
 
 /* ---- 歌词正则过滤（B-2）：解析后、显示前 ---- */
@@ -94,4 +96,35 @@ test("filterLyricDoc：非法正则跳过，不能把整页歌词清空", () => 
 
 test("预设是能编译的正则", () => {
   assert.deepEqual(invalidPatterns(FILTER_PRESETS.map((p) => ({ pattern: p.pattern, enabled: true }))), []);
+});
+
+/* ---- 内置署名过滤：制作信息不再当正文大字显示 ---- */
+
+test("isMetaLine：署名/版权/空行算元信息，正常歌词不算", () => {
+  for (const t of ["出品：网易云LAB", "作词 : Starling8", "Starling8:", "Lyricist: 某某", "未经许可不得翻唱", "   "]) {
+    assert.equal(isMetaLine(t), true, `${t} 应当被剔除`);
+  }
+  for (const t of ["晴天", "曲终人散", "她：", "为什么要演奏春日影"]) {
+    assert.equal(isMetaLine(t), false, `${t} 是歌词，不能误删`);
+  }
+});
+
+test("stripMetaLines：剔掉制作信息与空行，保留真歌词并重建下标", () => {
+  const d = doc([
+    line(0, "出品：网易云LAB"),
+    line(1, "企划：秋葵"),
+    line(2, "Starling8:"),
+    line(3, "晴天"),
+    line(4, ""),
+    line(5, "她："),
+  ]);
+  const got = stripMetaLines(d);
+  assert.deepEqual(got.lines.map((l) => l.text), ["晴天", "她："]);
+  assert.deepEqual(got.lines.map((l) => l.index), [0, 1]);
+  assert.equal(got.offsetMs, 500, "偏移不动");
+});
+
+test("stripMetaLines：没有元信息时原样返回同一个对象", () => {
+  const d = doc([line(0, "晴天")]);
+  assert.equal(stripMetaLines(d), d);
 });

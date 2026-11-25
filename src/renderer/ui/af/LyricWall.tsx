@@ -76,14 +76,15 @@ export function LyricWall() {
   const p = Math.max(0, Math.min(1, (ms - start) / Math.max(1, end - start))) * 100;
 
   const totalH = lines.length * rowH;
-  const blockMode = totalH <= viewH + rowH * 0.9;
+  /* 词少（≤4 句）时整块居中，卡片下半截不留空白；词多仍按当前句滚动居中 */
+  const blockMode = lines.length <= 4 || totalH <= viewH + rowH * 0.9;
   /* GBC 是 lower-third：只显示当前句 + 下一句，不做滚动居中。
      滚动偏移一旦被裁掉，当前句会消失在字幕条上方，只剩下一行灰字。 */
   const shown = palette === "gbc" && !full ? lines.slice(cur, cur + 2) : lines;
   const offset = palette === "gbc" && !full
     ? 0
     : blockMode
-      ? Math.round((viewH - totalH) / 2)
+      ? Math.max(0, Math.round((viewH - totalH) / 2))
       : curBox
         ? Math.round(viewH / 2 - (curBox.top + curBox.height / 2))
         : viewH / 2 - (cur * rowH + rowH / 2);
@@ -91,7 +92,7 @@ export function LyricWall() {
   return (
     <div className={"lw" + (full ? " lw--full" : "")} style={{ ["--row-h" as string]: rowH + "px" }}>
       <div className="lw__rail" aria-hidden="true">
-        <span className="lw__rail-jp">台侧字幕</span>
+        <span className="lw__rail-jp">字幕</span>
         <span className="lw__rail-line"></span>
       </div>
 
@@ -143,6 +144,9 @@ export function LyricWall() {
                     title={"从这里开始：" + l.text}
                   >
                     <span className="lw-line__body">
+                      {l.translations?.roma && (
+                        <span className="lw-line__roma">{l.translations.roma}</span>
+                      )}
                       <span className="lw-line__jp">
                         {chars
                           ? chars.map((ch, ci) => (
@@ -156,6 +160,9 @@ export function LyricWall() {
                             ))
                           : l.text}
                       </span>
+                      {l.translations?.zh && (
+                        <span className="lw-line__tr">{l.translations.zh}</span>
+                      )}
                     </span>
                   </button>
                 );

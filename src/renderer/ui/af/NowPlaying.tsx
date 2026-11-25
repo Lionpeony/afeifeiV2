@@ -8,6 +8,7 @@ import { PlayGlyph, Strike, Tape } from "./ui.js";
 import { LyricWall } from "./LyricWall.js";
 import { ShareCard } from "./ShareCard.js";
 import { usePosition } from "./use-position.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { eggText, stageCopy } from "./copy.js";
 import { segmentOf, stageOf, pickStageEgg, type StageEgg } from "./stage.js";
 
@@ -63,6 +64,9 @@ export function NowPlaying() {
     toggleMute,
   } = api;
   const { pos, dur } = usePosition(api);
+  /* 播放页是整块 dialog：焦点进来、Tab 不出框，收起后还给点开它的按钮 */
+  const npRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, npRef);
   const total = track.dur || dur || 0;
   // 专辑与艺人/歌名同名（单曲/同名单）时不重复报一遍（docs/30 §37：播放页去重）
   const bandName = dedupeActor(track.artist || "未知艺人");
@@ -251,7 +255,7 @@ export function NowPlaying() {
   }, [seg, playing, track.id, palette, queueIndex, stageFx, reduce]);
 
   return (
-    <div className={["np", `np--${palette}`, playing ? "np--playing" : "np--paused", playerClosing ? "np--closing" : "", lyricsFull && lyricsOn ? "np--lyrics-full" : ""].filter(Boolean).join(" ")} data-stage={stage} data-seg={seg} data-egg={stageEgg ?? undefined} data-screen-label="播放页" role="dialog" aria-label="播放页">
+    <div ref={npRef} tabIndex={-1} className={["np", `np--${palette}`, playing ? "np--playing" : "np--paused", playerClosing ? "np--closing" : "", lyricsFull && lyricsOn ? "np--lyrics-full" : ""].filter(Boolean).join(" ")} data-stage={stage} data-seg={seg} data-egg={stageEgg ?? undefined} data-screen-label="播放页" role="dialog" aria-modal="true" aria-label="播放页">
       {!reduce && !playerClosing && (
         <>
           <div className="curtain curtain--l"></div>
@@ -291,7 +295,7 @@ export function NowPlaying() {
           <IconNote size={13} />
           {stageLabel}
           {queue.length > 0 ? (
-            <> · SETLIST {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</>
+            <> · SETLIST · 第 {queueIndex + 1} 首 / 共 {queue.length} 首</>
           ) : null}
         </span>
         <span className="spacer"></span>
@@ -404,7 +408,7 @@ export function NowPlaying() {
                     : "就这一首"}
               </div>
             </div>
-            <span className="np__queue-count num">{queueOpen ? `${queue.length} 首` : `还剩 ${remainMin} 分`}</span>
+            <span className="np__queue-count num">{queueOpen ? `共 ${queue.length} 首` : `还剩 ${remainMin} 分`}</span>
             <button
               className="np__queue-toggle"
               onClick={() => setQueueOpen((v) => !v)}
@@ -437,7 +441,7 @@ export function NowPlaying() {
                   />
                 </svg>
                 {acts.map((group, gi) => (
-                  <div key={gi}>
+                  <div key={gi} className="np__queue-act">
                     {acts.length > 1 && (
                       <div className="act-sep">
                         <span className="act-sep__num">{["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"][gi] ?? String(gi + 1)}</span>
@@ -506,8 +510,8 @@ export function NowPlaying() {
         <div className="np__timeline">
           <span className="np__timeline-label">
             {acts.length > 1
-              ? `演出时间线 · 第 ${actIndex + 1} 幕 / 共 ${acts.length} 幕`
-              : `演出时间线 · ${queueIndex + 1} / ${queue.length}`}
+              ? `演出时间线 · 第 ${actIndex + 1} 幕 / 共 ${acts.length} 幕 · 第 ${queueIndex + 1} 首`
+              : `演出时间线 · 第 ${queueIndex + 1} 首 / 共 ${queue.length} 首`}
           </span>
           <div className="np__timeline-track">
             {acts.length > 1
@@ -670,7 +674,7 @@ export function NowPlaying() {
         {palette === "gbc" ? (
           <div className="np__stream" aria-label="推流状态">
             <span className="np__stream-live"><i aria-hidden="true"></i>STREAM</span>
-            <span className="num">{String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</span>
+            <span className="num">{queueIndex + 1} / {queue.length} 首</span>
             <span className="np__stream-remain">剩余 {remainMin} 分</span>
           </div>
         ) : null}

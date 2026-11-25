@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { SceneSwitch } from "./SceneSwitch.js";
 import { EGGS, DEMO_INFO, PALETTES, sourceShort, sourceTone } from "./data.js";
 import { eggText, packLineCopy } from "./copy.js";
@@ -55,10 +56,13 @@ export const FocusLines = () => <div className="focus-lines" aria-hidden="true">
    角落剪影（E13 告辞 / E27 断网探头）保留——那是 2.9s 的事件反馈，不是巡游。 */
 
 /* ---------- 歌词：订阅真实歌词源 ---------- */
-export function useLyricLines(): { text: string; startMs: number }[] {
+export function useLyricLines(): { text: string; startMs: number; translations?: Record<string, string> }[] {
   const [state, setState] = useState(() => lyricState());
   useEffect(() => subscribeLyric(() => setState(lyricState())), []);
-  return useMemo(() => (state.doc?.lines ?? []).map((l) => ({ text: l.text, startMs: l.startMs })), [state]);
+  return useMemo(
+    () => (state.doc?.lines ?? []).map((l) => ({ text: l.text, startMs: l.startMs, translations: l.translations })),
+    [state]
+  );
 }
 
 /* ---------- 彩蛋层 ---------- */
@@ -181,6 +185,8 @@ export function EggLayer() {
 
 export function DemoPanel() {
   const { setDemoOpen, eggs, triggerEgg } = useAf();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, panelRef);
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
       if (e.key === "Escape") setDemoOpen(false);
@@ -189,8 +195,8 @@ export function DemoPanel() {
     return () => window.removeEventListener("keydown", fn);
   }, [setDemoOpen]);
   return (
-    <div className="demo" onClick={() => setDemoOpen(false)}>
-      <div className="demo__panel" onClick={(e) => e.stopPropagation()}>
+    <div className="demo" role="dialog" aria-modal="true" aria-label="原型演示" onClick={() => setDemoOpen(false)}>
+      <div ref={panelRef} tabIndex={-1} className="demo__panel" onClick={(e) => e.stopPropagation()}>
         <div className="demo__head">
           <div>
             <div className="eyebrow" style={{ marginBottom: 6 }}>原型演示</div>

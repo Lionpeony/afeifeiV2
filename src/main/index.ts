@@ -15,6 +15,7 @@ import { startUpdateCheck } from "./update/checker.js";
 import { registerMediaKeys, unregisterMediaKeys, type PlaybackCommand } from "./mediaKeys.js";
 import { GlobalShortcutController } from "./globalShortcuts.js";
 import { createTray, destroyTray } from "./tray.js";
+import { installTaskbar, refreshTaskbar, setAppId } from "./taskbar.js";
 import { readKey, writeKey } from "./fs/kv.js";
 
 // 必须一次性注册全部 scheme，且要在 app ready 之前 —— privileges 只在此时生效，
@@ -26,6 +27,8 @@ protocol.registerSchemesAsPrivileged([APP_SCHEME, MEDIA_SCHEME, STREAM_SCHEME]);
 // （2026-11-03 实测踩过：dev 扫码拿到的 cookie 存在 Electron 目录里）。
 // 必须在 ready 之前、单实例锁之前设置。
 app.setName("Afeifei 阿飞飞");
+// 任务栏分组/通知归属（Windows）：必须在 ready 之前，且要在建窗之前。
+setAppId();
 
 // 崩溃兜底（M8）越早装越好：未捕获异常 / 渲染进程退出 → crash-*.log
 installCrashGuard();
@@ -237,7 +240,10 @@ if (!locked) {
       })
       .catch(() => undefined);
     // 导航/重载后缩放会被重置，每次加载完补一次
-    win.webContents.on("did-finish-load", () => applyZoom(zoom));
+    win.webContents.on("did-finish-load", () => {
+      applyZoom(zoom);
+      refreshTaskbar(); // 重载后任务栏按钮/进度按最新状态补一次
+    });
     win.webContents.on("before-input-event", (event, input) => {
       if (input.type !== "keyDown" || !input.control) return;
       const plus = input.key === "+" || input.key === "=" || input.code === "NumpadAdd";
@@ -287,6 +293,8 @@ if (!locked) {
       mainWin.webContents.send("player:command", cmd);
     };
     sendPlaybackCommand = send;
+    // P1 系统集成：任务栏缩略图按钮 + 进度条（Windows；其余平台 no-op）
+    installTaskbar({ win: () => mainWin, send });
     // 媒体键**不在这里注册**：等渲染层上报 MediaSession 能力后再定（见文件顶部）
     // 托盘延后一拍：窗口创建先返回，让首帧先画出来（托盘图标读取不抢启动路径）。
     setTimeout(() => createTray({ send, window: () => mainWin, quit: () => app.quit() }), 0);

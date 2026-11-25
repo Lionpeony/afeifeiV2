@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { IconCheck, IconCloud, IconMoon, IconRefresh, IconVolume, IconX } from "./icons.js";
 import { packSlotCopy } from "./copy.js";
 import { readLevelerPref, writeLevelerPref } from "../audio-pref.js";
@@ -76,6 +77,8 @@ export function StudioDrawer() {
   const { studio, setStudio, sleep, startSleep, stopSleep, sleepLeft, quality, setQuality, eq, setEq, playing, sources, source } = af;
   const [tab, setTab] = useState<"sleep" | "quality" | "eq">(studio?.tab ?? "sleep");
   const [leveler, setLevelerOn] = useState(readLevelerPref);
+  const drawerRef = useRef<HTMLElement>(null);
+  useDialogFocus(Boolean(studio), drawerRef);
 
   useEffect(() => {
     if (studio?.tab) setTab(studio.tab);
@@ -100,7 +103,7 @@ export function StudioDrawer() {
   return (
     <>
       <div className="studio-mask" onClick={() => setStudio(null)}></div>
-      <aside className="studio" role="dialog" aria-modal="true" aria-label="排练室">
+      <aside ref={drawerRef} tabIndex={-1} className="studio" role="dialog" aria-modal="true" aria-label="排练室">
         <div className="studio__head">
           <div className="studio__kicker">STUDIO · 台侧调音</div>
           <h2 className="studio__title">排练室</h2>

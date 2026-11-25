@@ -5,6 +5,9 @@ import { randomUUID } from "node:crypto";
 import { dataDir } from "../paths.js";
 import { log } from "../log/index.js";
 import { FailureBackoff } from "./backoff.js";
+import { DEFAULT_TIMEOUT } from "./fetchJson.js";
+import { openSecret, sealSecret } from "../fs/secret.js";
+import { safeCipher } from "../fs/safe.js";
 
 /**
  * 网易云通道：直接用 NeteaseCloudMusicApi 的函数式接口。
@@ -62,6 +65,19 @@ ensureAnonymousToken();
 
 /** 连续失败熔断（按接口名）。瞬时抖动不熔断，第 3 次起阶梯冷却。 */
 const backoff = new FailureBackoff();
+
+/**
+ * 上游 `util/request.js` 的 axios **不设 timeout**（默认 0 = 永不超时），
+ * 网络半死时请求会一直挂着，UI 永远等不到失败。这里与 fetchJson 用同一个超时值。
+ * 只负责让调用方拿到失败；底层 socket 由 axios 自己收尾，不会泄漏我们的状态。
+ */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), ms);
+  });
+  return Promise.race([p, deadline]).finally(() => clearTimeout(timer));
+}
 
 type NcmRequest = (...args: unknown[]) => Promise<unknown>;
 type NcmRoute = (
@@ -125,8 +141,10 @@ function load(): void {
   loaded = true;
   try {
     const raw = fs.readFileSync(cookieFile(), "utf8").trim();
+    // 旧版本落下的是明文；新版本是 safeStorage 密文（P1-3）。解不开就当未登录。
+    const plain = openSecret(raw, safeCipher) ?? "";
     // 只认带 MUSIC_U 的：早期版本把匿名 NMTID 也存下来了，那是脏凭证
-    cookie = raw.includes("MUSIC_U") ? raw : "";
+    cookie = plain.includes("MUSIC_U") ? plain : "";
   } catch {
     cookie = "";
   }
@@ -136,7 +154,12 @@ function persist(next: string): void {
   cookie = next;
   try {
     fs.mkdirSync(dataDir(), { recursive: true });
-    fs.writeFileSync(cookieFile(), next, "utf8");
+    // 密文落盘 + 原子替换：断电不会留下半个 cookie 文件（P1-3）
+    const file = cookieFile();
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, sealSecret(next, safeCipher), "utf8");
+    fs.rmSync(file, { force: true });
+    fs.renameSync(tmp, file);
   } catch (err) {
     // 00 §10.2：凭据绝不入日志。fs 错误的 message 可能带路径，只打错误码
     log("warn", `[netease] 存 cookie 失败：code=${(err as NodeJS.ErrnoException).code ?? "unknown"}`);
@@ -185,7 +208,7 @@ export async function callNcm(method: string, params: Record<string, unknown> = 
 
   let result: { status: number; body: Record<string, unknown> };
   try {
-    result = await fn({ ...rest, cookie: useCookie, timestamp: Date.now() });
+    result = await withTimeout(fn({ ...rest, cookie: useCookie, timestamp: Date.now() }), DEFAULT_TIMEOUT);
   } catch (err) {
     backoff.fail(method);
     if (method === "song_url" || method === "song_url_v1") {

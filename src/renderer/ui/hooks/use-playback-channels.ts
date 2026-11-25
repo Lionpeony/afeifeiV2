@@ -116,6 +116,7 @@ export function usePlaybackChannels(input: {
     if (key === traySent.current) return;
     traySent.current = key;
     window.api.pushTrayState({ playing, title });
+    window.api.pushTaskbarState({ playing, title });
   }, [playing, trackId, trackTitle]);
 
   return { shortcutsRef, seekByDelta };

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { hashStr } from "./art.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { IconCheck, IconPick, IconX } from "./icons.js";
 
 export interface ScanLoginProps {
@@ -85,6 +86,8 @@ export function ScanLogin(props: ScanLoginProps) {
   const [busy, setBusy] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const runId = useRef(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(Boolean(sourceId), cardRef);
 
   const beginQr = (resetForm: boolean): void => {
     if (!sourceId) return;
@@ -183,7 +186,7 @@ export function ScanLogin(props: ScanLoginProps) {
 
   return (
     <div className="scan-ov" role="dialog" aria-modal="true" aria-label={"登录" + sourceName} onClick={onClose}>
-      <div className={"scan" + (state === "ok" ? " is-ok" : "") + (mode === "code" ? " is-code" : "")} onClick={(e) => e.stopPropagation()}>
+      <div ref={cardRef} tabIndex={-1} className={"scan" + (state === "ok" ? " is-ok" : "") + (mode === "code" ? " is-code" : "")} onClick={(e) => e.stopPropagation()}>
         <span className="scan__strip" aria-hidden="true"></span>
         <span className="scan__hole" aria-hidden="true"></span>
         <div className="scan__head">

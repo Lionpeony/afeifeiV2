@@ -17,6 +17,40 @@ export const FILTER_PRESETS = [
   { label: "歌词来源", pattern: "歌词|LRC|作词|作曲|编曲|by @|QQ音乐|网易云" },
 ] as const;
 
+/**
+ * 内置署名过滤（不依赖用户设置，永远生效）。
+ *
+ * 多数在线词源会把「作词 : 某某 / 出品：某某」这类制作信息和时间轴一起塞进 LRC，
+ * 它们会被当成正文，用歌词的字号压在主位上——播放页一眼看去全是职员表。
+ * 这些行不是歌词，属于元信息，统一在「解析之后、显示之前」剔掉。
+ *
+ * 规则刻意收紧到「关键词 + 冒号/斜杠」或「整行版权声明」，
+ * 避免误伤「曲终人散」这种正常歌词（没有冒号就不算）。
+ */
+const META_LINE_RULES: readonly RegExp[] = [
+  // 中文署名：作词 : / 作曲：/ 编曲/ 制作人/ 监制/ 出品/ 发行/ 企划/ 混音/ 母带 …
+  /^\s*(?:作词|作曲|编曲|制作人|制作|监制|出品|发行|企划|策划|统筹|混音|母带|录音|和声|配唱|吉他|贝斯|鼓|键盘|弦乐|文案|封面|美术|词|曲)\s*[:：/]/i,
+  // 英文 credit：Lyricist: / Composer / Arranger / Producer / Mixing / Mastering / Studio
+  /^\s*(?:lyricist|composer|arranger|producer|mixing|mastering|recorded|studio|op|sp)\b\s*[:：/]/i,
+  // LRC 元标签残留：[by:] / [ti:] / [ar:] / [offset:] …
+  /^\s*\[(?:by|ti|ar|al|offset|length|re|ve|tool|kana)\s*[:：]/i,
+  // 整行版权声明（没有冒号也算）：未经许可不得翻唱、版权所有、℗ / ©
+  /(?:未经许可|不得翻唱|不得使用|版权所有|版权归|℗|©)/,
+  // 纯署名机构：某某工作室 / 某某唱片 / 某某文化
+  /^\s*[^\s]{1,24}(?:工作室|唱片|文化|传媒|娱乐)\s*$/,
+];
+
+/** 只有标签、没有值的署名行（就是截图里的 `Starling8:`）。
+ *  限定 ASCII 开头 + 冒号收尾，避免把「她：」这类正常歌词当署名删掉。 */
+const LABEL_ONLY_CREDIT = /^[A-Za-z0-9][A-Za-z0-9 .,'&·_\-]{0,19}[:：]\s*$/;
+
+/** 是不是「该被剔掉的元信息行」。空行也算（间奏留白不需要占一行）。 */
+export function isMetaLine(text: string): boolean {
+  const t = (text ?? "").trim();
+  if (!t) return true;
+  return LABEL_ONLY_CREDIT.test(t) || META_LINE_RULES.some((r) => r.test(t));
+}
+
 export interface LyricFilterRule {
   pattern: string;
   enabled: boolean;
@@ -105,22 +139,21 @@ export function invalidPatterns(list: readonly LyricFilterRule[]): string[] {
 }
 
 /**
- * 过滤行并**重建下标**：`LyricSegment.lineIndexes` 引用的是 `lines[].index`，
- * 直接 `filter()` 会让段指向别的行（剧场渲染器会跳错段）。
+ * 丢行 + 重建下标。
+ * `LyricSegment.lineIndexes` 引用的是 `lines[].index`，直接 `filter()` 会让段指向别的行。
+ * 一行都没丢时返回原对象（调用方靠这个做幂等）。
  */
-export function filterLyricDoc(doc: LyricDoc, list: readonly LyricFilterRule[]): LyricDoc {
-  const regs = compile(list);
-  if (regs.length === 0) return doc;
+function dropLines(doc: LyricDoc, shouldDrop: (text: string) => boolean): LyricDoc {
+  const kept = doc.lines.filter((line) => !shouldDrop(line.text));
+  if (kept.length === doc.lines.length) return doc;
 
   const remap = new Map<number, number>();
-  const lines = doc.lines
-    .filter((line) => !regs.some((r) => r.test(line.text)))
-    .map((line, i) => {
-      remap.set(line.index, i);
-      return { ...line, index: i };
-    });
+  const lines = kept.map((line, i) => {
+    remap.set(line.index, i);
+    return { ...line, index: i };
+  });
 
-  const segments: LyricSegment[] = doc.segments
+  const segments: LyricSegment[] = (doc.segments ?? [])
     .map((segment) => ({
       ...segment,
       lineIndexes: segment.lineIndexes
@@ -131,4 +164,17 @@ export function filterLyricDoc(doc: LyricDoc, list: readonly LyricFilterRule[]):
     .map((segment, i) => ({ ...segment, index: i }));
 
   return { ...doc, lines, segments };
+}
+
+/** 剔掉制作信息 / 版权行 / 空行。与用户规则无关，永远先跑一遍。 */
+export function stripMetaLines(doc: LyricDoc): LyricDoc {
+  if (!doc.lines?.length) return doc;
+  return dropLines(doc, isMetaLine);
+}
+
+/** 按用户规则过滤并**重建下标**（`stripMetaLines` 之后还要再过这一层）。 */
+export function filterLyricDoc(doc: LyricDoc, list: readonly LyricFilterRule[]): LyricDoc {
+  const regs = compile(list);
+  if (regs.length === 0) return doc;
+  return dropLines(doc, (text) => regs.some((r) => r.test(text)));
 }

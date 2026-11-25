@@ -104,6 +104,7 @@ import { createPersister } from "../kernel/persist.js";
 
 import { humanize, type Api, type NcmBody, type SavedPlaylistView, type Services } from "./services.js";
 import { bindingToDoc, resolveLocalLyric } from "./local-lyric.js";
+import { scrapeOnlineLyric } from "../capability/sources/scrape-lyric.js";
 import {
   getLyricBinding,
   lyricBindKey,
@@ -1007,6 +1008,7 @@ export async function bootstrap(): Promise<Services> {
       const doc = await resolveLocalLyric(track.path, track, {
         read: (p) => api.localLyric(p),
         http: { fetchJson: (url, options) => api.fetchJson(url, options) },
+        scrapeOnline: (q, tid, d) => scrapeOnlineLyric(q, tid, d),
       });
       const next = putCachedLyric(lyricCache, key, doc, Date.now());
       if (next !== lyricCache) {

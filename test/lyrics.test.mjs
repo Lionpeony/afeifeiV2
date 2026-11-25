@@ -197,6 +197,16 @@ test("withTranslation：按行时间对齐，写进 line.translations", () => {
   assert.equal(zh.lines[0].text, "hello", "主文本不许被翻译覆盖");
 });
 
+test("withTranslation：支持多语言注音（roma + zh 并存）", () => {
+  const doc = parseLyrics("[00:10.00]春日影\n[00:14.00]迷星叫", OPTS);
+  const withZh = withTranslation(doc, "[00:10.00]春之影\n[00:14.00]迷途星的呼唤", "zh");
+  const full = withTranslation(withZh, "[00:10.00]haruhikage\n[00:14.00]mayoiuta", "roma");
+  assert.equal(full.lines[0].translations?.zh, "春之影");
+  assert.equal(full.lines[0].translations?.roma, "haruhikage");
+  assert.equal(full.lines[1].translations?.zh, "迷途星的呼唤");
+  assert.equal(full.lines[1].translations?.roma, "mayoiuta");
+});
+
 test("withTranslation：差太远的行不强行配对", () => {
   const doc = parseLyrics("[00:10.00]hello", OPTS);
   const zh = withTranslation(doc, "[00:30.00]无关", "zh");

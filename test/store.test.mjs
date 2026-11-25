@@ -566,6 +566,32 @@ test("queue/set：换一整条队列时失败标记作废", () => {
   assert.deepEqual(getState().queue.failed, []);
 });
 
+test("queue/swap：换源替换这一格，旧元数据与失败标记一起清掉（P1-2）", () => {
+  reset(["a", "b", "c"], 1);
+  dispatch({ type: "queue/fail", trackId: "b", failed: true });
+  const meta = { sourceId: "netease", songId: "s1", title: "歌", artist: "人" };
+  dispatch({ type: "queue/swap", index: 1, trackId: "remote:qq:s9", meta });
+  const s = getState();
+  assert.deepEqual(s.queue.items, ["a", "remote:qq:s9", "c"]);
+  assert.deepEqual(s.queue.failed, [], "换掉的那格不该还挂着失败标记");
+  assert.equal(s.queue.remote.b, undefined, "旧音源的元数据要丢");
+  assert.equal(s.queue.remote["remote:qq:s9"].songId, "s1");
+  assert.equal(s.queue.cursor, 1, "换的是当前曲：光标留在原位");
+  assert.equal(s.player.trackId, "remote:qq:s9", "播放器跟着换到新 id");
+});
+
+test("queue/swap：换的不是当前曲时不动播放器", () => {
+  reset(["a", "b"], 0);
+  dispatch({
+    type: "queue/swap",
+    index: 1,
+    trackId: "x",
+    meta: { sourceId: "qq", songId: "s2", title: "歌", artist: "人" },
+  });
+  assert.equal(getState().player.trackId, "a");
+  assert.deepEqual(getState().queue.items, ["a", "x"]);
+});
+
 /* ---------- 歌词校准（P0-18） ---------- */
 
 test("lyric/nudgeOffset：按曲累加、±10s 封顶、归零删键", () => {

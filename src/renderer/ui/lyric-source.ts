@@ -1,5 +1,5 @@
 import type { LyricDoc } from "../../contracts/capability.js";
-import { filterLyricDoc, getFilters, subscribeFilters } from "../domain/lyrics/filter.js";
+import { filterLyricDoc, getFilters, stripMetaLines, subscribeFilters } from "../domain/lyrics/filter.js";
 
 /**
  * 全应用唯一的歌词取词点（A-02）。
@@ -36,10 +36,14 @@ const emit = (): void => {
   for (const fn of listeners) fn();
 };
 
-/** 唯一「原词 → 展示词」的落点：过滤 + 叠加两个偏移，别在别处拼 doc。 */
+/** 唯一「原词 → 展示词」的落点：先剔制作信息，再套用户规则，最后叠两个偏移。 */
+function buildDoc(raw: LyricDoc): LyricDoc {
+  return { ...filterLyricDoc(stripMetaLines(raw), getFilters()), offsetMs: baseOffset + userOffset };
+}
+
 function applyDoc(next: LyricDoc): void {
-  rawDoc = next;
-  doc = { ...filterLyricDoc(next, getFilters()), offsetMs: baseOffset + userOffset };
+  rawDoc = stripMetaLines(next);
+  doc = buildDoc(next);
 }
 
 // 规则一改就重算（不重新发请求）。订阅挂在模块级：装配层只管 setFilters

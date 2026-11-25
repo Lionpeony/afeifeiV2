@@ -39,7 +39,7 @@ import { getThemePref, subscribeThemePref } from "./theme.js";
 import { getMotionPref, subscribeMotionPref } from "./motion.js";
 
 
-/** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。 */
+/** 四个账号数据入口的提示：账号是「当前音源」那一个，不再写死网易云。*/
 const accountHint = (kind: AccountKind, sourceName: string): string => {
   switch (kind) {
     case "daily":
@@ -53,7 +53,7 @@ const accountHint = (kind: AccountKind, sourceName: string): string => {
   }
 };
 
-/** 当前音源本身没有账号能力（例如 QQ 音乐）：不拿别的账号顶替，直接说清。 */
+/** 当前音源本身没有账号能力（例如 QQ 音乐）：不拿别的账号顶替，直接说清。*/
 const noAccountHint = (sourceName: string): string =>
   `${sourceName} 没有账号数据；切到支持账号的音源（如网易云音乐）再看这里`;
 import { LikedPage } from "./af/pages/Liked.js";
@@ -68,6 +68,7 @@ import { Hotkeys, KeysSheet } from "./af/Keys.js";
 import { PerfHUD } from "./af/PerfHUD.js";
 import { ListEditor } from "./af/ListEditor.js";
 import { getTracks, trackById } from "../domain/library/state.js";
+import { findOnlineFallback } from "../capability/sources/fallback.js";
 import { PAGE_LABEL, type PageId } from "./pages.js";
 import { PLAY_MODE_LABEL, PLAY_MODE_SHORT, nextPlayMode } from "./play-mode.js";
 import { QueuePanel } from "./QueuePanel.js";
@@ -93,7 +94,7 @@ import { useSystemReduce } from "./af/prefs.js";
 import { activeQuality } from "./quality-pref.js";
 import { sourceShort, sourceTone } from "./af/data.js";
 
-/** 一级导航顺序：换页时只按这个顺序判方向，不猜布局像素。 */
+/** 一级导航顺序：换页时只按这个顺序判方向，不猜布局像素。*/
 const PAGE_ORDER: PageId[] = ["online", "roam", "local", "downloads", "mine", "history", "playlists", "settings", "archive", "stage"];
 function pageDir(from: PageId, to: PageId): "l" | "r" {
   const a = PAGE_ORDER.indexOf(from);
@@ -110,8 +111,10 @@ function baseName(p: string | null): string {
 function App() {
   const [state, setState] = useState<AppState>(getState());
   const [scanning, setScanning] = useState(false);
+  const [dropHot, setDropHot] = useState(false);
+  const dropDepth = useRef(0);
   const [scanNote, setScanNote] = useState("");
-  // 外观偏好：DOM 的 data-theme / data-motion 由 theme.ts / motion.ts 写真；
+  // 外观偏好：DOM 的 data-theme / data-motion 由 theme.ts / motion.ts 写值
   // 这里只订阅变化，让设置页的分段按钮跟上（也含系统明暗/减少动效的自动切换）。
   const themePref = useSyncExternalStore(subscribeThemePref, getThemePref, getThemePref);
   const motionPref = useSyncExternalStore(subscribeMotionPref, getMotionPref, getMotionPref);
@@ -124,9 +127,9 @@ function App() {
       : themePref;
   const effectiveMotion = motionPref === "system" ? (systemReduce ? "off" : "full") : motionPref;
   /* 完整 = 用户明确要动效：覆盖系统 reduced-motion（系统档仍尊重系统）。
-     轻档去掉循环与大幅位移（幕布、播放页幕间也不播），只留状态切换。 */
+     轻档去掉循环与大幅位移（幕布、播放页幕间也不播），只留状态切换。*/
   const reduce = effectiveMotion !== "full";
-  // 外壳只有一种：边栏 + 内容 + 控制台
+  // 外壳只有一种：边栏 + 内容 + 控制台。
   const [page, setPageState] = useState<PageId>("online");
   const [pageScene, setPageScene] = useState<{ to: PageId; phase: "close" | "hold" | "open"; dir: "l" | "r" } | null>(null);
   const navPageRef = useRef(page);
@@ -135,8 +138,8 @@ function App() {
   const pageSceneSeq = useRef(0);
   useEffect(() => () => pageSceneTimers.current.forEach((t) => window.clearTimeout(t)), []);
 
-  /* 换页也走「换景」：幕布合上 → 换内容 → 拉开。stage 是播放页自己的幕布，不能再套一层；
-     减动效直接切。 */
+  /** 在线曲目播放带错误提示（各个入口共用，别各写一遍 catch）。*/
+     /* 减动效直接切。*/
   const setPage = (p: PageId): void => {
     if (p === navPageRef.current) return;
     if (reduce || p === "stage" || navPageRef.current === "stage") {
@@ -171,12 +174,12 @@ function App() {
     );
   };
   const [localTab, setLocalTab] = useState<"library" | "downloads" | "radio">("library");
-  // 启动层只盖首屏：本地装配完成即放行，联网数据在后台补（见 bootAndPrefetch）
+  // 启动层只盖首屏：本地装配完成即放行，联网数据在后台补（见 bootAndPrefetch）。
   const [bootReady, setBootReady] = useState(false);
-  /* 顶栏搜索提交的一次性请求：at 变化即重新执行。
-     搜索结果不是独立页面：有关键词时发现页整页切成结果态，清空即回推荐与榜单。 */
+  /** 顶栏与左栏共用的一份账号摘要。*/
+     /* 搜索结果不是独立页面：有关键词时发现页整页切成结果态，清空即回推荐与榜单。*/
   const [searchSeek, setSearchSeek] = useState<{ text: string; at: number } | null>(null);
-  /* 搜索浮层点艺人 / 专辑发起的详情跳转：at 变化即开门（发现页的详情系统在页内，通路走这里）。 */
+  /* 搜索浮层点艺人 / 专辑发起的详情跳转：at 变化即开闸（发现页的详情系统在页内，通路走这里）。*/
   const [discoverDetail, setDiscoverDetail] = useState<AfDetailSeek | null>(null);
   /* 我的页内的三个视角：喜欢（默认）/ 最近 / 统计 */
   const [mineTab, setMineTab] = useState<"liked" | "recent" | "stats">("liked");
@@ -186,14 +189,14 @@ function App() {
   const [accountProfiles, setAccountProfiles] = useState<Record<string, AccountProfile | undefined>>({});
   const [loginFor, setLoginFor] = useState<string | null>(null);
   /* key={page} 换页 remount 会丢滚动位置：每页各记一份 scrollTop，
-     换页后立刻还原（列表滚到一半返回再进来，不从头开始）。 */
+     换页后立刻还原（列表滚到一半返回再进来，不从头开始）。*/
   const pageRef = useRef<HTMLDivElement | null>(null);
   const pageScrolls = useRef<Partial<Record<PageId, number>>>({});
   useEffect(() => {
     if (pageRef.current) pageRef.current.scrollTop = pageScrolls.current[page] ?? 0;
   }, [page]);
 
-  /** 读所有可登录源的头像/昵称（站尺账号区 + 面板共用）。 */
+  /** 读所有可登录源的头像/昵称（站内账号区 + 面板共用）。*/
   const refreshAccountProfiles = (): void => {
     const svc = services.current;
     if (!svc) return;
@@ -210,7 +213,7 @@ function App() {
     ).then((rows) => setAccountProfiles(Object.fromEntries(rows)));
   };
 
-  // 账号状态不会主动推送：切源、窗口重新聚焦、打开面板时各读一次
+  // 账号状态不会主动推送：切源、窗口重新聚焦、打开面板时各读一次。
   useEffect(() => {
     const onFocus = (): void => refreshAccountProfiles();
     window.addEventListener("focus", onFocus);
@@ -248,19 +251,19 @@ function App() {
   const dragging = useRef(false);
 
   // 位置只写这两个 DOM 节点，不触发 React 渲染 —— 进度条不该让整棵树重画。
-  // 状态一变（恢复 / seek / 切歌）就立即同步一次，不能只等 rAF：
-  // 窗口被遮挡或后台节流时 rAF 可能几百毫秒才一帧（冒烟实测 600ms 仅 1 帧）。
+  // 状态一变（恢复 / seek / 切歌）就立即同步一次，不能只等 rAF。
+  // 窗口被遮挡或后台节流时 rAF 可能几百毫秒才一帧（冒烟实测 600ms 才 1 帧）。
   const syncPosition = (): void => {
     const svc = services.current;
     if (!svc) return;
     const position = svc.positionMs();
     const duration = svc.durationMs();
-    // 拖动中不写已播时间：那时显示的应该是"要跳到哪儿"，不是"现在在哪"（P0-03）
+    // 拖动中不写已播时间：那时显示的应该是「要跳到哪」，不是「现在在哪」（P0-03）。
     if (timeEl.current && !dragging.current) timeEl.current.textContent = fmt(position);
     if (totalEl.current) totalEl.current.textContent = fmt(duration);
     if (barEl.current && !dragging.current) {
-      /* 恢复暂停时引擎还没解码：时长先回落到队列/曲库记住的值；两边都没有
-         就把轨道撑到已恢复的位置，至少让进度条停在正确位置，不被 max=1 夹回 0。 */
+      /* 恢复暂停时引擎还没解码：时长先回落到队列/曲库记住的值；两边都没有，
+         就把轨道撑到已恢复的位置，至少让进度条停在正确位置，不被 max=1 夹回 0。*/
       const span = duration > 0 ? duration : Math.max(1, position);
       barEl.current.max = String(Math.max(1, Math.round(span)));
       barEl.current.value = String(Math.round(Math.min(position, span)));
@@ -270,8 +273,8 @@ function App() {
       // 原型轨道是 div + i/knob：宽度与滑块位置都从父级 --fill 计算
       barEl.current.parentElement?.style.setProperty("--fill", `${pct.toFixed(2)}%`);
     }
-    // 睡眠定时剩余时间同样只写 DOM：1s 一个 setInterval 会违反「时间唯一」（I1），
-    // 而 deadline 是绝对的，掉帧后补算也不会累积误差。
+    // 睡眠定时剩余时间同样只写 DOM；s 一个 setInterval 会违反「时间唯一」（I1），
+    // 用 deadline 是绝对的，掉帧后补算也不会累积误差。
     if (sleepEl.current) {
       const endsAt = getState().sleep.endsAt;
       if (endsAt !== null) sleepEl.current.textContent = fmt(Math.max(0, endsAt - Date.now()));
@@ -302,8 +305,8 @@ function App() {
     let offFrame: (() => void) | null = null;
     let fallback = 0;
 
-    // 首帧优先：装配会发起一串 IPC（先读曲库索引）。如果挤进首次样式/布局的同一个任务，
-    // 回包要等整段 50–70ms 长任务跑完，恢复耗时会随机翻倍。等两帧再启动装配
+    // 首帧优先：装配会发起一个 IPC（先读曲库索引）。如果挤进首次样式/布局的同一个任务，
+    // 回包要等整段 50–100ms 长任务跑完，恢复耗时会随机翻倍。等两帧再启动装配
     //（compositor 的帧循环是全应用唯一的 rAF）；窗口被遮挡时帧循环不跑，
     // 用定时器兜底，别让后台启动永远不装配。
     const start = (): void => {
@@ -328,7 +331,7 @@ function App() {
       const bootAndPrefetch = async (): Promise<void> => {
         const s = await bootstrap();
         if (!alive) return;
-        // 启动层进度线：装配完成（70%）
+        // 启动层进度线：装配完成（70%）。
         (window as unknown as { __splashStage?: (n: number) => void }).__splashStage?.(2);
         services.current = s;
         resolveServices.current?.(s);
@@ -339,11 +342,11 @@ function App() {
         startLyricBridge(s, { onLike: () => likeActionRef.current() });
 
         // 首屏就绪：本地装配完成就放行，联网预取在后台继续。
-        // 旧实现要等每日/红心/FM 三份数据（或 12 秒超时）才退场，弱网下整页空白十几秒。
+        // 旧实现要等每日红心/FM 三份数据（或 12 秒超时）才退场，弱网下整页空白十几秒。
         releaseBoot();
 
         // 曲库目录 + 开机自启（M9）：两个值都在主进程/系统侧，界面只做镜像。
-        // 读不到就保持默认：截图脚本那套 IPC 桩没有这两条通道，不该把整页带崩
+        // 读不到就保持默认：截图脚本那边的 IPC 桩没有这两条通道，不该把整页带崩。
         void s
           .libraryRoots()
           .then((roots) => {
@@ -370,7 +373,7 @@ function App() {
           .catch(() => undefined);
 
         // 首屏联网预取：账号一确定就并发拉每日推荐 / 账号红心 / 个人 FM。
-        // 结果落进 domain/net-cache，之后每次切页都直接命中；
+        // 结果落进 domain/net-cache，之后每次切页都直接命中。
         // 单个源失败不影响其它数据，也不挡放行（首屏已在上面放行）。
         const { id } = await resolveAccountSource().catch(() => ({ id: null as string | null }));
         if (alive && id) {
@@ -381,19 +384,19 @@ function App() {
             loadNet(accountKey(id, "fm"), () => accountBundle("fm")),
           ]);
           // 榜单 / 歌单清单：这两页一进去就要整张清单，等点进去才拉会先闪一次骨架。
-          // 不 await、缓 2 秒再发：启动的带宽先给上面这两份，抢不到也不影响放行。
+          // 先不 await、缓 2 秒再发：启动的带宽先给上面这两份，抢不到也不影响放行。
           setTimeout(() => {
             void loadNet(`charts:toplists:${id}`, () => s.listToplists(id)).catch(() => undefined);
             void loadNet(`playlists:list:${id}`, () => s.listPlaylists(id)).catch(() => undefined);
           }, 2000);
         }
 
-        // 更新提示（M8）：一条线，不弹窗不打断播放
+        // 更新提示（M8）：一条线，不弹窗不打断播放。
         s.onUpdateAvailable((v) => setNotice({ text: `发现新版本 v${v.version}，点击前往下载页`, url: v.url }));
-        // 上次异常退出：提示一次，之后不再烦
+        // 上次异常退出：提示一次，之后不再提。
         void s.lastCrash().then((c) => {
           if (c) {
-            setNotice({ text: `上次异常退出（${c.kind}），详情见 ${c.file}` });
+           setNotice({ text: `上次异常退出（${c.kind}），详情见 ${c.file}` });
             void s.markCrashSeen(c.file);
           }
         });
@@ -420,15 +423,15 @@ function App() {
   /*
    * 底栏的曲名 / 歌手分开取：在线曲目的 trackTitle 是「歌名 — 歌手」拼好的整串，
    * 按「—」拆会误伤带横线的歌名；队列元数据里本来就分开存着。
-   * 本地曲目从曲库取，取不到就留空（副行只剩播放状态，不编一个"未知歌手"）。
+   * 本地曲目从曲库取，取不到就留空（副行只剩播放状态，不编一个「未知歌手」）。
    */
   const npMeta = trackId ? state.queue.remote[trackId] : undefined;
-  /* 本地曲目 trackTitle 为空（kernel 只存在线元数据），旧实现直接回落到文件名；
-     曲库里本来就有标题/歌手，先查库再退文件名，底栏才显示「夜的第七章」而不是 .mp3。 */
+  /* 本地曲目 trackTitle 为空（kernel 只存在线元数据），旧实现直接回落到文件名。
+     曲库里本来就有标题/歌手，先查库再退文件名，底栏才显示「夜的第七章」而不是 .mp3。*/
   const localMeta = trackId && !remote ? trackById(trackId) : undefined;
   const npTitle = npMeta?.title ?? trackTitle ?? localMeta?.title ?? null;
   const npArtist = npMeta?.artist ?? localMeta?.artist ?? "";
-  /* 底栏副行的信号源名（「网易云」）：比「在线音源」多一句实话。sources 列表启动后不变。 */
+  /* 底栏副行的信号源名（「网易云」）：比「在线音源」多一句实话。sources 列表启动后不变。*/
   const sourceName = remote
     ? services.current?.sources().find((s) => s.id === remote.sourceId)?.name ?? null
     : null;
@@ -438,7 +441,7 @@ function App() {
    * 两套 id 空间，A 方案的延伸——不合并，但同一个小按钮按载体分流。
    */
   const likedNow = remote ? isAccountLiked(remote.songId) : trackId ? isLiked(trackId) : false;
-  // P0-26：解码中（status=loading）与缓冲中（playing + waiting）是两个词
+  // P0-26：解码中（status=loading）与缓冲中（playing + waiting）是两个态。
   const phase = phaseOf(status, state.player.buffering);
   const sleepEndsAt = state.sleep.endsAt;
   const sleepWaitEnd = state.sleep.waitEnd;
@@ -450,7 +453,7 @@ function App() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  /* 媒体会话 + console 封面（原先 60 行散在两处，见 hooks/use-media-session.ts） */
+  /* 媒体会话 + console 封面（原先 60 行散在两处，见 hooks/use-media-session.ts）*/
   const npCover = useMediaSession({
     stateRef,
     services,
@@ -460,13 +463,13 @@ function App() {
     status,
     /* 在线曲目的封面地址在队列元数据里（player.remote 只存 sourceId/songId，
        常常没有 coverUrl）。不补这一手，底栏就只剩盘纹占位，而播放页大图明明有图
-       （2026-11-12 用户截图："只有看到歌名"）。 */
+       （2026-11-12 用户截图：「只有看到歌名」）。*/
     remote: remote && npMeta?.coverUrl && !remote.coverUrl ? { ...remote, coverUrl: npMeta.coverUrl } : remote,
   });
 
   /**
-   * 睡眠定时（A-23）：只在截止时刻挂一个 setTimeout 触发 `sleep/expire`。
-   * 不用 setInterval 刷界面（I1：时间唯一），剩余时间由合成器帧里的 syncPosition 写 DOM；
+   * 睡眠定时（A-23）：只在截止时刻挂一个 setTimeout 触发 sleep/expire。
+   * 不用 setInterval 刷界面（I1：时间唯一），剩余时间由合成器帧里的 syncPosition 写 DOM。
    * 也不在 reducer 里读 Date.now() —— kernel 只做状态转移，时间在 UI 侧。
    */
   useEffect(() => {
@@ -478,9 +481,9 @@ function App() {
   const onPlay = (index: number): void => {
     const rows = getFiltered();
     if (rows.length === 0) return;
-    // 队列 = 当前筛选结果，从点击那首开始 —— 搜完直接播不会把整个库冲掉
+    // 队列 = 当前筛选结果，从点击那首开始 —— 搜完直接播不会把整个库冲掉。
     dispatch({ type: "queue/set", items: rows.map((r) => r.path), startAt: index });
-    // queue/set 只落 loading，不会自己起播 —— 补一脚 play（已在播时幂等）
+    // queue/set 只落 loading，不会自己起播 —— 补一版 play（已在播时幂等）
     dispatch({ type: "player/play" });
   };
 
@@ -488,31 +491,97 @@ function App() {
   const onPlayGroup = (tracks: Track[], startAt: number): void => {
     if (tracks.length === 0) return;
     dispatch({ type: "queue/set", items: tracks.map((r) => r.path), startAt });
-    // 同上：set 完起播，私人 FM / 电台 / 专辑「开始收听」都走这里
+    // 同上：set 完起播，私人 FM / 电台 / 专辑「开始收听」都走这条。
     dispatch({ type: "player/play" });
   };
 
-  const onScan = async (): Promise<void> => {
+  const onScan = async () => {
     const svc = services.current;
-    if (!svc) return;
+    if (!svc) return null;
     setScanning(true);
     setScanNote("正在扫描…");
+    // 任务栏进度（P1）：扫几千首时切出去也能看见进度，结束必须清掉
+    window.api.pushTaskbarProgress(0);
     try {
-      const stats = await svc.scan((done, total) => setScanNote(`解析标签 ${done}/${total}`));
+      const stats = await svc.scan((done, total) => {
+        setScanNote(`解析标签 ${done}/${total}`);
+        if (total > 0) window.api.pushTaskbarProgress(done / total);
+      });
       if (!stats) {
         setScanNote("");
-        return;
+        return null;
       }
       setScanNote(
         `共 ${stats.total} 首 · 新增 ${stats.added} · 变化 ${stats.changed} · 未变 ${stats.unchanged}` +
           `${stats.failed ? ` · 失败 ${stats.failed}` : ""} · 耗时 ${stats.ms}ms`,
       );
+      return stats;
     } catch (err) {
-      setScanNote(`扫描失败：${err instanceof Error ? err.message : String(err)}`);
+     setScanNote(`扫描失败：${err instanceof Error ? err.message : String(err)}`);
+      return null;
     } finally {
       setScanning(false);
+      window.api.pushTaskbarProgress(null);
     }
   };
+
+  /** 在线曲目播放带错误提示（各个入口共用，别各写一遍 catch）。*/
+  useEffect(() => {
+    const hasFiles = (e: DragEvent): boolean => Boolean(e.dataTransfer?.types.includes("Files"));
+    const onOver = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+    const onEnter = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dropDepth.current += 1;
+      setDropHot(true);
+    };
+    const onLeave = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      dropDepth.current = Math.max(0, dropDepth.current - 1);
+      if (dropDepth.current === 0) setDropHot(false);
+    };
+    const onDrop = (e: DragEvent): void => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dropDepth.current = 0;
+      setDropHot(false);
+      const paths = [...(e.dataTransfer?.files ?? [])]
+        .map((f) => window.api.pathForFile(f))
+        .filter((p) => p.length > 0);
+      if (paths.length === 0) {
+        toast("没认出拖进来的东西，试试音频文件或文件夹");
+        return;
+      }
+      void (async () => {
+        try {
+          const before = await window.api.libraryRoots();
+          const roots = await window.api.addLibraryRoots(paths);
+          const added = roots.filter((r) => !before.includes(r));
+          toast(added.length > 0 ? `已加入 ${added.length} 个文件夹，开始扫描…` : "这些文件已经收在曲库里了，重扫一遍");
+          const stats = await onScan();
+          if (stats) toast(`曲库已更新 · 新增 ${stats.added} 首`, "ok");
+        } catch (err) {
+          toast(err instanceof Error ? err.message : "加入曲库失败");
+        }
+      })();
+    };
+    window.addEventListener("dragover", onOver);
+    window.addEventListener("dragenter", onEnter);
+    window.addEventListener("dragleave", onLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragover", onOver);
+      window.removeEventListener("dragenter", onEnter);
+      window.removeEventListener("dragleave", onLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+    // onScan 只读 ref/state 设定，重挂监听无副作用。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onImportSource = async (): Promise<void> => {
     const svc = services.current;
@@ -529,7 +598,7 @@ function App() {
     }
   };
 
-  /* ---- 队列面板进"面板栈"：Esc 关最上层交给 input/keyboard.ts 统一裁，不另挂 keydown ---- */
+  /* ---- 队列面板与面板栈：Esc 关最上层交给 input/keyboard.ts 统一管，不另挂 keydown ---- */
   useEffect(() => {
     if (!queueOpen) return;
     return pushPanel("queue", "panel", () => setQueueOpen(false));
@@ -545,7 +614,7 @@ function App() {
         hint: "Space",
         run: () => dispatch({ type: "player/toggle" }),
       }),
-      // 只停不播（关窗收托盘用）：已经暂停时收到它必须什么都不发生
+      // 只停不播（关窗收托盘用）：已经暂停时收到它必须什么都不发。
       registerCommand({
         id: "play-stop",
         label: "暂停播放",
@@ -649,7 +718,7 @@ function App() {
   }, []);
 
   /* 媒体键 / 托盘 / 离线态 / 全局快捷键：语义走命令注册表（hooks/use-playback-channels.ts）。
-     绑定与状态这两份留在 App：设置页的快捷键面板直接读值，hook 负责填它们。 */
+     绑定与状态这两份留在 App：设置页的快捷键面板直接读值，hook 负责填它们。*/
   const [shortcutStatus, setShortcutStatus] = useState<ShortcutStatus[]>([]);
   const [shortcutBindings, setShortcutBindings] = useState<ShortcutBinding[]>(
     DEFAULT_BINDINGS.map((b) => ({ ...b })),
@@ -665,7 +734,7 @@ function App() {
     setShortcutBindings,
   });
 
-  /* 歌词取词 + 校准推送（hooks/use-lyric-sync.ts） */
+  /* 歌词取词 + 校准推送（hooks/use-lyric-sync.ts）*/
   const lyricOffset = state.lyrics.offsets[trackId ?? ""] ?? 0;
   useLyricSync({ remote, trackId, lyricOffset, services });
 
@@ -680,7 +749,7 @@ function App() {
     services.current?.syncWindowOverlay();
   }, [page]);
 
-  /* 换词弹窗（P0-19）的初始查询：本地「歌名 歌手」，在线用标题（那里已经是「歌名 — 歌手」）。 */
+  /* 换词弹窗（P0-19）的初始查询：本地「歌名 歌手」，在线用标题（那里已经是「歌名 — 歌手」）。*/
   const findTrack = findOpen && !remote && trackId ? trackById(trackId) : undefined;
   const findQuery = remote
     ? (trackTitle ?? "")
@@ -691,9 +760,9 @@ function App() {
         : "";
 
   /**
-   * 键位表（P0-22）：键 → 语义在 `input/keymap.ts`（纯函数、一条键一条用例），
+   * 键位表（P0-22）：语义在 `input/keymap.ts`（纯函数、一条键一条用例），
    * 这里只把语义接到 dispatch 上。焦点纪律由 `installKeyboard` 前置拦掉。
-   * 依赖 `[page]`：0–9 只在播放页生效，换页必须换一份闭包。
+   * 依赖 `[page]`：←/→ 只在播放页生效，换页必须换一份闭包。
    */
   useEffect(
     () =>
@@ -718,18 +787,18 @@ function App() {
         volumeBy: (delta) =>
           dispatch({ type: "player/setVolume", volume: getState().player.volume + delta }),
         mute: () => dispatch({ type: "player/setMuted", muted: !getState().player.muted }),
-        // 在线曲目走账号红心（R1），本地曲目走本机红心；两者 id 空间不同，不混
+        // 在线曲目走账号红心（R1），本地曲目走本机红心；两套 id 空间不同，不合并。
         like: () => likeActionRef.current?.(),
       }),
     [page],
   );
 
   /**
-   * 在线曲目播放（每日推荐 / 榜单 / 歌单 / 搜索共用一条链路）：
+   * 在线曲目播放（每日推荐 / 榜单 / 歌单 / 搜索共用一条链路）。
    * 点列表里的任意一首 → **整份列表入队**，从这首开始。这是播放器的基本语义，
    * 只播单曲的话「下一首」永远没有着落。
    *
-   * 队列里存 `remote:<音源>:<歌 id>` 而不是直链：直链带令牌、会过期，
+   * 队列里存 `remote:<音源>:<曲 id>` 而不是直链：直链带令牌、会过期。
    * 真正起播前由 engine 的解析器换成新地址（`AudioEngine.setResolver`）。
    * 但仍先解析这一首 —— 未登录 / 无版权要在点的一瞬间就说，不能入队后才逐首失败。
    */
@@ -741,7 +810,7 @@ function App() {
     track: RemoteTrack,
     list?: RemoteTrack[],
     stream = false,
-    /** 节目来源标签（「内地榜」「搜索 · xx」），queue/set 落进队列给播放页 ON AIR 显示 */
+    /** 节目来源标签（「内地榜」「搜索 · xx」）：queue/set 落进队列给播放页 ON AIR 显示 */
     origin?: string,
   ): Promise<void> => {
     const svc = services.current;
@@ -752,19 +821,32 @@ function App() {
       await svc.resolveOnlineUrl(sourceId, track.sourceId, level);
     } catch (err) {
       if (seq !== playSeq.current) return;
-      /* 降级链（P0 #3）：在线取流失败时，先找已下载/本地同曲，别让这一下变成「点了没反应」。 */
+      /* 降级链（P0 #3）：在线取流失败时：
+         1. 优先尝试从其他在线音源（网易云 / QQ）寻找同名曲目跨源替补；
+         2. 再找已下载的本地同曲，别让这一下变成「点了没反应」。*/
+      const fallback = await findOnlineFallback(
+        { title: track.title, artist: track.artist, durationMs: track.durationMs },
+        sourceId,
+        level
+      );
+      if (fallback) {
+        const srcLabel = fallback.sourceId === "netease" ? "网易云" : fallback.sourceId === "qq" ? "QQ 音乐" : fallback.sourceId;
+        toast(`原音源地址不可用，已自动从「${srcLabel}」替补播放`, "info");
+        await playRemote(fallback.sourceId, fallback.track, list, stream, origin);
+        return;
+      }
       const local = findLocalMatch(getTracks(), {
         title: track.title,
         artist: track.artist,
         durationMs: track.durationMs,
       });
       if (!local) throw err;
-      toast(`在线地址不可用，改播本地《${local.title}》`, "info");
+      toast(`在线地址不可用，改播本地。${local.title}。`, "info");
       dispatch({ type: "queue/set", items: [local.id], startAt: 0 });
       dispatch({ type: "player/play" });
       return;
     }
-    if (seq !== playSeq.current) return; // 期间又点了别的歌：这个结果作废
+   if (seq !== playSeq.current) return; // 期间又点了别的歌：这个结果作废
 
     const tracks = list && list.length > 0 ? list : [track];
     const items = tracks.map((t) => remoteTrackId(sourceId, t.sourceId));
@@ -782,14 +864,14 @@ function App() {
       };
     }
     const at = items.indexOf(remoteTrackId(sourceId, track.sourceId));
-    /* 同一份节目单里跳档：队列条目一模一样就不重建 —— shuffle 打散的顺序、
-       失败标记、origin 都保住，只把光标切过去（store 的 player/play 自带换档）。 */
+    /* 同一份节目单里跳档：队列条目一模一样就不重算 —— shuffle 打散的顺序、
+       失败标记、origin 都保住，只把光标切过去（store 的 player/play 自带换档）。*/
     const cur = getState().queue;
     if (cur.items.length === items.length && cur.items.every((id, i) => id === items[i])) {
       if (at >= 0) dispatch({ type: "player/play", trackId: items[at] });
       return;
     }
-    // stream = 无限流（漫游 FM）：这批放完由 bootstrap 再要一批接上，不叫"播完了"
+    // stream = 无限流（漫游 FM）：这批放完用 bootstrap 再要一批接上，不叫"播完了"
     dispatch({
       type: "queue/set",
       items,
@@ -798,14 +880,55 @@ function App() {
       stream: stream ? { sourceId } : null,
       origin: origin ?? null,
     });
-    // queue/set 只落 loading —— 补一脚 play（已在播时幂等）
+    // queue/set 只落 loading —— 补一版 play（已在播时幂等）
     dispatch({ type: "player/play" });
+  };
+
+  /**
+   * 队列失败行的「换源」（P1-2）：拿当前元数据去别的在线音源找同名曲目，
+   * 找到就把这一格整个换掉（id / 元数据 / 失败标记），正在放的就重载。
+   * 找不到就直说，不假装成功。
+   */
+  const swapQueueSource = async (id: string, at: number): Promise<void> => {
+    const svc = services.current;
+    const meta = getState().queue.remote[id];
+    if (!svc || !meta) {
+      toast("这首没有可替换的在线信息", "bad");
+      return;
+    }
+    const fallback = await findOnlineFallback(
+      { title: meta.title, artist: meta.artist, durationMs: meta.durationMs },
+      meta.sourceId,
+      activeQuality(),
+    ).catch(() => null);
+    if (!fallback) {
+      toast(`「${meta.title}」在别的音源也没找到`, "bad");
+      return;
+    }
+    const srcLabel =
+      fallback.sourceId === "netease" ? "网易云" : fallback.sourceId === "qq" ? "QQ 音乐" : fallback.sourceId;
+    dispatch({
+      type: "queue/swap",
+      index: at,
+      trackId: remoteTrackId(fallback.sourceId, fallback.track.sourceId),
+      meta: {
+        sourceId: fallback.sourceId,
+        songId: fallback.track.sourceId,
+        title: fallback.track.title,
+        artist: fallback.track.artist,
+        coverUrl: fallback.track.coverUrl,
+        durationMs: fallback.track.durationMs,
+        artistId: fallback.track.artistId,
+        albumId: fallback.track.albumId,
+      },
+    });
+    toast(`已从「${srcLabel}」换了一版：${fallback.track.title}`, "ok");
   };
 
   /**
    * 当前账号（单账号模型）：只认全局当前音源，**不回退**到别的已登录源。
    *  - 当前源支持账号且已登录 → 用它
-   *  - 支持账号但未登录     → 「登录X后…」
+   *  - 支持账号但未登录     → 「登录 X 后…」
    *  - 不支持账号（QQ / demo）→ 「X 没有账号数据…」
    */
   const resolveAccountSource = async (): Promise<{
@@ -833,7 +956,7 @@ function App() {
     const resolved = await resolveAccountSource();
     if (!resolved.id) return { sourceId: "", songs: [], hint: resolved.hint(kind) };
     const id = resolved.id;
-    // Record 强制四类账号数据都给出加载器：以后再加一类，编译器直接点名
+    // Record 强制四类账号数据都给出加载器：以后再加一类，编译器直接点出来。
     const loaders: Record<AccountKind, () => Promise<RemoteTrack[]>> = {
       daily: () => svc.accountDailySongs(id),
       liked: () => svc.accountLikedSongs(id),
@@ -841,12 +964,12 @@ function App() {
       fm: () => svc.accountPersonalFm(id),
     };
     const songs = await loaders[kind]();
-    // 任何一次成功的账号调用都顺手确认一下域绑的是这个账号（幂等）
+    // 任何一次成功的账号调用都顺手确认一下域绑的是这个账号（幂等）。
     ensureAccount(id);
     return { sourceId: id, songs, hint: null };
   };
 
-  /** 在线曲目播放带错误提示（各个入口共用，别各写一遍 catch）。 */
+  /** 在线曲目播放带错误提示（各个入口共用，别各写一遍 catch）。*/
   const playRemoteSafe = (
     sourceId: string,
     track: RemoteTrack,
@@ -871,7 +994,7 @@ function App() {
     if (page !== "stage") lastRoom.current = page;
   }, [page]);
 
-  /* 「我的」：喜欢 / 最近 / 统计三个视角收进一页，页头右侧切。 */
+  /* 「我的」：喜欢 / 最近 / 统计三个视角收进一页，页头右侧切。*/
   const mineTabs = (
     <div className="lib-tabs">
       {(
@@ -897,7 +1020,7 @@ function App() {
   const renderPage = (): ReactNode => {
     switch (page) {
       case "stage":
-        // 播放页是 fixed 覆盖层（af/NowPlaying），内容区留空
+        // 播放页是 fixed 覆盖层（af/NowPlaying），内容区留空。
         return null;
       case "mine":
         return (
@@ -1029,18 +1152,18 @@ function App() {
           />
         );
       default:
-        // 还没落地的页：给明确的路标，而不是白屏
+        // 还没落地的页：给明确的路标，而不是白屏。
         return (
           <div className="wip">
             <p className="wip-label">UNDER CONSTRUCTION · 施工中</p>
             <h2>{PAGE_LABEL[page]}</h2>
-            <p>这一页正在按 design-demos/pages-v11 的稿子重建，先前的实现不迁移。</p>
+            <p>这一页正在按 design-demos/pages-v11 的样子重建，先前的实现不迁移。</p>
           </div>
         );
     }
   };
 
-  /** 顶栏与左栏共用的一份账号摘要 */
+  /** 顶栏与左栏共用的一份账号摘要。*/
   const accountSummary = {
     nick: accountProfiles[getActiveSource()]?.nick ?? null,
     avatarUrl: accountProfiles[getActiveSource()]?.avatarUrl ?? null,
@@ -1192,11 +1315,11 @@ function App() {
     lastRoom: lastRoom.current,
   });
 
-  /* E22 先不下楼：断网瞬间登记彩蛋 + 一声雨幕拟声；横幅照旧（保持 P0-25 的「不用 toast」决定）。
-     递进池用在横幅首句：第几次断网，横幅开头换成第几句（离线恢复后重置为 0）。 */
+  /* E22 先不下楼：断网瞬间登记彩蛋 + 一声雨幕拟声；横幅照旧（保留 P0-25 的「不发 toast」决定）。
+     递进池用在横幅首句：第几次断网，横幅开头换成第几句（离线恢复后重置为 0）。*/
   const offlineCount = useRef(0);
   useEffect(() => {
-    /* btr 包动效签名：断网时页面怯缩向墙角（polish.css §15），恢复就回来 */
+    /* btr 包动效签名：断网时页面憋气缩向墙角（polish.css §15），恢复就回来 */
     document.documentElement.classList.toggle("net-down", offline);
     if (!offline) {
       if (offlineCount.current > 0) afApi.triggerEgg("E27"); // E27 恢复沿：从墙角探个头
@@ -1209,6 +1332,16 @@ function App() {
     if (afApi.palette !== "default") afApi.toast(eggText(afApi.palette, "offlineNet", offlineCount.current), { hand: true });
   }, [offline, afApi]);
 
+  /* 浮层都在 .app 外面：任一浮层在场时把后景从读屏树里摘掉（键盘由各弹窗的焦点环管住）。*/
+  const shellHidden =
+    page === "stage" ||
+    afApi.keysOpen ||
+    Boolean(afApi.studio) ||
+    Boolean(afApi.listEditor) ||
+    Boolean(loginFor) ||
+    afApi.demoOpen ||
+    paletteOpen;
+
   return (
     <AfContext.Provider value={afApi}>
       {/* 启动层是 index.html 里的纯 HTML/CSS，不在这里挂 */}
@@ -1218,7 +1351,7 @@ function App() {
           离线 · 只放本地曲目，在线搜索/登录/榜单暂不可用
         </div>
       ) : null}
-      <div className={`app${afApi.density === "compact" ? " is-compact" : ""}${offline ? " offline" : ""}`}>
+      <div className={`app${afApi.density === "compact" ? " is-compact" : ""}${offline ? " offline" : ""}`} aria-hidden={shellHidden || undefined}>
         <Sidebar />
         <div className="main">
           <Topbar />
@@ -1260,7 +1393,7 @@ function App() {
         )}
         onClose={() => {
           setAccountOpen(false);
-          setLoginFor(null); // 弹层关了，内嵌登录流程一并收回
+          setLoginFor(null); // 弹层关了，内嵌登录流程一并收起。
         }}
         onSwitch={(id) => {
           setActiveSource(id);
@@ -1287,7 +1420,7 @@ function App() {
           >
           {notice ? (
             /* 常驻提示（新版本 / 上次异常退出）必须能关：这类不自动消退，
-               没有 × 就只能等下次覆盖或重启（2026-11-12 用户："一直显示不会消失"）。 */
+               没有 × 就只能等下次覆盖或重启（2026-11-12 用户反馈「一直显示不会消失」）。*/
             <div className="notice-bar">
               {notice.url ? (
                 <button
@@ -1357,6 +1490,14 @@ function App() {
         </div>
       </div>
 
+      {dropHot ? (
+        <div className="dropzone" role="status" aria-live="polite">
+          <div className="dropzone__card">
+            <b>松手 · 加入曲库</b>
+            <span className="dropzone__hint">文件按所在文件夹收进来，落手即扫</span>
+          </div>
+        </div>
+      ) : null}
       <Toaster />
       <SourceSwap stage={page === "stage"} />
       <SceneSwitch
@@ -1417,7 +1558,7 @@ function App() {
       {paletteOpen ? (
         <CommandPalette
           onClose={() => setPaletteOpen(false)}
-          // 「Ctrl+K 搜索 → 播放」验收：命中本地歌直接进队列播放（拼音索引复用，见 library/state）
+          // 「Ctrl+K 搜索 → 播放」验收：命中本地歌直接进队列播放（拼音索引复用，走 library/state）。
           searchSongs={(q) =>
             searchTracks(q).map((t) => ({
               id: `song:${t.id}`,
@@ -1453,7 +1594,7 @@ function App() {
             );
             setManualLyric(doc);
             setNotice({
-              text: `已换上「${hit.trackName}${hit.artistName ? ` — ${hit.artistName}` : ""}」的歌词`,
+              text: `已换到「${hit.trackName}${hit.artistName ? ` — ${hit.artistName}` : ""}」的歌词`,
             });
           }}
           onClose={() => setFindOpen(false)}
@@ -1464,6 +1605,7 @@ function App() {
         <QueuePanel
           queue={state.queue}
           cover={(id, path) => services.current?.cover(id, path) ?? Promise.resolve(null)}
+          onSwapSource={(id, at) => void swapQueueSource(id, at)}
           onClose={() => setQueueOpen(false)}
         />
       ) : null}

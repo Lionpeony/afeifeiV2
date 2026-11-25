@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 // sandbox: true 下 preload 只能 require electron 本身，不能碰业务模块 —— 这正是设计要的：
 // 桥是窄的、具名的，业务一律留在渲染进程的环 0–4。
@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld("api", {
   // 曲库目录列表（M9）：持久化在 KV，扫描按列表重扫
   libraryRoots: (): Promise<string[]> => ipcRenderer.invoke("library:roots"),
   addLibraryRoot: (): Promise<string[] | null> => ipcRenderer.invoke("library:addRoot"),
+  // 拖拽导入：渲染层拿到的是 File，真路径只能由 preload 换（Electron 32 起 File.path 已移除）
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
+  addLibraryRoots: (paths: string[]): Promise<string[]> => ipcRenderer.invoke("library:addRoots", paths),
   removeLibraryRoot: (dir: string): Promise<string[]> => ipcRenderer.invoke("library:removeRoot", dir),
   // 系统通知 + 开机自启（M9）
   notify: (payload: { title: string; body: string }): Promise<boolean> =>
@@ -166,6 +169,16 @@ contextBridge.exposeInMainWorld("api", {
       playing: state.playing === true,
       title: typeof state.title === "string" && state.title ? state.title : null,
     });
+  },
+  /** 任务栏：同一行状态（缩略图按钮换图标）+ 独立进度（扫描/下载；null 清掉） */
+  pushTaskbarState: (state: { playing: boolean; title: string | null }): void => {
+    ipcRenderer.send("taskbar:state", {
+      playing: state.playing === true,
+      title: typeof state.title === "string" && state.title ? state.title : null,
+    });
+  },
+  pushTaskbarProgress: (value: number | null): void => {
+    ipcRenderer.send("taskbar:progress", { value: typeof value === "number" && Number.isFinite(value) ? value : null });
   },
 
   // 主题包（主进程只负责文件读写，不认识 token）

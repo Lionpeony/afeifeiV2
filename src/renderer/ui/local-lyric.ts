@@ -17,6 +17,8 @@ export interface LocalLyricDeps {
   read(filePath: string): Promise<{ text: string; source: "local" | "embedded" } | null>;
   /** LRCLIB 兜底用；只借 `fetchJson`。 */
   http: Pick<HttpPort, "fetchJson">;
+  /** 可选在线音源刮削（网易云/QQ 音乐），当 LRCLIB 查不到时作为深度兜底 */
+  scrapeOnline?(query: string, trackId: string, durationMs?: number): Promise<LyricDoc | null>;
 }
 
 /** `[offset:]` 换算在环 1（`domain/lyrics/lrc-meta.ts`），这里转出去给判据用。 */
@@ -57,13 +59,20 @@ export async function resolveLocalLyric(
   }
 
   const artist = track?.artist && track.artist !== UNKNOWN_ARTIST ? track.artist : undefined;
+  const trackName = track?.title?.trim() || fileNameOf(filePath);
   const text = await fetchLyricText(deps.http, {
-    trackName: track?.title?.trim() || fileNameOf(filePath),
+    trackName,
     artistName: artist,
     durationMs: totalMs,
   });
   if (text?.trim()) {
     return parseLyrics(text, { trackId, source: "lrclib", totalMs, offsetMs: lrcOffsetOf(text) });
+  }
+
+  if (deps.scrapeOnline) {
+    const query = `${trackName} ${artist || ""}`.trim();
+    const onlineDoc = await deps.scrapeOnline(query, trackId, totalMs);
+    if (onlineDoc) return onlineDoc;
   }
 
   throw new Error("纯音乐");

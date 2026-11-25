@@ -1,9 +1,10 @@
 /* 点歌分享：后台的「点歌条」——一张用胶带钉住、递出去的票根。
    功能保持：四个官方端点 + 真实歌曲链接；视觉是 AFEIFEI 的手作后台。 */
-import { useState, type JSX } from "react";
+import { useRef, useState, type JSX } from "react";
 
 import { parseRemoteTrackId } from "../../kernel/index.js";
 import { useAf } from "./context.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { IconX } from "./icons.js";
 import { Tape } from "./ui.js";
 import { packLineCopy } from "./copy.js";
@@ -59,6 +60,8 @@ export function ShareCard({ onClose }: { onClose(): void }) {
   const link = shareLinkOf(t.id);
   const [copied, setCopied] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, cardRef);
 
   const copyLink = async (): Promise<void> => {
     if (!link) return;
@@ -110,8 +113,8 @@ export function ShareCard({ onClose }: { onClose(): void }) {
   ];
 
   return (
-    <div className="share-veil" role="dialog" aria-label="点歌分享" onClick={onClose}>
-      <div className="share-card" onClick={(e) => e.stopPropagation()}>
+    <div className="share-veil" role="dialog" aria-modal="true" aria-label="点歌分享" onClick={onClose}>
+      <div ref={cardRef} tabIndex={-1} className="share-card" onClick={(e) => e.stopPropagation()}>
         <Tape style={{ top: -10, left: "50%", marginLeft: -40 }} w={80} rot={-4} />
         <button className="share-card__x" onClick={onClose} title="收起"><IconX size={14} /></button>
         <div className="share-card__head">

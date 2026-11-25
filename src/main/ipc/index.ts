@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification } from "electron";
+import { statSync } from "node:fs";
 import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { log } from "../log/index.js";
@@ -163,6 +164,26 @@ export function registerIpc(): void {
     const r = await dialog.showOpenDialog({ properties: ["openDirectory"] });
     if (r.canceled || !r.filePaths[0]) return null;
     const roots = mergeRoot(await readRoots(), r.filePaths[0]);
+    await writeRoots(roots);
+    return roots;
+  });
+
+  /* 拖拽导入：路径来自 preload 的 webUtils，这里只做「文件→所在目录」归一 + 合并去重。
+     50 条封顶防手滑把整个盘拖进来；找不到的路径跳过，不写坏数据。 */
+  ipcMain.handle("library:addRoots", async (_e, paths: unknown) => {
+    if (!Array.isArray(paths) || paths.some((p) => typeof p !== "string" || !p)) {
+      throw new Error("library:addRoots 只接受路径数组");
+    }
+    let roots = await readRoots();
+    for (const raw of (paths as string[]).slice(0, 50)) {
+      let dir = raw;
+      try {
+        if (!statSync(raw).isDirectory()) dir = path.dirname(raw);
+      } catch {
+        continue;
+      }
+      roots = mergeRoot(roots, dir);
+    }
     await writeRoots(roots);
     return roots;
   });

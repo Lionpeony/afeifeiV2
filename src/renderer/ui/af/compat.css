@@ -781,6 +781,26 @@ body,
 .qp-ops button:disabled {
   opacity: 0.3;
 }
+/* 失败行的「换源」是文字按钮：22px 圆点装不下两个字，改成胶囊，并保持可见（不死等悬停） */
+.qp-ops .qp-swap {
+  width: auto;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  color: var(--danger);
+  font-size: var(--fs-micro);
+}
+.qp-row.bad .qp-ops {
+  opacity: 1;
+}
+
+/* 弹窗打开时锁住背后页面滚动（P1-4）：class 由 dialog-focus 的计数开关，叠层关闭互不解锁 */
+:root.modal-open .main__page { overflow: hidden; }
+
+/* 减弱动态：浮层进场动画直接给结果，不让人"等它演完"才能操作（P1-4） */
+@media (prefers-reduced-motion: reduce) {
+  [role="dialog"] { animation: none !important; }
+}
 .qp-ico {
   width: 12px;
   height: 12px;

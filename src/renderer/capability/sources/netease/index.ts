@@ -372,19 +372,23 @@ export function createNeteaseProvider(api: LocalApiPort): SourceProvider {
         tlyric?: { lyric?: string };
         yrc?: { lyric?: string };
         ytlrc?: { lyric?: string };
-      }>("lyric_new", { id: sourceId, cp: false, tv: 1, lv: 1, rv: 1, kv: 0, yv: 1, ytv: 1, yrv: 0 });
+        romalrc?: { lyric?: string };
+      }>("lyric_new", { id: sourceId, cp: false, tv: 1, lv: 1, rv: 1, kv: 0, yv: 1, ytv: 1, yrv: 1 });
 
       const pick = (node?: { lyric?: string }): string => (node?.lyric ?? "").trim();
 
       const yrc = pick(body?.yrc);
       const lrc = pick(body?.lrc);
       const translated = pick(body?.tlyric);
+      const roma = pick(body?.romalrc);
 
       const source = yrc || lrc || translated;
       if (!source) throw err("track-missing", "这首歌没有歌词");
 
-      const doc = parseLyrics(source, { trackId: sourceId, source: "netease" });
-      return translated ? withTranslation(doc, translated, "zh") : doc;
+      let doc = parseLyrics(source, { trackId: sourceId, source: "netease" });
+      if (translated) doc = withTranslation(doc, translated, "zh");
+      if (roma) doc = withTranslation(doc, roma, "roma");
+      return doc;
     },
 
     async login(): Promise<void> {

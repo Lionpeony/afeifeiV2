@@ -63,3 +63,42 @@ export function findLocalMatch(tracks: Track[], target: MatchTarget, opts: Match
 
   return best?.track ?? null;
 }
+
+/** 跨在线源远程曲目匹配（标题优先，歌手或时长辅助打分）。 */
+export function findRemoteMatch<T extends { title: string; artist?: string; durationMs?: number }>(
+  candidates: T[],
+  target: MatchTarget,
+  opts: MatchOptions = {}
+): T | null {
+  const title = normalizeText(target.title ?? "");
+  if (!title) return null;
+  const tolerance = Math.max(0, opts.toleranceMs ?? 6_000);
+  const wantArtists = artistParts(target.artist ?? "");
+  let best: { item: T; score: number } | null = null;
+
+  for (const item of candidates) {
+    const itemTitle = normalizeText(item.title);
+    const exact = itemTitle === title;
+    const partial = itemTitle.includes(title) || title.includes(itemTitle);
+    if (!exact && !partial) continue;
+    let score = exact ? 10 : 5;
+
+    if (wantArtists.length > 0 && item.artist) {
+      const have = artistParts(item.artist);
+      if (have.length > 0) {
+        if (!wantArtists.some((a) => have.includes(a))) continue;
+        score += 3;
+      }
+    }
+
+    if (target.durationMs && item.durationMs) {
+      const diff = Math.abs(target.durationMs - item.durationMs);
+      if (diff > tolerance) continue;
+      score += 2 * (1 - diff / tolerance);
+    }
+
+    if (!best || score > best.score) best = { item, score };
+  }
+
+  return best?.item ?? null;
+}

@@ -5,6 +5,7 @@ import { getTracks, subscribe as subscribeLibrary } from "../domain/library/stat
 import { dispatch, dropTargetIndex, orderOf, positionOf } from "../kernel/index.js";
 import { onFrame } from "./compositor.js";
 import { QueueCover } from "./queue-cover.js";
+import { useDialogFocus } from "./af/dialog-focus.js";
 
 /**
  * 完整队列面板（P0-10/11/12/16，抄 SPlayer 的 `SongPlayList.vue` + `useDragSort.ts`）。
@@ -28,6 +29,8 @@ export interface QueuePanelProps {
   queue: QueueState;
   /** 取封面（services.cover，带缓存与去重；本地曲目 id 兼作 path） */
   cover?: (id: string, path: string) => Promise<string | null>;
+  /** 失败行「换源」（P1-2）：拿这首去别的在线音源找同名曲目替换掉这一格 */
+  onSwapSource(id: string, at: number): void;
   onClose(): void;
 }
 
@@ -75,8 +78,10 @@ function fmt(ms: number | undefined): string {
 }
 
 export function QueuePanel(props: QueuePanelProps) {
-  const { queue, cover, onClose } = props;
+  const { queue, cover, onSwapSource, onClose } = props;
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  useDialogFocus(true, panelRef);
   const dragFrom = useRef(-1);
   const dirRef = useRef(0); // 拖到边缘时的滚动方向（-1 / 0 / 1）
   const [gap, setGap] = useState(-1); // 插入线所在缝（0..n）
@@ -215,7 +220,7 @@ export function QueuePanel(props: QueuePanelProps) {
           磨砂交给 .qp 自己的 backdrop-filter。⚠ 别给这张卡套带 filter 的祖先：
           那会建立 backdrop root，让 backdrop-filter 失效（这正是 v3.2/3.3 探针
           "blur 无效"的真实原因，不是软件合成不支持）。 */}
-      <aside className="qp" role="dialog" aria-label="播放队列">
+      <aside className="qp" role="dialog" aria-label="播放队列" ref={panelRef}>
           <header className="qp-head">
             <b>播放队列</b>
             <span>
@@ -294,6 +299,18 @@ export function QueuePanel(props: QueuePanelProps) {
                     </button>
                     <time>{fmt(meta?.durationMs ?? t?.durationMs)}</time>
                     <span className="qp-ops">
+                      {/* 失败行才给「换源」：同一首去另一家试试，好过一直点同一个死源 */}
+                      {bad && meta ? (
+                        <button
+                          type="button"
+                          className="qp-swap"
+                          aria-label="换个音源再试"
+                          title="换个音源再试"
+                          onClick={() => onSwapSource(id, at)}
+                        >
+                          换源
+                        </button>
+                      ) : null}
                       {/* 图标而不是 ↑↓× 文本：U+2191/2193/00D7 的字体度量各不相同
                           （字面高、基线、左右侧承都不同），同一个 24px 盒里会读出"错位"。
                           SVG 走 16 格栅格 + 13px 盒，三颗图标尺寸/中线完全一致。 */}

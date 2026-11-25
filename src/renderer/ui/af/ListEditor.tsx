@@ -1,7 +1,8 @@
 /* 新建 / 编辑我的歌单（v5.6 原型） */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
+import { useDialogFocus } from "./dialog-focus.js";
 import { TrackArt } from "./art.js";
 import { IconCheck, IconPlus, IconX } from "./icons.js";
 import { packLineCopy, packSlotCopy } from "./copy.js";
@@ -20,6 +21,8 @@ export function ListEditor() {
   const [note, setNote] = useState(editing?.note ?? "");
   const [cover, setCover] = useState(editing?.cover ?? "amp");
   const [confirmDel, setConfirmDel] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  useDialogFocus(Boolean(listEditor), formRef);
 
   useEffect(() => {
     if (!listEditor) return;
@@ -67,7 +70,7 @@ export function ListEditor() {
   return (
     <>
       <div className="dlg-mask" onClick={() => setListEditor(null)}></div>
-      <form className="dlg" onSubmit={submit} role="dialog" aria-modal="true" aria-label={editing ? "编辑歌单" : "新建歌单"}>
+      <form ref={formRef} tabIndex={-1} className="dlg" onSubmit={submit} role="dialog" aria-modal="true" aria-label={editing ? "编辑歌单" : "新建歌单"}>
         <div className="dlg__head">
           <div>
             <div className="eyebrow">{editing ? "EDIT LIST" : "NEW LIST"}</div>

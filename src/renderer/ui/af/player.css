@@ -113,11 +113,12 @@
 :root[data-palette="btr"] .np__setline,.np--btr .np__setline{color:color-mix(in srgb,var(--btr-pink) 82%,var(--text))}
 :root[data-palette="btr"] .np__setline-rule,.np--btr .np__setline-rule{background:repeating-linear-gradient(90deg,color-mix(in srgb,var(--btr-yellow) 55%,transparent) 0 5px,transparent 5px 9px)}
 .np__kicker .eyebrow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np__title{font-family:var(--font-display);font-size:clamp(20px,1.85vw,28px);line-height:var(--lh-hero);letter-spacing:.01em;text-wrap:balance}
-/* 专辑只留一行小字，歌名/艺人不重复报第二遍 */
-.np__album{margin-top:var(--space-xs);min-width:0;max-width:100%}
-.np__album .eyebrow{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.np__band{margin-top: var(--space-xs);display:flex;align-items:center;gap: var(--space-xs);font-size:12px;color:var(--text-2);max-width:100%;min-width:0}
+/* 歌名是这首歌的主位：比歌词当前句更大，比艺人/专辑高两级 */
+.np__title{font-family:var(--font-display);font-size:clamp(24px,2.15vw,32px);line-height:1.12;letter-spacing:.01em;text-wrap:balance}
+/* 专辑只留一行脚注：比艺人再降一档、去掉强调色，不跟主位抢视线 */
+.np__album{margin-top: var(--space-2xs);min-width:0;max-width:100%}
+.np__album .eyebrow{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-mono);font-size:var(--fs-micro);letter-spacing:.14em;color:var(--text-3)}
+.np__band{margin-top: var(--space-xs);display:flex;align-items:center;gap: var(--space-xs);font-size:calc(var(--fs-micro) + 3px);color:var(--text-2);max-width:100%;min-width:0}
 .np__band > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np__band > span:first-child{flex:0 1 auto}
 .np__band > span:last-child{flex:none}
@@ -266,6 +267,8 @@
 .np__queue-toggle svg{transition:transform var(--dur-base) var(--ease-out-soft)}
 .np__queue.is-open .np__queue-toggle svg{transform:rotate(180deg)}
 .np__queue-list{overflow-y:auto;overflow-x:hidden;position:relative;padding: 0 var(--space-3xs) 0 var(--space-md);flex:1;min-height:0;}
+/* 长演出单（上百首）不整单排版：一幕一组，离屏的幕按估算高度跳过布局与绘制，滚动到场再算 */
+.np__queue-act{content-visibility:auto;contain-intrinsic-size:auto 190px;}
 .np__queue-list::-webkit-scrollbar{width:6px}
 .np__queue-list::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:var(--r-pill)}
 

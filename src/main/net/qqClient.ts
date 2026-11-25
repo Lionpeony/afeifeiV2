@@ -12,6 +12,8 @@ import { fetchJson } from "./fetchJson.js";
 import { ensureQqBackend, qqApiUrl } from "./qqBackend.js";
 import { FailureBackoff } from "./backoff.js";
 import { readKey, writeKey } from "../fs/kv.js";
+import { openSecret, sealSecret } from "../fs/secret.js";
+import { safeCipher } from "../fs/safe.js";
 
 interface QqBody {
   code?: number;
@@ -45,7 +47,8 @@ function loadToken(): Promise<string> {
   tokenLoad ??= readKey(TOKEN_KEY)
     .then((raw) => {
       if (!tokenLoaded) {
-        qqToken = typeof raw === "string" ? raw : "";
+        // 旧版本存的是明文；新版本是 safeStorage 密文（P1-3）。解不开按未登录。
+        qqToken = typeof raw === "string" ? (openSecret(raw, safeCipher) ?? "") : "";
         tokenLoaded = true;
       }
       return qqToken;
@@ -63,7 +66,7 @@ function loadToken(): Promise<string> {
 function saveToken(token: string): void {
   qqToken = token;
   tokenLoaded = true; // 抢先写入时，磁盘旧值不再覆盖
-  void writeKey(TOKEN_KEY, token).catch(() => undefined); // 存不上只影响下次启动，不阻塞
+  void writeKey(TOKEN_KEY, sealSecret(token, safeCipher)).catch(() => undefined); // 存不上只影响下次启动，不阻塞
 }
 
 /** 从 Set-Cookie 行数组或整串 cookie 里提取 token，有就存。 */
