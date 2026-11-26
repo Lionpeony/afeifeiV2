@@ -1211,6 +1211,9 @@ body,
 .bar__seek-track:focus-within {
   box-shadow: var(--focus-ring);
 }
+.bar__seek-track:focus-within .bar__seek-knob {
+  opacity: 1;
+}
 .bar__seek-track:has(.bar__range:active) .bar__seek-knob {
   opacity: 1;
 }

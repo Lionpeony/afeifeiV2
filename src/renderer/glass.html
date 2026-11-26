@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+    />
+    <title>Afeifei · 玻璃明暗开关</title>
+    <link rel="stylesheet" href="glass.css" />
+  </head>
+  <body>
+    <glass-toggle preset="day-night" style="width:100vw;height:100vh"></glass-toggle>
+    <div class="glass-bar">
+      <span class="glass-bar__title">玻璃明暗开关</span>
+      <button class="glass-close" id="close" aria-label="关闭">×</button>
+    </div>
+    <p class="glass-hint" aria-hidden="true">拖动玻璃里的光，把月亮揉成太阳</p>
+    <script type="module" src="glass-toggle.js"></script>
+    <script src="glass-ui.js"></script>
+  </body>
+</html>

@@ -86,6 +86,7 @@ export interface Api {
   qqProfile(): Promise<{ loggedIn: boolean; nick: string | null; uid: string | null; avatarUrl: string | null }>;
   qqLogout(): Promise<void>;
   openMini(): Promise<void>;
+  openGlass(): Promise<void>;
   toggleMini(): Promise<void>;
   toggleLyric(): Promise<"opened" | "closed" | "unlocked">;
   pushMiniState(json: string): void;

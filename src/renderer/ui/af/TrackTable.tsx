@@ -91,6 +91,8 @@ export function AfTrackTable({
                 <button
                   className={"tbl__heart" + (isOn ? " is-on" : "")}
                   title="喜欢"
+                  aria-label="喜欢"
+                  aria-pressed={isOn}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!isOn) {
@@ -103,8 +105,8 @@ export function AfTrackTable({
                   {isOn ? <IconHeartFill size={14} /> : <IconHeart size={14} />}
                   {stampId === t.id ? <span className="stamp-mark" aria-hidden="true"><IconPick size={22} /></span> : null}
                 </button>
-                {onRemove ? <button className="tbl__more tbl__rm" title="从歌单里拿掉" onClick={(e) => { e.stopPropagation(); onRemove(t.id); }}><IconX size={13} /></button> : null}
-                <button className="tbl__more" title="更多操作" onClick={(e) => { e.stopPropagation(); af.openRowMenu(t.id, e.currentTarget.parentElement!.getBoundingClientRect()); }}><IconMore size={15} /></button>
+                {onRemove ? <button className="tbl__more tbl__rm" title="从歌单里拿掉" aria-label="从歌单里拿掉" onClick={(e) => { e.stopPropagation(); onRemove(t.id); }}><IconX size={13} /></button> : null}
+                <button className="tbl__more" title="更多操作" aria-label="更多操作" onClick={(e) => { e.stopPropagation(); af.openRowMenu(t.id, e.currentTarget.parentElement!.getBoundingClientRect()); }}><IconMore size={15} /></button>
                 <span className="num">{fmt(t.dur)}</span>
               </span>
               {af.struckId === t.id ? <Strike /> : null}

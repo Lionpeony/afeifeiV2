@@ -1,17 +1,73 @@
 /* 侧栏 · 原型 .sidebar 结构（200px） */
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { useAf } from "./context.js";
 import { packLineCopy } from "./copy.js";
 import { EGGS } from "./data.js";
-import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconMoon, IconSettings, IconSparkle, IconSun, LogoMark } from "./icons.js";
+import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconSettings, IconSparkle, LogoMark } from "./icons.js";
 import { getLikes, subscribe as subscribeLikes } from "../../domain/likes/index.js";
 
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
 
+type GlassToggleEl = HTMLElement & { checked?: boolean };
+
+/**
+ * 侧栏底部的玻璃明暗开关：挂上游 <glass-toggle> 原生组件（glass-toggle.js 以 ESM 加载）。
+ * 主窗 CSP 只按它的内联 <style> 的 sha256 精确放行，组件升级后哈希失效需同步 index.html。
+ * checked 走属性镜像（组件的 _setTarget 会自维护 checked 属性），change 事件回写主题。
+ */
+function GlassThemeSwitch({ dark, onChange }: { dark: boolean; onChange: (v: boolean) => void }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const elRef = useRef<GlassToggleEl | null>(null);
+  const cbRef = useRef(onChange);
+  cbRef.current = onChange;
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
+
+  useEffect(() => {
+    const el = document.createElement("glass-toggle") as GlassToggleEl;
+    el.setAttribute("theme", "auto");
+    el.setAttribute("on-icon", "sun");
+    el.setAttribute("off-icon", "moon");
+    const cs = getComputedStyle(document.documentElement);
+    el.setAttribute("on-color", cs.getPropertyValue("--glass-on").trim());
+    el.setAttribute("off-color", cs.getPropertyValue("--glass-off").trim());
+    el.setAttribute("hint", "拖动换灯");
+    el.setAttribute("label", "明暗主题");
+    if (!darkRef.current) el.setAttribute("checked", "");
+    const onCh = () => cbRef.current(Boolean(el.checked));
+    el.addEventListener("change", onCh);
+    elRef.current = el;
+    hostRef.current?.appendChild(el);
+    return () => {
+      el.removeEventListener("change", onCh);
+      el.remove();
+      elRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    const want = !dark; // 组件 on(checked)=日=亮，故亮态=checked
+    const apply = () => {
+      if (Boolean(el.checked) !== want) {
+        if (want) el.setAttribute("checked", "");
+        else el.removeAttribute("checked");
+      }
+    };
+    if (customElements.get("glass-toggle")) apply();
+    else void customElements.whenDefined("glass-toggle").then(apply);
+  }, [dark]);
+
+  return <div className="side-glass" ref={hostRef} />;
+}
+
+
 export function Sidebar() {
   const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf, track, playing, palette } = useAf();
   const likedCount = useSyncExternalStore(subscribeLikes, () => getLikes().size, () => 0);
+  const isDark = themePref === "dark";
 
   const nav: { id: NavId; label: string; icon: typeof IconCompass }[] = [
     { id: "discover", label: "发现", icon: IconSparkle },
@@ -152,21 +208,14 @@ export function Sidebar() {
             <b>{nick ?? src?.name ?? "后台值班"}</b>
             <span className="side-user__stat">{linked}/{sources.length} 音源</span>
           </span>
-          <button className="icon-btn" title="设置" data-page="settings" onClick={() => setPage("settings")} style={{ marginLeft: "auto" }}>
+          <button className="icon-btn" title="设置" aria-label="设置" data-page="settings" onClick={() => setPage("settings")} style={{ marginLeft: "auto" }}>
             <IconSettings size={16} />
           </button>
         </div>
 
         <div className="sidebar__foot">
           <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 10 }}>彩蛋 {eggs.length}/{EGGS.length}</span>
-          <div className="row gap6">
-            <button className={"icon-btn" + (themePref === "light" ? " is-on" : "")} onClick={() => setThemePref("light")} title="明亮 · 排练室" aria-label="明亮主题">
-              <IconSun size={16} />
-            </button>
-            <button className={"icon-btn" + (themePref === "dark" ? " is-on" : "")} onClick={() => setThemePref("dark")} title="暗色 · 排练室熄灯" aria-label="暗色主题">
-              <IconMoon size={16} />
-            </button>
-          </div>
+          <GlassThemeSwitch dark={isDark} onChange={(v) => setThemePref(v ? "light" : "dark")} />
         </div>
       </div>
     </aside>

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; media-src data: appmedia: appstream: https: http:; img-src 'self' data: blob: https: http:; connect-src 'self' appmedia: appstream: https: http:"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'sha256-rbr8E1VuPm8IVKu5S13+2Rgel8t85IS5ieIvwRvQ+ys='; media-src data: appmedia: appstream: https: http:; img-src 'self' data: blob: https: http:; connect-src 'self' appmedia: appstream: https: http:"
     />
     <title>Afeifei</title>
     <link rel="stylesheet" href="app.css" />
@@ -37,5 +37,7 @@
     <script src="splash.js"></script>
     <!-- 普通脚本：产物是 iife。改成 type=module 会被 file:// 的 CORS 拦掉，页面直接空白 -->
     <script src="app.js"></script>
+    <!-- 玻璃明暗开关组件（原生 ESM Web Component）。deferred：先渲染，元素在 evaluate 后自动升级 -->
+    <script type="module" src="glass-toggle.js"></script>
   </body>
 </html>

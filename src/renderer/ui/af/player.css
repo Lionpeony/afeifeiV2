@@ -775,19 +775,15 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
 .np--btr .np__ctrl--main:hover{filter:brightness(1.07);color:var(--text)}
 .np--btr .np__ctrl--main.is-playing::after{border-color:color-mix(in srgb, var(--btr-yellow) 40%, transparent)}
 
+/* 主操作「盖章」：唯一实心交互色，不留半透明玻璃——浅蓝玻璃会被读成通用播放器 */
 .np--mygo .np__ctrl--main{
   width:58px;height:58px;border-radius:var(--r-md);
-  background: color-mix(in srgb, var(--card) 62%, transparent);
-  border:1px solid color-mix(in srgb, var(--lav) 34%, transparent);
-  color: color-mix(in srgb, var(--lav) 74%, var(--text));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--lav) 20%, transparent), 0 8px 20px color-mix(in srgb, var(--lav) 18%, transparent);
-  backdrop-filter: blur(8px);
+  background:var(--pink-600);
+  color:var(--on-accent);
+  box-shadow:0 8px 20px color-mix(in srgb, var(--pink-600) 30%, transparent);
 }
-.np--mygo .np__ctrl--main:hover{
-  background: color-mix(in srgb, var(--card) 78%, transparent);
-  color: var(--lav);
-}
-.np--mygo .np__ctrl--main.is-playing::after{inset:-4px;border-radius:var(--r-lg);border-color:color-mix(in srgb, var(--lav) 26%, transparent)}
+.np--mygo .np__ctrl--main:hover{background:var(--pink-700);color:var(--on-accent)}
+.np--mygo .np__ctrl--main.is-playing::after{inset:-4px;border-radius:var(--r-lg);border-color:color-mix(in srgb, var(--pink-600) 26%, transparent)}
 
 .np--gbc .np__ctrl--main{
   width:64px;height:52px;border-radius:var(--r-xs);
@@ -888,9 +884,11 @@ body[data-fs] .np__timeline .np__timeline-label{opacity:.45}
   color: var(--bg);
 }
 :root[data-theme="dark"] .np--mygo .np__ctrl--main{
-  background: color-mix(in srgb, var(--card) 26%, transparent);
-  border-color: color-mix(in srgb, var(--lav) 34%, transparent);
-  color: var(--lav);
+  /* 必须显式重设：基座暗色 `.np__ctrl--main`（0,3,0）会盖掉浅色块的实心填充 */
+  background: var(--pink-600);
+  border: none;
+  color: var(--on-accent);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--pink-600) 24%, transparent);
 }
 :root[data-theme="dark"] .np--gbc .np__ctrl--main{
   background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 78%, var(--text) 10%), color-mix(in srgb, var(--bg) 90%, var(--text) 4%));

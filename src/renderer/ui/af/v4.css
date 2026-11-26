@@ -271,7 +271,7 @@
   width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
   color:var(--text-3);opacity:0;transition:opacity .16s var(--ease),color .16s var(--ease),transform .16s var(--ease-spring);
 }
-.tbl__row:hover .tbl__heart{opacity:1}
+.tbl__row:hover .tbl__heart,.tbl__row:focus-within .tbl__heart{opacity:1}
 .tbl__heart:hover{color:var(--coral);transform:scale(1.14)}
 .tbl__heart.is-on{opacity:1;color:var(--coral)}
 

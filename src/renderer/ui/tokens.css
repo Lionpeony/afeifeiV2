@@ -21,6 +21,8 @@
   --pink-700:#B7286C;
   --lav:#7B5FC9;
   --mint:#7EC8E3;
+  --glass-on:#FFA82E;      /* 玻璃明暗开关：日（琥珀） */
+  --glass-off:#6F86FF;     /* 玻璃明暗开关：夜（暮蓝） */
   --coral:#C62A3F;
   --coral-deco:#FF4D6D;
   --yellow:#FFD166;
@@ -358,7 +360,7 @@
 :root[data-palette="mygo"]{
   /* 2026-11-23 冷雨修正：雨夜紫降暖、往蓝灰推；纸底和卡片不再接近默认奶油白 */
   --bg:#E9EFF8; --bg-sub:#DDE6F3; --card:#FBFCFE;
-  --text:#252B3A; --text-2:#4F5A6E; --text-3:#5F6A7E;
+  --text:#252B3A; --text-2:#4F5A6E; --text-3:#586377;   /* text-3 压深：卡在 bg-sub #DDE6F3 上也过 4.5（4.81:1） */
   --pink-400:#C2CBDE;              /* 装饰：雨雾蓝灰，禁作交互 */
   --pink-600:#4A5673;              /* 交互：压深的雨夜蓝紫（白字 7.4:1） */
   --pink-650:#3F4A64; --pink-700:#354056;
@@ -498,7 +500,7 @@
   --np-cols:minmax(176px,224px) minmax(0,1fr) minmax(228px,280px);
   --np-rows:minmax(0,1fr);
   --np-areas:"lyric poster queue";
-  --np-art-max:min(100%,42vh);
+  --np-art-max:min(100%,46vh);                                   /* 海报放大：中栏要有主次，不被两侧拉平 */
   --np-spot-x:52%;  --np-spot-y:-6%;
 }
 :root[data-theme="dark"][data-palette="btr"]{

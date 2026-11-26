@@ -31,6 +31,7 @@
   .side-card,
   .side-user__meta,
   .sidebar__foot .eyebrow,
+  .side-glass,
   .nav-item > span:not(.nav-ico) {
     display: none;
   }

@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld("api", {
 
   // 迷你窗：主窗只管推投影、收意图转发
   openMini: (): Promise<void> => ipcRenderer.invoke("mini:open"),
+  openGlass: (): Promise<void> => ipcRenderer.invoke("glass:open"),
   toggleMini: (): Promise<void> => ipcRenderer.invoke("mini:toggle"),
   toggleLyric: (): Promise<"opened" | "closed" | "unlocked"> => ipcRenderer.invoke("lyric:toggle"),
   pushMiniState: (json: string): void => ipcRenderer.send("mini:state", json),

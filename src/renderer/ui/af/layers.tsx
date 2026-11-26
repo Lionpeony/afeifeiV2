@@ -202,7 +202,18 @@ export function DemoPanel() {
             <div className="eyebrow" style={{ marginBottom: 6 }}>原型演示</div>
             <h2 className="h1">{EGGS.length} 个彩蛋，随手点一个</h2>
           </div>
-          <button className="icon-btn" onClick={() => setDemoOpen(false)} aria-label="关闭"><IconX size={18} /></button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                void window.api.openGlass();
+                setDemoOpen(false);
+              }}
+            >
+              玻璃明暗开关
+            </button>
+            <button className="icon-btn" onClick={() => setDemoOpen(false)} aria-label="关闭"><IconX size={18} /></button>
+          </div>
         </div>
         <p className="demo__sub">
           真机上这些彩蛋靠时间、次数和动作触发（例如凌晨 2–4 点、同一首听 10 遍、连点 Logo 5 次）。

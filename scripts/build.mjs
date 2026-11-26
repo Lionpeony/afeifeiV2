@@ -264,4 +264,10 @@ fs.copyFileSync("src/renderer/mini.css", path.join(OUT, "renderer", "mini.css"))
 fs.copyFileSync("src/renderer/lyric.html", path.join(OUT, "renderer", "lyric.html"));
 fs.copyFileSync("src/renderer/lyric.css", path.join(OUT, "renderer", "lyric.css"));
 
+// 玻璃明暗开关彩蛋：独立窗口，加载上游 <glass-toggle> Web Component（原生 ESM，不经 esbuild）
+fs.copyFileSync("src/renderer/glass.html", path.join(OUT, "renderer", "glass.html"));
+fs.copyFileSync("src/renderer/glass.css", path.join(OUT, "renderer", "glass.css"));
+fs.copyFileSync("src/renderer/glass-toggle.js", path.join(OUT, "renderer", "glass-toggle.js"));
+fs.copyFileSync("src/renderer/glass-ui.js", path.join(OUT, "renderer", "glass-ui.js"));
+
 console.log("build ok → dist/");

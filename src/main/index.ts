@@ -8,6 +8,7 @@ import { registerWindowIpc } from "./ipc/window.js";
 import { ensureQqBackend } from "./net/qqBackend.js";
 import { registerMiniIpc } from "./miniWindow.js";
 import { registerLyricIpc } from "./lyricWindow.js";
+import { registerGlassIpc } from "./glassWindow.js";
 import { MEDIA_SCHEME, STREAM_SCHEME, registerMediaProtocol, registerStreamProtocol } from "./media/protocol.js";
 import { APP_SCHEME, registerAppProtocol } from "./host/index.js";
 import { installCrashGuard } from "./crash.js";
@@ -189,6 +190,7 @@ if (!locked) {
     registerIpc();
     registerMiniIpc();
     registerLyricIpc();
+    registerGlassIpc();
     registerWindowIpc(() => mainWin);
     // QQ 本地服务与网易云接口包都改为按需载入：窗口先出来，当前音源在首屏之后再预热。
 
