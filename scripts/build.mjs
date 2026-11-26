@@ -66,8 +66,6 @@ if (TEST) {
       recommend: "src/renderer/domain/recommend/index.ts",
       "recommend-salt": "src/renderer/domain/recommend/salt.ts",
       "roam-card": "src/renderer/domain/recommend/roam-card.ts",
-      station: "src/renderer/domain/station/schedule.ts",
-      broadcast: "src/renderer/projection/broadcast.ts",
       "room-program": "src/renderer/projection/room-program.ts",
       "lyric-state": "src/renderer/ui/views/stage/lyric-state.ts",
       "stage-tint": "src/renderer/ui/views/stage/tint.ts",
