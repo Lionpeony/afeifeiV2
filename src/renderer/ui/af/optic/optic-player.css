@@ -1,0 +1,96 @@
+/* ============================================================
+   OPTIC DECK · 3/4 播放页（NowPlaying）：44:56 光学透镜双核 + 右侧磨砂队列抽屉
+   ============================================================ */
+
+:root[data-palette="default"] .np{
+  background-color:var(--bg);background-image:var(--app-canvas);
+}
+:root[data-palette="default"] .np::before{
+  background:
+    radial-gradient(620px 420px at 22% 24%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 68%),
+    radial-gradient(540px 380px at 84% 78%, color-mix(in srgb, var(--glass-off) 14%, transparent), transparent 72%);
+}
+:root[data-palette="default"] .np__optic-amb{
+  position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:var(--z-base);
+}
+:root[data-palette="default"] .np__optic-amb img{
+  position:absolute;left:-10%;top:-10%;width:120%;height:120%;object-fit:cover;
+  filter:blur(72px) saturate(1.65);opacity:.16;
+}
+:root[data-palette="default"][data-theme="dark"] .np__optic-amb img{opacity:.22}
+:root[data-palette="default"] .np__queue-pill{
+  border:1px solid var(--line-strong);background:var(--well-bg);box-shadow:var(--well-shadow);
+  padding: 0 var(--space-sm);gap: var(--space-2xs);
+}
+:root[data-palette="default"] .np__queue-pill.is-on{
+  background:var(--lens-bg);border-color:var(--accent-line);color:var(--text);
+  box-shadow:var(--shadow-soft), 0 0 12px var(--accent-soft);
+}
+:root[data-palette="default"] .np__queue-pill b{font-family:var(--font-mono);font-size:10px;color:var(--text-3)}
+:root[data-palette="default"] .np__main{
+  grid-template-columns:minmax(320px, 44%) minmax(0, 56%);
+  grid-template-rows:minmax(0, 1fr);grid-template-areas:"poster lyric";
+  gap: var(--space-3xl);padding: var(--space-md) var(--space-4xl) var(--space-sm);
+}
+:root[data-palette="default"] .np--lyrics-full .np__main{
+  grid-template-columns:0 minmax(0, 1fr);gap:0;padding: 0 var(--space-4xl);
+}
+:root[data-palette="default"] .np__poster{align-items:center;justify-content:center;gap: var(--space-lg)}
+:root[data-palette="default"] .np__art{
+  width:min(320px, 34vh, 100%);max-width:320px;border-radius:var(--r-xl);overflow:hidden;
+  border:1px solid var(--glass-edge-strong);box-shadow:var(--lens-shadow), var(--accent-glow);
+}
+:root[data-palette="default"] .np__art-img{transform:none;box-shadow:none;border-radius:var(--r-xl)}
+:root[data-palette="default"] .np__optic-lens{
+  position:absolute;inset:0;pointer-events:none;border-radius:var(--r-xl);z-index:var(--z-row);
+  background:linear-gradient(142deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.06) 36%, transparent 56%, rgba(0,0,0,.18) 100%);
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.72), inset 0 -1px 0 rgba(255,255,255,.16);
+}
+:root[data-palette="default"] .np__info{width:min(360px, 100%);align-items:flex-start;gap: var(--space-2xs)}
+:root[data-palette="default"] .np__optic-kicker{
+  display:inline-flex;align-items:center;gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-xs);border-radius:var(--r-pill);
+  background:var(--well-bg);border:1px solid var(--line);box-shadow:var(--well-shadow);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--text-2);
+}
+:root[data-palette="default"] .np__optic-vu{
+  margin-top: var(--space-sm);width:100%;display:flex;align-items:center;justify-content:space-between;gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);border-radius:var(--r-md);
+  background:var(--dot-screen);border:1px solid var(--line-strong);box-shadow:var(--well-shadow);
+}
+:root[data-palette="default"] .np__optic-vu-tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--dot-on);opacity:.72}
+:root[data-palette="default"] .np__optic-vu .optic-screen__vu{height:22px}
+:root[data-palette="default"] .np__queue-scrim{position:fixed;inset:0;z-index:var(--z-lyricbar);background:rgba(9,10,13,.22)}
+:root[data-palette="default"] .np__queue{
+  position:fixed;top:64px;right:20px;bottom:116px;width:340px;max-width:calc(100vw - 40px);
+  z-index:var(--z-chrome);background:var(--lens-bg);
+  -webkit-backdrop-filter:blur(var(--glass-blur-3)) saturate(var(--glass-sat));
+          backdrop-filter:blur(var(--glass-blur-3)) saturate(var(--glass-sat));
+  border-radius:var(--r-xl);border:1px solid var(--glass-edge-strong);box-shadow:var(--lens-shadow);
+  transform:translateX(0);opacity:1;
+  transition:transform 260ms var(--ease-spring), opacity 200ms var(--ease-out-soft);
+}
+:root[data-palette="default"] .np__queue.is-collapsed{
+  width:340px;height:auto;padding: var(--space-md);
+  transform:translateX(calc(100% + 36px));opacity:0;pointer-events:none;visibility:hidden;
+}
+:root[data-palette="default"] .np__console{
+  max-width:1280px;width:min(1280px, calc(100% - var(--space-2xl)));margin: 0 auto var(--space-sm);
+  background:var(--lens-bg);
+  -webkit-backdrop-filter:blur(var(--glass-blur-2)) saturate(var(--glass-sat));
+          backdrop-filter:blur(var(--glass-blur-2)) saturate(var(--glass-sat));
+  border:1px solid var(--glass-edge-strong);border-radius:var(--r-xl);box-shadow:var(--lens-shadow);
+}
+:root[data-palette="default"] .np__ctrl--main{
+  background:var(--lens-bg);color:var(--text);border:1px solid var(--accent-line);
+  box-shadow:inset 0 1px 0 var(--glass-highlight), inset 0 -2px 8px var(--accent-soft), var(--accent-glow);
+}
+@media (max-width:720px){
+  :root[data-palette="default"] .np__main{
+    grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
+    grid-template-areas:"poster" "lyric";gap: var(--space-md);padding: var(--space-sm) var(--space-md);
+  }
+  :root[data-palette="default"] .np__poster{flex-direction:row;align-items:center;gap: var(--space-md)}
+  :root[data-palette="default"] .np__art{width:88px;max-width:88px}
+  :root[data-palette="default"] .np__optic-vu{display:none}
+}

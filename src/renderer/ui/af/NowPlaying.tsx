@@ -9,8 +9,10 @@ import { LyricWall } from "./LyricWall.js";
 import { ShareCard } from "./ShareCard.js";
 import { usePosition } from "./use-position.js";
 import { useDialogFocus } from "./dialog-focus.js";
+import { pushPanel } from "../input/panels.js";
 import { eggText, stageCopy } from "./copy.js";
 import { segmentOf, stageOf, pickStageEgg, type StageEgg } from "./stage.js";
+import { OpticVuMeter } from "./optic/OpticVuMeter.js";
 
 function fmt(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -74,8 +76,16 @@ export function NowPlaying() {
   const barRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  /* 演出单是这版播放页的第三根柱子，默认摊开；窄窗或想安静时收成一条 */
-  const [queueOpen, setQueueOpen] = useState(true);
+  const isOptic = palette === "default";
+  /* 演出单：default 下默认收起为右侧磨砂抽屉（docs/34 §5.2），三套番剧包保持常驻第三柱 */
+  const [queueOpen, setQueueOpen] = useState(!isOptic);
+  useEffect(() => {
+    setQueueOpen(palette !== "default");
+  }, [palette]);
+  useEffect(() => {
+    if (!isOptic || !queueOpen) return;
+    return pushPanel("np-queue-drawer", "panel", () => setQueueOpen(false));
+  }, [isOptic, queueOpen]);
   /* 演出状态机（docs/30 §41）：开演标记 / 换场 0.9s / 跨半场 8s 中场窗口 */
   const [seenPlay, setSeenPlay] = useState(playing);
   const [changeFx, setChangeFx] = useState(false);
@@ -256,35 +266,41 @@ export function NowPlaying() {
 
   return (
     <div ref={npRef} tabIndex={-1} className={["np", `np--${palette}`, playing ? "np--playing" : "np--paused", playerClosing ? "np--closing" : "", lyricsFull && lyricsOn ? "np--lyrics-full" : ""].filter(Boolean).join(" ")} data-stage={stage} data-seg={seg} data-egg={stageEgg ?? undefined} data-screen-label="播放页" role="dialog" aria-modal="true" aria-label="播放页">
-      {!reduce && !playerClosing && (
+      {!isOptic && !reduce && !playerClosing && (
         <>
           <div className="curtain curtain--l"></div>
           <div className="curtain curtain--r"></div>
         </>
       )}
-      {!reduce && playerClosing && (
+      {!isOptic && !reduce && playerClosing && (
         <>
           <div className="curtain curtain--close curtain--close-l"></div>
           <div className="curtain curtain--close curtain--close-r"></div>
         </>
       )}
 
-      {/* 氛围层：位于内容之下，歌词与操作区零噪点；材质与漂浮物随包（docs/30 §35） */}
-      <div className="np__amb" aria-hidden="true">
-        <span className="np__amb-float" />
-        <span className="np__amb-prop"><GuitarFigure w={220} h={113} /></span>
-        <span className="np__amb-tri" />
-        <span className="np__egg np__egg--spot" />
-        <span className="np__egg np__egg--tear" />
-        <span className="np__egg np__egg--rain" />
-        <span className="np__egg np__egg--streak" />
-        <span className="np__egg np__egg--walk" />
-        <span className="np__egg np__egg--chat" />
-        <span key={track.id} className="np__cutbar" />
-      </div>
+      {/* 氛围层：default 下使用纯净封面环境漫射光；三包保留手绘氛围物（docs/30 §35） */}
+      {isOptic ? (
+        <div className="np__optic-amb" aria-hidden="true">
+          {track.cover ? <img src={track.cover} alt="" referrerPolicy="no-referrer" /> : null}
+        </div>
+      ) : (
+        <div className="np__amb" aria-hidden="true">
+          <span className="np__amb-float" />
+          <span className="np__amb-prop"><GuitarFigure w={220} h={113} /></span>
+          <span className="np__amb-tri" />
+          <span className="np__egg np__egg--spot" />
+          <span className="np__egg np__egg--tear" />
+          <span className="np__egg np__egg--rain" />
+          <span className="np__egg np__egg--streak" />
+          <span className="np__egg np__egg--walk" />
+          <span className="np__egg np__egg--chat" />
+          <span key={track.id} className="np__cutbar" />
+        </div>
+      )}
 
       {/* 换场扫光（docs/30 §44）：btr 柔暗场 / mygo 水雾漫过 / gbc 洋红横扫 */}
-      <span className="np__change" aria-hidden="true" />
+      {!isOptic ? <span className="np__change" aria-hidden="true" /> : null}
 
       <div className="np__top">
         <button className="np__close" onClick={closePlayer}>
@@ -305,6 +321,20 @@ export function NowPlaying() {
         {/* 右上 = 视窗/环境操作带（对齐主流播放器「左上离开 / 右上管窗 / 底部管歌」分区；docs/30 §20/§21）
             内容操作（分享/快捷键/迷你/全屏）与窗口操作分组，窗口组降一档存在感 */}
         <div className="np__ops">
+          {isOptic ? (
+            <button
+              type="button"
+              className={"icon-btn np__op-labeled np__queue-pill" + (queueOpen ? " is-on" : "")}
+              onClick={() => setQueueOpen((v) => !v)}
+              aria-expanded={queueOpen}
+              title={queueOpen ? "收起队列抽屉" : "展开队列抽屉"}
+              aria-label={queueOpen ? "收起队列" : "展开队列"}
+            >
+              <i className={"optic-led" + (queueOpen ? " is-on" : "")} aria-hidden="true" />
+              <span>队列</span>
+              <b className="num">{queue.length}</b>
+            </button>
+          ) : null}
           <button className="icon-btn np__op-labeled" onClick={() => setShareOpen(true)} title="把这首做成分享卡片" aria-label="分享卡片"><IconShare size={16} /><span>分享</span></button>
           <button className="icon-btn np__op-labeled" onClick={() => setKeysOpen(true)} title="键盘快捷键清单（?）" aria-label="快捷键"><IconKeys size={16} /><span>快捷键</span></button>
           <button className="icon-btn" onClick={() => { void window.api.toggleMini(); }} title="迷你模式（K）" aria-label="迷你模式"><IconMini size={16} /></button>
@@ -336,7 +366,7 @@ export function NowPlaying() {
       <div className="np__main">
         <section className="np__poster" aria-label="本场海报">
           <div key={"art-" + track.id} className={"np__art np__track-swap" + (playing ? " loop is-breathing" : "")}>
-            <Tape w={78} rot={-4} style={{ top: -11, left: 34 }} />
+            {!isOptic ? <Tape w={78} rot={-4} style={{ top: -11, left: 34 }} /> : null}
             {track.cover ? (
               <img key={track.id} className="np__art-img" src={track.cover} alt="" referrerPolicy="no-referrer" />
             ) : (
@@ -349,21 +379,40 @@ export function NowPlaying() {
                 <TrackArt id={track.id} size={352} radius={20} />
               </span>
             )}
-            <span className="np__art-badge">
-              <IconPick size={40} style={{ position: "absolute", opacity: 0.16 }} />
-              <b style={{ position: "relative" }}>{String(queueIndex + 1).padStart(2, "0")}</b>
-            </span>
-            <span className="np__stage-tag">{sc.artTag}</span>
+            {isOptic ? (
+              <>
+                <span className="optic-jewel-spine" aria-hidden="true" />
+                <span className="np__optic-lens" aria-hidden="true" />
+              </>
+            ) : (
+              <>
+                <span className="np__art-badge">
+                  <IconPick size={40} style={{ position: "absolute", opacity: 0.16 }} />
+                  <b style={{ position: "relative" }}>{String(queueIndex + 1).padStart(2, "0")}</b>
+                </span>
+                <span className="np__stage-tag">{sc.artTag}</span>
+              </>
+            )}
             {struckId && <span className={"sheer is-on sheer--" + (sheerSide || "r")}></span>}
           </div>
 
           <div key={"info-" + track.id} className="np__info np__track-swap">
-            <div className="np__setline" aria-label="演出状态">
-              <span className="np__setline-act">{queueIndex >= queue.length - 2 ? sc.setEncore : sc.setMain}</span>
-              <span className="np__setline-rule" aria-hidden="true"></span>
-            </div>
+            {isOptic ? (
+              <div className="np__optic-kicker" aria-label="播放状态">
+                <i className={"optic-led" + (playing ? " is-on" : "")} aria-hidden="true" />
+                <span>{playing ? "ON AIR" : "STANDBY"}</span>
+                {queue.length > 0 ? (
+                  <span className="num">· {String(queueIndex + 1).padStart(2, "0")} / {String(queue.length).padStart(2, "0")}</span>
+                ) : null}
+              </div>
+            ) : (
+              <div className="np__setline" aria-label="演出状态">
+                <span className="np__setline-act">{queueIndex >= queue.length - 2 ? sc.setEncore : sc.setMain}</span>
+                <span className="np__setline-rule" aria-hidden="true"></span>
+              </div>
+            )}
             <h1 key={track.id} className="np__title">{track.title}</h1>
-            <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span>
+            {!isOptic ? <span key={track.id + "-sw"} className="np__title-sweep" aria-hidden="true"></span> : null}
             <div className="np__band jp">
               {track.remote?.artistId ? (
                 <button
@@ -385,6 +434,12 @@ export function NowPlaying() {
                 <span className="eyebrow">{albumText}</span>
               </div>
             ) : null}
+            {isOptic ? (
+              <div className="np__optic-vu" aria-hidden="true">
+                <span className="np__optic-vu-tag">{playing ? "SPECTRUM · LIVE" : "SPECTRUM · IDLE"}</span>
+                <OpticVuMeter bins={12} rows={5} playing={playing} />
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -392,8 +447,12 @@ export function NowPlaying() {
           <LyricWall />
         </section>
 
+        {isOptic && queueOpen ? (
+          <div className="np__queue-scrim" onClick={() => setQueueOpen(false)} aria-hidden="true" />
+        ) : null}
+
         <aside className={"np__queue" + (queueOpen ? " is-open" : " is-collapsed")}>
-          <Tape w={72} rot={-2} style={{ top: -10, left: "50%", marginLeft: -36 }} />
+          {!isOptic ? <Tape w={72} rot={-2} style={{ top: -10, left: "50%", marginLeft: -36 }} /> : null}
           <div className="np__queue-head">
             <div className="np__queue-headmain">
               <div className="np__queue-eyebrow">RUNNING ORDER</div>
@@ -420,7 +479,7 @@ export function NowPlaying() {
             </button>
           </div>
 
-          {queueOpen ? (
+          {queueOpen || isOptic ? (
             <>
               {queue.length === 0 ? (
                 /* 空演出单：别只留一片灰，给个能立刻开演的下一步 */

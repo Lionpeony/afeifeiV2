@@ -151,6 +151,17 @@ function App() {
     const seq = (pageSceneSeq.current += 1);
     const live = (): boolean => seq === pageSceneSeq.current;
     const dir = pageDir(navPageRef.current, p);
+    // 默认主题「OPTIC DECK」：不铺漫画网点纸带，零延迟切页 + 方向感知光学滑入，与顶部弹簧导航滑块同频
+    if (document.documentElement.dataset.palette === "default") {
+      setPageState(p);
+      setPageScene({ to: p, phase: "open", dir });
+      pageSceneTimers.current.push(
+        window.setTimeout(() => {
+          if (live()) setPageScene(null);
+        }, 280),
+      );
+      return;
+    }
     setPageScene({ to: p, phase: "close", dir });
     pageSceneTimers.current.push(
       window.setTimeout(() => {

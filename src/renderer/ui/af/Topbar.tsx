@@ -6,7 +6,11 @@ import { sourceShort, sourceTone } from "./data.js";
 import { PillWipe } from "./SourceSwap.js";
 import { TrackArt } from "./art.js";
 import { packLineCopy } from "./copy.js";
-import { GuitarFigure, IconArrowRight, IconMax, IconMini, IconMin, IconSearch, IconX } from "./icons.js";
+import { GuitarFigure, IconArrowRight, IconMax, IconMini, IconMin, IconSearch, IconSettings, IconX, LogoMark } from "./icons.js";
+import { resolveTheme } from "../theme.js";
+import { OpticNav } from "./optic/OpticNav.js";
+import { OpticSourceSwitch } from "./optic/OpticSourceSwitch.js";
+import { GlassThemeSwitch } from "./optic/GlassThemeSwitch.js";
 
 /** 最大化后的“还原”图标：两个错位的方框，和 Windows 的含义一致 */
 const RestoreGlyph = () => (
@@ -348,7 +352,30 @@ function SearchOverlay({ q, onClose }: { q: string; onClose: () => void }) {
 }
 
 export function Topbar() {
-  const { sources, source, srcSwap, switchSource, tryCode } = useAf();
+  const { sources, source, srcSwap, switchSource, tryCode, palette, page, setPage, onLogoClick, themePref, setThemePref } = useAf();
+  const isOptic = palette === "default";
+  const [sysDark, setSysDark] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onCh = (e: MediaQueryListEvent) => setSysDark(e.matches);
+    mq.addEventListener("change", onCh);
+    return () => mq.removeEventListener("change", onCh);
+  }, []);
+  const isDark = resolveTheme(themePref, sysDark) === "dark";
+  const opticTabs: { page: "online" | "roam" | "local" | "downloads" | "mine" | "history" | "playlists"; label: string }[] = [
+    { page: "online", label: "发现" },
+    { page: "roam", label: "漫游" },
+    { page: "local", label: "本地" },
+    { page: "downloads", label: "下载" },
+    { page: "mine", label: "喜欢" },
+    { page: "history", label: "历史" },
+    { page: "playlists", label: "歌单" },
+  ];
   /* 换台时台标先走：不等 160ms 后的 setSource，纸片从点击那一刻就开始滑。 */
   const inkId = srcSwap && (srcSwap.scope === "pill" || srcSwap.scope === "content") ? srcSwap.id : source;
   const inkIndex = Math.max(0, sources.findIndex((s) => s.id === inkId));
@@ -387,10 +414,20 @@ export function Topbar() {
       className="topbar"
       onDoubleClick={(e) => {
         const el = e.target as HTMLElement;
-        if (el.closest("button, input, .win-ctrl, .searchbox, .src-switch")) return;
+        if (el.closest("button, input, .win-ctrl, .searchbox, .src-switch, .optic-nav, .optic-src, .optic-topbar-glass")) return;
         void window.api.toggleMaximize().then(setMaximized);
       }}
     >
+      {isOptic ? (
+        <div className="optic-brand-nav">
+          <button type="button" className="optic-brand" onClick={onLogoClick} title="AFEIFEI · 点五下试试">
+            <LogoMark size={28} />
+            <b>AFEIFEI</b>
+          </button>
+          <OpticNav tabs={opticTabs} activePage={page} onSelect={setPage} />
+        </div>
+      ) : null}
+
       <div className="searchbox">
         <div className="searchbox__field">
           <IconSearch size={15} style={{ color: "var(--text-3)", flex: "none" }} />
@@ -442,6 +479,13 @@ export function Topbar() {
       </div>
 
       <div className="topbar__right">
+        {isOptic ? (
+          <OpticSourceSwitch
+            sources={sources}
+            activeId={source}
+            onSwitch={(id) => switchSource(id, { scope: "pill", quiet: true })}
+          />
+        ) : (
         <div className="src-switch-wrap">
           <div
             className={"src-switch" + (srcSwap && (srcSwap.scope === "pill" || srcSwap.scope === "content") ? " is-swapping" : "")}
@@ -485,6 +529,27 @@ export function Topbar() {
             ))}
           </div>
         </div>
+        )}
+        {isOptic ? (
+          <GlassThemeSwitch
+            dark={isDark}
+            palette={palette}
+            className="optic-topbar-glass"
+            onChange={(light) => setThemePref(light ? "light" : "dark")}
+          />
+        ) : null}
+        {isOptic ? (
+          <button
+            type="button"
+            className={"topbar__mini side-item" + (page === "settings" ? " is-active" : "")}
+            title="设置"
+            aria-label="设置"
+            data-page="settings"
+            onClick={() => setPage("settings")}
+          >
+            <IconSettings size={16} />
+          </button>
+        ) : null}
         <button
           type="button"
           className="topbar__mini"

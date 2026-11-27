@@ -21,8 +21,6 @@
   --pink-700:#B7286C;
   --lav:#7B5FC9;
   --mint:#7EC8E3;
-  --glass-on:#FFA82E;      /* 玻璃明暗开关：日（琥珀） */
-  --glass-off:#6F86FF;     /* 玻璃明暗开关：夜（暮蓝） */
   --coral:#C62A3F;
   --coral-deco:#FF4D6D;
   --yellow:#FFD166;
@@ -522,4 +520,121 @@
   --grain-opacity:.25; --grain-blend:overlay;
   --paper-grid:none;
   --ease:var(--ease-spring);
+}
+
+/* 默认主题「OPTIC DECK · 光学台面」（docs/34 v2，2026-11-27）。
+   仅覆盖 palette="default"，mygo / gbc / btr 三包选择器不匹配、零影响；
+   亮色采用冷银铝机壳（#E6E8EE）托起厚玻璃 45° 白色镜面高光，暗色为深黑钛声学机（#090A0D）。
+   全表对比度经 WCAG 2.1 实算（含最暗凹槽底 #D9DCE5 与暗色玻璃底 #22252F）均 ≥ 4.5:1。 */
+:root[data-palette="default"]{
+  --bg:#E6E8EE;
+  --bg-base:#E6E8EE;
+  --bg-sub:#DCE0E8;
+  --card:#F5F6FA;
+  --bg-card:#F5F6FA;
+  --well-bg:#D9DCE5;
+  --well-shadow:inset 0 2px 5px rgba(15,18,28,.12), inset 0 -1px 0 rgba(255,255,255,.78);
+  --lens-bg:linear-gradient(165deg, rgba(255,255,255,.82) 0%, rgba(240,242,248,.58) 100%);
+  --lens-shadow:0 12px 32px -6px rgba(15,20,35,.16), 0 2px 6px rgba(15,20,35,.08), inset 0 1.5px 0 rgba(255,255,255,.95), inset 0 -1px 0 rgba(15,20,35,.08), inset 0 0 0 1px rgba(255,255,255,.45);
+  --app-canvas:linear-gradient(180deg, #ECEEF4 0%, #E3E6EE 100%);
+  --font-display:"Inter","Microsoft YaHei","PingFang SC",sans-serif;
+  --text:#14151A;
+  --text-primary:#14151A;
+  --text-2:#404450;
+  --text-secondary:#404450;
+  --text-3:#4F5362;
+  --accent:#C82274;
+  --accent-hover:#B31B66;
+  --accent-press:#991556;
+  --accent-text:#A81860;
+  --on-accent:#FFFFFF;
+  --accent-glow:0 0 8px rgba(200,34,116,.40), 0 0 22px rgba(200,34,116,.16);
+  --glass-on:#F25CA2;
+  --glass-off:#5B7CFA;
+  --led-error:#D93848;
+  --led-warn:#D9820B;
+  --dot-screen:#13151C;
+  --dot-on:#FFF5EB;
+  --dot-off:rgba(255,255,255,.10);
+  --line:rgba(18,22,36,.10);
+  --line-strong:rgba(18,22,36,.20);
+  --wash:rgba(18,22,36,.045);
+  --ink-soft:rgba(18,22,36,.04);
+  --ink-soft-2:rgba(18,22,36,.075);
+  --shadow:0 8px 24px rgba(15,20,35,.10), 0 2px 6px rgba(15,20,35,.06);
+  --shadow-soft:0 1px 2px rgba(15,20,35,.06), 0 4px 12px rgba(15,20,35,.06);
+  --shadow-lift:0 16px 38px rgba(15,20,35,.16);
+  --shadow-pop:0 12px 36px rgba(15,20,35,.16);
+  --mask:rgba(15,18,28,.55);
+  --scrim:rgba(15,18,28,.46);
+  --accent-soft:color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-line:color-mix(in srgb, var(--accent) 36%, transparent);
+  --state-press:color-mix(in srgb, var(--text) 10%, transparent);
+  --state-disabled:color-mix(in srgb, var(--text) 38%, transparent);
+  --glass-1-bg:color-mix(in srgb, var(--card) 58%, transparent);
+  --glass-2-bg:color-mix(in srgb, var(--card) 76%, transparent);
+  --glass-3-bg:color-mix(in srgb, var(--card) 84%, transparent);
+  --glass-blur-1:6px; --glass-blur-2:16px; --glass-blur-3:22px; --glass-sat:1.25;
+  --glass-edge:var(--line);
+  --glass-edge-strong:var(--line-strong);
+  --glass-highlight:rgba(255,255,255,.85);
+  --glass-shadow:var(--shadow-pop);
+  --grain-opacity:.025;
+  --dur-instant:80ms;
+}
+:root[data-palette="default"][data-theme="dark"]{
+  --bg:#090A0D;
+  --bg-base:#090A0D;
+  --bg-sub:#0E1015;
+  --card:#14161C;
+  --bg-card:#14161C;
+  --well-bg:#050608;
+  --well-shadow:inset 0 2px 6px rgba(0,0,0,.82), inset 0 -1px 0 rgba(255,255,255,.08);
+  --lens-bg:linear-gradient(165deg, rgba(38,41,52,.72) 0%, rgba(15,17,22,.82) 100%);
+  --lens-shadow:0 16px 40px -6px rgba(0,0,0,.72), 0 2px 8px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.62), inset 0 0 0 1px rgba(255,255,255,.09);
+  --app-canvas:radial-gradient(960px 560px at 10% -14%, rgba(242,92,162,.14), transparent 60%), radial-gradient(860px 540px at 102% -8%, rgba(91,124,250,.12), transparent 55%), #090A0D;
+  --font-display:"Inter","Microsoft YaHei","PingFang SC",sans-serif;
+  --text:#F2F4F8;
+  --text-primary:#F2F4F8;
+  --text-2:#AEB4C4;
+  --text-secondary:#AEB4C4;
+  --text-3:#969DB0;
+  --accent:#F25CA2;
+  --accent-hover:#F67CB5;
+  --accent-press:#E04791;
+  --accent-text:#F67CB5;
+  --on-accent:#14151A;
+  --accent-glow:0 0 10px rgba(242,92,162,.52), 0 0 26px rgba(242,92,162,.22);
+  --glass-on:#F25CA2;
+  --glass-off:#5B7CFA;
+  --led-error:#FF5C6C;
+  --led-warn:#FFB43B;
+  --dot-screen:#06070A;
+  --dot-on:#FFF5EB;
+  --dot-off:rgba(255,255,255,.08);
+  --line:rgba(255,255,255,.09);
+  --line-strong:rgba(255,255,255,.19);
+  --wash:rgba(255,255,255,.06);
+  --ink-soft:rgba(255,255,255,.05);
+  --ink-soft-2:rgba(255,255,255,.09);
+  --mask:rgba(0,0,0,.64);
+  --scrim:rgba(0,0,0,.56);
+  --shadow:0 4px 22px rgba(0,0,0,.38);
+  --shadow-soft:0 2px 10px rgba(0,0,0,.32);
+  --shadow-lift:0 16px 38px rgba(0,0,0,.50);
+  --shadow-pop:0 10px 34px rgba(0,0,0,.52);
+  --accent-soft:color-mix(in srgb, var(--accent) 18%, transparent);
+  --accent-line:color-mix(in srgb, var(--accent) 44%, transparent);
+  --state-press:color-mix(in srgb, var(--text) 14%, transparent);
+  --state-disabled:color-mix(in srgb, var(--text) 34%, transparent);
+  --glass-1-bg:rgba(255,255,255,.055);
+  --glass-2-bg:rgba(20,22,28,.74);
+  --glass-3-bg:rgba(20,22,28,.84);
+  --glass-blur-1:6px; --glass-blur-2:16px; --glass-blur-3:22px; --glass-sat:1.35;
+  --glass-edge:var(--line);
+  --glass-edge-strong:var(--line-strong);
+  --glass-highlight:rgba(255,255,255,.14);
+  --glass-shadow:var(--shadow-pop);
+  --grain-opacity:.03;
+  --dur-instant:80ms;
 }

@@ -541,8 +541,17 @@ const SHADOW_CSS = `
   }
   .fallback {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: #0d0d0d; color: rgba(255,255,255,0.55); text-align: center;
-    font: 13px/1.6 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; padding: 16px;
+    background: transparent; border: 0; padding: 0; margin: 0; cursor: pointer;
+    font: 600 12px/1 -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  }
+  .fallback__pill {
+    display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px;
+    border-radius: 999px; background: rgba(255,255,255,0.78); color: #14151a;
+    border: 1px solid rgba(18,22,36,0.16);
+    box-shadow: 0 8px 20px rgba(15,20,35,0.14), inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+  .fallback[aria-checked="false"] .fallback__pill {
+    background: rgba(20,22,28,0.82); color: #f2f4f8; border-color: rgba(255,255,255,0.16);
   }
 `;
 
@@ -614,12 +623,10 @@ export class GlassToggle extends HTMLElement {
       if (vis === this._visible) return;
       this._visible = vis;
       if (vis) {
-        if (this._connected && this._gl) {
-          this._lastT = performance.now();
-          this._raf = requestAnimationFrame(t => this._frame(t));
-        }
+        this._wake();
       } else {
         cancelAnimationFrame(this._raf);
+        this._raf = 0;
       }
     }, { rootMargin: '120px' });
     this._io.observe(this);
@@ -633,21 +640,33 @@ export class GlassToggle extends HTMLElement {
   /** 在开/关之间切换 */
   toggle() { this._setTarget(this._state.target > 0.5 ? 0 : 1, 1); }
 
+  _reducedMotion() {
+    return (
+      document.documentElement.dataset.motion === 'off' ||
+      (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+    );
+  }
+
+  /** 按需唤醒 rAF：静止时自动休眠，守住全站资源预算（docs/00 I5）。 */
+  _wake() {
+    if (!this._connected || !this._visible || !this._gl || this._raf) return;
+    this._lastT = performance.now();
+    this._raf = requestAnimationFrame(t => this._frame(t));
+  }
+
   // ---------------------------------------------------------------- lifecycle
   connectedCallback() {
     this._connected = true;
     this._applyLabel();
     this._applyDisabled();
     this._resize();
-    if (this._visible && this._gl) {
-      this._lastT = performance.now();
-      this._raf = requestAnimationFrame(t => this._frame(t));
-    }
+    this._wake();
   }
 
   disconnectedCallback() {
     this._connected = false;
     cancelAnimationFrame(this._raf);
+    this._raf = 0;
   }
 
   attributeChangedCallback(name, _old, value) {
@@ -678,6 +697,7 @@ export class GlassToggle extends HTMLElement {
         this._syncConfig();
         break;
     }
+    this._wake();
   }
 
   // preset 提供基底值，显式属性优先
@@ -749,6 +769,12 @@ export class GlassToggle extends HTMLElement {
     const changed = s.target !== nv;
     s.target = nv;
     s.kick = Math.max(s.kick, kick);
+    if (this._fallbackEl) {
+      this._fallbackEl.setAttribute('aria-checked', String(nv > 0.5));
+      const label = this._fallbackEl.querySelector('.fallback__pill');
+      if (label) label.textContent = nv > 0.5 ? '☀ 亮色' : '☾ 暗色';
+    }
+    this._wake();
     if (!changed) return;
     this._canvas.setAttribute('aria-checked', String(nv > 0.5));
     if (nv > 0.5) { if (!this.hasAttribute('checked')) this.setAttribute('checked', ''); }
@@ -833,14 +859,24 @@ export class GlassToggle extends HTMLElement {
     gl.uniform1i(U.uGlow, 1);
   }
 
-  _fallback(msg) {
+  _fallback(_msg) {
     this._gl = null;
     if (this._fallbackEl) return;
-    const div = document.createElement('div');
-    div.className = 'fallback';
-    div.textContent = msg;
-    this.shadowRoot.appendChild(div);
-    this._fallbackEl = div;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'fallback';
+    btn.setAttribute('role', 'switch');
+    btn.setAttribute('aria-label', this.getAttribute('label') || '明暗主题');
+    btn.setAttribute('aria-checked', String(this.checked));
+    const pill = document.createElement('span');
+    pill.className = 'fallback__pill';
+    pill.textContent = this.checked ? '☀ 亮色' : '☾ 暗色';
+    btn.appendChild(pill);
+    btn.addEventListener('click', () => {
+      if (!this._disabled) this.toggle();
+    });
+    this.shadowRoot.appendChild(btn);
+    this._fallbackEl = btn;
     this._hintEl && this._hintEl.remove();
     this._hintEl = null;
   }
@@ -869,6 +905,7 @@ export class GlassToggle extends HTMLElement {
     this._gcan.height = Math.round(box.h * dpr / 2);
     this._gl.viewport(0, 0, canvas.width, canvas.height);
     for (const px of this._PIX) px.inited = false;
+    this._wake();
   }
 
   // ---------------------------------------------------------------- simulation
@@ -907,9 +944,10 @@ export class GlassToggle extends HTMLElement {
 
   // ---------------------------------------------------------------- frame loop
   _frame(now) {
-    if (this._connected && this._visible) this._raf = requestAnimationFrame(t => this._frame(t));
+    this._raf = 0;
     if (!this._gl) return;
 
+    const reduced = this._reducedMotion();
     const dt = Math.min(1 / 30, (now - this._lastT) / 1000);
     this._lastT = now;
     const time = now / 1000;
@@ -925,8 +963,10 @@ export class GlassToggle extends HTMLElement {
 
     if (canvas.width < 24 || canvas.height < 24) return;
 
-    // knob position spring (scrubbed directly while dragging)
-    if (!s.dragging) {
+    if (reduced && !s.dragging) {
+      s.p = s.target; s.v = 0;
+      s.hover = s.hoverT; s.press = s.pressT; s.kick = 0;
+    } else if (!s.dragging) {
       const k = P.stiffness, c = 2 * Math.sqrt(k) * 0.6;
       const steps = 4, h = dt / steps;
       for (let i = 0; i < steps; i++) {
@@ -934,9 +974,11 @@ export class GlassToggle extends HTMLElement {
         s.v += a * h; s.p += s.v * h;
       }
     }
-    s.hover += (s.hoverT - s.hover) * Math.min(1, dt * 10);
-    s.press += (s.pressT - s.press) * Math.min(1, dt * 18);
-    s.kick *= Math.exp(-dt * 3.5);
+    if (!reduced) {
+      s.hover += (s.hoverT - s.hover) * Math.min(1, dt * 10);
+      s.press += (s.pressT - s.press) * Math.min(1, dt * 18);
+      s.kick *= Math.exp(-dt * 3.5);
+    }
     s.led = 1 + s.hover * 0.08 + Math.min(Math.abs(s.v) * 0.05, 0.18) + s.kick * 0.12;
 
     const pc = Math.min(1, Math.max(0, s.p));
@@ -1079,6 +1121,22 @@ export class GlassToggle extends HTMLElement {
         this._emit('themechange', { lit, checked: this.checked });
       }
     }
+
+    // 静止自动休眠：弹簧、光轨、hover/press 全部收敛后停止 rAF（docs/34 §4.2）
+    const goalSp = easeIO(pc);
+    const settled =
+      reduced ||
+      (!s.dragging &&
+        Math.abs(s.p - s.target) < 0.001 &&
+        Math.abs(s.v) < 0.001 &&
+        Math.abs(s.sp - goalSp) < 0.002 &&
+        Math.abs(s.spv) < 0.002 &&
+        Math.abs(s.hover - s.hoverT) < 0.003 &&
+        Math.abs(s.press - s.pressT) < 0.003 &&
+        s.kick < 0.003);
+    if (!settled && this._connected && this._visible) {
+      this._raf = requestAnimationFrame(t => this._frame(t));
+    }
   }
 
   // ---------------------------------------------------------------- input
@@ -1096,7 +1154,9 @@ export class GlassToggle extends HTMLElement {
   }
   _local(e) {
     const r = this._canvas.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
+    const sx = r.width > 0 ? (this._canvas.clientWidth || r.width) / r.width : 1;
+    const sy = r.height > 0 ? (this._canvas.clientHeight || r.height) / r.height : 1;
+    return [(e.clientX - r.left) * sx, (e.clientY - r.top) * sy];
   }
 
   _bindInput() {
@@ -1108,7 +1168,11 @@ export class GlassToggle extends HTMLElement {
       const [dxp, dyp] = this._toD(lx, ly);
       const ot = this._overTrack(dxp, dyp) && !this._disabled;
       canvas.style.cursor = s.dragging ? 'grabbing' : ot ? 'pointer' : 'default';
-      s.hoverT = ot && e.pointerType === 'mouse' ? 1 : 0;
+      const nextHover = ot && e.pointerType === 'mouse' ? 1 : 0;
+      if (nextHover !== s.hoverT || s.dragging) {
+        s.hoverT = nextHover;
+        this._wake();
+      }
       if (!s.dragging) return;
       const dx = (lx - s.dragStartX) / this._S;
       s.moved = Math.max(s.moved, Math.abs(dx) * this._S);
@@ -1130,6 +1194,7 @@ export class GlassToggle extends HTMLElement {
       const s = this._state;
       canvas.setPointerCapture(e.pointerId);
       s.pressT = 1; s.moved = 0;
+      this._wake();
       if (this._overKnob(dxp, dyp)) {
         s.dragging = true; s.dragStartX = lx; s.dragStartP = s.p; s.lastT = performance.now(); s.dragV = 0;
       } else {
@@ -1140,6 +1205,7 @@ export class GlassToggle extends HTMLElement {
     const release = () => {
       const s = this._state;
       s.pressT = 0;
+      this._wake();
       if (this._disabled) { s.pendingClick = false; return; }
       if (s.dragging) {
         s.dragging = false;
@@ -1150,7 +1216,7 @@ export class GlassToggle extends HTMLElement {
     };
     canvas.addEventListener('pointerup', release);
     canvas.addEventListener('pointercancel', release);
-    canvas.addEventListener('pointerleave', () => { this._state.hoverT = 0; });
+    canvas.addEventListener('pointerleave', () => { this._state.hoverT = 0; this._wake(); });
 
     canvas.addEventListener('keydown', e => {
       if (this._disabled) return;

@@ -1,0 +1,288 @@
+/* ============================================================
+   OPTIC DECK · 2/4 发现页彻底重造：深黑 OLED 声学主舞台 + 非对称光学展廊 + 6 键打击垫
+   ============================================================ */
+
+:root[data-palette="default"] .optic-disc{
+  display:flex;flex-direction:column;gap: var(--space-xl);padding-bottom: var(--space-lg);
+}
+:root[data-palette="default"] .optic-mod-tag{
+  display:inline-flex;align-items:center;gap: var(--space-2xs);
+  font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:.12em;
+  color:var(--text-2);text-transform:uppercase;
+}
+:root[data-palette="default"] .optic-mod-spec{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--text-3)}
+:root[data-palette="default"] .optic-led{width:6px;height:6px;border-radius:var(--r-pill);background:var(--dot-off);flex:none}
+:root[data-palette="default"] .optic-led.is-on{background:var(--accent);box-shadow:var(--accent-glow)}
+:root[data-palette="default"] .optic-jewel-spine{
+  position:absolute;left:0;top:0;bottom:0;width:8px;pointer-events:none;z-index:var(--z-row);
+  background:linear-gradient(90deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.08) 45%, rgba(0,0,0,.22) 82%, rgba(255,255,255,.48) 100%);
+  border-right:1px solid rgba(255,255,255,.28);
+}
+:root[data-palette="default"] .optic-lens-bevel{
+  position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:var(--z-row);
+  background:linear-gradient(142deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,.04) 36%, transparent 56%, rgba(0,0,0,.2) 100%);
+  box-shadow:inset 0 1.5px 0 rgba(255,255,255,.72), inset 0 -1px 0 rgba(255,255,255,.16);
+}
+
+/* ---- STAGE 01 · 全宽深黑点阵 OLED 声学主舞台 ---- */
+:root[data-palette="default"] .optic-stage{
+  position:relative;overflow:hidden;border-radius:var(--r-xl);
+  background:var(--dot-screen);color:var(--dot-on);
+  border:1px solid var(--line-strong);
+  box-shadow:var(--lens-shadow), inset 0 1px 0 rgba(255,255,255,.12);
+  padding: var(--space-lg);
+  display:flex;flex-direction:column;gap: var(--space-md);
+}
+:root[data-palette="default"] .optic-stage__amb{
+  position:absolute;inset:-40%;width:180%;height:180%;object-fit:cover;
+  filter:blur(68px) saturate(1.9);opacity:.26;pointer-events:none;z-index:var(--z-base);
+}
+:root[data-palette="default"] .optic-stage__bar{
+  position:relative;z-index:var(--z-row);
+  display:flex;align-items:center;justify-content:space-between;gap: var(--space-md);
+  padding-bottom: var(--space-sm);border-bottom:1px solid rgba(255,255,255,.1);
+}
+:root[data-palette="default"] .optic-stage__date{display:flex;align-items:center;gap: var(--space-sm)}
+:root[data-palette="default"] .optic-stage__date .optic-dots{filter:drop-shadow(0 0 6px rgba(255,245,235,.55))}
+:root[data-palette="default"] .optic-stage__cal{
+  display:flex;flex-direction:column;gap: var(--space-3xs);
+  font-family:var(--font-mono);font-size:10px;line-height:1.1;letter-spacing:.12em;color:var(--dot-on);
+}
+:root[data-palette="default"] .optic-stage__cal span{opacity:.58}
+:root[data-palette="default"] .optic-stage__div{width:1px;height:20px;background:rgba(255,255,255,.14)}
+:root[data-palette="default"] .optic-stage__src{
+  display:inline-flex;align-items:center;gap: var(--space-xs);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--dot-on);opacity:.82;
+}
+:root[data-palette="default"] .optic-stage__meters{display:flex;align-items:center;gap: var(--space-md)}
+:root[data-palette="default"] .optic-stage__egg{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--dot-on);opacity:.62}
+:root[data-palette="default"] .optic-screen__vu{display:flex;align-items:flex-end;gap:3px;height:28px}
+:root[data-palette="default"] .optic-vu__col{display:flex;flex-direction:column;gap: var(--space-3xs)}
+:root[data-palette="default"] .optic-vu__dot{width:3px;height:3px;border-radius:var(--r-2);background:var(--dot-off)}
+:root[data-palette="default"] .optic-vu__dot.is-lit{background:var(--dot-on)}
+:root[data-palette="default"] .optic-vu__dot.is-peak{background:var(--accent);box-shadow:var(--accent-glow)}
+
+:root[data-palette="default"] .optic-stage__grid{
+  position:relative;z-index:var(--z-row);
+  display:grid;grid-template-columns:minmax(0, 1.08fr) minmax(0, .92fr);gap: var(--space-xl);align-items:center;
+}
+:root[data-palette="default"] .optic-stage__lead{display:flex;align-items:center;gap: var(--space-lg);min-width:0}
+:root[data-palette="default"] .optic-stage__lens{
+  position:relative;flex:none;width:176px;height:176px;border-radius:var(--r-lg);overflow:hidden;
+  border:1px solid rgba(255,255,255,.28);
+  box-shadow:0 18px 40px rgba(0,0,0,.55), var(--accent-glow);
+}
+:root[data-palette="default"] .optic-stage__lens img{width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-stage__count{
+  position:absolute;right: var(--space-xs);bottom: var(--space-xs);z-index:var(--z-row);
+  padding: var(--space-3xs) var(--space-xs);border-radius:var(--r-pill);
+  background:var(--accent);color:var(--on-accent);font-family:var(--font-mono);font-size:10px;font-weight:700;
+  box-shadow:var(--accent-glow);
+}
+:root[data-palette="default"] .optic-stage__copy{display:flex;flex-direction:column;gap: var(--space-xs);min-width:0;flex:1}
+:root[data-palette="default"] .optic-stage__kicker{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;color:var(--dot-on);opacity:.58}
+:root[data-palette="default"] .optic-stage__title{
+  font-family:var(--font-display);font-size:36px;font-weight:700;line-height:1.1;letter-spacing:-.02em;
+  color:var(--dot-on);margin:0;
+}
+:root[data-palette="default"] .optic-stage__sub{font-size:12px;color:var(--dot-on);opacity:.74;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root[data-palette="default"] .optic-hero__err{font-size:12px;color:var(--led-error);margin:0}
+:root[data-palette="default"] .optic-stage__acts{display:flex;align-items:center;gap: var(--space-xs);margin-top: var(--space-xs);flex-wrap:wrap}
+:root[data-palette="default"] .optic-stage__key{
+  position:relative;display:inline-flex;align-items:center;gap: var(--space-2xs);
+  height:36px;padding: 0 var(--space-md);border-radius:var(--r-md);cursor:pointer;
+  background:rgba(255,255,255,.09);color:var(--dot-on);font-size:12px;font-weight:600;
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 6px 16px rgba(0,0,0,.35);
+  transition:transform var(--dur-instant) var(--ease-spring), border-color var(--dur-fast) var(--ease-out-soft), background-color var(--dur-fast) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-stage__key:hover{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.32);transform:translateY(-1px)}
+:root[data-palette="default"] .optic-stage__key:active{transform:scale(var(--press-scale))}
+:root[data-palette="default"] .optic-stage__key--play{
+  background:rgba(255,255,255,.14);border-color:var(--accent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.36), inset 0 -3px 10px color-mix(in srgb, var(--accent) 42%, transparent), var(--accent-glow);
+}
+:root[data-palette="default"] .optic-stage__key--play::after{
+  content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:2.5px;border-radius:var(--r-pill);
+  background:var(--accent);box-shadow:var(--accent-glow);
+}
+
+/* 烟熏玻璃 4 曲试听矩阵 */
+:root[data-palette="default"] .optic-stage__tape{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+  border-radius:var(--r-lg);padding: var(--space-sm);
+  display:flex;flex-direction:column;gap: var(--space-xs);min-width:0;
+}
+:root[data-palette="default"] .optic-stage__tapehead{display:flex;align-items:center;justify-content:space-between;padding: 0 var(--space-2xs)}
+:root[data-palette="default"] .optic-stage__more{
+  display:inline-flex;align-items:center;gap: var(--space-3xs);background:none;border:0;padding:0;cursor:pointer;
+  font-family:var(--font-mono);font-size:10px;color:var(--dot-on);opacity:.82;
+}
+:root[data-palette="default"] .optic-stage__more:hover{opacity:1;color:var(--accent)}
+:root[data-palette="default"] .optic-stage__rows{display:flex;flex-direction:column;gap: var(--space-3xs)}
+:root[data-palette="default"] .optic-stage__empty{padding: var(--space-xl);text-align:center;font-size:12px;color:var(--dot-on);opacity:.6}
+:root[data-palette="default"] .optic-srow{
+  position:relative;display:grid;grid-template-columns:22px 30px minmax(0,1fr) auto;
+  align-items:center;gap: var(--space-xs);padding: var(--space-2xs) var(--space-xs);
+  border:0;border-radius:var(--r-sm);background:transparent;text-align:left;cursor:pointer;width:100%;color:var(--dot-on);
+  transition:background-color var(--dur-tap) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-srow:hover{background:rgba(255,255,255,.1)}
+:root[data-palette="default"] .optic-srow:hover::before{
+  content:"";position:absolute;left:0;top:22%;bottom:22%;width:3px;border-radius:var(--r-pill);
+  background:var(--accent);box-shadow:var(--accent-glow);
+}
+:root[data-palette="default"] .optic-srow__no{font-family:var(--font-mono);font-size:10px;opacity:.55;text-align:center}
+:root[data-palette="default"] .optic-srow__art{width:30px;height:30px;border-radius:var(--r-xs);overflow:hidden;flex:none}
+:root[data-palette="default"] .optic-srow__art img{width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-srow__meta{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+:root[data-palette="default"] .optic-srow__meta b{font-size:12px;font-weight:600;color:var(--dot-on)}
+:root[data-palette="default"] .optic-srow__meta span{font-size:10px;color:var(--dot-on);opacity:.6}
+:root[data-palette="default"] .optic-srow__dur{font-family:var(--font-mono);font-size:10px;opacity:.58;font-variant-numeric:tabular-nums}
+
+/* ---- STAGE 02 · 非对称编辑精选歌单展廊（左 5 列巨幕展盒 + 右 7 列 3×2 光学卡带） ---- */
+:root[data-palette="default"] .optic-gallery{display:flex;flex-direction:column;gap: var(--space-sm)}
+:root[data-palette="default"] .optic-shelf__head{display:flex;align-items:center;justify-content:space-between}
+:root[data-palette="default"] .optic-shelf__titles{display:flex;align-items:center;gap: var(--space-sm)}
+:root[data-palette="default"] .optic-mod-pill{
+  padding: var(--space-3xs) var(--space-xs);border-radius:var(--r-xs);
+  background:var(--dot-screen);color:var(--dot-on);border:1px solid var(--line-strong);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+}
+:root[data-palette="default"] .optic-shelf__titles h2{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--text);margin:0}
+:root[data-palette="default"] .optic-shelf__sub{font-size:12px;color:var(--text-3)}
+:root[data-palette="default"] .optic-gallery__grid{
+  display:grid;grid-template-columns:minmax(0, 5fr) minmax(0, 7fr);gap: var(--space-md);align-items:stretch;
+}
+:root[data-palette="default"] .optic-feature{
+  position:relative;overflow:hidden;border-radius:var(--r-xl);padding:0;border:1px solid var(--glass-edge-strong);
+  background:var(--dot-screen);cursor:pointer;text-align:left;min-height:320px;
+  box-shadow:var(--lens-shadow);
+  transition:transform var(--dur-fast) var(--ease-spring), border-color var(--dur-fast) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-feature:hover{transform:translateY(-3px);border-color:var(--accent-line)}
+:root[data-palette="default"] .optic-feature__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-feature__dock{
+  position:absolute;left: var(--space-sm);right: var(--space-sm);bottom: var(--space-sm);z-index:var(--z-row);
+  padding: var(--space-sm) var(--space-md);border-radius:var(--r-lg);
+  background:rgba(12,14,20,.78);border:1px solid rgba(255,255,255,.18);
+  display:flex;flex-direction:column;gap: var(--space-3xs);
+}
+:root[data-palette="default"] .optic-feature__tag{
+  display:inline-flex;align-items:center;gap: var(--space-2xs);
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--dot-on);opacity:.78;
+}
+:root[data-palette="default"] .optic-feature__title{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--dot-on);line-height:1.25}
+:root[data-palette="default"] .optic-matrix{
+  display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap: var(--space-sm);
+}
+:root[data-palette="default"] .optic-cart{
+  display:flex;flex-direction:column;gap: var(--space-2xs);background:none;border:0;padding:0;text-align:left;cursor:pointer;min-width:0;
+}
+:root[data-palette="default"] .optic-cart__tray{
+  position:relative;display:block;padding: var(--space-2xs);border-radius:var(--r-lg);
+  background:var(--well-bg);border:1px solid var(--line);box-shadow:var(--well-shadow);
+}
+:root[data-palette="default"] .optic-cart__art{
+  position:relative;display:block;width:100%;aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;
+  border:1px solid var(--glass-edge-strong);box-shadow:var(--shadow-soft);
+  transition:transform var(--dur-fast) var(--ease-spring), box-shadow var(--dur-fast) var(--ease-out-soft), border-color var(--dur-fast) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-cart__art img{width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-cart:hover .optic-cart__art{
+  transform:translateY(-4px);border-color:var(--accent-line);box-shadow:var(--lens-shadow), 0 8px 20px var(--accent-soft);
+}
+:root[data-palette="default"] .optic-cart__tray::after{
+  content:"";position:absolute;left:22%;right:22%;bottom:2px;height:2.5px;border-radius:var(--r-pill);
+  background:var(--accent);box-shadow:var(--accent-glow);opacity:0;transition:opacity var(--dur-fast) var(--ease-out-soft);pointer-events:none;
+}
+:root[data-palette="default"] .optic-cart:hover .optic-cart__tray::after{opacity:1}
+:root[data-palette="default"] .optic-album__sheen{
+  position:absolute;inset:-30%;pointer-events:none;z-index:var(--z-row);
+  background:linear-gradient(125deg, transparent 36%, rgba(255,255,255,.44) 50%, transparent 64%);
+  transform:translateX(-110%);transition:transform 280ms var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-feature:hover .optic-album__sheen,
+:root[data-palette="default"] .optic-cart:hover .optic-album__sheen{transform:translateX(110%)}
+:root[data-palette="default"] .optic-cart__oled{
+  position:absolute;right: var(--space-xs);bottom: var(--space-xs);z-index:var(--z-row);
+  padding: var(--space-3xs) var(--space-xs);border-radius:var(--r-xs);
+  background:var(--dot-screen);color:var(--dot-on);border:1px solid var(--line-strong);
+  font-family:var(--font-mono);font-size:10px;font-variant-numeric:tabular-nums;
+}
+:root[data-palette="default"] .optic-cart__name{
+  font-size:12px;font-weight:600;color:var(--text);line-height:1.3;padding: 0 var(--space-3xs);
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+
+/* ---- STAGE 03 · 双联精密硬件模块（新歌凹槽矩阵 + 6 键打击垫榜单台） ---- */
+:root[data-palette="default"] .optic-pair{display:grid;grid-template-columns:minmax(0, 1.25fr) minmax(0, 1fr);gap: var(--space-md)}
+:root[data-palette="default"] .optic-module{
+  background:var(--card);border:1px solid var(--glass-edge-strong);border-radius:var(--r-xl);
+  padding: var(--space-sm);box-shadow:var(--shadow-soft), inset 0 1px 0 var(--glass-highlight);
+  display:flex;flex-direction:column;gap: var(--space-sm);min-width:0;
+}
+:root[data-palette="default"] .optic-module__oled{
+  display:flex;align-items:center;justify-content:space-between;gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);border-radius:var(--r-md);
+  background:var(--dot-screen);border:1px solid var(--line-strong);box-shadow:var(--well-shadow);
+}
+:root[data-palette="default"] .optic-module__oled .optic-mod-tag{color:var(--dot-on)}
+:root[data-palette="default"] .optic-module__oled .optic-mod-spec{color:var(--dot-on);opacity:.65}
+:root[data-palette="default"] .optic-well-list{
+  background:var(--well-bg);border:1px solid var(--line);border-radius:var(--r-md);
+  padding: var(--space-2xs);box-shadow:var(--well-shadow);display:flex;flex-direction:column;gap: var(--space-3xs);flex:1;
+}
+:root[data-palette="default"] .optic-row{
+  position:relative;display:grid;grid-template-columns:22px 28px minmax(0,1fr) auto;
+  align-items:center;gap: var(--space-xs);padding: var(--space-2xs) var(--space-xs);
+  border:0;border-radius:var(--r-sm);background:transparent;text-align:left;cursor:pointer;width:100%;
+  transition:background-color var(--dur-tap) var(--ease-out-soft), box-shadow var(--dur-tap) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-row:hover{background:var(--lens-bg);box-shadow:var(--shadow-soft), inset 0 1px 0 var(--glass-highlight)}
+:root[data-palette="default"] .optic-row:hover::before{
+  content:"";position:absolute;left:0;top:22%;bottom:22%;width:3px;border-radius:var(--r-pill);background:var(--accent);box-shadow:var(--accent-glow);
+}
+:root[data-palette="default"] .optic-row__no{font-family:var(--font-mono);font-size:10px;color:var(--text-3);text-align:center}
+:root[data-palette="default"] .optic-row__art{width:28px;height:28px;border-radius:var(--r-xs);overflow:hidden;flex:none}
+:root[data-palette="default"] .optic-row__art img{width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-row__meta{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+:root[data-palette="default"] .optic-row__meta b{font-size:12px;font-weight:600;color:var(--text)}
+:root[data-palette="default"] .optic-row__meta span{font-size:10px;color:var(--text-3)}
+:root[data-palette="default"] .optic-row__dur{font-family:var(--font-mono);font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums}
+:root[data-palette="default"] .optic-pads{
+  display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap: var(--space-xs);
+  padding: var(--space-xs);border-radius:var(--r-md);background:var(--well-bg);border:1px solid var(--line);box-shadow:var(--well-shadow);flex:1;
+}
+:root[data-palette="default"] .optic-pad{
+  position:relative;display:flex;flex-direction:column;justify-content:space-between;gap: var(--space-xs);
+  padding: var(--space-sm);border-radius:var(--r-md);cursor:pointer;text-align:left;min-width:0;
+  background:var(--lens-bg);border:1px solid var(--glass-edge-strong);box-shadow:var(--shadow-soft), inset 0 1.5px 0 var(--glass-highlight);
+  transition:transform var(--dur-instant) var(--ease-spring), border-color var(--dur-fast) var(--ease-out-soft), box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-pad::after{
+  content:"";position:absolute;left:22%;right:22%;bottom:-1px;height:2px;border-radius:var(--r-pill);
+  background:var(--accent);box-shadow:var(--accent-glow);opacity:0;transition:opacity var(--dur-fast) var(--ease-out-soft);
+}
+:root[data-palette="default"] .optic-pad:hover{transform:translateY(-2px);border-color:var(--accent-line);box-shadow:var(--shadow), 0 6px 16px var(--accent-soft)}
+:root[data-palette="default"] .optic-pad:hover::after{opacity:1}
+:root[data-palette="default"] .optic-pad:active{transform:scale(var(--press-scale))}
+:root[data-palette="default"] .optic-pad__top{display:flex;align-items:flex-start;justify-content:space-between;gap: var(--space-xs)}
+:root[data-palette="default"] .optic-pad__art{position:relative;width:40px;height:40px;border-radius:var(--r-sm);overflow:hidden;flex:none;border:1px solid var(--glass-edge-strong)}
+:root[data-palette="default"] .optic-pad__art img{width:100%;height:100%;object-fit:cover;display:block}
+:root[data-palette="default"] .optic-pad__idx{font-family:var(--font-mono);font-size:10px;color:var(--text-3)}
+:root[data-palette="default"] .optic-pad__meta{display:flex;flex-direction:column;gap: var(--space-3xs);min-width:0}
+:root[data-palette="default"] .optic-pad__meta b{font-size:12px;font-weight:600;color:var(--text)}
+:root[data-palette="default"] .optic-pad__meta span{font-family:var(--font-mono);font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums}
+
+@media (max-width:1120px){
+  :root[data-palette="default"] .optic-stage__grid{grid-template-columns:minmax(0,1fr)}
+  :root[data-palette="default"] .optic-gallery__grid{grid-template-columns:minmax(0,1fr)}
+  :root[data-palette="default"] .optic-feature{min-height:240px}
+  :root[data-palette="default"] .optic-pair{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:900px){
+  :root[data-palette="default"] .optic-stage__lead{flex-direction:column;align-items:flex-start}
+  :root[data-palette="default"] .optic-matrix{grid-template-columns:repeat(2, minmax(0,1fr))}
+  :root[data-palette="default"] .optic-pads{grid-template-columns:repeat(2, minmax(0,1fr))}
+}

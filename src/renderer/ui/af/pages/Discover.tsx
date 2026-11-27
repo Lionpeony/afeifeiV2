@@ -14,6 +14,7 @@ import { TrackArt } from "../art.js";
 import { IconArrowRight, IconBack, IconPlay, IconRefresh, IconSparkle, IconDownload } from "../icons.js";
 import { Tape } from "../ui.js";
 import { RefreshMixSkeleton, useSourceRefresh } from "../RefreshTape.js";
+import { OpticDiscover } from "../optic/OpticDiscover.js";
 
 export interface AfSourceOption {
   id: string;
@@ -753,6 +754,32 @@ export function DiscoverPage(props: DiscoverPageProps) {
             {busy ? <div className="search-busy"><span className="hand">在翻曲库……</span></div> : null}
           </div>
         </section>
+      ) : af.palette === "default" ? (
+        <OpticDiscover
+          sourceName={sourceName}
+          sourceId={acct.sourceId || sourceId}
+          canLogin={canLogin}
+          dailySongs={dailySongs}
+          dailyPreview={dailyPreview}
+          dailyOffset={dailyOffset}
+          dailyTotal={acct.songs.length}
+          dailyCover={dailyCover}
+          dailySub={dailySub}
+          dailyLoading={acct.loading}
+          dailyError={acct.error}
+          dailyHint={acct.hint}
+          homeSections={homeSections}
+          homeNote={homeNote}
+          toplists={lists}
+          onPlay={props.onPlay}
+          onReloadDaily={reloadDaily}
+          onOpenLogin={() => setLoginOpen(true)}
+          onOpenDetail={openDetail}
+          onPrefetch={prefetchDetail}
+          fmtDur={fmtDur}
+          fmtPlays={fmtPlays}
+          thumb={thumb}
+        />
       ) : (
         <>
           <div

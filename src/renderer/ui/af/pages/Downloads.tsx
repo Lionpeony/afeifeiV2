@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 
 import { dispatch, getState, subscribe } from "../../../kernel/index.js";
 import { useAf } from "../context.js";
+import { OpticEmptyScreen } from "../optic/OpticEmptyScreen.js";
+import { OpticSpringSeg } from "../optic/OpticSpringSeg.js";
 import { TrackArt } from "../art.js";
 import { IconDownload, IconPause, IconPlay, IconRefresh, IconX } from "../icons.js";
 import { EmptySetlist, PageHead } from "../ui.js";
@@ -53,8 +55,22 @@ export function DownloadsPage() {
       />
 
       <div className="loc__tabs">
-        <button className="loc__tab" onClick={() => af.setPage("local")}>本地音乐</button>
-        <button className="loc__tab is-on" onClick={() => af.setPage("downloads")}>下载管理</button>
+        {af.palette === "default" ? (
+          <OpticSpringSeg
+            ariaLabel="本地与下载切换"
+            value="downloads"
+            options={[
+              { id: "local", label: "本地音乐" },
+              { id: "downloads", label: "下载管理", badge: tasks.length + done.length },
+            ]}
+            onChange={(p) => af.setPage(p)}
+          />
+        ) : (
+          <>
+            <button className="loc__tab" onClick={() => af.setPage("local")}>本地音乐</button>
+            <button className="loc__tab is-on" onClick={() => af.setPage("downloads")}>下载管理</button>
+          </>
+        )}
         <span className="spacer"></span>
         <span className="meta num">{tasks.length + done.length} 个任务</span>
       </div>
@@ -73,7 +89,17 @@ export function DownloadsPage() {
       </div>
 
       {tasks.length === 0 ? (
-        <EmptySetlist title="没有正在下载的歌。" sub="在曲目上右键就能下一首，慢慢来。" cta="去歌单挑一首" onGo={() => af.setPage("playlists")} />
+        af.palette === "default" ? (
+          <OpticEmptyScreen
+            code="NO ACTIVE DOWNLOADS"
+            title="没有正在下载的曲目"
+            sub="在任意曲目上右键即可加入离线下载队列。"
+            ctaLabel="去歌单挑一首"
+            onCta={() => af.setPage("playlists")}
+          />
+        ) : (
+          <EmptySetlist title="没有正在下载的歌。" sub="在曲目上右键就能下一首，慢慢来。" cta="去歌单挑一首" onGo={() => af.setPage("playlists")} />
+        )
       ) : (
         <div className="dl-list">
           {tasks.map((d) => {

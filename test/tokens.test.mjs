@@ -140,6 +140,8 @@ test("元信息文字（--text-3）基座与三只包、亮暗各档卡面上 �
   const cases = [
     ["基座亮色", root],
     ["基座暗色", dark],
+    ["default 亮色", block(':root[data-palette="default"]')],
+    ["default 暗色", block(':root[data-palette="default"][data-theme="dark"]')],
     ["mygo 亮色", block(':root[data-palette="mygo"]')],
     ["mygo 暗色", block(':root[data-theme="dark"][data-palette="mygo"]')],
     ["gbc 亮色", block(':root[data-palette="gbc"]')],
@@ -150,6 +152,22 @@ test("元信息文字（--text-3）基座与三只包、亮暗各档卡面上 �
   for (const [label, scope] of cases) {
     const bg = color("--card", scope);
     assert.ok(contrast(color("--text-3", scope), bg) >= 4.5, `${label} 的 --text-3 对卡面不到 4.5:1`);
+  }
+});
+
+test("default 光学台面（亮/暗）：正文、凹槽与按钮对比度全部 ≥ 4.5:1", () => {
+  const defLight = block(':root[data-palette="default"]');
+  const defDark = block(':root[data-palette="default"][data-theme="dark"]');
+  for (const [label, scope] of [["default 亮色", defLight], ["default 暗色", defDark]]) {
+    const bg = color("--bg", scope);
+    const well = color("--well-bg", scope);
+    assert.ok(contrast(color("--text", scope), bg) >= 4.5, `${label} 主字对机壳底不到 4.5:1`);
+    assert.ok(contrast(color("--text-2", scope), well) >= 4.5, `${label} 次字对凹槽底不到 4.5:1`);
+    assert.ok(contrast(color("--text-3", scope), well) >= 4.5, `${label} 弱字对凹槽底不到 4.5:1`);
+    assert.ok(
+      contrast(color("--on-accent", scope), color("--accent", scope)) >= 4.5,
+      `${label} 按钮字对强调色不到 4.5:1`,
+    );
   }
 });
 

@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { dispatch, getState } from "../../../kernel/index.js";
 import { useAf } from "../context.js";
+import { OpticSpringSeg } from "../optic/OpticSpringSeg.js";
 
 import { PageHead } from "../ui.js";
 import { EGGS, PALETTES } from "../data.js";
@@ -103,15 +104,28 @@ export function SettingsPage() {
               {themePref === "dark" ? "熄灯了，只剩音箱的指示灯" : themePref === "system" ? "跟着系统的天光走" : "排练室的下午四点"}
             </span>
           </div>
-          <div className="segmented" role="group" aria-label="主题">
-            {[
-              { id: "light" as const, label: "明亮" },
-              { id: "dark" as const, label: "熄灯" },
-              { id: "system" as const, label: "跟随系统" },
-            ].map((o) => (
-              <button key={o.id} className={themePref === o.id ? "is-on" : ""} onClick={() => setThemePref(o.id)}>{o.label}</button>
-            ))}
-          </div>
+          {palette === "default" ? (
+            <OpticSpringSeg
+              ariaLabel="主题"
+              value={themePref}
+              options={[
+                { id: "light", label: "明亮" },
+                { id: "dark", label: "熄灯" },
+                { id: "system", label: "跟随系统" },
+              ]}
+              onChange={(v) => setThemePref(v)}
+            />
+          ) : (
+            <div className="segmented" role="group" aria-label="主题">
+              {[
+                { id: "light" as const, label: "明亮" },
+                { id: "dark" as const, label: "熄灯" },
+                { id: "system" as const, label: "跟随系统" },
+              ].map((o) => (
+                <button key={o.id} className={themePref === o.id ? "is-on" : ""} onClick={() => setThemePref(o.id)}>{o.label}</button>
+              ))}
+            </div>
+          )}
           <div className="set-line" style={{ marginTop: 6 }}>
             <div>
               <div className="set-line__label">限定色调</div>
@@ -186,21 +200,48 @@ export function SettingsPage() {
                         : "完整含呼吸与换场，轻档只留状态切换。"}
               </div>
             </div>
-            <div className="segmented" role="group" aria-label="动效档位">
-              <button className={motionPref === "full" ? "is-on" : ""} onClick={() => setMotion("full")}>完整</button>
-              <button className={motionPref === "light" ? "is-on" : ""} onClick={() => setMotion("light")}>轻</button>
-              <button className={motionPref === "off" ? "is-on" : ""} onClick={() => setMotion("off")}>关闭</button>
-            </div>
+            {palette === "default" ? (
+              <OpticSpringSeg
+                size="sm"
+                ariaLabel="动效档位"
+                value={motionPref === "light" || motionPref === "off" ? motionPref : "full"}
+                options={[
+                  { id: "full", label: "完整" },
+                  { id: "light", label: "轻" },
+                  { id: "off", label: "关闭" },
+                ]}
+                onChange={(v) => setMotion(v)}
+              />
+            ) : (
+              <div className="segmented" role="group" aria-label="动效档位">
+                <button className={motionPref === "full" ? "is-on" : ""} onClick={() => setMotion("full")}>完整</button>
+                <button className={motionPref === "light" ? "is-on" : ""} onClick={() => setMotion("light")}>轻</button>
+                <button className={motionPref === "off" ? "is-on" : ""} onClick={() => setMotion("off")}>关闭</button>
+              </div>
+            )}
           </div>
           <div className="set-line">
             <div>
               <div className="set-line__label">曲目表密度</div>
               <div className="set-line__hint">{density === "compact" ? "紧凑 40px · 长队列一屏能多看三首。" : "舒适 48px · 默认行高，看得清也点得准。"}</div>
             </div>
-            <div className="density-row" role="group" aria-label="曲目表密度">
-              <button className={density === "cozy" ? "is-on" : ""} onClick={() => setDensity("cozy")}>舒适</button>
-              <button className={density === "compact" ? "is-on" : ""} onClick={() => setDensity("compact")}>紧凑</button>
-            </div>
+            {palette === "default" ? (
+              <OpticSpringSeg
+                size="sm"
+                ariaLabel="曲目表密度"
+                value={density}
+                options={[
+                  { id: "cozy", label: "舒适" },
+                  { id: "compact", label: "紧凑" },
+                ]}
+                onChange={(v) => setDensity(v)}
+              />
+            ) : (
+              <div className="density-row" role="group" aria-label="曲目表密度">
+                <button className={density === "cozy" ? "is-on" : ""} onClick={() => setDensity("cozy")}>舒适</button>
+                <button className={density === "compact" ? "is-on" : ""} onClick={() => setDensity("compact")}>紧凑</button>
+              </div>
+            )}
           </div>
           <div className="set-line">
             <div>

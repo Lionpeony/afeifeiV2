@@ -7,6 +7,7 @@ import { useAf } from "../context.js";
 import { TrackArt } from "../art.js";
 import { IconBack, IconChevronRight, IconPickOutline, IconPlay } from "../icons.js";
 import { EmptySetlist, PageHead } from "../ui.js";
+import { OpticArchive } from "../optic/OpticArchive.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 const fmt = (sec: number): string => {
@@ -21,6 +22,12 @@ const dayStart = (t: number): number => {
 const MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 export function ArchivePage() {
+  const af = useAf();
+  if (af.palette === "default") return <OpticArchive />;
+  return <ArchivePageLegacy />;
+}
+
+function ArchivePageLegacy() {
   const af = useAf();
   const [, setRev] = useState(0);
   useEffect(() => subLibrary(() => setRev((r) => r + 1)), []);

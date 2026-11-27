@@ -338,7 +338,16 @@ export function Console(props: {
           title="排练室 · 定时 / 音质 / EQ（E）"
           aria-expanded={Boolean(af.studio)}
         >
-          <IconSettings size={17} />
+          {af.palette === "default" ? (
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M4.5 3v12M9 3v12M13.5 3v12" />
+              <circle cx="4.5" cy="7" r="1.7" fill="currentColor" />
+              <circle cx="9" cy="11.5" r="1.7" fill="currentColor" />
+              <circle cx="13.5" cy="6" r="1.7" fill="currentColor" />
+            </svg>
+          ) : (
+            <IconSettings size={17} />
+          )}
         </button>
         <button
           type="button"

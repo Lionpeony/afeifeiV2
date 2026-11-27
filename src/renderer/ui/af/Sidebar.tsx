@@ -1,73 +1,34 @@
-/* 侧栏 · 原型 .sidebar 结构（200px） */
-import { useEffect, useRef, useSyncExternalStore } from "react";
+/* 侧栏 · 原型 .sidebar 结构（200px）；默认主题采用方向 A 顶部悬浮导航岛，此处返回 null */
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { useAf } from "./context.js";
 import { packLineCopy } from "./copy.js";
 import { EGGS } from "./data.js";
 import { IconArchive, IconCompass, IconDownload, IconFolder, IconHeart, IconList, IconSettings, IconSparkle, LogoMark } from "./icons.js";
 import { getLikes, subscribe as subscribeLikes } from "../../domain/likes/index.js";
+import { resolveTheme } from "../theme.js";
+import { GlassThemeSwitch } from "./optic/GlassThemeSwitch.js";
 
 type NavId = "discover" | "roam" | "local" | "downloads" | "likes" | "history" | "playlists";
-
-type GlassToggleEl = HTMLElement & { checked?: boolean };
-
-/**
- * 侧栏底部的玻璃明暗开关：挂上游 <glass-toggle> 原生组件（glass-toggle.js 以 ESM 加载）。
- * 主窗 CSP 只按它的内联 <style> 的 sha256 精确放行，组件升级后哈希失效需同步 index.html。
- * checked 走属性镜像（组件的 _setTarget 会自维护 checked 属性），change 事件回写主题。
- */
-function GlassThemeSwitch({ dark, onChange }: { dark: boolean; onChange: (v: boolean) => void }) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const elRef = useRef<GlassToggleEl | null>(null);
-  const cbRef = useRef(onChange);
-  cbRef.current = onChange;
-  const darkRef = useRef(dark);
-  darkRef.current = dark;
-
-  useEffect(() => {
-    const el = document.createElement("glass-toggle") as GlassToggleEl;
-    el.setAttribute("theme", "auto");
-    el.setAttribute("on-icon", "sun");
-    el.setAttribute("off-icon", "moon");
-    const cs = getComputedStyle(document.documentElement);
-    el.setAttribute("on-color", cs.getPropertyValue("--glass-on").trim());
-    el.setAttribute("off-color", cs.getPropertyValue("--glass-off").trim());
-    el.setAttribute("hint", "拖动换灯");
-    el.setAttribute("label", "明暗主题");
-    if (!darkRef.current) el.setAttribute("checked", "");
-    const onCh = () => cbRef.current(Boolean(el.checked));
-    el.addEventListener("change", onCh);
-    elRef.current = el;
-    hostRef.current?.appendChild(el);
-    return () => {
-      el.removeEventListener("change", onCh);
-      el.remove();
-      elRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const el = elRef.current;
-    if (!el) return;
-    const want = !dark; // 组件 on(checked)=日=亮，故亮态=checked
-    const apply = () => {
-      if (Boolean(el.checked) !== want) {
-        if (want) el.setAttribute("checked", "");
-        else el.removeAttribute("checked");
-      }
-    };
-    if (customElements.get("glass-toggle")) apply();
-    else void customElements.whenDefined("glass-toggle").then(apply);
-  }, [dark]);
-
-  return <div className="side-glass" ref={hostRef} />;
-}
-
 
 export function Sidebar() {
   const { page, setPage, onLogoClick, themePref, setThemePref, eggs, sources, source, accounts, loggedIn, profileOf, track, playing, palette } = useAf();
   const likedCount = useSyncExternalStore(subscribeLikes, () => getLikes().size, () => 0);
-  const isDark = themePref === "dark";
+  const [sysDark, setSysDark] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onCh = (e: MediaQueryListEvent) => setSysDark(e.matches);
+    mq.addEventListener("change", onCh);
+    return () => mq.removeEventListener("change", onCh);
+  }, []);
+  const isDark = resolveTheme(themePref, sysDark) === "dark";
+  // 方向 A：默认主题取消传统 200px 左侧栏，导航移至顶部悬浮导航岛，开关移至发现页光学控制仪
+  if (palette === "default") return null;
 
   const nav: { id: NavId; label: string; icon: typeof IconCompass }[] = [
     { id: "discover", label: "发现", icon: IconSparkle },
@@ -215,7 +176,7 @@ export function Sidebar() {
 
         <div className="sidebar__foot">
           <span className="eyebrow" style={{ letterSpacing: ".08em", fontSize: 10 }}>彩蛋 {eggs.length}/{EGGS.length}</span>
-          <GlassThemeSwitch dark={isDark} onChange={(v) => setThemePref(v ? "light" : "dark")} />
+          <GlassThemeSwitch dark={isDark} palette={palette} onChange={(v) => setThemePref(v ? "light" : "dark")} />
         </div>
       </div>
     </aside>

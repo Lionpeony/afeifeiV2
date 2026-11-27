@@ -279,14 +279,14 @@ async function main() {
   const app = await launch(["--autoplay-policy=no-user-gesture-required"]);
   current = app;
 
-  if (!(await app.waitFor(`document.querySelector(".sidebar .brand-word b")?.textContent === "AFEIFEI"`))) {
+  if (!(await app.waitFor(`document.querySelector(".optic-brand b, .sidebar .brand-word b")?.textContent === "AFEIFEI"`))) {
     throw new Error(`界面没渲染出来。页面事件：\n${app.events().join("\n") || "(无)"}`);
   }
 
   assert.equal(await app.evaluate(`window.api.ping()`), "pong", "preload 桥没通");
 
-  // 外壳：开机落在在线页；边栏替代站尺
-  assert.ok(await app.waitFor(`!!document.querySelector(".sidebar")`, 5000), "边栏没出来");
+  // 外壳：开机落在在线页；default 走顶部导航岛，三包走左侧栏
+  assert.ok(await app.waitFor(`!!document.querySelector(".optic-nav, .sidebar")`, 5000), "主导航壳没出来");
   assert.ok(await app.waitFor(`!!document.querySelector(".live-room")`, 5000), "在线页没出来");
   // 入场登记是首屏覆盖层：冒烟先点「先随便逛逛」进后台
   await app.evaluate(`document.querySelector(".auth__skip")?.click()`);
@@ -374,10 +374,10 @@ async function main() {
   await sleep(250);
   assert.ok(sourceReady && sourceOptions.length > 0, `音源列表是空的（注册表没接上）：${JSON.stringify(sourceOptions)}`);
 
-  /* ---- 顶栏（v4.2）：品牌 / 搜索 / 账号；默认亮色「排练室」 ---- */
+  /* ---- 顶栏（v4.2）：品牌 / 搜索 / 账号；默认亮色「光学台面 #E6E8EE」 ---- */
   assert.ok(await app.waitFor(`!!document.querySelector(".topbar .searchbox input")`, 3000), "顶栏缺搜索框");
   const shellBg = await app.evaluate(`getComputedStyle(document.querySelector(".main")).backgroundColor`);
-  assert.equal(shellBg, "rgb(255, 248, 245)", `默认应为亮色排练室，实际 ${shellBg}`);
+  assert.equal(shellBg, "rgb(230, 232, 238)", `默认应为亮色光学台面，实际 ${shellBg}`);
   console.log(`  顶栏 OK：搜索入口在顶栏，壳底 ${shellBg}`);
 
   /* ---- 睡眠定时「播完当前曲再停」（P0-24）：勾选在「更多」弹层内联段里，且真的落到状态 ---- */
@@ -449,7 +449,7 @@ async function main() {
     current = app2;
 
     // 重启后外壳仍是同一套：旧壳（直白模式）已删除，没有别的落点
-    assert.ok(await app2.waitFor(`!!document.querySelector(".sidebar")`, 5000), "重启后没回到新外壳（边栏不在）");
+    assert.ok(await app2.waitFor(`!!document.querySelector(".optic-nav, .sidebar")`, 5000), "重启后没回到新外壳（主导航不在）");
     if (!(await app2.waitFor(`document.querySelector(".bar__title")?.textContent === ${JSON.stringify(first)}`, 10000))) {
       const shown = await app2.evaluate(`document.querySelector(".bar__title")?.textContent ?? "(无)"`);
       const raw = await app2.evaluate(`window.api.loadState().then(s => s ? s.slice(0, 140) : "null")`);

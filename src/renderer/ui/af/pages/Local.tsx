@@ -4,6 +4,8 @@ import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "
 import type { Track } from "../../../domain/library/schema.js";
 import { selectVisible } from "../../../projection/library.js";
 import { useAf } from "../context.js";
+import { OpticEmptyScreen } from "../optic/OpticEmptyScreen.js";
+import { OpticSpringSeg } from "../optic/OpticSpringSeg.js";
 import { hashStr, TrackArt } from "../art.js";
 import { GuitarFigure, IconDownload, IconFolder, IconNote, IconPlay, IconRefresh } from "../icons.js";
 import { packLineCopy } from "../copy.js";
@@ -86,8 +88,22 @@ export function LocalPage({
       />
 
       <div className="loc__tabs">
-        <button className={"loc__tab" + (isLocal ? " is-on" : "")} onClick={() => af.setPage("local")}>本地音乐</button>
-        <button className={"loc__tab" + (!isLocal ? " is-on" : "")} onClick={() => af.setPage("downloads")}>下载管理</button>
+        {af.palette === "default" ? (
+          <OpticSpringSeg
+            ariaLabel="本地与下载切换"
+            value={isLocal ? "local" : "downloads"}
+            options={[
+              { id: "local", label: "本地音乐", badge: tracks.length },
+              { id: "downloads", label: "下载管理" },
+            ]}
+            onChange={(p) => af.setPage(p)}
+          />
+        ) : (
+          <>
+            <button className={"loc__tab" + (isLocal ? " is-on" : "")} onClick={() => af.setPage("local")}>本地音乐</button>
+            <button className={"loc__tab" + (!isLocal ? " is-on" : "")} onClick={() => af.setPage("downloads")}>下载管理</button>
+          </>
+        )}
         <span className="spacer"></span>
         <span className="meta num">{isLocal ? `${tracks.length} 个文件` : "下载缓存"}</span>
       </div>
@@ -117,7 +133,17 @@ export function LocalPage({
               <span className="meta">共 {tracks.length} 首</span>
             </div>
             {tracks.length === 0 ? (
-              <p className="lib-empty">{packLineCopy(af.palette, "emptyLibrary")}</p>
+              af.palette === "default" ? (
+                <OpticEmptyScreen
+                  code="NO LOCAL AUDIO"
+                  title="还没有扫描到本地曲目"
+                  sub="只读本机音频路径，绝不改动原文件。"
+                  ctaLabel="扫描本地文件夹"
+                  onCta={onScan}
+                />
+              ) : (
+                <p className="lib-empty">{packLineCopy(af.palette, "emptyLibrary")}</p>
+              )
             ) : (
               <div className="loc-list" ref={listRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)} style={{ position: "relative", maxHeight: "calc(100vh - 320px)", overflowY: "auto" }}>
                 <div style={{ position: "relative", height: win.totalHeight }}>

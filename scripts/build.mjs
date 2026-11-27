@@ -235,6 +235,10 @@ const cssFiles = [
   "src/renderer/ui/af/splash.css",
   "src/renderer/ui/af/responsive.css",
   "src/renderer/ui/af/stage-themes.css",
+  "src/renderer/ui/af/optic/optic-shell.css",
+  "src/renderer/ui/af/optic/optic-discover.css",
+  "src/renderer/ui/af/optic/optic-player.css",
+  "src/renderer/ui/af/optic/optic-pages.css",
 ];
 
 const css = cssFiles.map((f) => fs.readFileSync(f, "utf8")).join("\n");

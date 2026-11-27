@@ -4,6 +4,7 @@ import { TrackArt, artPaletteOf } from "../art.js";
 import { roamCopies } from "../copy.js";
 import { IconPause, IconPick, IconPlay, IconRefresh, IconSkip } from "../icons.js";
 import { Tape } from "../ui.js";
+import { OpticRoam } from "../optic/OpticRoam.js";
 
 const pad = (n: number): string => String(n).padStart(2, "0");
 const fmt = (sec: number): string => {
@@ -13,6 +14,7 @@ const fmt = (sec: number): string => {
 
 export function RoamPage() {
   const af = useAf();
+  if (af.palette === "default") return <OpticRoam />;
   const { track, queue, queueIndex, playing, setPlaying, userSkip, isLiked, toggleLike, goTo, shuffle, toggleShuffle, reportDislike, palette } = af;
   const upcoming = [1, 2, 3]
     .map((k) => queue[(queueIndex + k) % Math.max(1, queue.length)])

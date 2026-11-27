@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAf } from "./context.js";
+import { OpticSpringSeg } from "./optic/OpticSpringSeg.js";
 import { useDialogFocus } from "./dialog-focus.js";
 import { IconCheck, IconCloud, IconMoon, IconRefresh, IconVolume, IconX } from "./icons.js";
 import { packSlotCopy } from "./copy.js";
@@ -110,11 +111,26 @@ export function StudioDrawer() {
           <button className="icon-btn studio__close" onClick={() => setStudio(null)} title="收起" aria-label="收起排练室"><IconX size={16} /></button>
         </div>
 
-        <div className="studio__tabs" role="tablist">
-          {([["sleep", "定时关闭"], ["quality", "音质"], ["eq", "均衡器"]] as const).map(([id, label]) => (
-            <button key={id} role="tab" aria-selected={tab === id} className={"studio__tab" + (tab === id ? " is-on" : "")} onClick={() => setTab(id)}>{label}</button>
-          ))}
-        </div>
+        {af.palette === "default" ? (
+          <div className="studio__tabs studio__tabs--optic">
+            <OpticSpringSeg
+              ariaLabel="排练室模块"
+              value={tab}
+              options={[
+                { id: "sleep", label: "定时关闭" },
+                { id: "quality", label: "音质" },
+                { id: "eq", label: "均衡器" },
+              ]}
+              onChange={(v) => setTab(v)}
+            />
+          </div>
+        ) : (
+          <div className="studio__tabs" role="tablist">
+            {([["sleep", "定时关闭"], ["quality", "音质"], ["eq", "均衡器"]] as const).map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={tab === id} className={"studio__tab" + (tab === id ? " is-on" : "")} onClick={() => setTab(id)}>{label}</button>
+            ))}
+          </div>
+        )}
 
         <div className="studio__body">
           {tab === "sleep" ? (
